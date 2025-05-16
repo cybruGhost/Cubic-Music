@@ -1,5 +1,5 @@
 # Cubic-Music
-Simple testing of an app update
+Simple app
 # 🎵 Cubic Music
 
 **Cubic Music** is a lightweight, legal, and user-friendly music streaming web app currently under active development.  
