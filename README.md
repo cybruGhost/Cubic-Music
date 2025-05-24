@@ -20,8 +20,7 @@ It focuses on delivering high-quality audio streaming, smooth playback, and a be
 
 ---
 
-## 🚀 Version: `v0.6.71-83`  
-📅 **Release Date:** May 2025  
+## 🚀 Version: `v0.6.73-85`   
 🔧 **Status:** In Progress (Beta)
 
 ---
