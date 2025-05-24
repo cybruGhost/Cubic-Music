@@ -7,6 +7,8 @@
 
 [![Localization Progress](https://badges.crowdin.net/N-Zik/localized.svg)](https://crowdin.com/project/N-Zik) [![License: GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
 
+<p><b>N-Zik</b> might not be as stable as <a href="https://github.com/knighthat/Kreate">Kreate</a>, but you can use Kreate if needed. I'm still learning Kotlin and will update the project when I have time.</p>
+    
 
 
 </div>
@@ -50,16 +52,9 @@ Still working on:
 
 ---
 
-## 📂 Folder Structure
+# â ï¸ Disclaimer
 
-/cubic-music
-│
-├── index.html
-├── assets/
-│ ├── css/
-│ ├── js/
-│ └── images/
-├── stream/
-│ └── engine.js
-├── components/
-└── README.md
+This project or its contents are not affiliated with, funded, authorized, endorsed by, or in any way associated with YouTube,
+Google LLC or any of its affiliates, subsidiaries.
+
+Any trademark, service mark, trade name, or other intellectual property rights used in this project are owned by the respective owners.
