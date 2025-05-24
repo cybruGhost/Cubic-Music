@@ -1,5 +1,4 @@
 # Cubic-Music
-Simple app
 <div align="center">
   
 [![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version)](https://github.com/cybruGhost/Cubic-Music/releases/latest) 
