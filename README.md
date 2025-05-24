@@ -7,7 +7,7 @@
 
 [![Localization Progress](https://badges.crowdin.net/N-Zik/localized.svg)](https://crowdin.com/project/N-Zik) [![License: GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
 
-<p><b>N-Zik</b> might not be as stable as <a href="https://github.com/knighthat/Kreate">Kreate</a>, but you can use Kreate if needed. I'm still learning Kotlin and will update the project when I have time.</p>
+<p><b>CubicMusic</b> might not be as stable as other streaming apps, but you can use its something. I'm also still learning Kotlin and will update the project when I have time or it breaks.</p>
     
 
 
