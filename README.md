@@ -35,7 +35,8 @@ It focuses on delivering high-quality audio streaming, smooth playback, and a be
 ---
 
 ## ⚖️ Legal
-Cubic Music respects music copyrights and **does not allow illegal downloads**.  
+Cubic Music respects music copyrights and **does not allow illegal downloads**. 
+it uses proper way to *fetch downloads and downloads in batches*
 All streaming content is sourced through proper licensing and external APIs or links provided by users.
 
 ---
