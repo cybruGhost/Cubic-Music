@@ -8,9 +8,9 @@
 [![Localization Progress](https://badges.crowdin.net/N-Zik/localized.svg)](https://crowdin.com/project/N-Zik)  
 [![License: GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
 
-<p><b>CubicMusic</b> is an evolving, lightweight music streaming app focused on smooth playback and a beautiful user experience.  
-While still under active development, it offers legal, high-quality streaming with batch downloads and a modern UI.  
-Ongoing updates improve stability and add new features as the project and Kotlin skills grow!</p>
+<p><b>CubicMusic</b> is an evolving streaming app focused on smooth music playback and user experience.  
+While it might not be as polished as some mature apps yet, it’s a solid,and Goodlookind, and lightweight alternative.  
+The project is maintained, and will only be updated when i fix bugs or add features as i Learn Kotlin skills!</p>
 
 </div>
 
