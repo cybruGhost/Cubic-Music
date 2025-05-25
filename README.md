@@ -18,8 +18,7 @@
 
 ## 🎵 About Cubic Music
 
-**Cubic Music** is a lightweight, legal, and user-friendly music streaming web app built with performance and usability in mind.  
-It delivers high-quality audio streaming, supports batch downloads for offline listening, and features a sleek, responsive interface with multilingual support.
+**Cubic Music** is a powerful, multilingual YouTube Music frontend for Android. It features streaming, full downloads, and stunning visuals—built with a sleek, modern UI focused on performance and user freedom.
 
 ---
 
