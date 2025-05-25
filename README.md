@@ -46,7 +46,7 @@ It delivers high-quality audio streaming, supports batch downloads for offline l
 - 🔒 Strengthen security for content delivery and link protection  
 - 🎵 Add richer playback controls and customization options  
 - 🌐 Expand localization and language support  
-
+- 👨‍💻 To push the source-code
 ---
 
 ## ⚖️ Legal Notice
