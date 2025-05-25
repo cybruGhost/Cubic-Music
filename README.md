@@ -57,8 +57,7 @@ It delivers high-quality audio streaming, supports batch downloads for offline l
 - [ ] Fix update logic
 - [ ] UI polish on large screens
 - [ ] Improved playlist mood detection
-- [ ] Optimize memory for large cache usage  
-- 🔒 Strengthen security for content delivery and link protection  
+- [ ] Optimize memory for large cache usage    
 - 🎵 Add General improvements  
 - 🌐 Expand localization and language support  
 - 👨‍💻 To push the source-code
