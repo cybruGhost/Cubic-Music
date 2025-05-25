@@ -28,21 +28,36 @@ It delivers high-quality audio streaming, supports batch downloads for offline l
 
 ---
 
-## 🛠️ Key Features
-- 🎧 Rebuilt streaming engine with **MediaSource API** and **Web Audio API**  
-- 🧠 Smart **LRU caching** for smooth playback and efficient memory use  
-- 🎨 Modern, responsive UI with animated controls and better navigation  
-- 📥 Support for **batch downloads**, letting you queue multiple songs for offline access  
-- 🐛 Critical bug fixes including memory leak resolution  
-- 📊 Faster buffering and reliable playback on multiple devices  
+## ✨ Key Features
+
+- **Smart Caching** for offline listening (custom cache size)
+- **Batch Downloads** of songs & full playlists
+- **Offline Mode** even without an internet connection
+- **Background Playback**
+- **Listening Statistics & History**
+- **Audio Visualizer** with multiple styles
+- **Music Discovery** by mood, genre, news & new albums
+- **Lyrics** (fetch, edit, translate, synced/unsynced)
+- **Playlist Management** (Import/Export, RiMusic-compatible)
+- **Custom Themes**
+- **Sleep Timer** (fully customizable)
+- **Audio Controls:**  
+  - Playback speed, pitch, volume, normalization  
+  - Skip silence toggle
+- **Widget Support** *(experimental)*
+- **Android Auto & TV Support**
+- **Check for Updates** toggle in settings
+- **Export:** settings, downloaded, and cached media
+- **Weekly Updates**
 
 ---
 
-## 📅 To Do / Roadmap
-- 🔄 Fix update logic for seamless version upgrades  
-- 🔍 Improve search functionality and playlist management  
-- 💾 improve library syncing across devices  
-- 📱 Enhance mobile support.*aboutpage  
+## 🛠 To-Do
+
+- [ ] Fix update logic
+- [ ] UI polish on large screens
+- [ ] Improved playlist mood detection
+- [ ] Optimize memory for large cache usage  
 - 🔒 Strengthen security for content delivery and link protection  
 - 🎵 Add General improvements  
 - 🌐 Expand localization and language support  
