@@ -47,7 +47,7 @@
 - **Android Auto & TV Support**
 - **Check for Updates** toggle in settings
 - **Export:** settings, downloaded, and cached media
-- **Weekly Updates**
+- **import backups from Rimusic**
 
 ---
 
