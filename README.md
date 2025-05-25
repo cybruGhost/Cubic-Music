@@ -41,10 +41,10 @@ It delivers high-quality audio streaming, supports batch downloads for offline l
 ## 📅 To Do / Roadmap
 - 🔄 Fix update logic for seamless version upgrades  
 - 🔍 Improve search functionality and playlist management  
-- 💾 Add user login and library syncing across devices  
-- 📱 Enhance mobile support and implement Progressive Web App (PWA) features  
+- 💾 improve library syncing across devices  
+- 📱 Enhance mobile support.*aboutpage  
 - 🔒 Strengthen security for content delivery and link protection  
-- 🎵 Add richer playback controls and customization options  
+- 🎵 Add General improvements  
 - 🌐 Expand localization and language support  
 - 👨‍💻 To push the source-code
 ---
