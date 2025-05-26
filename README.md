@@ -76,4 +76,4 @@ All trademarks and intellectual property belong to their respective owners.
 
 ---
 
-<p align="center">Made with passion by <a href="https://github.com/cybruGhost">cybruGhost</a></p>
+<p align="center">made by a learner <a href="https://github.com/cybruGhost">cybruGhost</a></p>
