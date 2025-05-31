@@ -1,4 +1,4 @@
-# Cubic-Music
+# Cubic-Music -app not complete tho
 
 <div align="center">
   
