@@ -43,6 +43,7 @@ import it.fast4x.rimusic.models.Event
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.ui.components.ButtonsRow
 import it.fast4x.rimusic.ui.components.LocalMenuState
+import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenuLibrary
 import it.fast4x.rimusic.ui.components.themed.Title
@@ -62,6 +63,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import it.fast4x.rimusic.utils.addNext
+import it.fast4x.rimusic.utils.enqueue
 
 @kotlin.OptIn(ExperimentalTextApi::class)
 @OptIn(UnstableApi::class)
@@ -187,14 +190,23 @@ fun HistoryList(
                         items = details.fastDistinctBy { it.song.id },
                         key = { it.event.id }
                     ) { event ->
-
-                        me.knighthat.component.SongItem(
-                            song = event.song,
-                            navController = navController,
-                            onClick = {
-                                binder?.player?.forcePlay( event.song.asMediaItem )
+                        SwipeablePlaylistItem(
+                            mediaItem = event.song.asMediaItem,
+                            onPlayNext = {
+                                binder?.player?.addNext(event.song.asMediaItem)
+                            },
+                            onEnqueue = {
+                                binder?.player?.enqueue(event.song.asMediaItem)
                             }
-                        )
+                        ) {
+                            me.knighthat.component.SongItem(
+                                song = event.song,
+                                navController = navController,
+                                onClick = {
+                                    binder?.player?.forcePlay(event.song.asMediaItem)
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -216,26 +228,35 @@ fun HistoryList(
                                        .filter { it.mediaId.isNotEmpty() },
                         key = { it.mediaId }
                     ) { mediaItem ->
-                        me.knighthat.component.SongItem(
-                            song = mediaItem.asSong,
-                            navController = navController,
-                            onClick = {
-                                binder?.player?.forcePlay( mediaItem )
+                        SwipeablePlaylistItem(
+                            mediaItem = mediaItem,
+                            onPlayNext = {
+                                binder?.player?.addNext(mediaItem)
                             },
-                            onLongClick = {
-                                menuState.display {
-                                    NonQueuedMediaItemMenuLibrary(
-                                        navController = navController,
-                                        mediaItem = mediaItem,
-                                        onDismiss = menuState::hide,
-                                        disableScrollingText = disableScrollingText
-                                    )
-                                }
+                            onEnqueue = {
+                                binder?.player?.enqueue(mediaItem)
                             }
-                        )
+                        ) {
+                            me.knighthat.component.SongItem(
+                                song = mediaItem.asSong,
+                                navController = navController,
+                                onClick = {
+                                    binder?.player?.forcePlay(mediaItem)
+                                },
+                                onLongClick = {
+                                    menuState.display {
+                                        NonQueuedMediaItemMenuLibrary(
+                                            navController = navController,
+                                            mediaItem = mediaItem,
+                                            onDismiss = menuState::hide,
+                                            disableScrollingText = disableScrollingText
+                                        )
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
         }
     }
 }
-
