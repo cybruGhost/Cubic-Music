@@ -1,0 +1,2 @@
+Fixed:
+- "No update available" constantly popping up
