@@ -521,21 +521,10 @@ fun BoxScope.ActionBar(
                     val isSongMappedToPlaylist by remember( mediaItem.mediaId ) {
                         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
                     }.collectAsState( false, Dispatchers.IO )
-                    val iconColor by remember {
-                        derivedStateOf {
-                            if ( isSongMappedToPlaylist && showPlaylistIndicator )
-                                if ( colorPaletteName == ColorPaletteName.PureBlack )
-                                    Color.Black
-                                else
-                                    color.text
-                            else
-                                color.accent
-                        }
-                    }
 
                     IconButton(
                         icon = R.drawable.add_in_playlist,
-                        color = iconColor,
+                        color = if (isSongMappedToPlaylist && showPlaylistIndicator) Color.White else color.accent,
                         onClick = {
                             menuState.display {
                                 AddToPlaylistPlayerMenu(
