@@ -104,9 +104,11 @@ def edit_string(tree: ET, name: str, new_value: str) -> bool:
 
 
 def pretty_write(tree, file_path):
-    xmlstr = minidom.parseString(ET.tostring(tree.getroot(), encoding="utf-8")).toprettyxml(indent="    ", encoding="utf-8")
-    with open(file_path, "wb") as f:
-        f.write(xmlstr)
+    root_elem = tree.getroot()
+    for string in root_elem.findall("string"):
+        string.tail = '\n'  
+    root_elem.text = '\n'  
+    tree.write(file_path, encoding="utf-8", xml_declaration=True)
 
 
 def main() -> None:
