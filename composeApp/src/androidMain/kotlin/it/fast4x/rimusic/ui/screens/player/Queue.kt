@@ -96,6 +96,7 @@ import it.fast4x.rimusic.utils.showButtonPlayerDiscoverKey
 import me.knighthat.component.SongItem
 import me.knighthat.component.tab.ExportSongsToCSVDialog
 import me.knighthat.component.tab.ItemSelector
+import me.knighthat.component.tab.Locator
 import me.knighthat.component.tab.Search
 import me.knighthat.component.ui.screens.player.DeleteFromQueue
 import me.knighthat.component.ui.screens.player.Discover
@@ -183,7 +184,6 @@ fun Queue(
             if( itemSelector.isEmpty() ) {
                 player.stop()
                 player.clearMediaItems()
-                player.release()
             } else
                 itemSelector.map( items::indexOf )
                             .sorted()
@@ -210,6 +210,7 @@ fun Queue(
             }
         )
         val queueArrow = QueueArrow { onDismiss( repeat.type ) }
+        val locator = Locator( lazyListState, ::getSongs )
 
         // Dialog renders
         exportDialog.Render()
@@ -425,6 +426,7 @@ fun Queue(
                         horizontalArrangement = Arrangement.End,
                         modifier = Modifier.weight( 1f ),
                         buttons = mutableListOf<Button>().apply {
+                            add( locator )
                             add( search )
                             if( rememberPreference( showButtonPlayerDiscoverKey, false ).value )
                                 add( discover )
