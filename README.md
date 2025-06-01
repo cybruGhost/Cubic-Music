@@ -60,7 +60,7 @@
 - fix ui to be more of rimusic    
 - 🎵 Add General improvements  
 - 🌐 Expand localization and language support  
-- 👨‍💻 To push the source-code
+
 ---
 
 ## ⚖️ Legal Notice
