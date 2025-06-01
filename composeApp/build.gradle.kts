@@ -23,7 +23,7 @@ plugins {
 repositories {
     google()
     mavenCentral()
-    maven { url = uri("https://jitpack.io") }
+    maven { url = uri("https://jitpack.io") } 0  
 }
 
 kotlin {
@@ -126,8 +126,8 @@ android {
         applicationId = "com.nevar.nzik"
         minSdk = 21
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.2.7"
+        versionCode = 8
+        versionName = "1.3.0"
 
         /*
                 UNIVERSAL VARIABLES
@@ -301,6 +301,7 @@ dependencies {
     implementation(libs.gson)
     implementation (libs.hypnoticcanvas)
     implementation (libs.hypnoticcanvas.shaders)
+    implementation(libs.github.jeziellago.compose.markdown)
 
     implementation(libs.room)
     ksp(libs.room.compiler)
