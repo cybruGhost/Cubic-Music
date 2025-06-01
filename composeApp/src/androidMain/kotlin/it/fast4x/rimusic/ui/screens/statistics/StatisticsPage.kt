@@ -64,6 +64,7 @@ import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.ButtonsRow
 import it.fast4x.rimusic.ui.components.LocalMenuState
+import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.fast4x.rimusic.ui.items.AlbumItem
@@ -99,6 +100,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
+import it.fast4x.rimusic.utils.addNext
+import it.fast4x.rimusic.utils.enqueue
+
 
 @ExperimentalTextApi
 @SuppressLint("SuspiciousIndentation")
@@ -285,65 +289,74 @@ fun StatisticsPage(
                     items(
                         count = songs.count(),
                     ) {
-
                         downloadState = getDownloadState(songs.get(it).asMediaItem.mediaId)
                         val isDownloaded = isDownloadedSong(songs.get(it).asMediaItem.mediaId)
                         var forceRecompose by remember { mutableStateOf(false) }
-                        SongItem(
-                            song = songs.get(it).asMediaItem,
-                            onDownloadClick = {
-                                binder?.cache?.removeResource(songs.get(it).asMediaItem.mediaId)
-                                Database.asyncTransaction {
-                                    formatTable.deleteBySongId( songs[it].id )
-                                }
-                                manageDownload(
-                                    context = context,
-                                    mediaItem = songs.get(it).asMediaItem,
-                                    downloadState = isDownloaded
-                                )
+                        SwipeablePlaylistItem(
+                            mediaItem = songs.get(it).asMediaItem,
+                            onPlayNext = {
+                                binder?.player?.addNext(songs.get(it).asMediaItem)
                             },
-                            downloadState = downloadState,
-                            thumbnailSizeDp = thumbnailSizeDp,
-                            thumbnailSizePx = thumbnailSize,
-                            onThumbnailContent = {
-                                BasicText(
-                                    text = "${it + 1}",
-                                    style = typography().s.semiBold.center.color(colorPalette().text),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .width(thumbnailSizeDp)
-                                        .align(Alignment.Center)
-                                )
-                            },
-                            modifier = Modifier
-                                .combinedClickable(
-                                    onLongClick = {
-                                        menuState.display {
-                                            NonQueuedMediaItemMenu(
-                                                navController = navController,
-                                                mediaItem = songs.get(it).asMediaItem,
-                                                onDismiss = {
-                                                    menuState.hide()
-                                                    forceRecompose = true
-                                                },
-                                                disableScrollingText = disableScrollingText
+                            onEnqueue = {
+                                binder?.player?.enqueue(songs.get(it).asMediaItem)
+                            }
+                        ) {
+                            SongItem(
+                                song = songs.get(it).asMediaItem,
+                                onDownloadClick = {
+                                    binder?.cache?.removeResource(songs.get(it).asMediaItem.mediaId)
+                                    Database.asyncTransaction {
+                                        formatTable.deleteBySongId( songs[it].id )
+                                    }
+                                    manageDownload(
+                                        context = context,
+                                        mediaItem = songs.get(it).asMediaItem,
+                                        downloadState = isDownloaded
+                                    )
+                                },
+                                downloadState = downloadState,
+                                thumbnailSizeDp = thumbnailSizeDp,
+                                thumbnailSizePx = thumbnailSize,
+                                onThumbnailContent = {
+                                    BasicText(
+                                        text = "${it + 1}",
+                                        style = typography().s.semiBold.center.color(colorPalette().text),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .width(thumbnailSizeDp)
+                                            .align(Alignment.Center)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .combinedClickable(
+                                        onLongClick = {
+                                            menuState.display {
+                                                NonQueuedMediaItemMenu(
+                                                    navController = navController,
+                                                    mediaItem = songs.get(it).asMediaItem,
+                                                    onDismiss = {
+                                                        menuState.hide()
+                                                        forceRecompose = true
+                                                    },
+                                                    disableScrollingText = disableScrollingText
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            binder?.stopRadio()
+                                            binder?.player?.forcePlayAtIndex(
+                                                songs.map(Song::asMediaItem),
+                                                it
                                             )
                                         }
-                                    },
-                                    onClick = {
-                                        binder?.stopRadio()
-                                        binder?.player?.forcePlayAtIndex(
-                                            songs.map(Song::asMediaItem),
-                                            it
-                                        )
-                                    }
-                                )
-                                .fillMaxWidth(),
-                            disableScrollingText = disableScrollingText,
-                            isNowPlaying = binder?.player?.isNowPlaying(songs.get(it).id) ?: false,
-                            forceRecompose = forceRecompose
-                        )
+                                    )
+                                    .fillMaxWidth(),
+                                disableScrollingText = disableScrollingText,
+                                isNowPlaying = binder?.player?.isNowPlaying(songs.get(it).id) ?: false,
+                                forceRecompose = forceRecompose
+                            )
+                        }
                     }
                 }
 
