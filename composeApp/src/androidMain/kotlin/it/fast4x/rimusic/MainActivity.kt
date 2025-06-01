@@ -93,6 +93,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.palette.graphics.Palette
 import app.kreate.android.BuildConfig
 import app.kreate.android.R
+import app.kreate.android.Threads
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.kieronquinn.monetcompat.core.MonetActivityAccessException
@@ -669,26 +670,14 @@ class MainActivity :
                         when (key) {
 
                             languageAppKey -> {
-                                val lang = sharedPreferences.getEnum(
-                                    languageAppKey,
-                                    Languages.English
-                                )
-
-                                val systemLocales = AppCompatDelegate.getApplicationLocales()
-                                val systemLangCode = if (systemLocales.isEmpty) {
-                                    ""
-                                } else {
-                                    systemLocales.get(0)?.toLanguageTag() ?: ""
+                                val lang = sharedPreferences.getEnum( languageAppKey, Languages.English )
+                                val languageTag: String = lang.code.ifEmpty {
+                                    AppCompatDelegate.getApplicationLocales()[0]?.toLanguageTag().orEmpty()
                                 }
-
-                                val sysLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(systemLangCode)
-                                val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(lang.code)
-
                                 AppCompatDelegate.setApplicationLocales(
-                                    if (lang.code.isEmpty()) sysLocale else appLocale
+                                    LocaleListCompat.forLanguageTags( languageTag )
                                 )
                             }
-
 
                             effectRotationKey, playerThumbnailSizeKey,
                             playerVisualizerTypeKey,
@@ -1310,6 +1299,9 @@ class MainActivity :
         runCatching {
             monet.removeMonetColorsChangedListener(this)
             _monet = null
+
+            // Close threads
+            Threads.DATASPEC_DISPATCHER.close()
         }.onFailure {
             Timber.e("MainActivity.onDestroy removeMonetColorsChangedListener ${it.stackTraceToString()}")
         }
