@@ -3,6 +3,8 @@ package it.fast4x.rimusic.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.compose.ui.util.fastDistinctBy
+import androidx.compose.ui.util.fastMap
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -14,6 +16,10 @@ import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
 import it.fast4x.rimusic.enums.DurationInMinutes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import me.knighthat.utils.Toaster
 import timber.log.Timber
 import java.util.ArrayDeque
@@ -120,12 +126,19 @@ fun Player.playAtIndex(mediaItemIndex: Int) {
 @SuppressLint("Range")
 @UnstableApi
 fun Player.forcePlayAtIndex(mediaItems: List<MediaItem>, mediaItemIndex: Int) {
-    if (mediaItems.isEmpty()) return
+    if ( mediaItems.isEmpty() ) return
 
-    setMediaItems(mediaItems.map { it.cleaned }, mediaItemIndex, C.TIME_UNSET)
-    prepare()
-    restoreGlobalVolume()
-    playWhenReady = true
+    // This will prevent UI from freezing up during conversion
+    CoroutineScope( Dispatchers.Default ).launch {
+        val cleanedMediaItems = mediaItems.fastMap( MediaItem::cleaned ).fastDistinctBy( MediaItem::mediaId )
+
+        runBlocking( Dispatchers.Main ) {
+            setMediaItems( cleanedMediaItems, mediaItemIndex, C.TIME_UNSET )
+            prepare()
+            restoreGlobalVolume()
+            playWhenReady = true
+        }
+    }
 }
 @UnstableApi
 fun Player.forcePlayFromBeginning(mediaItems: List<MediaItem>) =
