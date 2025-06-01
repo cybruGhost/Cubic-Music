@@ -38,6 +38,7 @@ import it.fast4x.kugou.KuGou
 import it.fast4x.lrclib.LrcLib
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.EXPLICIT_PREFIX
+import it.fast4x.rimusic.MODIFIED_PREFIX
 import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.context
@@ -195,25 +196,23 @@ val MediaItem.asSong: Song
     )
 
 val MediaItem.cleaned: MediaItem
-    @UnstableApi
-    get() = MediaItem.Builder()
-        .setMediaMetadata(
-            MediaMetadata.Builder()
-                .setTitle(cleanPrefix(mediaMetadata.title.toString()))
-                .setArtist(cleanPrefix(mediaMetadata.artist.toString()))
-                .setArtworkUri(mediaMetadata.artworkUri)
-                .setExtras(mediaMetadata.extras)
-                .build()
-        )
-        .setMediaId(mediaId)
-        .setUri(
-            if (isLocal) ContentUris.withAppendedId(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                mediaId.substringAfter(LOCAL_KEY_PREFIX).toLong()
-            ) else mediaId.toUri()
-        )
-        .setCustomCacheKey(mediaId)
-        .build()
+    get() {
+        // Add more if needed
+        val isTitleModified = mediaMetadata.title?.startsWith( MODIFIED_PREFIX )
+        val isArtistModified = mediaMetadata.artist?.startsWith( MODIFIED_PREFIX )
+
+        if( isTitleModified == false && isArtistModified == false )
+            // Return as-is if no property is modified
+            // Reduce conversion time significantly when
+            // some (if not most) of media items are not modified.
+            return this
+
+        val newMetadata: MediaMetadata = mediaMetadata.buildUpon()
+                                                      .setTitle( cleanPrefix(mediaMetadata.title.toString()) )
+                                                      .setArtist( cleanPrefix(mediaMetadata.artist.toString()) )
+                                                      .build()
+        return buildUpon().setMediaMetadata( newMetadata ).build()
+    }
 
 val MediaItem.isVideo: Boolean
     get() = mediaMetadata.extras?.getBoolean("isVideo") == true
@@ -371,7 +370,7 @@ fun CheckAvailableNewVersion(
     var updatedProductName = ""
     var updatedVersionName = ""
     var updatedVersionCode = 0
-    val file = File(LocalContext.current.filesDir, "CubicMusicUpdatedVersionCode.ver")
+    val file = File(LocalContext.current.filesDir, "RiMusicUpdatedVersionCode.ver")
     if (file.exists()) {
         val dataText = file.readText().substring(0, file.readText().length - 1).split("-")
         updatedVersionCode =
@@ -709,4 +708,3 @@ suspend fun addToYtLikedSongs(mediaItems: List<MediaItem>){
             }
     }
 }
-
