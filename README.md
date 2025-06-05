@@ -26,7 +26,7 @@
 🔧 **Status:** Beta — actively improving and adding features
 
 ---
-
+## 🚀 update manualy  
 ## ✨ Key Features
 
 - **Smart Caching** for offline listening (custom cache size)
