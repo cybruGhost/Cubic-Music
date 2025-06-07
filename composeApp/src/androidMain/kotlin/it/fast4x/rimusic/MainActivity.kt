@@ -358,7 +358,7 @@ class MainActivity :
             }
         }
 
-        // Demander la permission de notification si nécessaire
+        // Ask for notification permission if necessary
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -670,7 +670,7 @@ class MainActivity :
                         when (key) {
 
                             languageAppKey -> {
-                                val lang = sharedPreferences.getEnum( languageAppKey, Languages.English )
+                                val lang = sharedPreferences.getEnum( languageAppKey, Languages.System )
                                 val languageTag: String = lang.code.ifEmpty {
                                     AppCompatDelegate.getApplicationLocales()[0]?.toLanguageTag().orEmpty()
                                 }
