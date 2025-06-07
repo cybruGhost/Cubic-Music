@@ -26,6 +26,7 @@ import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.PlayEventsType
+import it.fast4x.rimusic.enums.LocalRecommandationsNumber
 import it.fast4x.rimusic.ui.components.themed.ConfirmationDialog
 import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.styling.Dimensions
@@ -43,6 +44,7 @@ import it.fast4x.rimusic.utils.showSimilarArtistsKey
 import it.fast4x.rimusic.utils.showTipsKey
 import kotlinx.coroutines.Dispatchers
 import me.knighthat.utils.Toaster
+import androidx.compose.ui.platform.LocalContext
 
 @ExperimentalAnimationApi
 @UnstableApi
@@ -63,6 +65,10 @@ fun  QuickPicsSettings() {
     var showCharts by rememberPreference(showChartsKey, true)
     var enableQuickPicksPage by rememberPreference(enableQuickPicksPageKey, true)
     var clearEvents by remember { mutableStateOf(false) }
+    var localRecommandationsNumber by rememberPreference(
+        key = "LocalRecommandationsNumber",
+        defaultValue = LocalRecommandationsNumber.SixQ
+    )
     if (clearEvents) {
         ConfirmationDialog(
             text = stringResource(R.string.do_you_really_want_to_delete_all_playback_events),
@@ -158,6 +164,21 @@ fun  QuickPicsSettings() {
                 selectedValue = playEventType,
                 onValueSelected = { playEventType = it },
                 valueText = { it.text }
+            )
+        }
+    
+        AnimatedVisibility(
+            visible = showTips,
+            enter = fadeIn(tween(100)),
+            exit = fadeOut(tween(100)),
+        ) {
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.quick_selection_type),
+                selectedValue = localRecommandationsNumber,
+                onValueSelected = { localRecommandationsNumber = it },
+                valueText = { option ->
+                    stringResource(R.string.quick_selection, option.value)
+                }
             )
         }
 
