@@ -1,0 +1,2 @@
+Fixed:
+- Unresponsive sort arrow

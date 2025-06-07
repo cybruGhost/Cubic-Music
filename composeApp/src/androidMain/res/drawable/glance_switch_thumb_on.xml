@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector android:height="26.0dip" android:width="40.0dip" android:viewportWidth="40.0" android:viewportHeight="26.0"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:name="thumb" android:translateX="3.0">
+        <path android:name="thumb_icon" android:fillColor="#ffffffff" android:pathData="M24,22C29.5228,22 34,17.5228 34,12C34,6.4771 29.5228,2 24,2C18.4772,2 14,6.4771 14,12C14,17.5228 18.4772,22 24,22Z" />
+    </group>
+</vector>
