@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -64,6 +65,7 @@ import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.ButtonsRow
 import it.fast4x.rimusic.ui.components.LocalMenuState
+import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.fast4x.rimusic.ui.items.AlbumItem
@@ -98,7 +100,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import timber.log.Timber
+import it.fast4x.rimusic.utils.addNext
+import it.fast4x.rimusic.utils.enqueue
+
 
 @ExperimentalTextApi
 @SuppressLint("SuspiciousIndentation")
@@ -165,18 +173,27 @@ fun StatisticsPage(
                 .distinctUntilChanged()
     }.collectAsState( emptyList(), Dispatchers.IO )
     var totalPlayTimes by remember { mutableLongStateOf(0L) }
+    val totalPlayTimesFlow = remember(from) {
+        Database.eventTable
+            .findSongsMostPlayedBetween(
+                from = from,
+                limit = Int.MAX_VALUE
+            )
+            .distinctUntilChanged()
+            .map { it.sumOf(Song::totalPlayTimeMs) }
+    }
+    val totalPlayTimesState = totalPlayTimesFlow.collectAsState(0L, Dispatchers.IO)
+    totalPlayTimes = totalPlayTimesState.value
+
     val songs by remember {
         Database.eventTable
-                .findSongsMostPlayedBetween(
-                    from = from,
-                    limit = maxStatisticsItems.toInt()
-                )
-                .distinctUntilChanged()
-                .onEach {
-                    totalPlayTimes = it.sumOf( Song::totalPlayTimeMs )
-                }
-                .map { it.take( maxStatisticsItems.toInt() ) }
-    }.collectAsState( emptyList(), Dispatchers.IO )
+            .findSongsMostPlayedBetween(
+                from = from,
+                limit = maxStatisticsItems.toInt()
+            )
+            .distinctUntilChanged()
+            .map { it.take(maxStatisticsItems.toInt()) }
+    }.collectAsState(emptyList(), Dispatchers.IO)
 
     var downloadState by remember {
         mutableStateOf(Download.STATE_STOPPED)
@@ -197,6 +214,18 @@ fun StatisticsPage(
         StatisticsCategory.Albums to StatisticsCategory.Albums.text,
         StatisticsCategory.Playlists to StatisticsCategory.Playlists.text
     )
+
+    // Calcul of real listening time for the selected period (Songs category)
+    var totalPlayTimesSongs by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(songs, from) {
+        var total = 0L
+        songs.forEach { song ->
+            // Get the sum of playtime for the period
+            val playTime = Database.eventTable.getSongPlayTimeBetween(song.id, from).first()
+            total += playTime
+        }
+        totalPlayTimesSongs = total
+    }
 
     Box(
         modifier = Modifier
@@ -260,7 +289,7 @@ fun StatisticsPage(
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
                                     SettingsEntry(
                                         title = "${songs.size} ${stringResource(R.string.statistics_songs_heard)}",
-                                        text = "${formatAsTime(totalPlayTimes)} ${stringResource(R.string.statistics_of_time_taken)}",
+                                        text = "${formatAsTime(totalPlayTimesSongs)} ${stringResource(R.string.statistics_of_time_taken)}",
                                         onClick = {},
                                         trailingContent = {
                                             Image(
@@ -285,65 +314,74 @@ fun StatisticsPage(
                     items(
                         count = songs.count(),
                     ) {
-
                         downloadState = getDownloadState(songs.get(it).asMediaItem.mediaId)
                         val isDownloaded = isDownloadedSong(songs.get(it).asMediaItem.mediaId)
                         var forceRecompose by remember { mutableStateOf(false) }
-                        SongItem(
-                            song = songs.get(it).asMediaItem,
-                            onDownloadClick = {
-                                binder?.cache?.removeResource(songs.get(it).asMediaItem.mediaId)
-                                Database.asyncTransaction {
-                                    formatTable.deleteBySongId( songs[it].id )
-                                }
-                                manageDownload(
-                                    context = context,
-                                    mediaItem = songs.get(it).asMediaItem,
-                                    downloadState = isDownloaded
-                                )
+                        SwipeablePlaylistItem(
+                            mediaItem = songs.get(it).asMediaItem,
+                            onPlayNext = {
+                                binder?.player?.addNext(songs.get(it).asMediaItem)
                             },
-                            downloadState = downloadState,
-                            thumbnailSizeDp = thumbnailSizeDp,
-                            thumbnailSizePx = thumbnailSize,
-                            onThumbnailContent = {
-                                BasicText(
-                                    text = "${it + 1}",
-                                    style = typography().s.semiBold.center.color(colorPalette().text),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .width(thumbnailSizeDp)
-                                        .align(Alignment.Center)
-                                )
-                            },
-                            modifier = Modifier
-                                .combinedClickable(
-                                    onLongClick = {
-                                        menuState.display {
-                                            NonQueuedMediaItemMenu(
-                                                navController = navController,
-                                                mediaItem = songs.get(it).asMediaItem,
-                                                onDismiss = {
-                                                    menuState.hide()
-                                                    forceRecompose = true
-                                                },
-                                                disableScrollingText = disableScrollingText
+                            onEnqueue = {
+                                binder?.player?.enqueue(songs.get(it).asMediaItem)
+                            }
+                        ) {
+                            SongItem(
+                                song = songs.get(it).asMediaItem,
+                                onDownloadClick = {
+                                    binder?.cache?.removeResource(songs.get(it).asMediaItem.mediaId)
+                                    Database.asyncTransaction {
+                                        formatTable.deleteBySongId( songs[it].id )
+                                    }
+                                    manageDownload(
+                                        context = context,
+                                        mediaItem = songs.get(it).asMediaItem,
+                                        downloadState = isDownloaded
+                                    )
+                                },
+                                downloadState = downloadState,
+                                thumbnailSizeDp = thumbnailSizeDp,
+                                thumbnailSizePx = thumbnailSize,
+                                onThumbnailContent = {
+                                    BasicText(
+                                        text = "${it + 1}",
+                                        style = typography().s.semiBold.center.color(colorPalette().text),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .width(thumbnailSizeDp)
+                                            .align(Alignment.Center)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .combinedClickable(
+                                        onLongClick = {
+                                            menuState.display {
+                                                NonQueuedMediaItemMenu(
+                                                    navController = navController,
+                                                    mediaItem = songs.get(it).asMediaItem,
+                                                    onDismiss = {
+                                                        menuState.hide()
+                                                        forceRecompose = true
+                                                    },
+                                                    disableScrollingText = disableScrollingText
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            binder?.stopRadio()
+                                            binder?.player?.forcePlayAtIndex(
+                                                songs.map(Song::asMediaItem),
+                                                it
                                             )
                                         }
-                                    },
-                                    onClick = {
-                                        binder?.stopRadio()
-                                        binder?.player?.forcePlayAtIndex(
-                                            songs.map(Song::asMediaItem),
-                                            it
-                                        )
-                                    }
-                                )
-                                .fillMaxWidth(),
-                            disableScrollingText = disableScrollingText,
-                            isNowPlaying = binder?.player?.isNowPlaying(songs.get(it).id) ?: false,
-                            forceRecompose = forceRecompose
-                        )
+                                    )
+                                    .fillMaxWidth(),
+                                disableScrollingText = disableScrollingText,
+                                isNowPlaying = binder?.player?.isNowPlaying(songs.get(it).id) ?: false,
+                                forceRecompose = forceRecompose
+                            )
+                        }
                     }
                 }
 
