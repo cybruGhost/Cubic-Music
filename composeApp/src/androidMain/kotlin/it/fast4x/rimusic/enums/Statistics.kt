@@ -35,7 +35,19 @@ enum class StatisticsType(
      *
      * @return real timestamp in millis.
      */
-    fun timeStampInMillis() = System.currentTimeMillis() - this.duration.inWholeMilliseconds
+    fun timeStampInMillis(): Long {
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        return when (this) {
+            Today -> today.atStartOfDay(zone).toInstant().toEpochMilli()
+            OneWeek -> today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli() // 7 days including today
+            OneMonth -> today.minusDays(29).atStartOfDay(zone).toInstant().toEpochMilli() // 30 days including today
+            ThreeMonths -> today.minusDays(89).atStartOfDay(zone).toInstant().toEpochMilli() // 90 days including today
+            SixMonths -> today.minusDays(179).atStartOfDay(zone).toInstant().toEpochMilli() // 180 days including today
+            OneYear -> today.minusDays(364).atStartOfDay(zone).toInstant().toEpochMilli() // 365 days including today
+            All -> 0L
+        }
+    }
 }
 
 enum class StatisticsCategory(

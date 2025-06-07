@@ -23,7 +23,7 @@ plugins {
 repositories {
     google()
     mavenCentral()
-    maven { url = uri("https://jitpack.io") } 0  
+    maven { url = uri("https://jitpack.io") }
 }
 
 kotlin {
@@ -123,11 +123,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.nevar.nzik"
+        applicationId = "com.cubicMusic"
         minSdk = 21
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.3.0"
+        versionCode = 10
+        versionName = "1.4.0"
 
         /*
                 UNIVERSAL VARIABLES

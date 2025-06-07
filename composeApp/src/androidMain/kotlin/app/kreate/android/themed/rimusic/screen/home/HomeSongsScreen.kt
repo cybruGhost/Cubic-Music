@@ -64,6 +64,7 @@ import me.knighthat.component.tab.Locator
 import me.knighthat.component.tab.Search
 import me.knighthat.component.tab.SongShuffler
 import timber.log.Timber
+import it.fast4x.rimusic.utils.showOnDevicePlaylistKey
 
 @UnstableApi
 @ExperimentalMaterial3Api
@@ -162,6 +163,7 @@ fun HomeSongsScreen(navController: NavController ) {
                     val showCachedPlaylist by rememberPreference( showCachedPlaylistKey, true )
                     val showMyTopPlaylist by rememberPreference( showMyTopPlaylistKey, true )
                     val showDownloadedPlaylist by rememberPreference( showDownloadedPlaylistKey, true )
+                    val showOnDeviceChip by rememberPreference( showOnDevicePlaylistKey, true )
                     val chips = remember( showFavoritesPlaylist, showCachedPlaylist, showMyTopPlaylist, showDownloadedPlaylist) {
                         buildList {
                             add( BuiltInPlaylist.All )
@@ -173,7 +175,8 @@ fun HomeSongsScreen(navController: NavController ) {
                                 add( BuiltInPlaylist.Downloaded )
                             if( showMyTopPlaylist )
                                 add( BuiltInPlaylist.Top )
-                            add( BuiltInPlaylist.OnDevice )
+                            if( showOnDeviceChip )
+                                add( BuiltInPlaylist.OnDevice )
                         }
                     }
                     //</editor-fold>

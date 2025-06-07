@@ -101,7 +101,7 @@ import it.fast4x.rimusic.enums.WallpaperType
 import it.fast4x.rimusic.extensions.audiovolume.AudioVolumeObserver
 import it.fast4x.rimusic.extensions.audiovolume.OnAudioVolumeChangedListener
 import it.fast4x.rimusic.extensions.connectivity.AndroidConnectivityObserverLegacy
-import it.fast4x.rimusic.extensions.discord.sendDiscordPresence
+import it.fast4x.rimusic.extensions.discord.DiscordPresenceManager
 import it.fast4x.rimusic.isHandleAudioFocusEnabled
 import it.fast4x.rimusic.models.Event
 import it.fast4x.rimusic.models.PersistentQueue
@@ -141,8 +141,6 @@ import it.fast4x.rimusic.utils.isAtLeastAndroid10
 import it.fast4x.rimusic.utils.isAtLeastAndroid6
 import it.fast4x.rimusic.utils.isAtLeastAndroid7
 import it.fast4x.rimusic.utils.isAtLeastAndroid8
-import it.fast4x.rimusic.utils.isAtLeastAndroid81
-import it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 import it.fast4x.rimusic.utils.isPauseOnVolumeZeroEnabledKey
 import it.fast4x.rimusic.utils.loudnessBaseGainKey
 import it.fast4x.rimusic.utils.manageDownload
@@ -238,6 +236,12 @@ class PlayerServiceModern : MediaLibraryService(),
     private var audioManager: AudioManager? = null
     private var audioDeviceCallback: AudioDeviceCallback? = null
     private lateinit var downloadListener: DownloadManager.Listener
+
+
+    /**
+     * Discord presence
+     */
+    private lateinit var discordPresenceManager: DiscordPresenceManager
 
     var loudnessEnhancer: LoudnessEnhancer? = null
     private var binder = Binder()
@@ -523,9 +527,6 @@ class PlayerServiceModern : MediaLibraryService(),
 
             updateDefaultNotification()
             withContext(Dispatchers.Main) {
-                if (song != null) {
-                    updateDiscordPresence()
-                }
                 updateWidgets()
             }
         }
@@ -551,7 +552,13 @@ class PlayerServiceModern : MediaLibraryService(),
 
         }
 
-
+        /**
+         * Discord presence
+         */
+        discordPresenceManager = DiscordPresenceManager(
+            context = this,
+            getToken = { encryptedPreferences.getString(discordPersonalAccessTokenKey, "") },
+        )
     }
 
     override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
@@ -569,6 +576,7 @@ class PlayerServiceModern : MediaLibraryService(),
             putEnum(queueLoopTypeKey, QueueLoopType.from(repeatMode))
         }
     }
+
 
 
 
@@ -621,43 +629,38 @@ class PlayerServiceModern : MediaLibraryService(),
     @UnstableApi
     override fun onDestroy() {
         runCatching {
+            /**
+             * Discord presence cleanup
+             */
+            Toaster.i("[DiscordPresence] onStop: call the manager (close discord presence)")
+            discordPresenceManager.onStop()
             maybeSavePlayerQueue()
-
             preferences.unregisterOnSharedPreferenceChangeListener(this)
-
             stopService(intent<MyDownloadService>())
             stopService(intent<PlayerServiceModern>())
-
             player.removeListener(this)
             player.stop()
             player.release()
-
             try{
                 unregisterReceiver(notificationActionReceiver)
             } catch (e: Exception){
-                Timber.e("PlayerServiceModern onDestroy unregisterReceiver notificationActionReceiver ${e.stackTraceToString()}")
+                Timber.e("PlayerServiceModern onDestroy unregisterReceiver notificationActionReceiver "+e.stackTraceToString())
             }
-
-
             mediaSession.release()
             cache.release()
             //downloadCache.release()
             MyDownloadHelper.getDownloadManager(this).removeListener(downloadListener)
-
             loudnessEnhancer?.release()
             audioVolumeObserver.unregister()
-
             timerJob?.cancel()
             timerJob = null
-
             notificationManager?.cancel(NotificationId)
             notificationManager?.cancelAll()
             notificationManager = null
-
             coroutineScope.cancel()
 
         }.onFailure {
-            Timber.e("Failed onDestroy in PlayerService ${it.stackTraceToString()}")
+            Timber.e("Failed onDestroy in PlayerService "+it.stackTraceToString())
         }
         super.onDestroy()
     }
@@ -714,26 +717,39 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-
         println("PlayerServiceModern onMediaItemTransition mediaItem $mediaItem reason $reason")
-
         currentMediaItem.update { mediaItem }
         maybeRecoverPlaybackError()
         maybeNormalizeVolume()
-
         loadFromRadio(reason)
-
         with(bitmapProvider) {
             var newUriForLoad = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
             if(lastUri == binder.player.currentMediaItem?.mediaMetadata?.artworkUri) {
                 newUriForLoad = null
             }
-
             load(newUriForLoad, {
                 updateDefaultNotification()
                 updateWidgets()
             })
         }
+
+        /**
+         * Discord presence
+         */
+
+        val title = mediaItem?.mediaMetadata?.title ?: "<none>"
+        val duration = player.duration
+        val now = System.currentTimeMillis()
+
+        discordPresenceManager.onPlayingStateChanged(
+            mediaItem,
+            player.isPlaying,
+            player.currentPosition,
+            duration,
+            now,
+            getCurrentPosition = { kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) { player.currentPosition } },
+            isPlayingProvider = { kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) { player.isPlaying } }
+        )
     }
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -753,8 +769,28 @@ class PlayerServiceModern : MediaLibraryService(),
         }
     }
 
+
+
+    /**
+     * Discord presence
+     */
     @UnstableApi
-    override fun onIsPlayingChanged(isPlaying: Boolean) = updateWidgets()
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+        val item = player.currentMediaItem
+        val title = item?.mediaMetadata?.title ?: "<none>"
+        val duration = player.duration
+        val now = System.currentTimeMillis()
+        discordPresenceManager.onPlayingStateChanged(
+            item,
+            isPlaying,
+            player.currentPosition,
+            duration,
+            now,
+            getCurrentPosition = { kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) { player.currentPosition } },
+            isPlayingProvider = { kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) { player.isPlaying } }
+        )
+        updateWidgets()
+    }
 
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
@@ -1246,34 +1282,6 @@ class PlayerServiceModern : MediaLibraryService(),
 
     }
 
-
-    private fun updateDiscordPresence() {
-        val isDiscordPresenceEnabled = preferences.getBoolean(isDiscordPresenceEnabledKey, false)
-        if (!isDiscordPresenceEnabled || !isAtLeastAndroid81) return
-
-        val discordPersonalAccessToken = encryptedPreferences.getString(
-            discordPersonalAccessTokenKey, ""
-        )
-
-        runCatching {
-            if (!discordPersonalAccessToken.isNullOrEmpty()) {
-                player.currentMediaItem?.let {
-                    sendDiscordPresence(
-                        discordPersonalAccessToken,
-                        it,
-                        timeStart = if (player.isPlaying)
-                            System.currentTimeMillis() - player.currentPosition else 0L,
-                        timeEnd = if (player.isPlaying)
-                            (System.currentTimeMillis() - player.currentPosition) + player.duration else 0L
-                    )
-                }
-            }
-        }.onFailure {
-            Timber.e("PlayerService Failed sendDiscordPresence in PlayerService ${it.stackTraceToString()}")
-        }
-    }
-
-
     fun toggleLike() {
         binder.toggleLike()
     }
@@ -1355,8 +1363,18 @@ class PlayerServiceModern : MediaLibraryService(),
         newPosition: Player.PositionInfo,
         reason: Int
     ) {
-        Timber.d("PlayerServiceModern onPositionDiscontinuity oldPosition ${oldPosition.mediaItemIndex} newPosition ${newPosition.mediaItemIndex} reason $reason")
-        println("PlayerServiceModern onPositionDiscontinuity oldPosition ${oldPosition.mediaItemIndex} newPosition ${newPosition.mediaItemIndex} reason $reason")
+        Timber.d("PlayerServiceModern onPositionDiscontinuity oldPosition "+oldPosition.mediaItemIndex+" newPosition "+newPosition.mediaItemIndex+" reason "+reason)
+        println("PlayerServiceModern onPositionDiscontinuity oldPosition "+oldPosition.mediaItemIndex+" newPosition "+newPosition.mediaItemIndex+" reason "+reason)
+        // Discord presence: update on seek/skip
+        discordPresenceManager.onPlayingStateChanged(
+            player.currentMediaItem,
+            player.isPlaying,
+            player.currentPosition,
+            player.duration,
+            System.currentTimeMillis(),
+            getCurrentPosition = { kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) { player.currentPosition } },
+            isPlayingProvider = { kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) { player.isPlaying } }
+        )
         super.onPositionDiscontinuity(oldPosition, newPosition, reason)
     }
 
