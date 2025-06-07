@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.password
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.compose.rememberNavController
@@ -88,6 +89,8 @@ import it.fast4x.rimusic.utils.ytVisitorDataKey
 import kotlinx.coroutines.launch
 import me.knighthat.utils.Toaster
 import timber.log.Timber
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -527,7 +530,7 @@ fun AccountsSettings() {
 
     /****** PIPED ******/
 
-    /****** DISCORD ******/
+    /****** DISCORD BETA ******/
 
     // rememberEncryptedPreference only works correct with API 24 and up
     if (isAtLeastAndroid7) {
@@ -537,15 +540,19 @@ fun AccountsSettings() {
             key = discordPersonalAccessTokenKey,
             defaultValue = ""
         )
+        var restartDiscordService by rememberSaveable { mutableStateOf(false) }
         SettingsGroupSpacer()
-        SettingsEntryGroupText(title = stringResource(R.string.social_discord))
+        SettingsEntryGroupText(
+            title = stringResource(R.string.social_discord) + " " + stringResource(R.string.beta_title)
+        )
         SwitchSettingEntry(
             isEnabled = isAtLeastAndroid81,
             title = stringResource(R.string.discord_enable_rich_presence),
-            text = "",
+            text = stringResource(R.string.beta_text),
             isChecked = isDiscordPresenceEnabled,
             onCheckedChange = { isDiscordPresenceEnabled = it }
         )
+
 
         AnimatedVisibility(visible = isDiscordPresenceEnabled) {
             Column {
@@ -563,6 +570,12 @@ fun AccountsSettings() {
                         else
                             loginDiscord = true
                     }
+                )
+
+                Text(
+                    text = stringResource(R.string.discord_token_text),
+                    color = colorPalette().red,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
 
                 CustomModalBottomSheet(
@@ -589,9 +602,14 @@ fun AccountsSettings() {
                             loginDiscord = false
                             discordPersonalAccessToken = token
                             Toaster.i( token )
+                            restartDiscordService = true
                         }
                     )
                 }
+                RestartPlayerService(restartDiscordService, onRestart = {
+                    restartDiscordService = false
+                    restartActivity = !restartActivity
+                })
             }
         }
     }
@@ -620,7 +638,6 @@ fun isYouTubeLoggedIn(): Boolean {
     val isLoggedIn = cookie?.let { parseCookieString(it) }?.contains("SAPISID") == true
     return isLoggedIn
 }
-
 
 
 

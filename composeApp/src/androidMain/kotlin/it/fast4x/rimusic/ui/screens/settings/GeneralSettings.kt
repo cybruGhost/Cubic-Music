@@ -408,7 +408,9 @@ fun GeneralSettings(
                     unfocusedTextColor = colorPalette().text,
                     focusedTextColor = colorPalette().text,
                     focusedIndicatorColor = colorPalette().text,
-                    unfocusedIndicatorColor = colorPalette().text
+                    unfocusedIndicatorColor = colorPalette().text,
+                    unfocusedContainerColor = colorPalette().background2,
+                    focusedContainerColor = colorPalette().background2
                 ),
                 modifier = Modifier
                     .padding(start = 12.dp)
