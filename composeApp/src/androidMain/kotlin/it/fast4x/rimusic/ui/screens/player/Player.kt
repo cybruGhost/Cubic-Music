@@ -1858,6 +1858,7 @@ fun Player(
 
                         Image(
                             painter = painterResource(R.drawable.ic_launcher_monochrome),
+                            colorFilter = ColorFilter.tint(colorPalette().collapsedPlayerProgressBar),
                             contentDescription = "app icon in player",
                             modifier = Modifier.size( 24.dp )
                                                .clickable {
