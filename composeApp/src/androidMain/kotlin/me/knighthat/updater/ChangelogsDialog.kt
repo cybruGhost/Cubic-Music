@@ -122,7 +122,7 @@ class ChangelogsDialog(
                     ) {
                         BasicText(
                             text = section.title,
-                            style = typography().m.bold.copy( color = colorPalette().text )
+                            style = typography().s.bold.copy( color = colorPalette().text )
                         )
                     }
                 }
