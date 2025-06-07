@@ -979,4 +979,9 @@
 <string name="view_changelog_settings_title">View changelogs</string>
 <string name="view_changelog_settings_text">View changelogs of the version currently installed</string>
 <string name="artist_songs_count_duration">%1$d Songs • %2$s</string>
+<string name="beta_title"> Beta</string>
+<string name="beta_text">This is still in Beta and may contain bugs and crash</string>
+<string name="discord_token_text">If you notice that the RPC doesnt work, try log off and log back of your Discord account the token can expire in certain scenario</string>
+<string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+<string name="quick_selection">%s recommended song</string>
 </resources>
