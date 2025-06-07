@@ -5,6 +5,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,8 +21,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.unit.dp
@@ -44,7 +47,6 @@ import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.ui.components.ButtonsRow
 import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
-import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenuLibrary
 import it.fast4x.rimusic.ui.components.themed.Title
 import it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
@@ -62,9 +64,15 @@ import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.enqueue
+import me.knighthat.component.tab.Search
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.animation.AnimatedVisibility
+import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
+import it.fast4x.rimusic.ui.styling.favoritesIcon
 
 @kotlin.OptIn(ExperimentalTextApi::class)
 @OptIn(UnstableApi::class)
@@ -77,9 +85,12 @@ fun HistoryList(
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
+    val lazyListState = rememberLazyListState()
 
     val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
     val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
+
+    val search = Search(lazyListState)
 
     /**
      * Topology:
@@ -98,24 +109,24 @@ fun HistoryList(
      * and **remember** it.
      */
     val events by remember {
-        val currentMillis = System.currentTimeMillis()
-
         Database.eventTable
                 .allWithSong()
                 .distinctUntilChanged()
                 .map { list ->
+                    val today = java.time.LocalDate.now()
+                    val yesterday = today.minusDays(1)
                     list.filter { !parentalControlEnabled || it.song.title.startsWith( EXPLICIT_PREFIX, true ) }
                         .reversed()
                         .groupBy {
-                            val diffMillis = currentMillis - it.event.timestamp
-                            val daysAgo = TimeUnit.MILLISECONDS.toDays( diffMillis )
-
-                            when (daysAgo) {
-                                0L -> context.getString( R.string.today )
-                                1L -> context.getString( R.string.yesterday )
-                                in 2..6 -> context.getString( R.string.last_week )
-                                in 7..13 -> context.getString( R.string.last_week )
-                                else -> SimpleDateFormat( "MMM yyyy", Locale.getDefault() ).format( Date(it.event.timestamp) )
+                            val eventDate = java.time.Instant.ofEpochMilli(it.event.timestamp)
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toLocalDate()
+                            when {
+                                eventDate.isEqual(today) -> context.getString(R.string.today)
+                                eventDate.isEqual(yesterday) -> context.getString(R.string.yesterday)
+                                eventDate.isAfter(today.minusWeeks(1)) -> context.getString(R.string.last_week)
+                                eventDate.isAfter(today.minusWeeks(2)) -> context.getString(R.string.last_week)
+                                else -> SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(Date(it.event.timestamp))
                             }
                         }
                 }
@@ -143,15 +154,14 @@ fun HistoryList(
                     1f
             )
     ) {
-
         LazyColumn(
+            state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current
                 .only(WindowInsetsSides.Vertical + WindowInsetsSides.End).asPaddingValues(),
             modifier = Modifier
                 .background(colorPalette().background0)
                 .fillMaxSize()
         ) {
-
             item(key = "header", contentType = 0) {
                 HeaderWithIcon(
                     title = stringResource(R.string.history),
@@ -166,12 +176,38 @@ fun HistoryList(
             item(
                 key = "tabList", contentType = 0,
             ) {
-                ButtonsRow(
-                    chips = buttonsList,
-                    currentValue = historyType,
-                    onValueUpdate = { historyType = it },
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .padding(start = 12.dp, end = 12.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ButtonsRow(
+                        chips = buttonsList,
+                        currentValue = historyType,
+                        onValueUpdate = { historyType = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { search.isVisible = !search.isVisible },
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.search_circle),
+                            contentDescription = stringResource(R.string.search),
+                            tint = colorPalette().favoritesIcon
+                        )
+                    }
+                }
+            }
+
+            item(key = "searchBar", contentType = 0) {
+                AnimatedVisibility(
+                    visible = search.isVisible,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    search.SearchBar(this@Column)
+                }
             }
 
             if( historyType == HistoryType.History )
@@ -187,7 +223,11 @@ fun HistoryList(
                     }
 
                     items(
-                        items = details.fastDistinctBy { it.song.id },
+                        items = details.fastDistinctBy { it.song.id }
+                            .filter { event ->
+                                event.song.title.contains(search.inputValue, ignoreCase = true) ||
+                                (event.song.artistsText ?: "").contains(search.inputValue, ignoreCase = true)
+                            },
                         key = { it.event.id }
                     ) { event ->
                         SwipeablePlaylistItem(
@@ -225,7 +265,11 @@ fun HistoryList(
                     items(
                         items = section.songs
                                        .map { it.asMediaItem }
-                                       .filter { it.mediaId.isNotEmpty() },
+                                       .filter { it.mediaId.isNotEmpty() }
+                                       .filter { mediaItem ->
+                                           (mediaItem.mediaMetadata.title ?: "").contains(search.inputValue, ignoreCase = true) ||
+                                           (mediaItem.mediaMetadata.artist ?: "").contains(search.inputValue, ignoreCase = true)
+                                       },
                         key = { it.mediaId }
                     ) { mediaItem ->
                         SwipeablePlaylistItem(
