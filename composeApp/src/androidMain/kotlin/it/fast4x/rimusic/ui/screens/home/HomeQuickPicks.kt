@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -45,6 +46,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,6 +63,7 @@ import it.fast4x.innertube.models.bodies.NextBody
 import it.fast4x.innertube.requests.HomePage
 import it.fast4x.innertube.requests.chartsPageComplete
 import it.fast4x.innertube.requests.discoverPage
+import it.fast4x.innertube.requests.relatedPage
 import it.fast4x.innertube.requests.relatedPage
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.EXPLICIT_PREFIX
@@ -164,6 +167,7 @@ fun HomeQuickPicks(
     val windowInsets = LocalPlayerAwareWindowInsets.current
     var playEventType by rememberPreference(playEventsTypeKey, PlayEventsType.MostPlayed)
 
+    var trendingList by remember { mutableStateOf<List<Song>>(emptyList()) }
     var trending by persist<Song?>("home/trending")
     val trendingInit by persist<Song?>(tag = "home/trending")
     var trendingPreference by rememberPreference(quickPicsTrendingSongKey, trendingInit)
@@ -215,6 +219,12 @@ fun HomeQuickPicks(
     //var loadedData by rememberSaveable { mutableStateOf(false) }
     var loadedData by rememberPreference(loadedDataKey, false)
 
+    val localRecommandationsNumber by rememberPreference(
+        key = "LocalRecommandationsNumber",
+        defaultValue = it.fast4x.rimusic.enums.LocalRecommandationsNumber.SixQ
+    )
+    val localCount = localRecommandationsNumber.value
+
     suspend fun loadData() {
 
         //Used to refresh chart when country change
@@ -231,47 +241,60 @@ fun HomeQuickPicks(
                         Database.eventTable
                                 .findSongsMostPlayedBetween(
                                     from = from,
-                                    limit = 1
+                                    limit = localCount
                                 )
                                 .distinctUntilChanged()
                                 .collect { songs ->
-                                    val song = songs.firstOrNull()
-                                    if (relatedPageResult == null || trending?.id != song?.id) {
+                                    trendingList = songs.distinctBy { it.id }.take(localCount)
+                                    trending = trendingList.firstOrNull()
+                                    if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
                                         relatedPageResult = Innertube.relatedPage(
                                             NextBody(
-                                                videoId = (song?.id ?: "HZnNt9nnEhw")
+                                                videoId = (trending?.id ?: "HZnNt9nnEhw")
                                             )
                                         )
                                     }
-                                    trending = song
                                 }
-
-                    PlayEventsType.LastPlayed, PlayEventsType.CasualPlayed -> {
-                        val numSongs = if (playEventType == PlayEventsType.LastPlayed) 3 else 100
+                    PlayEventsType.LastPlayed -> {
                         Database.eventTable
-                                .findSongsMostPlayedBetween(
-                                    from = 0,
-                                    limit = numSongs
+                                .findSongsLastPlayed(
+                                    limit = localCount
                                 )
                                 .distinctUntilChanged()
                                 .collect { songs ->
-                                    val song =
-                                        if (playEventType == PlayEventsType.LastPlayed)
-                                            songs.firstOrNull()
-                                        else
-                                            songs.shuffled().firstOrNull()
-                                    if (relatedPageResult == null || trending?.id != song?.id) {
+                                    trendingList = songs.distinctBy { it.id }.take(localCount)
+                                    trending = trendingList.firstOrNull()
+                                    if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
                                         relatedPageResult =
                                             Innertube.relatedPage(
                                                 NextBody(
-                                                    videoId = (song?.id ?: "HZnNt9nnEhw")
+                                                    videoId = (trending?.id ?: "HZnNt9nnEhw")
                                                 )
                                             )
                                     }
-                                    trending = song
                                 }
                     }
-
+                    PlayEventsType.CasualPlayed -> {
+                        Database.eventTable
+                                .findSongsMostPlayedBetween(
+                                    from = 0,
+                                    limit = 100
+                                )
+                                .distinctUntilChanged()
+                                .collect { songs ->
+                                    val shuffled = songs.distinctBy { it.id }.shuffled().take(localCount)
+                                    trendingList = shuffled
+                                    trending = shuffled.firstOrNull()
+                                    if (relatedPageResult == null || trending?.id != shuffled.firstOrNull()?.id) {
+                                        relatedPageResult =
+                                            Innertube.relatedPage(
+                                                NextBody(
+                                                    videoId = (trending?.id ?: "HZnNt9nnEhw")
+                                                )
+                                            )
+                                    }
+                                }
+                    }
                 }
             }
 
@@ -293,7 +316,15 @@ fun HomeQuickPicks(
         }
     }
 
-    LaunchedEffect(Unit, playEventType, selectedCountryCode) {
+    LaunchedEffect(playEventType, selectedCountryCode) {
+        // Reset of all states related
+        loadedData = false
+        relatedPageResult = null
+        relatedInit = null
+        trending = null
+        trendingList = emptyList()
+        // Delay to ensure the reset (optional)
+        kotlinx.coroutines.delay(100)
         loadData()
     }
 
@@ -367,9 +398,9 @@ fun HomeQuickPicks(
         ) {
             val quickPicksLazyGridItemWidthFactor =
                 if (isLandscape && maxWidth * 0.475f >= 320.dp) {
-                    0.475f
+                    0.375f
                 } else {
-                    0.9f
+                    0.7f
                 }
             val itemInHorizontalGridWidth = maxWidth * quickPicksLazyGridItemWidthFactor
 
@@ -513,6 +544,50 @@ fun HomeQuickPicks(
                             .padding(bottom = 8.dp)
                     )
 
+                    // Prepare the final list : 6 locals (or less depending on the local recommandations number) + 14 YT recommendations (or less), then shuffle to show max 21 songs
+                    val recommendations = remember(trendingList, relatedInit, localCount, playEventType) {
+                        val mainIds = trendingList.map { it.id }.toSet()
+                        if (playEventType == PlayEventsType.MostPlayed || playEventType == PlayEventsType.LastPlayed) {
+                            val first = trendingList.firstOrNull()
+                            val others = trendingList.drop(1)
+                            val relatedSongs = relatedInit?.songs
+                                ?.map { it.asSong }
+                                ?.filter { it.id !in mainIds }
+                                ?.distinctBy { it.id }
+                                    ?.take(21 - (1 + others.size))
+                                .orEmpty()
+                            val total = (others + relatedSongs)
+                            val extra = if (total.size < 21) {
+                                relatedInit?.songs
+                                    ?.map { it.asSong }
+                                    ?.filter { it.id !in (others.map { s -> s.id } + (first?.id ?: "")) }
+                                    ?.distinctBy { it.id }
+                                    ?.take(21 - total.size)
+                                    .orEmpty()
+                            } else emptyList()
+                            (listOfNotNull(first) + (total + extra).shuffled()).distinctBy { it.id }
+                        } else {
+                            // Random Mode will randomize the list : all mixed
+                            val locals = trendingList.take(localCount)
+                            val relatedSongs = relatedInit?.songs
+                                ?.map { it.asSong }
+                                ?.filter { it.id !in locals.map { it.id } }
+                                ?.distinctBy { it.id }
+                                ?.take(21 - locals.size)
+                                .orEmpty()
+                            val total = (locals + relatedSongs)
+                            val extra = if (total.size < 21) {
+                                relatedInit?.songs
+                                    ?.map { it.asSong }
+                                    ?.filter { it.id !in total.map { s -> s.id } }
+                                    ?.distinctBy { it.id }
+                                    ?.take(21 - total.size)
+                                    .orEmpty()
+                            } else emptyList()
+                            (total + extra).shuffled().distinctBy { it.id }
+                        }
+                    }
+
                     LazyHorizontalGrid(
                         state = quickPicksLazyGridState,
                         rows = GridCells.Fixed(if (relatedInit != null) 3 else 1),
@@ -526,40 +601,13 @@ fun HomeQuickPicks(
                                                    Dimensions.itemsVerticalPadding * 9
                                            )
                     ) {
-                        trending?.let { song ->
-                            item {
-                                me.knighthat.component.SongItem(
-                                    song = song,
-                                    navController = navController,
-                                    onClick = {
-                                        binder?.startRadio( song, true )
-                                    },
-                                    modifier = Modifier.width( itemInHorizontalGridWidth )
-                                )
-                            }
-                        }
-
-                        relatedInit?.let { relatedPage ->
-                            items(
-                                items = relatedPage.songs
-                                                   ?.distinctBy( Innertube.SongItem::key )
-                                                   ?.filter {
-                                                       cachedSongs == null || cachedSongs.indexOf( it.key ) < 0
-                                                   }
-                                                   ?.dropLast( if( trending == null) 0 else 1 )
-                                                   ?.map( Innertube.SongItem::asSong )
-                                                   .orEmpty(),
-                                key = Song::id
-                            ) { song ->
-                                me.knighthat.component.SongItem(
-                                    song = song,
-                                    navController = navController,
-                                    onClick = {
-                                        binder?.startRadio( song, true )
-                                    },
-                                    modifier = Modifier.width( itemInHorizontalGridWidth )
-                                )
-                            }
+                        items(recommendations, key = { it.id }) { song ->
+                            me.knighthat.component.SongItem(
+                                song = song,
+                                navController = navController,
+                                onClick = { binder?.startRadio(song, true) },
+                                modifier = Modifier.width(itemInHorizontalGridWidth)
+                            )
                         }
                     }
 
