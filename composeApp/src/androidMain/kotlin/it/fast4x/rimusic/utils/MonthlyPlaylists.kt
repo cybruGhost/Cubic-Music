@@ -36,16 +36,14 @@ private suspend fun addMonthlyPlaylist( from: LocalDate, to: LocalDate, playlist
 @Composable
 fun CheckMonthlyPlaylist() {
     val (lastMonth, thisMonth) = remember {
-        val today = LocalDate.now()
-        today.minusMonths( 1L ) to today
-    }
-
-    // I.E. April 2025 returns "monthly:202503"
-    val playlistName = remember( lastMonth, thisMonth ) {
-        "$MONTHLY_PREFIX${thisMonth.year}${thisMonth.monthValue}"
+        val firstOfThisMonth = LocalDate.now().withDayOfMonth( 1 )
+        firstOfThisMonth.minusMonths( 1L ) to firstOfThisMonth
     }
 
     LaunchedEffect( lastMonth, thisMonth ) {
+        // I.E. April 2025 returns "monthly:202504"
+        val playlistName = "$MONTHLY_PREFIX${thisMonth.year}${thisMonth.monthValue}"
+
         Database.playlistTable
                 .exists( playlistName )
                 .flowOn( Dispatchers.IO )
