@@ -206,7 +206,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import android.os.Binder as AndroidBinder
-
+import androidx.compose.ui.util.fastMap
 
 const val LOCAL_KEY_PREFIX = "local:"
 
@@ -880,7 +880,11 @@ class PlayerServiceModern : MediaLibraryService(),
         val isEnabled = preferences.getBoolean( autoLoadSongsInQueueKey, true )
         val isRepeatTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
 
-        if( isEnabled && !isRepeatTransition && !binder.isLoadingRadio )
+        // Don't fetch more item if:
+        // - Feature is disabled
+        // - When song is repeated
+        // - Start new queue
+        if( isEnabled && !isRepeatTransition && !binder.isLoadingRadio && player.mediaItemCount > 1 && preferences.getBoolean(autoLoadSongsInQueueKey, true) )
             player.currentMediaItem?.let {
                 binder.startRadio( it, true )
             }
@@ -1731,10 +1735,15 @@ class PlayerServiceModern : MediaLibraryService(),
                                      relatedSongs.forEach( ::insertIgnore )
                                  }
 
+                                 // Any call to [player] must happen on Main thread
+                                 val currentQueue = withContext( Dispatchers.Main ) {
+                                    player.mediaItems.fastMap( MediaItem::mediaId )
+                                }
+
                                  // Songs with the same id as provided [Song] should be removed.
                                  // The song usually lives at the the first index, but this
                                  // way is safer to implement, as it can live through changes in position.
-                                 relatedSongs.dropWhile { it.mediaId == mediaItem.mediaId }
+                                 relatedSongs.dropWhile { it.mediaId == mediaItem.mediaId || it.mediaId in currentQueue }
                              }
                              ?.also {
                                  // Any call to [player] must happen on Main thread
