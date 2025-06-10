@@ -123,13 +123,13 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.cubicMusic"
+        applicationId = "com.nevar.nzik"
         minSdk = 21
         targetSdk = 35
         versionCode = 10
         versionName = "1.4.0"
 
-        /*
+     /*
                 UNIVERSAL VARIABLES
          */
         buildConfigField( "Boolean", "IS_AUTOUPDATE", "true" )

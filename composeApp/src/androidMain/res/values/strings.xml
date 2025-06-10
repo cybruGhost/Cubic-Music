@@ -106,7 +106,6 @@
 <string name="save_and_restore_playing_songs">Save and restore last played queue</string>
 <string name="resume_playback">Resume playback</string>
 <string name="when_device_is_connected">When a wired or bluetooth device is connected</string>
-<string name="skip_silence">Skip silence</string>
 <string name="skip_silent_parts_during_playback">Skip silent parts during playback</string>
 <string name="loudness_normalization">Loudness normalization</string>
 <string name="autoadjust_the_volume">Adjust the volume to a fixed level</string>

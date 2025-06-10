@@ -17,7 +17,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Cubic-Muisc"
+rootProject.name = "Cubic-Music"
 include(":composeApp")
 // Projects from extensions
 include(":oldtube")
