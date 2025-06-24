@@ -1,4 +1,4 @@
-# Cubic-Music -app still under development
+# Cubic-Music NEW RELEASE TODAY
 #yooh star
 
 <div align="center">
