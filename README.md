@@ -1,4 +1,4 @@
-# Cubic-Music NEW RELEASE TODAY
+# Cubic-Music NEW RELEASE out
 #yooh star
 
 <div align="center">
