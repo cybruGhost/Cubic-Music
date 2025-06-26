@@ -1,5 +1,5 @@
 # Cubic-Music NEW RELEASE out
-#yooh star
+#Hi plz star
 
 <div align="center">
   
