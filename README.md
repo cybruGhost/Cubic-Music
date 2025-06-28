@@ -1,5 +1,5 @@
 # Cubic-Music NEW RELEASE out
-#Hi plz star
+#Hi plz star.the way to go
 
 <div align="center">
   
