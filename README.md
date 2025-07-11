@@ -1,6 +1,6 @@
 # Cubic-Music NEW RELEASE out
 #  STAR AND FOLLOW 😅 NOW.!!!the way to go
-
+# ondevice update  to be be onnext release
 <div align="center">
   
 [![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
