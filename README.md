@@ -2,7 +2,7 @@
 #  STAR AND FOLLOW 😅 NOW.!!!the way to go
 <div align="center">
   
-[![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
+
 [![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases)  
 [![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
 [![Localization Progress](https://badges.crowdin.net/N-Zik/localized.svg)](https://crowdin.com/project/N-Zik)  
