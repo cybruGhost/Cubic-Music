@@ -15,6 +15,8 @@
 </div>
 
 ---
+![1000528569](https://github.com/user-attachments/assets/38573f27-38ac-474a-be9f-6c0d7f1f6eeb)
+
 
 ## 🎵 About Cubic Music
 
