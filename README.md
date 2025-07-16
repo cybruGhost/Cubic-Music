@@ -75,7 +75,7 @@ All content is streamed via licensed APIs or legitimate external sources only.
 ## ⚠️ Disclaimer
 
 This project is **not affiliated with, endorsed by, or sponsored by YouTube, Google LLC, or their affiliates**.  
-All trademarks and intellectual property belong to their respective owners.
+All trademarks and intellectual property belong to their respective owners..
 
 ---
 
