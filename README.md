@@ -50,6 +50,7 @@
 - **Check for Updates** toggle in settings
 - **Export:** settings, downloaded, and cached media
 - **import backups from Rimusic**
+- fixed ondevice
 
 ---
 
