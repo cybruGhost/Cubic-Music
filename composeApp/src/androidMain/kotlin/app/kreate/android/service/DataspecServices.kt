@@ -79,7 +79,6 @@ private var justInserted: String = ""
  */
 @Blocking
 private fun upsertSongInfo( videoId: String ) = runBlocking {       // Use this to prevent suspension of thread while waiting for response from YT
-
     // Skip adding if it's just added in previous call
     if( videoId == justInserted ) return@runBlocking
 
@@ -97,6 +96,8 @@ private fun upsertSongInfo( videoId: String ) = runBlocking {       // Use this 
             }
         }
     )
+
+    // Must not modify [JustInserted] to [upsertSongFormat] let execute later
 }
 
 /**

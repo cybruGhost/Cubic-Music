@@ -18,13 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFirstOrNull
 import app.kreate.android.BuildConfig
 import app.kreate.android.R
+import app.kreate.android.Preferences
+import app.kreate.android.themed.common.component.settings.SettingComponents
 import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.enums.CheckUpdateState
 import it.fast4x.rimusic.ui.components.themed.SecondaryTextButton
-import it.fast4x.rimusic.ui.screens.settings.EnumValueSelectorSettingsEntry
-import it.fast4x.rimusic.ui.screens.settings.SettingsDescription
-import it.fast4x.rimusic.utils.checkUpdateStateKey
-import it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -79,7 +77,7 @@ object Updater {
             "Cannot run fetch update on main thread"
         }
 
-        // https://api.github.com/repos/cybruGhost/cubic-music/releases/latest
+        // https://api.github.com/repos/cybrughost/cubic-music/releases/latest
         val url = "${Repository.GITHUB_API}/repos/${Repository.LATEST_TAG_URL}"
         val request = Request.Builder().url( url ).build()
         val response = OkHttpClient().newCall( request ).execute()
@@ -131,18 +129,16 @@ object Updater {
 
     @Composable
     fun SettingEntry() {
-        var checkUpdateState by rememberPreference( checkUpdateStateKey,CheckUpdateState.Enabled )
+        var checkUpdateState by Preferences.CHECK_UPDATE
         if( !BuildConfig.IS_AUTOUPDATE )
             checkUpdateState = CheckUpdateState.Disabled
 
         Row( Modifier.fillMaxWidth() ) {
-            EnumValueSelectorSettingsEntry(
-                title = stringResource( R.string.enable_check_for_update ),
-                selectedValue = checkUpdateState,
-                onValueSelected = { checkUpdateState = it },
-                valueText = { it.text },
-                isEnabled = BuildConfig.IS_AUTOUPDATE,
-                modifier = Modifier.weight( 1f )
+            SettingComponents.EnumEntry(
+                Preferences.CHECK_UPDATE,
+                R.string.enable_check_for_update,
+                Modifier.weight( 1f ),
+                isEnabled = BuildConfig.IS_AUTOUPDATE
             )
 
             AnimatedVisibility(
@@ -160,13 +156,6 @@ object Updater {
             }
         }
 
-        SettingsDescription(
-            stringResource(
-                if( BuildConfig.IS_AUTOUPDATE )
-                    R.string.when_enabled_a_new_version_is_checked_and_notified_during_startup
-                else
-                    R.string.description_app_not_installed_by_apk
-            )
-        )
+        SettingComponents.Description( R.string.when_enabled_a_new_version_is_checked_and_notified_during_startup )
     }
 }

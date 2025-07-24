@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,11 +27,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.innertube.Innertube
 import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.models.Album
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.typography
@@ -40,11 +39,9 @@ import it.fast4x.rimusic.ui.components.themed.TextPlaceholder
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.shimmer
 import it.fast4x.rimusic.utils.conditional
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.secondary
 import it.fast4x.rimusic.utils.semiBold
 import it.fast4x.rimusic.utils.shimmerEffect
-import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import me.knighthat.coil.ImageCacheFactory
 
 @Composable
@@ -225,7 +222,7 @@ fun AlbumPlaceholder(
 ) {
     val thumbnailSizeDp = Dimensions.thumbnails.album
 
-    val thumbnailRoundness by rememberPreference( thumbnailRoundnessKey, ThumbnailRoundness.None )
+    val thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -277,91 +274,5 @@ fun AlbumPlaceholder(
                     modifier = Modifier.weight( 1f ).shimmerEffect()
                 )
             }
-    }
-}
-
-
-@Composable
-fun AlbumItemGridPlaceholder(
-    thumbnailSizeDp: Dp,
-    modifier: Modifier = Modifier,
-    alternative: Boolean = false,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        repeat(3) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = modifier.padding(
-                    vertical = Dimensions.itemsVerticalPadding,
-                    horizontal = 0.dp
-                )
-            ) {
-                Box(
-                    Modifier.size(thumbnailSizeDp - 8.dp)
-                        .clip(thumbnailShape())
-                        .shimmerEffect()
-                )
-                Box(
-                    Modifier
-                        .padding(top = 8.dp)
-                        .width((thumbnailSizeDp - 8.dp) * 0.8f)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .shimmerEffect()
-                )
-                Box(
-                    Modifier
-                        .padding(top = 4.dp)
-                        .width((thumbnailSizeDp - 8.dp) * 0.4f)
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .shimmerEffect()
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun AlbumItemListPlaceholder(
-    thumbnailSizeDp: Dp,
-    modifier: Modifier = Modifier,
-    alternative: Boolean = false,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            Modifier.size(thumbnailSizeDp - 8.dp)
-                .clip(thumbnailShape())
-                .shimmerEffect()
-        )
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1f)
-        ) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(16.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .shimmerEffect()
-            )
-            Box(
-                Modifier
-                    .fillMaxWidth(0.6f)
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .shimmerEffect()
-            )
-        }
     }
 }

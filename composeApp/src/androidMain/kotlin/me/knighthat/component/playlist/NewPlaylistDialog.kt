@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.innertube.YtMusic
 import it.fast4x.rimusic.Database
@@ -23,8 +24,6 @@ import it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import it.fast4x.rimusic.utils.createPipedPlaylist
 import it.fast4x.rimusic.utils.getPipedSession
-import it.fast4x.rimusic.utils.isPipedEnabledKey
-import it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,7 +44,7 @@ class NewPlaylistDialog private constructor(
                 remember {
                     mutableStateOf( TextFieldValue() )
                 },
-                rememberPreference( isPipedEnabledKey, false )
+                Preferences.ENABLE_PIPED
             )
     }
 

@@ -44,7 +44,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import app.kreate.android.R
+import app.kreate.android.themed.rimusic.component.Search
+import app.kreate.android.themed.rimusic.component.tab.ItemSize
+import app.kreate.android.themed.rimusic.component.tab.Sort
 import it.fast4x.compose.persist.persistList
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
@@ -61,7 +65,6 @@ import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.ui.components.ButtonsRow
 import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
-import it.fast4x.rimusic.ui.components.tab.ItemSize
 import it.fast4x.rimusic.ui.components.tab.TabHeader
 import it.fast4x.rimusic.ui.components.tab.toolbar.Randomizer
 import it.fast4x.rimusic.ui.components.themed.AlbumsItemMenu
@@ -75,22 +78,13 @@ import it.fast4x.rimusic.ui.items.AlbumItem
 import it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.LocalAppearance
-import it.fast4x.rimusic.utils.Preference.HOME_ALBUMS_SORT_BY
-import it.fast4x.rimusic.utils.Preference.HOME_ALBUM_ITEM_SIZE
-import it.fast4x.rimusic.utils.Preference.HOME_ALBUM_SORT_ORDER
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.addToYtPlaylist
-import it.fast4x.rimusic.utils.albumTypeKey
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.autoSyncToolbutton
-import it.fast4x.rimusic.utils.autosyncKey
-import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.enqueue
-import it.fast4x.rimusic.utils.filterByKey
 import it.fast4x.rimusic.utils.importYTMLikedAlbums
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
-import it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -98,8 +92,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import me.knighthat.component.Sort
-import me.knighthat.component.tab.Search
 import me.knighthat.component.tab.SongShuffler
 import me.knighthat.database.AlbumTable
 
@@ -122,21 +114,22 @@ fun HomeAlbums(
     val lazyGridState = rememberLazyGridState()
 
     // Settings
-    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
-    var albumType by rememberPreference(albumTypeKey, AlbumsType.Favorites )
+    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    var albumType by Preferences.HOME_ALBUM_TYPE
 
     var items by persistList<Album>( "home/albums" )
     var itemsToFilter by persistList<Album>( "home/artists" )
-    var filterBy by rememberPreference(filterByKey, FilterBy.All)
+    var filterBy by Preferences.HOME_ARTIST_AND_ALBUM_FILTER
     val (colorPalette, typography) = LocalAppearance.current
 
     var itemsOnDisplay by persistList<Album>( "home/albums/on_display" )
 
-    val search = Search(lazyGridState)
+    val search = remember { Search(lazyGridState) }
 
-    val sort = Sort( HOME_ALBUMS_SORT_BY, HOME_ALBUM_SORT_ORDER )
-
-    val itemSize = ItemSize.init( HOME_ALBUM_ITEM_SIZE )
+    val sort = remember {
+        Sort(menuState, Preferences.HOME_ALBUMS_SORT_BY, Preferences.HOME_ALBUM_SORT_ORDER)
+    }
+    val itemSize = remember { ItemSize(Preferences.HOME_ALBUM_ITEM_SIZE, menuState) }
 
     val randomizer = object: Randomizer<Album> {
         override fun getItems(): List<Album> = itemsOnDisplay
@@ -167,11 +160,11 @@ fun HomeAlbums(
         }
 
     }
-    LaunchedEffect( items, search.inputValue ) {
+    LaunchedEffect( items, search.input ) {
         itemsOnDisplay = items.filter {
-            it.title?.contains( search.inputValue, true) ?: false
-                    || it.year?.contains( search.inputValue, true) ?: false
-                    || it.authorsText?.contains( search.inputValue, true) ?: false
+            it.title?.let( search::appearsIn ) ?: false
+                    || it.year?.let( search::appearsIn ) ?: false
+                    || it.authorsText?.let( search::appearsIn ) ?: false
         }
     }
 
@@ -211,7 +204,7 @@ fun HomeAlbums(
 
     val sync = autoSyncToolbutton(R.string.autosync_albums)
 
-    val doAutoSync by rememberPreference(autosyncKey, false)
+    val doAutoSync by Preferences.AUTO_SYNC
     var justSynced by rememberSaveable { mutableStateOf(!doAutoSync) }
 
     var refreshing by remember { mutableStateOf(false) }
@@ -323,7 +316,7 @@ fun HomeAlbums(
                 }
 
                 // Sticky search bar
-                search.SearchBar( this )
+                search.SearchBar()
 
                 LazyVerticalGrid(
                     state = lazyGridState,
@@ -481,7 +474,7 @@ fun HomeAlbums(
 
             FloatingActionsContainerWithScrollToTop( lazyGridState )
 
-            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
+            val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
             if ( UiType.ViMusic.isCurrent() && showFloatingIcon )
                 MultiFloatingActionsContainer(
                     iconId = R.drawable.search,

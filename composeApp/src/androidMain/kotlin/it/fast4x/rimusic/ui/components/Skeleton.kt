@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import app.kreate.android.BuildConfig
+import app.kreate.android.Preferences
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.CheckUpdateState
 import it.fast4x.rimusic.enums.NavigationBarPosition
@@ -39,10 +40,6 @@ import it.fast4x.rimusic.ui.components.navigation.header.AppHeader
 import it.fast4x.rimusic.ui.components.navigation.nav.AbstractNavigationBar
 import it.fast4x.rimusic.ui.components.navigation.nav.HorizontalNavigationBar
 import it.fast4x.rimusic.ui.components.navigation.nav.VerticalNavigationBar
-import it.fast4x.rimusic.utils.checkUpdateStateKey
-import it.fast4x.rimusic.utils.playerPositionKey
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.seenChangelogsVersionKey
 import it.fast4x.rimusic.utils.transition
 import me.knighthat.updater.ChangelogsDialog
 import me.knighthat.updater.CheckForUpdateDialog
@@ -132,7 +129,7 @@ fun Skeleton(
                     navigationBar.Draw()
             }
 
-            val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
+            val playerPosition by Preferences.MINI_PLAYER_POSITION
             val playerAlignment =
                 if (playerPosition == PlayerPosition.Top)
                     Alignment.TopCenter
@@ -151,7 +148,7 @@ fun Skeleton(
     NewUpdateAvailableDialog.Render()
     CheckForUpdateDialog.Render()
 
-    val check4UpdateState by rememberPreference( checkUpdateStateKey, CheckUpdateState.Disabled )
+    val check4UpdateState by Preferences.CHECK_UPDATE
     LaunchedEffect( check4UpdateState ) {
         when( check4UpdateState ) {
             CheckUpdateState.Enabled  -> if( !NewUpdateAvailableDialog.isCancelled ) Updater.checkForUpdate()
@@ -160,7 +157,7 @@ fun Skeleton(
         }
     }
 
-    val seenChangelogs = rememberPreference( seenChangelogsVersionKey, "" )
+    val seenChangelogs = Preferences.SEEN_CHANGELOGS_VERSION
     if( seenChangelogs.value != BuildConfig.VERSION_NAME ) {
         val changelogs = remember {
             ChangelogsDialog( seenChangelogs )

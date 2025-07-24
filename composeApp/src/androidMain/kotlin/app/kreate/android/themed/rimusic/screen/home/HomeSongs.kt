@@ -29,6 +29,11 @@ import androidx.compose.ui.util.fastMap
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
+import app.kreate.android.themed.rimusic.component.ItemSelector
+import app.kreate.android.themed.rimusic.component.Search
+import app.kreate.android.themed.rimusic.component.song.PeriodSelector
+import app.kreate.android.themed.rimusic.component.tab.Sort
 import it.fast4x.compose.persist.persistList
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.EXPLICIT_PREFIX
@@ -36,7 +41,6 @@ import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.BuiltInPlaylist
 import it.fast4x.rimusic.enums.DurationInMinutes
-import it.fast4x.rimusic.enums.MaxTopPlaylistItems
 import it.fast4x.rimusic.enums.SongSortBy
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.service.MyDownloadHelper
@@ -44,29 +48,22 @@ import it.fast4x.rimusic.service.modern.LOCAL_KEY_PREFIX
 import it.fast4x.rimusic.service.modern.isLocal
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.typography
+import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import it.fast4x.rimusic.ui.components.tab.toolbar.Button
 import it.fast4x.rimusic.ui.items.SongItemPlaceholder
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.onOverlay
 import it.fast4x.rimusic.ui.styling.overlay
-import it.fast4x.rimusic.utils.MaxTopPlaylistItemsKey
-import it.fast4x.rimusic.utils.Preference
-import it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_BY
-import it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_ORDER
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.color
 import it.fast4x.rimusic.utils.durationTextToMillis
 import it.fast4x.rimusic.utils.enqueue
-import it.fast4x.rimusic.utils.excludeSongsWithDurationLimitKey
 import it.fast4x.rimusic.utils.forcePlayAtIndex
-import it.fast4x.rimusic.utils.includeLocalSongsKey
 import it.fast4x.rimusic.utils.isDownloadedSong
 import it.fast4x.rimusic.utils.manageDownload
-import it.fast4x.rimusic.utils.parentalControlEnabledKey
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -75,14 +72,10 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import me.knighthat.component.SongItem
-import me.knighthat.component.Sort
-import me.knighthat.component.song.PeriodSelector
 import me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
 import me.knighthat.component.tab.DownloadAllSongsDialog
 import me.knighthat.component.tab.ExportSongsToCSVDialog
 import me.knighthat.component.tab.HiddenSongs
-import me.knighthat.component.tab.ItemSelector
-import me.knighthat.component.tab.Search
 import me.knighthat.database.ext.FormatWithSong
 
 @UnstableApi
@@ -101,18 +94,21 @@ fun HomeSongs(
     // Essentials
     val binder = LocalPlayerServiceBinder.current
     val context = LocalContext.current
+    val menuState = LocalMenuState.current
 
     //<editor-fold defaultstate="collapsed" desc="Settings">
-    val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
-    val maxTopPlaylistItems by rememberPreference( MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10` )
-    val includeLocalSongs by rememberPreference( includeLocalSongsKey, true )
-    val excludeSongWithDurationLimit by rememberPreference( excludeSongsWithDurationLimitKey, DurationInMinutes.Disabled )
+    val parentalControlEnabled by Preferences.PARENTAL_CONTROL
+    val maxTopPlaylistItems by Preferences.MAX_NUMBER_OF_TOP_PLAYED
+    val includeLocalSongs by Preferences.HOME_SONGS_INCLUDE_ON_DEVICE_IN_ALL
+    val excludeSongWithDurationLimit by Preferences.LIMIT_SONGS_WITH_DURATION
     //</editor-fold>
 
     var items by persistList<Song>( "home/songs" )
 
-    val songSort = Sort ( HOME_SONGS_SORT_BY, HOME_SONGS_SORT_ORDER )
-    val topPlaylists = PeriodSelector( Preference.HOME_SONGS_TOP_PLAYLIST_PERIOD )
+    val songSort = remember {
+        Sort(menuState, Preferences.HOME_SONGS_SORT_BY, Preferences.HOME_SONGS_SORT_ORDER)
+    }
+    val topPlaylists = remember { PeriodSelector(menuState) }
     val hiddenSongs = HiddenSongs()
     val exportDialog = ExportSongsToCSVDialog(
         playlistName = builtInPlaylist.text,
@@ -198,13 +194,13 @@ fun HomeSongs(
                       .collect { items = it }
     }
 
-    LaunchedEffect( items, search.inputValue ) {
+    LaunchedEffect( items, search.input ) {
     items.filter { !parentalControlEnabled || !it.title.startsWith( EXPLICIT_PREFIX, true ) }
          .filter {
              // Without cleaning, user can search explicit songs with "e:"
              // I kinda want this to be a feature, but it seems unnecessary
-             val containsTitle = it.cleanTitle().contains( search.inputValue, true )
-             val containsArtist = it.cleanArtistsText().contains( search.inputValue, true )
+             val containsTitle = search appearsIn it.cleanTitle()
+             val containsArtist = search appearsIn it.cleanArtistsText()
 
              containsTitle || containsArtist
          }

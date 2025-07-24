@@ -1,6 +1,9 @@
 package it.fast4x.rimusic.enums
 
-enum class PauseBetweenSongs {
+import androidx.compose.runtime.Composable
+import me.knighthat.enums.TextView
+
+enum class PauseBetweenSongs: TextView {
     `0`,
     `5`,
     `10`,
@@ -14,4 +17,8 @@ enum class PauseBetweenSongs {
     val asSeconds: Int = this.name.toInt()
 
     val asMillis: Long = this.asSeconds * 1000L
+
+    override val text: String
+        @Composable
+        get() = "${this.name}s"
 }

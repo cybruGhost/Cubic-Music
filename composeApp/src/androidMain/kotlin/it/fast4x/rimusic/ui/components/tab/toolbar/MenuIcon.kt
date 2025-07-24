@@ -10,8 +10,22 @@ interface MenuIcon: Icon {
     val menuIconTitle: String
 
     @Composable
-    fun GridMenuItem() = GridMenu.Entry( menuIconTitle, { ToolBarButton() }, modifier, isEnabled, ::onShortClick )
+    fun GridMenuItem() = GridMenu.Entry(
+        text = menuIconTitle,
+        icon = { ToolBarButton() },
+        modifier = modifier,
+        enabled = isEnabled,
+        onClick = ::onShortClick,
+        onLongClick = if (this is Clickable) ::onLongClick else { {} }
+    )
 
     @Composable
-    fun ListMenuItem() = ListMenu.Entry( menuIconTitle, { ToolBarButton() }, modifier, isEnabled, ::onShortClick )
+    fun ListMenuItem() = ListMenu.Entry(
+        text = menuIconTitle,
+        icon = { ToolBarButton() },
+        modifier = modifier,
+        enabled = isEnabled,
+        onClick = ::onShortClick,
+        onLongClick = if (this is Clickable) ::onLongClick else { {} }
+    )
 }

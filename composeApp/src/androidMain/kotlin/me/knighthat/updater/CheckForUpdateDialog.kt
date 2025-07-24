@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.CheckUpdateState
@@ -30,10 +31,8 @@ import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.tab.toolbar.Dialog
 import it.fast4x.rimusic.ui.components.themed.DefaultDialog
 import it.fast4x.rimusic.utils.bold
-import it.fast4x.rimusic.utils.checkUpdateStateKey
 import it.fast4x.rimusic.utils.color
 import it.fast4x.rimusic.utils.medium
-import it.fast4x.rimusic.utils.rememberPreference
 
 object CheckForUpdateDialog: Dialog {
 
@@ -54,7 +53,7 @@ object CheckForUpdateDialog: Dialog {
     override fun Render() {
         if( isCanceled || !isActive ) return
 
-        var checkUpdateState by rememberPreference( checkUpdateStateKey, CheckUpdateState.Enabled )
+        var checkUpdateState by Preferences.CHECK_UPDATE
 
         @Composable
         fun DescriptionText( @StringRes textId: Int ) =

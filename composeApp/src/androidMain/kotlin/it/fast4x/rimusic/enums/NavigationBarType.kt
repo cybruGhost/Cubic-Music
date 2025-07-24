@@ -2,9 +2,8 @@ package it.fast4x.rimusic.enums
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import app.kreate.android.Preferences
 import app.kreate.android.R
-import it.fast4x.rimusic.utils.navigationBarTypeKey
-import it.fast4x.rimusic.utils.rememberPreference
 import me.knighthat.enums.TextView
 
 
@@ -17,8 +16,7 @@ enum class NavigationBarType(
 
     companion object {
 
-        @Composable
-        fun current(): NavigationBarType = rememberPreference( navigationBarTypeKey, NavigationBarType.IconAndText ).value
+        fun current(): NavigationBarType = Preferences.NAVIGATION_BAR_TYPE.value
     }
 
     @Composable

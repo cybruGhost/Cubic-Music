@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,33 +45,30 @@ import androidx.compose.ui.util.fastMap
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import app.kreate.android.R
+import app.kreate.android.themed.rimusic.component.ItemSelector
+import app.kreate.android.themed.rimusic.component.Search
+import app.kreate.android.themed.rimusic.component.tab.Sort
 import it.fast4x.rimusic.EXPLICIT_PREFIX
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.typography
+import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import it.fast4x.rimusic.ui.components.tab.toolbar.Button
 import it.fast4x.rimusic.ui.styling.Dimensions
-import it.fast4x.rimusic.utils.Preference.HOME_ON_DEVICE_SONGS_SORT_BY
-import it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_ORDER
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.bold
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.forcePlayAtIndex
 import it.fast4x.rimusic.utils.isAtLeastAndroid13
-import it.fast4x.rimusic.utils.parentalControlEnabledKey
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.showFoldersOnDeviceKey
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import me.knighthat.component.FolderItem
 import me.knighthat.component.SongItem
-import me.knighthat.component.Sort
-import me.knighthat.component.tab.ItemSelector
-import me.knighthat.component.tab.Search
 import me.knighthat.utils.PathUtils
 import me.knighthat.utils.Toaster
 import me.knighthat.utils.getLocalSongs
@@ -89,92 +88,104 @@ fun OnDeviceSong(
     // Essentials
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
+    val menuState = LocalMenuState.current
 
-    //<editor-fold defaultstate="collapsed" desc="Settings">
-    val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
-    val showFolder4LocalSongs by rememberPreference( showFoldersOnDeviceKey, true )
-    //</editor-fold>
+    // Settings
+    val parentalControlEnabled by Preferences.PARENTAL_CONTROL
+    val showFolder4LocalSongs by Preferences.HOME_SONGS_ON_DEVICE_SHOW_FOLDERS
 
     var songsOnDevice by remember {
-        mutableStateOf( emptyMap<Song, String>() )
+        mutableStateOf(emptyMap<Song, String>())
     }
-    var currentPath by remember( songsOnDevice.values ) {
-        mutableStateOf( PathUtils.findCommonPath( songsOnDevice.values ) )
+    var currentPath by remember(songsOnDevice.values) {
+        mutableStateOf(PathUtils.findCommonPath(songsOnDevice.values))
     }
 
-    //<editor-fold defaultstate="collapsed" desc="Permission handler">
+    // Permission handling
     val permission = rememberSaveable {
-        if( isAtLeastAndroid13 ) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+        if (isAtLeastAndroid13) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
     }
-    var isPermissionGranted by remember { mutableStateOf(
-        ContextCompat.checkSelfPermission( context, permission ) == PackageManager.PERMISSION_GRANTED
-    ) }
+    var isPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        )
+    }
 
-    /**
-     * Opens a prompt saying that a permission (should be either [Manifest.permission.READ_MEDIA_AUDIO] or [Manifest.permission.READ_EXTERNAL_STORAGE])
-     * Then apply result of that prompt.
-     */
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isPermissionGranted = it }
 
-    /**
-     * Starts new activity (should be [Settings.ACTION_APPLICATION_DETAILS_SETTINGS]).
-     * Then wait until user exits the activity, check for permission changes.
-     */
     val settingsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        isPermissionGranted = ContextCompat.checkSelfPermission( context, permission ) == PackageManager.PERMISSION_GRANTED
+        isPermissionGranted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
-    //</editor-fold>
 
-    val odSort = Sort( HOME_ON_DEVICE_SONGS_SORT_BY, HOME_SONGS_SORT_ORDER )
-
-    LaunchedEffect( isPermissionGranted, odSort.sortBy, odSort.sortOrder ) {
-        if( !isPermissionGranted ) return@LaunchedEffect
-
-        context.getLocalSongs( odSort.sortBy, odSort.sortOrder )
-               .distinctUntilChanged()
-               .onEach { lazyListState.scrollToItem( 0, 0 ) }
-               .collect {
-                   songsOnDevice = it
-               }
+    val odSort = remember {
+        Sort(menuState, Preferences.HOME_ON_DEVICE_SONGS_SORT_BY, Preferences.HOME_SONGS_SORT_ORDER)
     }
-    LaunchedEffect( songsOnDevice, search.inputValue, currentPath ) {
-        songsOnDevice.keys.filter { !parentalControlEnabled || !it.title.startsWith( EXPLICIT_PREFIX, true ) }
-                          .filter {
-                              // [showFolder4LocalSongs] must be false and
-                              // this song must be inside [currentPath] to show song
-                              !showFolder4LocalSongs
-                                      || currentPath.equals( songsOnDevice[it], true )
-                                      || "$currentPath/".equals( songsOnDevice[it], true )
-                          }
-                          .filter {
-                              // Without cleaning, user can search explicit songs with "e:"
-                              // I kinda want this to be a feature, but it seems unnecessary
-                              val containsTitle = it.cleanTitle().contains( search.inputValue, true )
-                              val containsArtist = it.cleanArtistsText().contains( search.inputValue, true )
 
-                              containsTitle || containsArtist
-                          }
-                          .let {
-                              itemsOnDisplay.clear()
-                              itemsOnDisplay.addAll( it )
-                          }
+    // Fixed coroutine scope handling
+    LaunchedEffect(isPermissionGranted, odSort.sortBy, odSort.sortOrder) {
+        if (!isPermissionGranted) return@LaunchedEffect
+
+        try {
+            val job = coroutineContext[Job] ?: return@LaunchedEffect
+            
+            context.getLocalSongs(odSort.sortBy, odSort.sortOrder)
+                .distinctUntilChanged()
+                .onEach { 
+                    if (!job.isActive) return@onEach
+                    lazyListState.scrollToItem(0, 0) 
+                }
+                .collect { songsMap ->
+                    if (!job.isActive) return@collect
+                    songsOnDevice = songsMap
+                    if (songsMap.isEmpty()) {
+                        Toaster.e("No songs found on device")
+                    }
+                }
+        } catch (e: Exception) {
+            if (e !is CancellationException) {
+                Toaster.e("Error loading songs: ${e.message}")
+            }
+        }
     }
-    LaunchedEffect( Unit ) {
-        buttons.add( 0, odSort )
 
-        if( !isPermissionGranted )
-            try {
-                permissionLauncher.launch( permission )
-            } catch ( e: Exception ) {
-                e.message?.let( Toaster::e )
+    // This effect doesn't need cancellation as it's synchronous
+    LaunchedEffect(songsOnDevice, search.input, currentPath) {
+        songsOnDevice.keys.filter { !parentalControlEnabled || !it.title.startsWith(EXPLICIT_PREFIX, true) }
+            .filter {
+                !showFolder4LocalSongs ||
+                songsOnDevice[it]?.startsWith(currentPath) == true ||
+                currentPath.isEmpty()
+            }
+            .filter {
+                val containsTitle = search appearsIn it.cleanTitle()
+                val containsArtist = search appearsIn it.cleanArtistsText()
+                containsTitle || containsArtist
+            }
+            .let {
+                itemsOnDisplay.clear()
+                itemsOnDisplay.addAll(it)
             }
     }
 
-    if( !isPermissionGranted )
+    // This effect doesn't need cancellation as it's one-time
+    LaunchedEffect(Unit) {
+        buttons.add(0, odSort)
+
+        if (!isPermissionGranted) {
+            try {
+                permissionLauncher.launch(permission)
+            } catch (e: Exception) {
+                e.message?.let { Toaster.e(it) }
+            }
+        }
+    }
+
+    // UI remains the same...
+    if (!isPermissionGranted) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxSize()
@@ -187,57 +198,86 @@ fun OnDeviceSong(
                     imageVector = Icons.Outlined.Lock,
                     tint = colorPalette().textDisabled,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize( .4f )
+                    modifier = Modifier.fillMaxSize(.4f)
                 )
 
                 BasicText(
-                    text = stringResource( R.string.media_permission_required_please_grant ),
-                    style = typography().m.copy( color = colorPalette().textDisabled )
+                    text = stringResource(R.string.media_permission_required_please_grant),
+                    style = typography().m.copy(color = colorPalette().textDisabled)
                 )
 
-                Spacer( Modifier.height( 20.dp ) )
+                Spacer(Modifier.height(20.dp))
 
                 Button(
-                    border = BorderStroke( 2.dp, colorPalette().accent ),
-                    colors = ButtonDefaults.buttonColors().copy( containerColor = Color.Transparent ),
+                    border = BorderStroke(2.dp, colorPalette().accent),
+                    colors = ButtonDefaults.buttonColors().copy(containerColor = Color.Transparent),
                     onClick = {
                         try {
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.fromParts("package", context.packageName, null )
+                                data = Uri.fromParts("package", context.packageName, null)
                             }
-                            settingsLauncher.launch( intent )
-                        } catch ( e: Exception ) {
-                            e.message?.let( Toaster::e )
+                            settingsLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            e.message?.let { Toaster.e(it) }
                         }
                     }
                 ) {
                     BasicText(
-                        text = stringResource( R.string.open_permission_settings ),
-                        style = typography().l.bold.copy( color = colorPalette().accent )
+                        text = stringResource(R.string.open_permission_settings),
+                        style = typography().l.bold.copy(color = colorPalette().accent)
                     )
                 }
             }
         }
+        return
+    }
+
+    if (isPermissionGranted && songsOnDevice.isEmpty()) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            BasicText(
+                text = "No songs found on device",
+                style = typography().m.copy(color = colorPalette().textDisabled)
+            )
+        }
+        return
+    }
 
     LazyColumn(
         state = lazyListState,
         userScrollEnabled = songsOnDevice.isNotEmpty(),
-        contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer )
+        contentPadding = PaddingValues(bottom = Dimensions.bottomSpacer)
     ) {
-        if( showFolder4LocalSongs && songsOnDevice.isNotEmpty() ) {
-            item( "folder_paths" ) {
+        if (showFolder4LocalSongs && songsOnDevice.isNotEmpty()) {
+            item("folder_paths") {
                 PathUtils.AddressBar(
                     paths = songsOnDevice.values,
                     currentPath = currentPath,
-                    onSpecificAddressClick = { currentPath = it }
+                    onSpecificAddressClick = { path ->
+                        currentPath = path
+                    }
                 )
             }
 
-            items(
-                items = PathUtils.getAvailablePaths( songsOnDevice.values, currentPath ),
-                key = { it }
-            ) {
-                FolderItem( it ) { currentPath += "/$it" }
+            val folders = songsOnDevice.values
+                .map { path ->
+                    val file = java.io.File(path)
+                    file.parent ?: ""
+                }
+                .distinct()
+                .filter { it.startsWith(currentPath) && it != currentPath }
+                .sorted()
+
+            items(folders) { folderPath ->
+                val folderName = folderPath.substringAfterLast('/')
+                FolderItem(
+                    text = folderName,
+                    onClick = {
+                        currentPath = folderPath
+                    }
+                )
             }
         }
 
@@ -249,7 +289,7 @@ fun OnDeviceSong(
 
             SwipeablePlaylistItem(
                 mediaItem = mediaItem,
-                onPlayNext = { binder?.player?.addNext( mediaItem ) },
+                onPlayNext = { binder?.player?.addNext(mediaItem) },
                 onEnqueue = {
                     binder?.player?.enqueue(mediaItem)
                 }
@@ -261,9 +301,8 @@ fun OnDeviceSong(
                     modifier = Modifier.animateItem(),
                     onClick = {
                         search.hideIfEmpty()
-
-                        val mediaItems = getSongs().fastMap( Song::asMediaItem )
-                        binder?.player?.forcePlayAtIndex( mediaItems, index )
+                        val mediaItems = getSongs().fastMap(Song::asMediaItem)
+                        binder?.player?.forcePlayAtIndex(mediaItems, index)
                     }
                 )
             }

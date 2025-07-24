@@ -39,6 +39,7 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.compose.rememberNavController
 import app.kreate.android.R
+import app.kreate.android.Preferences
 import it.fast4x.innertube.Innertube
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
@@ -61,14 +62,11 @@ import it.fast4x.rimusic.ui.styling.favoritesIcon
 import it.fast4x.rimusic.ui.styling.favoritesOverlay
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.asSong
-import it.fast4x.rimusic.utils.colorPaletteNameKey
 import it.fast4x.rimusic.utils.conditional
 import it.fast4x.rimusic.utils.downloadedStateMedia
 import it.fast4x.rimusic.utils.getLikeState
 import it.fast4x.rimusic.utils.isExplicit
 import it.fast4x.rimusic.utils.medium
-import it.fast4x.rimusic.utils.playlistindicatorKey
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.secondary
 import it.fast4x.rimusic.utils.semiBold
 import it.fast4x.rimusic.utils.shimmerEffect
@@ -205,7 +203,7 @@ fun SongItem(
     SongItem(
         thumbnailSizeDp = thumbnailSizeDp,
         thumbnailContent = {
-            ImageCacheFactory.Painter( thumbnailUrl )
+            ImageCacheFactory.Thumbnail( thumbnailUrl )
 
             onThumbnailContent?.invoke(this)
 
@@ -342,11 +340,11 @@ fun SongItem(
     val authors = mediaItem.mediaMetadata.artist.toString()
     val duration = mediaItem.mediaMetadata.extras?.getString("durationText")
 
-    val playlistindicator by rememberPreference(playlistindicatorKey,false)
+    val playlistindicator by Preferences.SHOW_PLAYLIST_INDICATOR
     val isSongMappedToPlaylist by remember {
         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
     }.collectAsState( false, Dispatchers.IO )
-    val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+    val colorPaletteName by Preferences.COLOR_PALETTE
 
     val context = LocalContext.current
     val colorPalette = LocalAppearance.current.colorPalette

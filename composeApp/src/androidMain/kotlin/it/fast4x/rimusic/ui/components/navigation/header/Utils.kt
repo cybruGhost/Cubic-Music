@@ -11,12 +11,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import it.fast4x.rimusic.enums.ColorPaletteMode
-import it.fast4x.rimusic.utils.colorPaletteModeKey
-import it.fast4x.rimusic.utils.logDebugEnabledKey
-import it.fast4x.rimusic.utils.parentalControlEnabledKey
-import it.fast4x.rimusic.utils.rememberPreference
+import app.kreate.android.Preferences
 import it.fast4x.rimusic.colorPalette
+import it.fast4x.rimusic.enums.ColorPaletteMode
 
 @Composable
 internal fun HeaderIcon(
@@ -40,16 +37,13 @@ internal class Preference {
     internal companion object {
 
         @Composable
-        fun parentalControl(): Boolean =
-            rememberPreference( parentalControlEnabledKey, false ).value
+        fun parentalControl(): Boolean = Preferences.PARENTAL_CONTROL.value
 
         @Composable
-        fun debugLog(): Boolean =
-            rememberPreference( logDebugEnabledKey, false ).value
+        fun debugLog(): Boolean = Preferences.DEBUG_LOG.value
 
         @Composable
-        fun colorTheme(): ColorPaletteMode =
-            rememberPreference( colorPaletteModeKey, ColorPaletteMode.Dark ).value
+        fun colorTheme(): ColorPaletteMode = Preferences.THEME_MODE.value
     }
 }
 
@@ -59,7 +53,7 @@ internal class AppBar {
 
         @Composable
         fun contentColor(): Color =
-             when(Preference.colorTheme()) {
+             when(it.fast4x.rimusic.ui.components.navigation.header.Preference.colorTheme()) {
                 ColorPaletteMode.Light, ColorPaletteMode.System -> colorPalette().text
                 else -> Color.White
             }

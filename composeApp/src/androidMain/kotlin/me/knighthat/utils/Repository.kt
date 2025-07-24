@@ -7,7 +7,7 @@ object Repository {
     const val GITHUB = "https://github.com"
     const val GITHUB_API = "https://api.github.com"
 
-    const val OWNER = "CybruGhost"
+    const val OWNER = "cybruGhost"
     const val REPO = "$OWNER/${BuildConfig.APP_NAME}"
     const val REPO_URL = "$GITHUB/$REPO"
 

@@ -123,13 +123,13 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.nevar.nzik"
+        applicationId = "com.Cubic.music"
         minSdk = 21
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.4.0"
+        versionCode = 103
+        versionName = "1.5.1"
 
-     /*
+        /*
                 UNIVERSAL VARIABLES
          */
         buildConfigField( "Boolean", "IS_AUTOUPDATE", "true" )
@@ -156,7 +156,6 @@ android {
         create( "full" ) {
             // App's properties
             versionNameSuffix = "-f"
-            signingConfig = signingConfigs.getByName("debug")
         }
 
         create( "minified" ) {
@@ -170,7 +169,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
         }
 
         create( "izzy" ) {
@@ -189,14 +187,6 @@ android {
 
             // App's properties
             versionNameSuffix = "-fdroid"
-            signingConfig = signingConfigs.getByName("debug")
-        }
-
-        create( "beta" ) {
-            initWith( maybeCreate("minified") )
-            versionNameSuffix = "-beta"
-            signingConfig = signingConfigs.getByName("debug")
-            buildConfigField( "Boolean", "IS_AUTOUPDATE", "false" )
         }
 
         /**
@@ -301,7 +291,6 @@ dependencies {
     implementation(libs.gson)
     implementation (libs.hypnoticcanvas)
     implementation (libs.hypnoticcanvas.shaders)
-    implementation(libs.github.jeziellago.compose.markdown)
 
     implementation(libs.room)
     ksp(libs.room.compiler)

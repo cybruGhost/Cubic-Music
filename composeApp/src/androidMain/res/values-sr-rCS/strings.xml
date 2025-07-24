@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="cancel">Otkaži</string>
     <string name="done">Gotovo</string>
@@ -682,7 +682,7 @@
     <string name="event_volumekeysinfo">Volume UP next and volume DOWN previous song</string>
     <string name="paste">Paste</string>
     <string name="searches_no_suggestions">No suggestions</string>
-       <string name="action_bar_show_discover_button">Show Enable Jennie Ai🌟</string>
+    <string name="action_bar_show_discover_button">Show Enable Jennie Ai🌟</string>
     <string name="playertype">Player Type</string>
     <string name="noblur">No Blur when Lyrics is Disabled</string>
     <string name="fadingedge">Fading Edge</string>
@@ -697,9 +697,9 @@
     <string name="message_type_modern">Modern</string>
     <string name="message_type_essential">Essential</string>
     <string name="discoverinforadio">Removes Liked and Playlist songs from Radio</string>
-    <string name="discover_has_been_applied_to_radio">Discover has been applied to radio, removed songs: %s</string>
+    <string name="discover_has_been_applied_to_radio">Jennie 🌟 has applied to radio, removed songs: %s</string>
     <string name="songs_number_to_show">Songs number to show</string>
-    <string name="discover_has_been_applied_to_queue">Discover has been applied to queue, removed songs: %s</string>
+    <string name="discover_has_been_applied_to_queue">Jennie 🌟 has applied to queue, removed songs: %s</string>
     <string name="player_pause_on_volume_zero">Pause on volume zero</string>
     <string name="info_pauses_player_when_volume_zero">Pauses the player when the volume reaches 0 and resumes when the volume is greater than 0</string>
     <string name="quality">Quality</string>
@@ -758,7 +758,7 @@
     <string name="controls">Controls</string>
     <string name="add_to_favorites">Add to favorites</string>
     <string name="import_favorites">Import favorites</string>
-   <string name="skip_media_on_error">Skip song on error📵</string>
+    <string name="skip_media_on_error">Autoskip on error</string>
     <string name="skip_media_on_error_description">If an error occurs, the media is changed</string>
     <string name="skip_media_on_error_message">The media %1$s went wrong</string>
     <string name="login_required_to_play_this_media">Login required to play this media</string>
@@ -964,4 +964,16 @@
     <string name="rotating_cover_title">Rotating album cover</string>
     <string name="title_playback_speed">Playback speed</string>
     <string name="description_playback_speed">Adjust how slow/fast the song goes</string>
+    <string name="word_documentation">Visit our Distribution site</string>
+    <string name="opens_link_in_web_browser">Opens link in web browser</string>
+    <string name="setting_entry_smart_rewind">Smart rewind</string>
+    <string name="setting_description_smart_rewind">Previous button will act like rewind button after %s secd seconds</string>
+    <string name="setting_entry_show_chip">Show \"%s\" chip</string>
+    <string name="entry_setting_quick_picks_show_section">Show \"%s\"</string>
+    <string name="setting_entry_crash_log">Crash log</string>
+    <string name="setting_entry_logs">Logs</string>
+    <string name="setting_description_copy_or_export_logs">Tap here to export, tap icon to copy</string>
+    <string name="error_message_unsupported_local_playlist">Unsupported format</string>
+    <string name="error_message_import_local_playlist_failed">Error occurs while importing local playlist</string>
+    <string name="dialog_title_color_picker">Color picker</string>
 </resources>

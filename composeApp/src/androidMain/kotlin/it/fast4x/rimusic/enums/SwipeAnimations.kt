@@ -1,9 +1,20 @@
 package it.fast4x.rimusic.enums
 
-enum class SwipeAnimationNoThumbnail {
-    Sliding,
-    Fade,
-    Scale,
-    Carousel,
-    Circle
+import androidx.annotation.StringRes
+import app.kreate.android.R
+import me.knighthat.enums.TextView
+
+enum class SwipeAnimationNoThumbnail(
+    @StringRes override val textId: Int
+): TextView {
+
+    Sliding( R.string.te_slide_vertical ),
+
+    Fade( R.string.te_fade ),
+
+    Scale( R.string.te_scale ),
+
+    Carousel( R.string.carousel ),
+
+    Circle( R.string.vt_circular )
 }

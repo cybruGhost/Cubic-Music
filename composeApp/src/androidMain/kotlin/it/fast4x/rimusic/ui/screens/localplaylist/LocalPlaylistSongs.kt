@@ -49,7 +49,12 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import app.kreate.android.R
+import app.kreate.android.themed.rimusic.component.ItemSelector
+import app.kreate.android.themed.rimusic.component.Search
+import app.kreate.android.themed.rimusic.component.playlist.PlaylistSongsSort
+import app.kreate.android.themed.rimusic.component.playlist.PositionLock
 import com.github.doyaaaaaken.kotlincsv.client.KotlinCsvExperimental
 import it.fast4x.compose.persist.persistList
 import it.fast4x.compose.reordering.draggedItem
@@ -70,14 +75,13 @@ import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.PlaylistSongSortBy
-import it.fast4x.rimusic.enums.RecommendationsNumber
-import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.enums.UiType
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.models.SongPlaylistMap
 import it.fast4x.rimusic.service.modern.isLocal
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.typography
+import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.SwipeableQueueItem
 import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import it.fast4x.rimusic.ui.components.tab.toolbar.Button
@@ -100,18 +104,15 @@ import it.fast4x.rimusic.ui.styling.onOverlay
 import it.fast4x.rimusic.ui.styling.overlay
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.DeletePlaylist
-import it.fast4x.rimusic.utils.PositionLock
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.addToPipedPlaylist
 import it.fast4x.rimusic.utils.asMediaItem
-import it.fast4x.rimusic.utils.autosyncKey
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.checkFileExists
 import it.fast4x.rimusic.utils.color
 import it.fast4x.rimusic.utils.completed
 import it.fast4x.rimusic.utils.deleteFileIfExists
 import it.fast4x.rimusic.utils.deletePipedPlaylist
-import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.durationTextToMillis
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.forcePlayAtIndex
@@ -120,18 +121,11 @@ import it.fast4x.rimusic.utils.formatAsTime
 import it.fast4x.rimusic.utils.getPipedSession
 import it.fast4x.rimusic.utils.isAtLeastAndroid14
 import it.fast4x.rimusic.utils.isLandscape
-import it.fast4x.rimusic.utils.isPipedEnabledKey
-import it.fast4x.rimusic.utils.isRecommendationEnabledKey
 import it.fast4x.rimusic.utils.manageDownload
-import it.fast4x.rimusic.utils.parentalControlEnabledKey
-import it.fast4x.rimusic.utils.recommendationsNumberKey
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.removeFromPipedPlaylist
 import it.fast4x.rimusic.utils.saveImageToInternalStorage
 import it.fast4x.rimusic.utils.semiBold
-import it.fast4x.rimusic.utils.showFloatingIconKey
 import it.fast4x.rimusic.utils.syncSongsInPipedPlaylist
-import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -141,16 +135,13 @@ import kotlinx.coroutines.withContext
 import me.knighthat.component.ResetCache
 import me.knighthat.component.SongItem
 import me.knighthat.component.playlist.PinPlaylist
-import me.knighthat.component.playlist.PlaylistSongsSort
 import me.knighthat.component.playlist.RenamePlaylistDialog
 import me.knighthat.component.playlist.Reposition
 import me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
 import me.knighthat.component.tab.DownloadAllSongsDialog
 import me.knighthat.component.tab.ExportSongsToCSVDialog
-import me.knighthat.component.tab.ItemSelector
 import me.knighthat.component.tab.LikeComponent
 import me.knighthat.component.tab.Locator
-import me.knighthat.component.tab.Search
 import me.knighthat.component.tab.SongShuffler
 import me.knighthat.utils.Toaster
 import timber.log.Timber
@@ -176,12 +167,13 @@ fun LocalPlaylistSongs(
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
     val uriHandler = LocalUriHandler.current
+    val menuState = LocalMenuState.current
 
     // Settings
-    val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
-    val isPipedEnabled by rememberPreference( isPipedEnabledKey, false )
-    val disableScrollingText by rememberPreference( disableScrollingTextKey, false )
-    var isRecommendationEnabled by rememberPreference( isRecommendationEnabledKey, false )
+    val parentalControlEnabled by Preferences.PARENTAL_CONTROL
+    val isPipedEnabled by Preferences.ENABLE_PIPED
+    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    var isRecommendationEnabled by Preferences.LOCAL_PLAYLIST_SMART_RECOMMENDATION
 
     // Non-vital
     val pipedSession = getPipedSession()
@@ -192,7 +184,7 @@ fun LocalPlaylistSongs(
                 .findById( playlistId )
     }.collectAsState( null, Dispatchers.IO )
 
-    val sort = PlaylistSongsSort()
+    val sort = remember { PlaylistSongsSort(menuState) }
     val items by remember( sort.sortBy, sort.sortOrder ) {
         Database.songPlaylistMapTable
                 .sortSongs( playlistId, sort.sortBy, sort.sortOrder )
@@ -201,12 +193,14 @@ fun LocalPlaylistSongs(
     }.collectAsState( emptyList(), Dispatchers.IO )
     var itemsOnDisplay by persistList<Song>("localPlaylist/$playlistId/songs/on_display")
 
-    val itemSelector = ItemSelector<Song>()
+    val itemSelector = remember {
+        ItemSelector( menuState ) { addAll( itemsOnDisplay ) }
+    }
 
     fun getSongs() = itemSelector.ifEmpty { itemsOnDisplay }
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
-    val search = Search(lazyListState)
+    val search = remember { Search(lazyListState) }
     val shuffle = SongShuffler ( ::getSongs )
     val renameDialog = RenamePlaylistDialog { playlist }
     val exportDialog = ExportSongsToCSVDialog(
@@ -253,7 +247,7 @@ fun LocalPlaylistSongs(
         }
     }
     val pin = PinPlaylist( playlist )
-    val positionLock = PositionLock.init( sort.sortOrder )
+    val positionLock = remember( sort.sortOrder ) { PositionLock(sort.sortOrder) }
     LaunchedEffect( itemSelector.isActive ) {
         // Setting this field to true means disable it
         if( itemSelector.isActive )
@@ -381,7 +375,7 @@ fun LocalPlaylistSongs(
     val locator = Locator( lazyListState, ::getSongs )
 
     //<editor-fold defaultstate="collapsed" desc="Smart recommendation">
-    val recommendationsNumber by rememberPreference( recommendationsNumberKey, RecommendationsNumber.`5` )
+    val recommendationsNumber by Preferences.MAX_NUMBER_OF_SMART_RECOMMENDATIONS
     var relatedSongs by rememberSaveable {
         // SongEntity before Int in case random position is equal
         mutableStateOf( emptyMap<Song, Int>() )
@@ -441,7 +435,7 @@ fun LocalPlaylistSongs(
                  }
     }
     //</editor-fold>
-    LaunchedEffect( items, relatedSongs, search.inputValue, parentalControlEnabled ) {
+    LaunchedEffect( items, relatedSongs, search.input, parentalControlEnabled ) {
         items.toMutableList()
              .apply {
                  relatedSongs.forEach { (song, index) ->
@@ -456,8 +450,8 @@ fun LocalPlaylistSongs(
              .filter { song ->
                  // Without cleaning, user can search explicit songs with "e:"
                  // I kinda want this to be a feature, but it seems unnecessary
-                 val containsName = song.cleanTitle().contains(search.inputValue, true)
-                 val containsArtist = song.cleanArtistsText().contains(search.inputValue, true)
+                 val containsName = search appearsIn song.cleanTitle()
+                 val containsArtist = search appearsIn song.cleanArtistsText()
 
                  containsName || containsArtist
              }
@@ -479,13 +473,9 @@ fun LocalPlaylistSongs(
         }
     }
 
-    var autosync by rememberPreference(autosyncKey, false)
+    var autosync by Preferences.AUTO_SYNC
 
-    val thumbnailRoundness by rememberPreference(
-        thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
-    )
-
+    val thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
     val reorderingState = rememberReorderingState(
         lazyListState = lazyListState,
@@ -712,7 +702,7 @@ fun LocalPlaylistSongs(
 
                 }
 
-                Column { search.SearchBar( this ) }
+                search.SearchBar()
             }
 
             itemsIndexed(
@@ -868,7 +858,7 @@ fun LocalPlaylistSongs(
 
         FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
 
-        val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
+        val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
         if ( UiType.ViMusic.isCurrent() && showFloatingIcon )
             FloatingActionsContainerWithScrollToTop(
                 lazyListState = lazyListState,

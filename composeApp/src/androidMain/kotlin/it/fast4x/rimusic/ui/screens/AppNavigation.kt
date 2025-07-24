@@ -22,13 +22,13 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -39,11 +39,12 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import app.kreate.android.Preferences
 import app.kreate.android.themed.rimusic.screen.artist.ArtistAlbums
 import it.fast4x.rimusic.Database
+import it.fast4x.rimusic.enums.HomeScreenTabs
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.StatisticsType
-import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.enums.TransitionEffect
 import it.fast4x.rimusic.extensions.games.pacman.Pacman
 import it.fast4x.rimusic.extensions.games.snake.SnakeGame
@@ -65,13 +66,6 @@ import it.fast4x.rimusic.ui.screens.search.SearchScreen
 import it.fast4x.rimusic.ui.screens.searchresult.SearchResultScreen
 import it.fast4x.rimusic.ui.screens.settings.SettingsScreen
 import it.fast4x.rimusic.ui.screens.statistics.StatisticsScreen
-import it.fast4x.rimusic.utils.clearPreference
-import it.fast4x.rimusic.utils.homeScreenTabIndexKey
-import it.fast4x.rimusic.utils.pauseSearchHistoryKey
-import it.fast4x.rimusic.utils.preferences
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.thumbnailRoundnessKey
-import it.fast4x.rimusic.utils.transitionEffectKey
 
 @androidx.annotation.OptIn()
 @OptIn(
@@ -85,18 +79,25 @@ import it.fast4x.rimusic.utils.transitionEffectKey
 @Composable
 fun AppNavigation(
     navController: NavHostController,
-    miniPlayer: @Composable () -> Unit = {},
-    openTabFromShortcut: Int
+    startPage: HomeScreenTabs,
+    miniPlayer: @Composable () -> Unit = {}
 ) {
-    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val startDestination = remember( startPage ) {
+        Preferences.HOME_TAB_INDEX.value =
+            if( startPage == HomeScreenTabs.Search ) Preferences.STARTUP_SCREEN.value.index else startPage.index
+
+        return@remember if( startPage == HomeScreenTabs.Search )
+            NavRoutes.search
+        else
+            NavRoutes.home
+    }
+
+    val transitionEffect by Preferences.TRANSITION_EFFECT
 
     @Composable
     fun modalBottomSheetPage(content: @Composable () -> Unit) {
         var showSheet by rememberSaveable { mutableStateOf(true) }
-        val thumbnailRoundness by rememberPreference(
-            thumbnailRoundnessKey,
-            ThumbnailRoundness.Heavy
-        )
+        val thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
         CustomModalBottomSheet(
             showSheet = showSheet,
@@ -118,10 +119,6 @@ fun AppNavigation(
             content()
         }
     }
-
-    // Clearing homeScreenTabIndex in opening app.
-    val context = LocalContext.current
-    clearPreference(context, homeScreenTabIndexKey)
 
     val enterTransition: (@JvmSuppressWildcards AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
         {
@@ -148,7 +145,7 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = NavRoutes.home.name,
+        startDestination = startDestination.name,
         enterTransition = enterTransition,
         exitTransition = exitTransition,
         popEnterTransition = enterTransition,
@@ -161,8 +158,7 @@ fun AppNavigation(
             HomeScreen(
                 navController = navController,
                 onPlaylistUrl = navigateToPlaylist,
-                miniPlayer = miniPlayer,
-                openTabFromShortcut = openTabFromShortcut
+                miniPlayer = miniPlayer
             )
         }
 
@@ -319,7 +315,7 @@ fun AppNavigation(
                         route = "${NavRoutes.searchResults.name}/${Uri.encode( query )}",
                     )
 
-                    if ( !context.preferences.getBoolean(pauseSearchHistoryKey, false) )
+                    if ( !Preferences.PAUSE_SEARCH_HISTORY.value )
                         Database.asyncTransaction {
                             // Must ignore to prevent "UNIQUE constraint" exception
                             searchTable.insertIgnore( SearchQuery(query = query) )

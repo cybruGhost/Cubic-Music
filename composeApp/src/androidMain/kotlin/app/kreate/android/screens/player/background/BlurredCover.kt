@@ -95,7 +95,7 @@ private fun BlurFilter(
             transformations = blurTransformation,
             contentDescription = "blurred_background",
             contentScale = ContentScale.Fit,
-            // [Modifier.blur] will be
+            // [Modifier.blur] will be ignore on unsupported devices by default
             modifier = modifier.fillMaxSize()
                                .blur( blurRadius.dp )       // ignored on unsupported devices by default
                                .graphicsLayer {

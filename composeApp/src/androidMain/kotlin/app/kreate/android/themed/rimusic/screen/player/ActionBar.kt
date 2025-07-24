@@ -66,6 +66,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
@@ -84,51 +85,16 @@ import it.fast4x.rimusic.ui.components.themed.DownloadStateIconButton
 import it.fast4x.rimusic.ui.components.themed.IconButton
 import it.fast4x.rimusic.ui.components.themed.PlayerMenu
 import it.fast4x.rimusic.utils.DisposableListener
-import it.fast4x.rimusic.utils.actionspacedevenlyKey
 import it.fast4x.rimusic.utils.addNext
-import it.fast4x.rimusic.utils.blackgradientKey
-import it.fast4x.rimusic.utils.colorPaletteModeKey
-import it.fast4x.rimusic.utils.colorPaletteNameKey
 import it.fast4x.rimusic.utils.conditional
-import it.fast4x.rimusic.utils.disableScrollingTextKey
-import it.fast4x.rimusic.utils.effectRotationKey
-import it.fast4x.rimusic.utils.expandedplayertoggleKey
 import it.fast4x.rimusic.utils.getDownloadState
 import it.fast4x.rimusic.utils.isDownloadedSong
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.manageDownload
 import it.fast4x.rimusic.utils.mediaItems
-import it.fast4x.rimusic.utils.miniQueueExpandedKey
 import it.fast4x.rimusic.utils.playAtIndex
-import it.fast4x.rimusic.utils.playerBackgroundColorsKey
-import it.fast4x.rimusic.utils.playerTypeKey
-import it.fast4x.rimusic.utils.playlistindicatorKey
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
-import it.fast4x.rimusic.utils.showButtonPlayerAddToPlaylistKey
-import it.fast4x.rimusic.utils.showButtonPlayerArrowKey
-import it.fast4x.rimusic.utils.showButtonPlayerDiscoverKey
-import it.fast4x.rimusic.utils.showButtonPlayerDownloadKey
-import it.fast4x.rimusic.utils.showButtonPlayerLoopKey
-import it.fast4x.rimusic.utils.showButtonPlayerLyricsKey
-import it.fast4x.rimusic.utils.showButtonPlayerMenuKey
-import it.fast4x.rimusic.utils.showButtonPlayerShuffleKey
-import it.fast4x.rimusic.utils.showButtonPlayerSleepTimerKey
-import it.fast4x.rimusic.utils.showButtonPlayerStartRadioKey
-import it.fast4x.rimusic.utils.showButtonPlayerSystemEqualizerKey
-import it.fast4x.rimusic.utils.showButtonPlayerVideoKey
-import it.fast4x.rimusic.utils.showNextSongsInPlayerKey
-import it.fast4x.rimusic.utils.showPlaybackSpeedButtonKey
-import it.fast4x.rimusic.utils.showalbumcoverKey
-import it.fast4x.rimusic.utils.showlyricsthumbnailKey
-import it.fast4x.rimusic.utils.showsongsKey
-import it.fast4x.rimusic.utils.showthumbnailKey
 import it.fast4x.rimusic.utils.shuffleQueue
-import it.fast4x.rimusic.utils.swipeUpQueueKey
-import it.fast4x.rimusic.utils.tapqueueKey
-import it.fast4x.rimusic.utils.textoutlineKey
-import it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
-import it.fast4x.rimusic.utils.visualizerEnabledKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -174,15 +140,15 @@ fun BoxScope.ActionBar(
 
     val mediaItem = binder?.player?.currentMediaItem ?: return
 
-    val playerBackgroundColors by rememberPreference( playerBackgroundColorsKey, PlayerBackgroundColors.BlurredCoverColor )
-    val blackGradient by rememberPreference( blackgradientKey, false )
-    val showLyricsThumbnail by rememberPreference(showlyricsthumbnailKey, false)
-    val showNextSongsInPlayer by rememberPreference( showNextSongsInPlayerKey, false )
-    val miniQueueExpanded by rememberPreference( miniQueueExpandedKey, true )
-    val tapQueue by rememberPreference( tapqueueKey, true )
-    val transparentBackgroundActionBarPlayer by rememberPreference( transparentBackgroundPlayerActionBarKey, false )
-    val swipeUpQueue by rememberPreference( swipeUpQueueKey, true )
-    val disableScrollingText by rememberPreference( disableScrollingTextKey, false )
+    val playerBackgroundColors by Preferences.PLAYER_BACKGROUND
+    val blackGradient by Preferences.BLACK_GRADIENT
+    val showLyricsThumbnail by Preferences.LYRICS_SHOW_THUMBNAIL
+    val showNextSongsInPlayer by Preferences.PLAYER_SHOW_NEXT_IN_QUEUE
+    val miniQueueExpanded by Preferences.PLAYER_IS_NEXT_IN_QUEUE_EXPANDED
+    val tapQueue by Preferences.PLAYER_ACTIONS_BAR_TAP_TO_OPEN_QUEUE
+    val transparentBackgroundActionBarPlayer by Preferences.PLAYER_TRANSPARENT_ACTIONS_BAR
+    val swipeUpQueue by Preferences.PLAYER_ACTIONS_BAR_SWIPE_UP_TO_OPEN_QUEUE
+    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
 
     var showQueue by showQueueState
     var isShowingVisualizer by showVisualizerState
@@ -298,7 +264,7 @@ fun BoxScope.ActionBar(
                         )
                     }
 
-                    val showSongsState = rememberPreference( showsongsKey, SongsNumber.`2` )
+                    val showSongsState = Preferences.MAX_NUMBER_OF_NEXT_IN_QUEUE
                     val viewPort = remember {
                         PagerViewPort( showSongsState, pagerStateQueue )
                     }
@@ -326,7 +292,7 @@ fun BoxScope.ActionBar(
                                     }
                                 )
                         ) {
-                            val showAlbumCover by rememberPreference( showalbumcoverKey, true )
+                            val showAlbumCover by Preferences.PLAYER_SHOW_NEXT_IN_QUEUE_THUMBNAIL
                             if ( showAlbumCover )
                                 Box( Modifier.align(Alignment.CenterVertically) ) {
                                     ImageCacheFactory.Thumbnail(
@@ -348,8 +314,8 @@ fun BoxScope.ActionBar(
                                     .height(40.dp)
                                     .fillMaxWidth()
                             ) {
-                                val colorPaletteMode by rememberPreference( colorPaletteModeKey, ColorPaletteMode.Dark )
-                                val textOutline by rememberPreference( textoutlineKey, false )
+                                val colorPaletteMode by Preferences.THEME_MODE
+                                val textOutline by Preferences.TEXT_OUTLINE
 
                                 //<editor-fold defaultstate="collapsed" desc="Title">
                                 Box {
@@ -448,7 +414,7 @@ fun BoxScope.ActionBar(
                 }
             }
 
-            val actionsSpaceEvenly by rememberPreference( actionspacedevenlyKey, false )
+            val actionsSpaceEvenly by Preferences.PLAYER_ACTION_BUTTONS_SPACED_EVENLY
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = if (actionsSpaceEvenly) Arrangement.SpaceEvenly else Arrangement.SpaceBetween,
@@ -456,7 +422,7 @@ fun BoxScope.ActionBar(
                     .padding(horizontal = 12.dp)
                     .fillMaxWidth()
             ) {
-                val showButtonPlayerVideo by rememberPreference( showButtonPlayerVideoKey, false )
+                val showButtonPlayerVideo by Preferences.PLAYER_ACTION_TOGGLE_VIDEO
                 if (showButtonPlayerVideo)
                     IconButton(
                         icon = R.drawable.video,
@@ -468,7 +434,7 @@ fun BoxScope.ActionBar(
                         modifier = Modifier.size( 24.dp )
                     )
 
-                val showButtonPlayerDiscover by rememberPreference( showButtonPlayerDiscoverKey, false )
+                val showButtonPlayerDiscover by Preferences.PLAYER_ACTION_DISCOVER
                 if (showButtonPlayerDiscover) {
                     var discoverIsEnabled by discoverState
 
@@ -487,7 +453,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerDownload by rememberPreference( showButtonPlayerDownloadKey, true )
+                val showButtonPlayerDownload by Preferences.PLAYER_ACTION_DOWNLOAD
                 if (showButtonPlayerDownload) {
                     val isDownloaded = isDownloadedSong( mediaItem.mediaId )
 
@@ -513,18 +479,29 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerAddToPlaylist by rememberPreference( showButtonPlayerAddToPlaylistKey, true )
+                val showButtonPlayerAddToPlaylist by Preferences.PLAYER_ACTION_ADD_TO_PLAYLIST
                 if (showButtonPlayerAddToPlaylist) {
-                    val showPlaylistIndicator by rememberPreference( playlistindicatorKey, false )
-                    val colorPaletteName by rememberPreference( colorPaletteNameKey, ColorPaletteName.Dynamic )
+                    val showPlaylistIndicator by Preferences.SHOW_PLAYLIST_INDICATOR
+                    val colorPaletteName by Preferences.COLOR_PALETTE
                     val color = colorPalette()
                     val isSongMappedToPlaylist by remember( mediaItem.mediaId ) {
                         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
                     }.collectAsState( false, Dispatchers.IO )
+                    val iconColor by remember {
+                        derivedStateOf {
+                            if ( isSongMappedToPlaylist && showPlaylistIndicator )
+                                if ( colorPaletteName == ColorPaletteName.PureBlack )
+                                    Color.Black
+                                else
+                                    color.text
+                            else
+                                color.accent
+                        }
+                    }
 
                     IconButton(
                         icon = R.drawable.add_in_playlist,
-                        color = if (isSongMappedToPlaylist && showPlaylistIndicator) Color.White else color.accent,
+                        color = iconColor,
                         onClick = {
                             menuState.display {
                                 AddToPlaylistPlayerMenu(
@@ -544,10 +521,10 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerLoop by rememberPreference( showButtonPlayerLoopKey, true )
+                val showButtonPlayerLoop by Preferences.PLAYER_ACTION_LOOP
                 if (showButtonPlayerLoop) {
                     var queueLoopType by queueLoopState
-                    val effectRotationEnabled by rememberPreference( effectRotationKey, true )
+                    val effectRotationEnabled by Preferences.ROTATION_EFFECT
 
                     IconButton(
                         icon = queueLoopType.iconId,
@@ -561,7 +538,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerShuffle by rememberPreference( showButtonPlayerShuffleKey, true )
+                val showButtonPlayerShuffle by Preferences.PLAYER_ACTION_SHUFFLE
                 if (showButtonPlayerShuffle)
                     IconButton(
                         icon = R.drawable.shuffle,
@@ -570,7 +547,7 @@ fun BoxScope.ActionBar(
                         modifier = Modifier.size( 24.dp )
                     )
 
-                val showButtonPlayerLyrics by rememberPreference( showButtonPlayerLyricsKey, true )
+                val showButtonPlayerLyrics by Preferences.PLAYER_ACTION_SHOW_LYRICS
                 if (showButtonPlayerLyrics)
                     IconButton(
                         icon = R.drawable.song_lyrics,
@@ -584,10 +561,10 @@ fun BoxScope.ActionBar(
                         modifier = Modifier.size( 24.dp )
                     )
 
-                val playerType by rememberPreference( playerTypeKey, PlayerType.Essential )
-                val showThumbnail by rememberPreference( showthumbnailKey, true )
+                val playerType by Preferences.PLAYER_TYPE
+                val showThumbnail by Preferences.PLAYER_SHOW_THUMBNAIL
                 if (!isLandscape || ((playerType == PlayerType.Essential) && !showThumbnail)) {
-                    val expandedPlayerToggle by rememberPreference( expandedplayertoggleKey, true )
+                    val expandedPlayerToggle by Preferences.PLAYER_ACTION_TOGGLE_EXPAND
                     var expandedPlayer by expandPlayerState
 
                     if (expandedPlayerToggle && !showLyricsThumbnail)
@@ -601,7 +578,7 @@ fun BoxScope.ActionBar(
                         )
                 }
 
-                val visualizerEnabled by rememberPreference( visualizerEnabledKey, false )
+                val visualizerEnabled by Preferences.PLAYER_VISUALIZER
                 if (visualizerEnabled)
                     IconButton(
                         icon = R.drawable.sound_effect,
@@ -615,7 +592,7 @@ fun BoxScope.ActionBar(
                     )
 
 
-                val showButtonPlayerSleepTimer by rememberPreference( showButtonPlayerSleepTimerKey, false )
+                val showButtonPlayerSleepTimer by Preferences.PLAYER_ACTION_SLEEP_TIMER
                 if (showButtonPlayerSleepTimer) {
                     val sleepTimerMillisLeft: Long? by
                         (binder.sleepTimerMillisLeft ?: flowOf(null)).collectAsState( null )
@@ -630,7 +607,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerSystemEqualizer by rememberPreference( showButtonPlayerSystemEqualizerKey, false )
+                val showButtonPlayerSystemEqualizer by Preferences.PLAYER_ACTION_OPEN_EQUALIZER
                 if (showButtonPlayerSystemEqualizer) {
                     val activityResultLauncher =
                         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
@@ -664,7 +641,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerStartRadio by rememberPreference( showButtonPlayerStartRadioKey, false )
+                val showButtonPlayerStartRadio by Preferences.PLAYER_ACTION_START_RADIO
                 if (showButtonPlayerStartRadio)
                     IconButton(
                         icon = R.drawable.radio,
@@ -675,7 +652,7 @@ fun BoxScope.ActionBar(
                         modifier = Modifier.size( 24.dp )
                     )
 
-                val showPlaybackSpeedButton by rememberPreference( showPlaybackSpeedButtonKey, false )
+                val showPlaybackSpeedButton by Preferences.AUDIO_SPEED
                 if( showPlaybackSpeedButton ) {
                     val playbackSpeed = remember { PlaybackSpeed() }
 
@@ -683,7 +660,7 @@ fun BoxScope.ActionBar(
                     playbackSpeed.ToolBarButton()
                 }
 
-                val showButtonPlayerArrow by rememberPreference( showButtonPlayerArrowKey, true )
+                val showButtonPlayerArrow by Preferences.PLAYER_ACTION_OPEN_QUEUE_ARROW
                 if (showButtonPlayerArrow)
                     IconButton(
                         icon = R.drawable.chevron_up,
@@ -697,7 +674,7 @@ fun BoxScope.ActionBar(
                             .size(24.dp),
                     )
 
-                val showButtonPlayerMenu by rememberPreference( showButtonPlayerMenuKey, false )
+                val showButtonPlayerMenu by Preferences.PLAYER_ACTION_SHOW_MENU
                 if( showButtonPlayerMenu || isLandscape ) {
                     val isInLandscape = isLandscape
 

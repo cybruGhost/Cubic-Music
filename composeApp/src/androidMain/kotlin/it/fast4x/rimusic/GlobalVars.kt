@@ -3,19 +3,8 @@ package it.fast4x.rimusic
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import app.kreate.android.Preferences
 import it.fast4x.rimusic.ui.styling.LocalAppearance
-import it.fast4x.rimusic.utils.autosyncKey
-import it.fast4x.rimusic.utils.bassboostEnabledKey
-import it.fast4x.rimusic.utils.handleAudioFocusEnabledKey
-import it.fast4x.rimusic.utils.isConnectionMeteredEnabledKey
-import it.fast4x.rimusic.utils.logDebugEnabledKey
-import it.fast4x.rimusic.utils.preferences
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.showButtonPlayerVideoKey
-import it.fast4x.rimusic.utils.showSearchTabKey
-import it.fast4x.rimusic.utils.showStatsInNavbarKey
-import it.fast4x.rimusic.utils.ytAccountNameKey
-import it.fast4x.rimusic.utils.ytAccountThumbnailKey
 
 @Composable
 fun typography() = LocalAppearance.current.typography
@@ -28,10 +17,10 @@ fun colorPalette() = LocalAppearance.current.colorPalette
 fun thumbnailShape() = LocalAppearance.current.thumbnailShape
 
 @Composable
-fun showSearchIconInNav() = rememberPreference( showSearchTabKey, false ).value
+fun showSearchIconInNav() = Preferences.SHOW_SEARCH_IN_NAVIGATION_BAR.value
 
 @Composable
-fun showStatsIconInNav() = rememberPreference( showStatsInNavbarKey, false ).value
+fun showStatsIconInNav() = Preferences.SHOW_STATS_IN_NAVIGATION_BAR.value
 
 @Composable
 fun binder() = LocalPlayerServiceBinder.current?.service
@@ -39,12 +28,12 @@ fun binder() = LocalPlayerServiceBinder.current?.service
 fun appContext(): Context = Dependencies.application.applicationContext
 fun context(): Context = Dependencies.application
 
-fun ytAccountName() = appContext().preferences.getString(ytAccountNameKey, "")
-fun ytAccountThumbnail() = appContext().preferences.getString(ytAccountThumbnailKey, "")
-fun isVideoEnabled() = appContext().preferences.getBoolean(showButtonPlayerVideoKey, false)
+fun ytAccountName() = Preferences.YOUTUBE_ACCOUNT_NAME.value
+fun ytAccountThumbnail() = Preferences.YOUTUBE_ACCOUNT_AVATAR.value
+fun isVideoEnabled() = Preferences.PLAYER_ACTION_TOGGLE_VIDEO.value
 
-fun isConnectionMeteredEnabled() = appContext().preferences.getBoolean(isConnectionMeteredEnabledKey, true)
-fun isAutoSyncEnabled() = appContext().preferences.getBoolean(autosyncKey, false)
-fun isHandleAudioFocusEnabled() = appContext().preferences.getBoolean(handleAudioFocusEnabledKey, true)
-fun isBassBoostEnabled() = appContext().preferences.getBoolean(bassboostEnabledKey, false)
-fun isDebugModeEnabled() = appContext().preferences.getBoolean(logDebugEnabledKey, false)
+fun isConnectionMeteredEnabled() = Preferences.IS_CONNECTION_METERED.value
+fun isAutoSyncEnabled() = Preferences.AUTO_SYNC.value
+fun isHandleAudioFocusEnabled() = Preferences.AUDIO_SMART_PAUSE_DURING_CALLS.value
+fun isBassBoostEnabled() = Preferences.AUDIO_BASS_BOOSTED.value
+fun isDebugModeEnabled() = Preferences.DEBUG_LOG.value

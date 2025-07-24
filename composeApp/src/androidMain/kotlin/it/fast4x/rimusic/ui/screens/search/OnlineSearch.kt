@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.bodies.SearchSuggestionsBody
@@ -64,7 +65,6 @@ import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.NavigationBarPosition
-import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.models.SearchQuery
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.LocalMenuState
@@ -80,14 +80,10 @@ import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.align
 import it.fast4x.rimusic.utils.asMediaItem
-import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.forcePlay
 import it.fast4x.rimusic.utils.isNowPlaying
 import it.fast4x.rimusic.utils.medium
-import it.fast4x.rimusic.utils.pauseSearchHistoryKey
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.secondary
-import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -108,7 +104,7 @@ fun OnlineSearch(
     decorationBox: @Composable (@Composable () -> Unit) -> Unit,
 ) {
     // Settings
-    val isHistoryPaused by rememberPreference( pauseSearchHistoryKey, false )
+    val isHistoryPaused by Preferences.PAUSE_SEARCH_HISTORY
 
     var reloadHistory by remember {
         mutableStateOf(false)
@@ -161,10 +157,7 @@ fun OnlineSearch(
         FocusRequester()
     }
 
-    var thumbnailRoundness by rememberPreference(
-        thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
-    )
+    var thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
     val lazyListState = rememberLazyListState()
 
@@ -179,7 +172,7 @@ fun OnlineSearch(
     val hapticFeedback = LocalHapticFeedback.current
     val binder = LocalPlayerServiceBinder.current
 
-    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
+    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
 
     Box(
         modifier = Modifier

@@ -28,17 +28,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.OnPictureInPictureModeChangedProvider
 import androidx.core.app.PictureInPictureModeChangedInfo
 import androidx.core.graphics.toRect
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.compose.persist.findActivityNullable
 import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.utils.ActionReceiver
-import it.fast4x.rimusic.utils.enablePictureInPictureAutoKey
-import it.fast4x.rimusic.utils.enablePictureInPictureKey
 import it.fast4x.rimusic.utils.findActivity
 import it.fast4x.rimusic.utils.isAtLeastAndroid12
 import it.fast4x.rimusic.utils.isAtLeastAndroid7
 import it.fast4x.rimusic.utils.isAtLeastAndroid8
-import it.fast4x.rimusic.utils.rememberPreference
 
 
 private fun logError(throwable: Throwable) = Log.e("PipHandler", "An error occurred", throwable)
@@ -184,8 +182,8 @@ fun Pip(
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
 
-    val enablePictureInPicture by rememberPreference(enablePictureInPictureKey, false)
-    val enablePictureInPictureAuto by rememberPreference(enablePictureInPictureAutoKey, false)
+    val enablePictureInPicture by Preferences.IS_PIP_ENABLED
+    val enablePictureInPictureAuto by Preferences.IS_AUTO_PIP_ENABLED
 
     DisposableEffect(context, actions) {
         val currentActions = actions ?: return@DisposableEffect onDispose { }

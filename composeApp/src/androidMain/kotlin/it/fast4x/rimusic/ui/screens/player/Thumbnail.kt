@@ -42,10 +42,10 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
+import app.kreate.android.Preferences
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.ThumbnailCoverType
 import it.fast4x.rimusic.enums.ThumbnailType
 import it.fast4x.rimusic.service.LoginRequiredException
 import it.fast4x.rimusic.service.NoInternetException
@@ -61,17 +61,9 @@ import it.fast4x.rimusic.ui.components.themed.RotateThumbnailCoverAnimation
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.DisposableListener
-import it.fast4x.rimusic.utils.clickOnLyricsTextKey
-import it.fast4x.rimusic.utils.coverThumbnailAnimationKey
 import it.fast4x.rimusic.utils.currentWindow
 import it.fast4x.rimusic.utils.doubleShadowDrop
 import it.fast4x.rimusic.utils.isLandscape
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.showCoverThumbnailAnimationKey
-import it.fast4x.rimusic.utils.showlyricsthumbnailKey
-import it.fast4x.rimusic.utils.showvisthumbnailKey
-import it.fast4x.rimusic.utils.thumbnailTypeKey
-import it.fast4x.rimusic.utils.thumbnailpauseKey
 import me.knighthat.coil.ImageCacheFactory
 import me.knighthat.utils.Toaster
 import timber.log.Timber
@@ -105,7 +97,7 @@ fun Thumbnail(
         it to (it - 64.dp).px
     }
 
-    var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
+    var showlyricsthumbnail by Preferences.LYRICS_SHOW_THUMBNAIL
     var nullableWindow by remember {
         mutableStateOf(player.currentWindow)
     }
@@ -137,8 +129,8 @@ fun Thumbnail(
         mutableStateOf(true)
     }
 
-    val clickLyricsText by rememberPreference(clickOnLyricsTextKey, true)
-    var showvisthumbnail by rememberPreference(showvisthumbnailKey, false)
+    val clickLyricsText by Preferences.LYRICS_JUMP_ON_TAP
+    var showvisthumbnail by Preferences.PLAYER_SHOW_THUMBNAIL_ON_VISUALIZER
     //var expandedlyrics by rememberPreference(expandedlyricsKey,false)
 
     player.DisposableListener {
@@ -168,8 +160,8 @@ fun Thumbnail(
         onSuccess = { artImageAvailable = true }
     )
 
-    val showCoverThumbnailAnimation by rememberPreference(showCoverThumbnailAnimationKey, false)
-    var coverThumbnailAnimation by rememberPreference(coverThumbnailAnimationKey, ThumbnailCoverType.Vinyl)
+    val showCoverThumbnailAnimation by Preferences.PLAYER_THUMBNAIL_ANIMATION
+    var coverThumbnailAnimation by Preferences.PLAYER_THUMBNAIL_TYPE
 
 
     AnimatedContent(
@@ -205,7 +197,7 @@ fun Thumbnail(
         contentAlignment = Alignment.Center, label = ""
     ) { currentWindow ->
 
-        val thumbnailType by rememberPreference(thumbnailTypeKey, ThumbnailType.Modern)
+        val thumbnailType by Preferences.THUMBNAIL_TYPE
 
         var modifierUiType by remember { mutableStateOf(modifier) }
 
@@ -435,7 +427,7 @@ fun Thumbnail(
 fun Modifier.thumbnailpause(
     shouldBePlaying: Boolean
 ) = composed {
-    var thumbnailpause by rememberPreference(thumbnailpauseKey, false)
+    var thumbnailpause by Preferences.PLAYER_SHRINK_THUMBNAIL_ON_PAUSE
     val scale by animateFloatAsState(if ((thumbnailpause) && (!shouldBePlaying)) 0.9f else 1f)
 
     this

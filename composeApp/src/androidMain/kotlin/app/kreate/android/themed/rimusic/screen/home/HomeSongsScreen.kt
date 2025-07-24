@@ -23,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import app.kreate.android.R
+import app.kreate.android.themed.rimusic.component.ItemSelector
+import app.kreate.android.themed.rimusic.component.Search
 import app.kreate.android.themed.rimusic.screen.home.onDevice.OnDeviceSong
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.appContext
@@ -35,6 +38,7 @@ import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.UiType
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.ui.components.ButtonsRow
+import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import it.fast4x.rimusic.ui.components.tab.TabHeader
 import it.fast4x.rimusic.ui.components.tab.toolbar.Button
@@ -48,23 +52,13 @@ import it.fast4x.rimusic.ui.components.themed.PlaylistsMenu
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.asMediaItem
-import it.fast4x.rimusic.utils.builtInPlaylistKey
 import it.fast4x.rimusic.utils.enqueue
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.showCachedPlaylistKey
-import it.fast4x.rimusic.utils.showDownloadedPlaylistKey
-import it.fast4x.rimusic.utils.showFavoritesPlaylistKey
-import it.fast4x.rimusic.utils.showFloatingIconKey
-import it.fast4x.rimusic.utils.showMyTopPlaylistKey
 import me.knighthat.component.ResetCache
 import me.knighthat.component.tab.ImportSongsFromCSV
-import me.knighthat.component.tab.ItemSelector
 import me.knighthat.component.tab.LikeComponent
 import me.knighthat.component.tab.Locator
-import me.knighthat.component.tab.Search
 import me.knighthat.component.tab.SongShuffler
 import timber.log.Timber
-import it.fast4x.rimusic.utils.showOnDevicePlaylistKey
 
 @UnstableApi
 @ExperimentalMaterial3Api
@@ -75,16 +69,19 @@ fun HomeSongsScreen(navController: NavController ) {
     // Essentials
     val binder = LocalPlayerServiceBinder.current
     val lazyListState = rememberLazyListState()
+    val menuState = LocalMenuState.current
 
-    var builtInPlaylist by rememberPreference( builtInPlaylistKey, BuiltInPlaylist.Favorites )
+    var builtInPlaylist by Preferences.HOME_SONGS_TYPE
 
     val itemsOnDisplayState = remember { mutableStateListOf<Song>() }
 
-    val itemSelector = ItemSelector<Song>()
+    val itemSelector = remember {
+        ItemSelector( menuState ) { addAll( itemsOnDisplayState ) }
+    }
     fun getSongs() = itemSelector.ifEmpty { itemsOnDisplayState }.toList()
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
-    val search = Search(lazyListState)
+    val search = remember { Search(lazyListState) }
     val locator = Locator( lazyListState, ::getSongs )
     val import = ImportSongsFromCSV()
     val shuffle = SongShuffler(::getSongs)
@@ -116,6 +113,9 @@ fun HomeSongsScreen(navController: NavController ) {
     val resetCache = ResetCache( ::getSongs )
 
     val buttons = remember( builtInPlaylist ) {
+        // Disable checkboxes when category has changed
+        itemSelector.isActive = false
+
         mutableStateListOf<Button>() .apply {
             this.add( search )
             this.add( locator )
@@ -159,11 +159,11 @@ fun HomeSongsScreen(navController: NavController ) {
             ) {
                 Column {
                     //<editor-fold defaultstate="collapsed" desc="Chips">
-                    val showFavoritesPlaylist by rememberPreference( showFavoritesPlaylistKey, true )
-                    val showCachedPlaylist by rememberPreference( showCachedPlaylistKey, true )
-                    val showMyTopPlaylist by rememberPreference( showMyTopPlaylistKey, true )
-                    val showDownloadedPlaylist by rememberPreference( showDownloadedPlaylistKey, true )
-                    val showOnDeviceChip by rememberPreference( showOnDevicePlaylistKey, true )
+                    val showFavoritesPlaylist by Preferences.HOME_SONGS_SHOW_FAVORITES_CHIP
+                    val showCachedPlaylist by Preferences.HOME_SONGS_SHOW_CACHED_CHIP
+                    val showDownloadedPlaylist by Preferences.HOME_SONGS_SHOW_DOWNLOADED_CHIP
+                    val showMyTopPlaylist by Preferences.HOME_SONGS_SHOW_MOST_PLAYED_CHIP
+                    val showOnDevice by Preferences.HOME_SONGS_SHOW_ON_DEVICE_CHIP
                     val chips = remember( showFavoritesPlaylist, showCachedPlaylist, showMyTopPlaylist, showDownloadedPlaylist) {
                         buildList {
                             add( BuiltInPlaylist.All )
@@ -175,7 +175,7 @@ fun HomeSongsScreen(navController: NavController ) {
                                 add( BuiltInPlaylist.Downloaded )
                             if( showMyTopPlaylist )
                                 add( BuiltInPlaylist.Top )
-                            if( showOnDeviceChip )
+                            if( showOnDevice )
                                 add( BuiltInPlaylist.OnDevice )
                         }
                     }
@@ -204,7 +204,7 @@ fun HomeSongsScreen(navController: NavController ) {
             }
 
             // Sticky search bar
-            search.SearchBar( this )
+            search.SearchBar()
 
             when( builtInPlaylist ) {
                 BuiltInPlaylist.OnDevice -> OnDeviceSong( navController, lazyListState, itemSelector, search, buttons, itemsOnDisplayState, ::getSongs )
@@ -214,7 +214,7 @@ fun HomeSongsScreen(navController: NavController ) {
 
         FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
 
-        val showFloatingIcon by rememberPreference( showFloatingIconKey, false )
+        val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
         if( UiType.ViMusic.isCurrent() && showFloatingIcon )
             MultiFloatingActionsContainer(
                 iconId = R.drawable.search,

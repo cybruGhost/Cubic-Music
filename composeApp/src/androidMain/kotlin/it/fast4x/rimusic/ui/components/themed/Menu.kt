@@ -29,7 +29,6 @@ import it.fast4x.rimusic.utils.medium
 import it.fast4x.rimusic.utils.secondary
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.typography
-import androidx.compose.foundation.basicMarquee
 
 @Composable
 inline fun Menu(
@@ -58,8 +57,7 @@ fun MenuEntry(
     onLongClick: (() -> Unit)? = null,
     secondaryText: String? = null,
     enabled: Boolean = true,
-    trailingContent: (@Composable () -> Unit)? = null,
-    disableScrollingText: Boolean = false
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -85,19 +83,13 @@ fun MenuEntry(
         ) {
             BasicText(
                 text = text,
-                style = typography().xs.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .let { if (!disableScrollingText) it.basicMarquee(iterations = Int.MAX_VALUE) else it }
+                style = typography().xs.medium
             )
 
             secondaryText?.let { secondaryText ->
                 BasicText(
                     text = secondaryText,
-                    style = typography().xxs.medium.secondary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .let { if (!disableScrollingText) it.basicMarquee(iterations = Int.MAX_VALUE) else it }
+                    style = typography().xxs.medium.secondary
                 )
             }
         }
@@ -114,8 +106,7 @@ fun MenuEntry(
     onLongClick: (() -> Unit)? = null,
     secondaryText: String? = null,
     enabled: Boolean = true,
-    trailingContent: (@Composable () -> Unit)? = null,
-    disableScrollingText: Boolean = false
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     MenuEntry(
         painterResource( icon ),
@@ -124,7 +115,6 @@ fun MenuEntry(
         onLongClick,
         secondaryText,
         enabled,
-        trailingContent,
-        disableScrollingText
+        trailingContent
     )
 }

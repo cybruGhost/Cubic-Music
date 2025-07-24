@@ -37,9 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -58,11 +56,8 @@ import it.fast4x.rimusic.MODIFIED_PREFIX
 import it.fast4x.rimusic.MONTHLY_PREFIX
 import it.fast4x.rimusic.PINNED_PREFIX
 import it.fast4x.rimusic.PIPED_PREFIX
-import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
-import it.fast4x.rimusic.enums.PlaylistSortBy
-import it.fast4x.rimusic.enums.SortOrder
 import it.fast4x.rimusic.models.Info
 import it.fast4x.rimusic.models.Playlist
 import it.fast4x.rimusic.service.modern.isLocal
@@ -79,12 +74,8 @@ import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.formatAsDuration
 import it.fast4x.rimusic.utils.getDownloadState
 import it.fast4x.rimusic.utils.isDownloadedSong
-import it.fast4x.rimusic.utils.isNetworkConnected
 import it.fast4x.rimusic.utils.manageDownload
-import it.fast4x.rimusic.utils.playlistSortByKey
-import it.fast4x.rimusic.utils.playlistSortOrderKey
 import it.fast4x.rimusic.utils.positionAndDurationState
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
 import it.fast4x.rimusic.utils.thumbnail
 import kotlinx.coroutines.CoroutineScope
@@ -93,8 +84,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import me.knighthat.sync.YouTubeSync
-import me.knighthat.component.tab.Search
-import me.knighthat.utils.Toaster
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -103,7 +92,7 @@ fun NonQueuedMediaItemGridMenu(
     onDismiss: () -> Unit,
     mediaItem: MediaItem,
     modifier: Modifier = Modifier,
-    onRemoveFromPlaylist: ((Playlist) -> Unit)? = null,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
     onHideFromDatabase: (() -> Unit)? = null,
     onRemoveFromQuickPicks: (() -> Unit)? = null,
     onDownload: (() -> Unit)? = null,
@@ -130,7 +119,6 @@ fun NonQueuedMediaItemGridMenu(
     )
 }
 
-@OptIn(UnstableApi::class)
 @Composable
 fun BaseMediaItemGridMenu(
     navController: NavController,
@@ -144,7 +132,7 @@ fun BaseMediaItemGridMenu(
     onEnqueue: (() -> Unit)? = null,
     onDownload: (() -> Unit)? = null,
     onRemoveFromQueue: (() -> Unit)? = null,
-    onRemoveFromPlaylist: ((Playlist) -> Unit)? = null,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
     onHideFromDatabase: (() -> Unit)? = null,
     onDeleteFromDatabase: (() -> Unit)? = null,
     onRemoveFromQuickPicks: (() -> Unit)? = null,
@@ -154,8 +142,7 @@ fun BaseMediaItemGridMenu(
     onMatchingSong: (() -> Unit)? = null,
     disableScrollingText: Boolean
 ) {
-    val binder = LocalPlayerServiceBinder.current
-    val context = LocalContext.current
+    //val context = LocalContext.current
 
     MediaItemGridMenu(
         navController = navController,
@@ -180,7 +167,6 @@ fun BaseMediaItemGridMenu(
                     addSongToYtPlaylist(playlist.id, position, playlist.browseId ?: "", mediaItem)
                 }
             }
-            Toaster.done()
         },
         onHideFromDatabase = onHideFromDatabase,
         onDeleteFromDatabase = onDeleteFromDatabase,
@@ -247,7 +233,7 @@ fun MiniMediaItemGridMenu(
                     addSongToYtPlaylist(playlist.id, position, playlist.browseId ?: "", mediaItem)
                 }
             }
-            Toaster.done()
+
             onDismiss()
         },
         onGoToPlaylist = {
@@ -279,7 +265,7 @@ fun MediaItemGridMenu (
     onHideFromDatabase: (() -> Unit)? = null,
     onDeleteFromDatabase: (() -> Unit)? = null,
     onRemoveFromQueue: (() -> Unit)? = null,
-    onRemoveFromPlaylist: ((Playlist) -> Unit)? = null,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
     onAddToPreferites: (() -> Unit)?,
     onMatchingSong: (() -> Unit)? = null,
     onAddToPlaylist: ((Playlist, Int) -> Unit)? = null,
@@ -633,10 +619,8 @@ fun MediaItemGridMenu (
         }, label = ""
     ) { currentIsViewingPlaylists ->
         if (currentIsViewingPlaylists) {
-            val sortBy by rememberPreference(playlistSortByKey, PlaylistSortBy.DateAdded)
-            val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
             val playlistPreviews by remember {
-                Database.playlistTable.sortPreviews( sortBy, sortOrder )
+                Database.playlistTable.sortPreviewsByName()
             }.collectAsState( emptyList(), Dispatchers.IO )
 
             val playlistIds by remember {
@@ -645,21 +629,17 @@ fun MediaItemGridMenu (
 
             val pinnedPlaylists = playlistPreviews.filter {
                 it.playlist.name.startsWith(PINNED_PREFIX, 0, true)
-                        && if (isNetworkConnected(context)) !(it.playlist.isYoutubePlaylist && !it.playlist.isEditable) else !it.playlist.isYoutubePlaylist
             }
-            val youtubePlaylists = playlistPreviews.filter { it.playlist.isEditable && it.playlist.isYoutubePlaylist && !it.playlist.name.startsWith(PINNED_PREFIX) }
+
             val unpinnedPlaylists = playlistPreviews.filter {
                 !it.playlist.name.startsWith(PINNED_PREFIX, 0, true) &&
-                !it.playlist.name.startsWith(MONTHLY_PREFIX, 0, true) &&
-                        !it.playlist.isYoutubePlaylist
+                !it.playlist.name.startsWith(MONTHLY_PREFIX, 0, true) //&&
+                //!it.playlist.name.startsWith(PIPED_PREFIX, 0, true)
             }
 
             var isCreatingNewPlaylist by rememberSaveable {
                 mutableStateOf(false)
             }
-
-            val search = Search()
-            val title = stringResource(R.string.playlists)
 
             if (isCreatingNewPlaylist && onAddToPlaylist != null) {
                 InputTextDialog(
@@ -684,6 +664,7 @@ fun MediaItemGridMenu (
                     .fillMaxHeight(0.5f)
             ) {
                 Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -697,36 +678,17 @@ fun MediaItemGridMenu (
                             .padding(all = 4.dp)
                             .size(20.dp)
                     )
-                    IconButton(
-                        onClick = { search.isVisible = !search.isVisible },
-                        icon = R.drawable.search_circle,
-                        color = colorPalette().favoritesIcon,
-                        modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(24.dp)
-                    )
-                    BasicText(
-                        text = title,
-                        style = typography().m.semiBold,
-                        modifier = Modifier.weight(1f).padding(start = 8.dp)
-                    )
-                    IconButton(
-                        onClick = { isCreatingNewPlaylist = true },
-                        icon = R.drawable.add_in_playlist,
-                        color = colorPalette().text,
-                        modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(24.dp)
-                    )
-                }
-                if (search.isVisible) {
-                    search.SearchBar(this)
-                }
-                val filteredPinnedPlaylists = pinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
-                val filteredYoutubePlaylists = youtubePlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
-                val filteredUnpinnedPlaylists = unpinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
 
-                if (filteredPinnedPlaylists.isNotEmpty()) {
+                    if (onAddToPlaylist != null) {
+                        SecondaryTextButton(
+                            text = stringResource(R.string.new_playlist),
+                            onClick = { isCreatingNewPlaylist = true },
+                            alternative = true
+                        )
+                    }
+                }
+
+                if (pinnedPlaylists.isNotEmpty()) {
                     BasicText(
                         text = stringResource(R.string.pinned_playlists),
                         style = typography().m.semiBold,
@@ -734,69 +696,17 @@ fun MediaItemGridMenu (
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
-                        filteredPinnedPlaylists.forEach { playlistPreview ->
+                        pinnedPlaylists.forEach { playlistPreview ->
                             MenuEntry(
-                                icon = R.drawable.add_in_playlist,
-                                text = cleanPrefix(playlistPreview.playlist.name),
+                                icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                                text = playlistPreview.playlist.name.substringAfter(PINNED_PREFIX),
                                 secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                 onClick = {
-                                    onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
-                                    Toaster.done()
                                     onDismiss()
-                                },
-                                trailingContent = {
-                                    if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
-                                        Image(
-                                            painter = painterResource(R.drawable.piped_logo),
-                                            contentDescription = null,
-                                            colorFilter = ColorFilter.tint(colorPalette().red),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    if (playlistPreview.playlist.isYoutubePlaylist) {
-                                        Image(
-                                            painter = painterResource(R.drawable.ytmusic),
-                                            contentDescription = null,
-                                            colorFilter = ColorFilter.tint(
-                                                Color.Red.copy(0.75f).compositeOver(Color.White)
-                                            ),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    IconButton(
-                                        icon = R.drawable.open,
-                                        color = colorPalette().text,
-                                        onClick = {
-                                            if (onGoToPlaylist != null) {
-                                                onGoToPlaylist(playlistPreview.playlist.id)
-                                                onDismiss()
-                                            }
-                                            navController.navigate(route = "${NavRoutes.localPlaylist.name}/${playlistPreview.playlist.id}")
-                                        },
-                                        modifier = Modifier.size(24.dp)
+                                    onAddToPlaylist(
+                                        playlistPreview.playlist,
+                                        playlistPreview.songCount
                                     )
-                                }
-                            )
-                        }
-                    }
-                }
-
-                if (filteredYoutubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
-                    BasicText(
-                        text = stringResource(R.string.ytm_playlists),
-                        style = typography().m.semiBold,
-                        modifier = modifier.padding(start = 20.dp, top = 5.dp)
-                    )
-
-                    onAddToPlaylist?.let { onAddToPlaylist ->
-                        filteredYoutubePlaylists.forEach { playlistPreview ->
-                            MenuEntry(
-                                icon = R.drawable.add_in_playlist,
-                                text = cleanPrefix(playlistPreview.playlist.name),
-                                secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
-                                onClick = {
-                                    onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
-                                    Toaster.done()
-                                    onDismiss()
                                 },
                                 trailingContent = {
                                     IconButton(
@@ -809,7 +719,8 @@ fun MediaItemGridMenu (
                                             }
                                             navController.navigate(route = "${NavRoutes.localPlaylist.name}/${playlistPreview.playlist.id}")
                                         },
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier
+                                            .size(24.dp)
                                     )
                                 }
                             )
@@ -817,7 +728,7 @@ fun MediaItemGridMenu (
                     }
                 }
 
-                if (filteredUnpinnedPlaylists.isNotEmpty()) {
+                if (unpinnedPlaylists.isNotEmpty()) {
                     BasicText(
                         text = stringResource(R.string.playlists),
                         style = typography().m.semiBold,
@@ -825,15 +736,17 @@ fun MediaItemGridMenu (
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
-                        filteredUnpinnedPlaylists.forEach { playlistPreview ->
+                        unpinnedPlaylists.forEach { playlistPreview ->
                             MenuEntry(
-                                icon = R.drawable.add_in_playlist,
-                                text = cleanPrefix(playlistPreview.playlist.name),
+                                icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                                text = playlistPreview.playlist.name,
                                 secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                 onClick = {
-                                    onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
-                                    Toaster.done()
                                     onDismiss()
+                                    onAddToPlaylist(
+                                        playlistPreview.playlist,
+                                        playlistPreview.songCount
+                                    )
                                 },
                                 trailingContent = {
                                     if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -841,7 +754,8 @@ fun MediaItemGridMenu (
                                             painter = painterResource(R.drawable.piped_logo),
                                             contentDescription = null,
                                             colorFilter = ColorFilter.tint(colorPalette().red),
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier
+                                                .size(18.dp)
                                         )
 
                                     IconButton(
@@ -854,9 +768,9 @@ fun MediaItemGridMenu (
                                             }
                                             navController.navigate(route = "${NavRoutes.localPlaylist.name}/${playlistPreview.playlist.id}")
                                         },
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier
+                                            .size(24.dp)
                                     )
-
                                 }
                             )
                         }
@@ -1057,6 +971,19 @@ fun MediaItemGridMenu (
                     )
                 }
 
+                onRemoveFromPlaylist?.let { onRemoveFromPlaylist ->
+                    GridMenuItem(
+                        icon = R.drawable.trash,
+                        title = R.string.remove_from_playlist,
+                        colorIcon = colorPalette.text,
+                        colorText = colorPalette.text,
+                        onClick = {
+                            onDismiss()
+                            onRemoveFromPlaylist()
+                        }
+                    )
+                }
+
                 if (!isLocal) onHideFromDatabase?.let { onHideFromDatabase ->
                     GridMenuItem(
                         icon = R.drawable.update,
@@ -1102,3 +1029,4 @@ fun MediaItemGridMenu (
         }
     }
 }
+

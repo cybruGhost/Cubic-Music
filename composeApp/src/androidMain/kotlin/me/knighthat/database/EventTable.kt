@@ -159,24 +159,6 @@ interface EventTable {
     ): Flow<List<PlaylistPreview>>
 
     /**
-     * Return a list of songs sorted by last played timestamp (most recently played first).
-     *
-     * @param limit maximum number of results
-     * @return [Song]s sorted by last played date (descending)
-     */
-    @Query("""
-        SELECT S.*
-        FROM Song S
-        JOIN Event E ON E.songId = S.id
-        GROUP BY S.id
-        ORDER BY MAX(E.timestamp) DESC
-        LIMIT :limit
-    """)
-    fun findSongsLastPlayed(
-        limit: Int = Int.MAX_VALUE
-    ): Flow<List<Song>>
-
-    /**
      * Attempt to write [event] into database.
      *
      * ### Standalone use
@@ -196,14 +178,4 @@ interface EventTable {
 
     @Query("DELETE FROM Event")
     fun deleteAll(): Int
-
-    /**
-     * return the sum of playtime for a given song over a given period.
-     * @param songId song id
-     * @param from start of the period (epoch millis)
-     * @param to end of the period (epoch millis)
-     * @return sum of playtime in ms
-     */
-    @Query("SELECT IFNULL(SUM(E.playtime), 0) FROM Event E WHERE E.songId = :songId AND E.timestamp BETWEEN :from AND :to")
-    fun getSongPlayTimeBetween(songId: String, from: Long, to: Long = System.currentTimeMillis()): Flow<Long>
 }

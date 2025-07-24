@@ -18,19 +18,13 @@ import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.lifecycle.Lifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import app.kreate.android.themed.rimusic.screen.home.HomeSongsScreen
 import it.fast4x.compose.persist.PersistMapCleanup
-import it.fast4x.rimusic.enums.HomeScreenTabs
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.models.toUiMood
 import it.fast4x.rimusic.ui.components.Skeleton
-import it.fast4x.rimusic.utils.enableQuickPicksPageKey
-import it.fast4x.rimusic.utils.getEnum
-import it.fast4x.rimusic.utils.homeScreenTabIndexKey
-import it.fast4x.rimusic.utils.indexNavigationTabKey
-import it.fast4x.rimusic.utils.preferences
-import it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -49,35 +43,13 @@ import kotlin.system.exitProcess
 fun HomeScreen(
     navController: NavController,
     onPlaylistUrl: (String) -> Unit,
-    miniPlayer: @Composable () -> Unit = {},
-    openTabFromShortcut: Int
+    miniPlayer: @Composable () -> Unit = {}
 ) {
     val saveableStateHolder = rememberSaveableStateHolder()
 
-    val preferences = LocalContext.current.preferences
-    //val showSearchTab by rememberPreference(showSearchTabKey, false)
-    //val showStatsInNavbar by rememberPreference(showStatsInNavbarKey, false)
-    val enableQuickPicksPage by rememberPreference(enableQuickPicksPageKey, true)
-
     PersistMapCleanup("home/")
 
-    val openTabFromShortcut1 by remember{ mutableIntStateOf(openTabFromShortcut) }
-
-    var initialtabIndex =
-        when (openTabFromShortcut1) {
-            -1 -> when (preferences.getEnum(indexNavigationTabKey, HomeScreenTabs.Default)) {
-                HomeScreenTabs.Default -> HomeScreenTabs.QuickPics.index
-                else -> preferences.getEnum(indexNavigationTabKey, HomeScreenTabs.QuickPics).index
-            }
-            else -> openTabFromShortcut1
-        }
-
-    var (tabIndex, onTabChanged) = rememberPreference(homeScreenTabIndexKey, initialtabIndex)
-
-    if (tabIndex == -2) navController.navigate(NavRoutes.search.name)
-
-
-    if (!enableQuickPicksPage && tabIndex==0) tabIndex = 1
+    val (tabIndex, onTabChanged) = Preferences.HOME_TAB_INDEX
 
     Skeleton(
         navController,
@@ -85,7 +57,7 @@ fun HomeScreen(
         onTabChanged,
         miniPlayer,
         navBarContent = { Item ->
-            if (enableQuickPicksPage)
+            if ( Preferences.QUICK_PICKS_PAGE.value )
                 Item(0, stringResource(R.string.quick_picks), R.drawable.sparkles)
             Item(1, stringResource(R.string.songs), R.drawable.musical_notes)
             Item(2, stringResource(R.string.artists), R.drawable.people)

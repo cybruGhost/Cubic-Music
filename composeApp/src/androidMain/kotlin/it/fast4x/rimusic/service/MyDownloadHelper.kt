@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.compose.runtime.getValue
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.DatabaseProvider
@@ -18,6 +19,7 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.Requirements
+import app.kreate.android.Preferences
 import app.kreate.android.service.createDataSourceFactory
 import coil.imageLoader
 import coil.request.CachePolicy
@@ -25,23 +27,14 @@ import coil.request.ImageRequest
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.enums.AudioQualityFormat
 import it.fast4x.rimusic.enums.ExoPlayerCacheLocation
-import it.fast4x.rimusic.enums.ExoPlayerDiskCacheMaxSize
+import it.fast4x.rimusic.enums.ExoPlayerDiskDownloadCacheMaxSize
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.service.modern.isLocal
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.asSong
-import it.fast4x.rimusic.utils.audioQualityFormatKey
-import it.fast4x.rimusic.utils.autoDownloadSongKey
-import it.fast4x.rimusic.utils.autoDownloadSongWhenAlbumBookmarkedKey
-import it.fast4x.rimusic.utils.autoDownloadSongWhenLikedKey
 import it.fast4x.rimusic.utils.download
 import it.fast4x.rimusic.utils.downloadSyncedLyrics
-import it.fast4x.rimusic.utils.exoPlayerCacheLocationKey
-import it.fast4x.rimusic.utils.exoPlayerCustomCacheKey
-import it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
-import it.fast4x.rimusic.utils.getEnum
 import it.fast4x.rimusic.utils.isNetworkConnected
-import it.fast4x.rimusic.utils.preferences
 import it.fast4x.rimusic.utils.removeDownload
 import it.fast4x.rimusic.utils.thumbnail
 import kotlinx.coroutines.CancellationException
@@ -133,30 +126,24 @@ object MyDownloadHelper {
 
     @Synchronized
     private fun initDownloadCache( context: Context ): SimpleCache {
-        val cacheSize = context.preferences.getEnum( exoPlayerDiskDownloadCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` )
+        val cacheSize by Preferences.SONG_DOWNLOAD_SIZE
 
         val cacheEvictor = when( cacheSize ) {
-            ExoPlayerDiskCacheMaxSize.Unlimited -> NoOpCacheEvictor()
-
-            ExoPlayerDiskCacheMaxSize.Custom    -> {
-                val customCacheSize = context.preferences.getInt( exoPlayerCustomCacheKey, 32 ) * 1000 * 1000L
-                LeastRecentlyUsedCacheEvictor( customCacheSize )
-            }
-
-            else                                -> LeastRecentlyUsedCacheEvictor( cacheSize.bytes )
+            ExoPlayerDiskDownloadCacheMaxSize.Unlimited -> NoOpCacheEvictor()
+            else                                        -> LeastRecentlyUsedCacheEvictor( cacheSize.bytes )
         }
 
         val cacheDir = when( cacheSize ) {
             // Temporary directory deletes itself after close
             // It means songs remain on device as long as it's open
-            ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( CACHE_DIRNAME ).toFile()
+            ExoPlayerDiskDownloadCacheMaxSize.Disabled -> createTempDirectory( CACHE_DIRNAME ).toFile()
 
             else                               ->
                 // Looks a bit ugly but what it does is
                 // check location set by user and return
                 // appropriate path with [CACHE_DIRNAME] appended.
-                when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
-                    ExoPlayerCacheLocation.System -> context.cacheDir
+                when( Preferences.EXO_CACHE_LOCATION.value ) {
+                    ExoPlayerCacheLocation.System  -> context.cacheDir
                     ExoPlayerCacheLocation.Private -> context.filesDir
                 }.resolve( CACHE_DIRNAME )
         }
@@ -177,8 +164,7 @@ object MyDownloadHelper {
 
     @Synchronized
     private fun ensureDownloadManagerInitialized(context: Context) {
-        audioQualityFormat =
-            context.preferences.getEnum(audioQualityFormatKey, AudioQualityFormat.Auto)
+        audioQualityFormat = Preferences.AUDIO_QUALITY.value
 
         if (!MyDownloadHelper::downloadManager.isInitialized) {
             downloadManager = DownloadManager(
@@ -307,14 +293,14 @@ object MyDownloadHelper {
     }
 
     fun autoDownload(context: Context, mediaItem: MediaItem) {
-        if (context.preferences.getBoolean(autoDownloadSongKey, false)) {
+        if ( Preferences.AUTO_DOWNLOAD.value ) {
             if (downloads.value[mediaItem.mediaId]?.state != Download.STATE_COMPLETED)
                 addDownload(context, mediaItem)
         }
     }
 
     fun autoDownloadWhenLiked(context: Context, mediaItem: MediaItem) {
-        if (context.preferences.getBoolean(autoDownloadSongWhenLikedKey, false)) {
+        if ( Preferences.AUTO_DOWNLOAD_ON_LIKE.value ) {
             Database.asyncQuery {
                 runBlocking {
                     if( songTable.isLiked( mediaItem.mediaId ).first() )
@@ -328,7 +314,7 @@ object MyDownloadHelper {
 
     fun downloadOnLike( mediaItem: MediaItem, likeState: Boolean?, context: Context ) {
         // Only continues when this setting is enabled
-        val isSettingEnabled = context.preferences.getBoolean( autoDownloadSongWhenLikedKey, false )
+        val isSettingEnabled by Preferences.AUTO_DOWNLOAD_ON_LIKE
         if( !isSettingEnabled || !isNetworkConnected( context ) )
             return
 
@@ -339,14 +325,6 @@ object MyDownloadHelper {
             autoDownload( context, mediaItem )
         else
             removeDownload( context, mediaItem )
-    }
-
-    fun autoDownloadWhenAlbumBookmarked(context: Context, mediaItems: List<MediaItem>) {
-        if (context.preferences.getBoolean(autoDownloadSongWhenAlbumBookmarkedKey, false)) {
-            mediaItems.forEach { mediaItem ->
-                autoDownload(context, mediaItem)
-            }
-        }
     }
 
     fun handleDownload(context: Context, song: Song, removeIfDownloaded: Boolean = false ) {

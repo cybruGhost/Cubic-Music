@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import com.valentinilk.shimmer.shimmer
 import it.fast4x.innertube.Innertube
@@ -111,7 +112,6 @@ import it.fast4x.rimusic.enums.LyricsColor
 import it.fast4x.rimusic.enums.LyricsFontSize
 import it.fast4x.rimusic.enums.LyricsHighlight
 import it.fast4x.rimusic.enums.LyricsOutline
-import it.fast4x.rimusic.enums.PlayerBackgroundColors
 import it.fast4x.rimusic.enums.Romanization
 import it.fast4x.rimusic.models.Lyrics
 import it.fast4x.rimusic.thumbnailShape
@@ -132,37 +132,13 @@ import it.fast4x.rimusic.ui.styling.onOverlayShimmer
 import it.fast4x.rimusic.utils.SynchronizedLyrics
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.color
-import it.fast4x.rimusic.utils.colorPaletteModeKey
-import it.fast4x.rimusic.utils.colorPaletteNameKey
 import it.fast4x.rimusic.utils.conditional
-import it.fast4x.rimusic.utils.effectRotationKey
-import it.fast4x.rimusic.utils.expandedplayerKey
 import it.fast4x.rimusic.utils.getHttpClient
-import it.fast4x.rimusic.utils.isShowingSynchronizedLyricsKey
-import it.fast4x.rimusic.utils.jumpPreviousKey
-import it.fast4x.rimusic.utils.landscapeControlsKey
 import it.fast4x.rimusic.utils.languageDestination
 import it.fast4x.rimusic.utils.languageDestinationName
-import it.fast4x.rimusic.utils.lyricsAlignmentKey
-import it.fast4x.rimusic.utils.lyricsBackgroundKey
-import it.fast4x.rimusic.utils.lyricsColorKey
-import it.fast4x.rimusic.utils.lyricsFontSizeKey
-import it.fast4x.rimusic.utils.lyricsHighlightKey
-import it.fast4x.rimusic.utils.lyricsOutlineKey
-import it.fast4x.rimusic.utils.lyricsSizeAnimateKey
-import it.fast4x.rimusic.utils.lyricsSizeKey
-import it.fast4x.rimusic.utils.lyricsSizeLKey
 import it.fast4x.rimusic.utils.medium
-import it.fast4x.rimusic.utils.otherLanguageAppKey
 import it.fast4x.rimusic.utils.playNext
 import it.fast4x.rimusic.utils.playPrevious
-import it.fast4x.rimusic.utils.playerBackgroundColorsKey
-import it.fast4x.rimusic.utils.playerEnableLyricsPopupMessageKey
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.romanizationKey
-import it.fast4x.rimusic.utils.showBackgroundLyricsKey
-import it.fast4x.rimusic.utils.showSecondLineKey
-import it.fast4x.rimusic.utils.showlyricsthumbnailKey
 import it.fast4x.rimusic.utils.textCopyToClipboard
 import it.fast4x.rimusic.utils.verticalFadingEdge
 import kotlinx.coroutines.Dispatchers
@@ -214,26 +190,16 @@ fun Lyrics(
         val currentView = LocalView.current
         val binder = LocalPlayerServiceBinder.current
 
-        var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
-        var isShowingSynchronizedLyrics by rememberPreference(isShowingSynchronizedLyricsKey, false)
+        var showlyricsthumbnail by Preferences.LYRICS_SHOW_THUMBNAIL
+        var isShowingSynchronizedLyrics by Preferences.LYRICS_SYNCHRONIZED
         var invalidLrc by remember(mediaId, isShowingSynchronizedLyrics) { mutableStateOf(false) }
         var isPicking by remember(mediaId, isShowingSynchronizedLyrics) { mutableStateOf(false) }
-        var lyricsColor by rememberPreference(
-            lyricsColorKey,
-            LyricsColor.Thememode
-        )
-        var lyricsOutline by rememberPreference(
-            lyricsOutlineKey,
-            LyricsOutline.None
-        )
-        val playerBackgroundColors by rememberPreference(
-            playerBackgroundColorsKey,
-            PlayerBackgroundColors.BlurredCoverColor
-        )
-        var lyricsFontSize by rememberPreference(lyricsFontSizeKey, LyricsFontSize.Medium)
+        var lyricsColor by Preferences.LYRICS_COLOR
+        var lyricsOutline by Preferences.LYRICS_OUTLINE
+        var lyricsFontSize by Preferences.LYRICS_FONT_SIZE
 
         val thumbnailSize = Dimensions.thumbnails.player.song
-        val colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
+        val colorPaletteMode by Preferences.THEME_MODE
 
         var isEditing by remember(mediaId, isShowingSynchronizedLyrics) {
             mutableStateOf(false)
@@ -264,11 +230,11 @@ fun Lyrics(
             mutableStateOf(false)
         }
 
-        var romanization by rememberPreference(romanizationKey, Romanization.Off)
-        var showSecondLine by rememberPreference(showSecondLineKey, false)
+        var romanization by Preferences.LYRICS_ROMANIZATION_TYPE
+        var showSecondLine by Preferences.LYRICS_SHOW_SECOND_LINE
 
-        var otherLanguageApp by rememberPreference(otherLanguageAppKey, Languages.English)
-        var lyricsBackground by rememberPreference(lyricsBackgroundKey, LyricsBackground.Black)
+        var otherLanguageApp by Preferences.OTHER_APP_LANGUAGE
+        var lyricsBackground by Preferences.LYRICS_BACKGROUND
 
         if (showLanguagesList) {
             translateEnabled = false
@@ -337,13 +303,9 @@ fun Lyrics(
             textCopyToClipboard(it, context)
         }
 
-        var fontSize by rememberPreference(lyricsFontSizeKey, LyricsFontSize.Medium)
-        val showBackgroundLyrics by rememberPreference(showBackgroundLyricsKey, false)
-        val playerEnableLyricsPopupMessage by rememberPreference(
-            playerEnableLyricsPopupMessageKey,
-            true
-        )
-        var expandedplayer by rememberPreference(expandedplayerKey, false)
+        var fontSize by Preferences.LYRICS_FONT_SIZE
+        val showBackgroundLyrics by Preferences.LYRICS_SHOW_ACCENT_BACKGROUND
+        val playerEnableLyricsPopupMessage by Preferences.PLAYER_ACTION_LYRICS_POPUP_MESSAGE
 
         var checkedLyricsLrc by remember {
             mutableStateOf(false)
@@ -357,28 +319,28 @@ fun Lyrics(
         var checkLyrics by remember {
             mutableStateOf(false)
         }
-        var lyricsHighlight by rememberPreference(lyricsHighlightKey, LyricsHighlight.None)
-        var lyricsAlignment by rememberPreference(lyricsAlignmentKey, LyricsAlignment.Center)
-        var lyricsSizeAnimate by rememberPreference(lyricsSizeAnimateKey, false)
+        var lyricsHighlight by Preferences.LYRICS_HIGHLIGHT
+        var lyricsAlignment by Preferences.LYRICS_ALIGNMENT
+        var lyricsSizeAnimate by Preferences.LYRICS_ANIMATE_SIZE
         val mediaMetadata = mediaMetadataProvider()
         var artistName by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.artist?.toString().orEmpty()))}
         var title by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.title?.toString().orEmpty()))}
-        var lyricsSize by rememberPreference(lyricsSizeKey, 20f)
-        var lyricsSizeL by rememberPreference(lyricsSizeLKey, 20f)
+        var lyricsSize by Preferences.LYRICS_SIZE
+        var lyricsSizeL by Preferences.LYRICS_SIZE_LANDSCAPE
         var customSize = if (isLandscape) lyricsSizeL else lyricsSize
         var showLyricsSizeDialog by rememberSaveable {
             mutableStateOf(false)
         }
         val lightTheme = colorPaletteMode == ColorPaletteMode.Light || (colorPaletteMode == ColorPaletteMode.System && (!isSystemInDarkTheme()))
-        val effectRotationEnabled by rememberPreference(effectRotationKey, true)
-        var landscapeControls by rememberPreference(landscapeControlsKey, true)
-        var jumpPrevious by rememberPreference(jumpPreviousKey,"3")
+        val effectRotationEnabled by Preferences.ROTATION_EFFECT
+        var landscapeControls by Preferences.LYRICS_LANDSCAPE_CONTROLS
+        var jumpPrevious by Preferences.JUMP_PREVIOUS
         var isRotated by rememberSaveable { mutableStateOf(false) }
         val rotationAngle by animateFloatAsState(
             targetValue = if (isRotated) 360F else 0f,
             animationSpec = tween(durationMillis = 200), label = ""
         )
-        val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+        val colorPaletteName by Preferences.COLOR_PALETTE
 
         if (showLyricsSizeDialog) {
             LyricsSizeDialog(

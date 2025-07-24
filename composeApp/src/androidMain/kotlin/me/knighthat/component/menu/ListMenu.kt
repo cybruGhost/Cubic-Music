@@ -23,10 +23,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.kreate.android.Preferences
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.utils.conditional
-import it.fast4x.rimusic.utils.disableScrollingTextKey
-import it.fast4x.rimusic.utils.rememberPreference
 import me.knighthat.component.menu.MenuConstants.CONTENT_HEIGHT_FRACTION
 import me.knighthat.component.menu.MenuConstants.CONTENT_TOP_PADDING
 
@@ -56,7 +55,7 @@ object ListMenu {
         modifier: Modifier = Modifier,
         enabled: Boolean = true,
         onClick: () -> Unit = {},
-        onLongClick: (() -> Unit)? = null,
+        onLongClick: () -> Unit = {},
         trailingContent: @Composable () -> Unit = {}
     ) = Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -76,7 +75,7 @@ object ListMenu {
             modifier = Modifier.padding( vertical = 16.dp )
                                .weight( 1f )
         ) {
-            val isScrollingTextDisabled by rememberPreference( disableScrollingTextKey, false )
+            val isScrollingTextDisabled by Preferences.SCROLLING_TEXT_DISABLED
 
             Text(
                 text = text,

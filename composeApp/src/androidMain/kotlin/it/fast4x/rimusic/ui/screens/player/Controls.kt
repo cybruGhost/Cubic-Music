@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.Preferences
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.cleanPrefix
@@ -42,7 +43,6 @@ import it.fast4x.rimusic.enums.ButtonState
 import it.fast4x.rimusic.enums.PlayerControlsType
 import it.fast4x.rimusic.enums.PlayerInfoType
 import it.fast4x.rimusic.enums.PlayerPlayButtonType
-import it.fast4x.rimusic.enums.PlayerTimelineSize
 import it.fast4x.rimusic.enums.PlayerType
 import it.fast4x.rimusic.models.Info
 import it.fast4x.rimusic.models.ui.UiMedia
@@ -51,23 +51,11 @@ import it.fast4x.rimusic.ui.screens.player.components.controls.InfoAlbumAndArtis
 import it.fast4x.rimusic.ui.screens.player.components.controls.InfoAlbumAndArtistModern
 import it.fast4x.rimusic.utils.GetControls
 import it.fast4x.rimusic.utils.GetSeekBar
-import it.fast4x.rimusic.utils.buttonzoomoutKey
 import it.fast4x.rimusic.utils.conditional
-import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.isCompositionLaunched
 import it.fast4x.rimusic.utils.isDownloadedSong
 import it.fast4x.rimusic.utils.isExplicit
 import it.fast4x.rimusic.utils.isLandscape
-import it.fast4x.rimusic.utils.playerControlsTypeKey
-import it.fast4x.rimusic.utils.playerInfoTypeKey
-import it.fast4x.rimusic.utils.playerPlayButtonTypeKey
-import it.fast4x.rimusic.utils.playerSwapControlsWithTimelineKey
-import it.fast4x.rimusic.utils.playerTimelineSizeKey
-import it.fast4x.rimusic.utils.playerTypeKey
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.showlyricsthumbnailKey
-import it.fast4x.rimusic.utils.showthumbnailKey
-import it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -170,7 +158,7 @@ fun Controls(
         nextmediaItemtitle = binder.player.getMediaItemAt(nextmediaItemIndex).mediaMetadata.title.toString()
     */
 
-    var disableScrollingText by rememberPreference(disableScrollingTextKey, false)
+    var disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
 
     val animatedPosition = remember { Animatable(position.toFloat()) }
     var isSeeking by remember { mutableStateOf(false) }
@@ -202,10 +190,7 @@ fun Controls(
 
     var showSelectDialog by remember { mutableStateOf(false) }
 
-    var playerTimelineSize by rememberPreference(
-        playerTimelineSizeKey,
-        PlayerTimelineSize.Biggest
-    )
+    var playerTimelineSize by Preferences.PLAYER_TIMELINE_SIZE
 
 
     /*
@@ -236,20 +221,14 @@ fun Controls(
         mutableStateOf(false)
     }
      */
-    val playerInfoType by rememberPreference(playerInfoTypeKey, PlayerInfoType.Essential)
-    var playerSwapControlsWithTimeline by rememberPreference(
-        playerSwapControlsWithTimelineKey,
-        false
-    )
-    var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
-    var transparentBackgroundActionBarPlayer by rememberPreference(
-        transparentBackgroundPlayerActionBarKey,
-        false
-    )
-    var playerControlsType by rememberPreference(playerControlsTypeKey, PlayerControlsType.Essential)
-    var playerPlayButtonType by rememberPreference(playerPlayButtonTypeKey, PlayerPlayButtonType.Disabled)
-    var showthumbnail by rememberPreference(showthumbnailKey, true)
-    var playerType by rememberPreference(playerTypeKey, PlayerType.Essential)
+    val playerInfoType by Preferences.PLAYER_INFO_TYPE
+    var playerSwapControlsWithTimeline by Preferences.PLAYER_IS_CONTROL_AND_TIMELINE_SWAPPED
+    var showlyricsthumbnail by Preferences.LYRICS_SHOW_THUMBNAIL
+    var transparentBackgroundActionBarPlayer by Preferences.PLAYER_TRANSPARENT_ACTIONS_BAR
+    var playerControlsType by Preferences.PLAYER_CONTROLS_TYPE
+    var playerPlayButtonType by Preferences.PLAYER_PLAY_BUTTON_TYPE
+    var showthumbnail by Preferences.PLAYER_SHOW_THUMBNAIL
+    var playerType by Preferences.PLAYER_TYPE
     val expandedlandscape = (isLandscape && playerType == PlayerType.Modern) || (expandedplayer && !showthumbnail)
 
     Box(
@@ -536,7 +515,7 @@ fun Controls(
 
 fun Modifier.bounceClick() = composed {
     var buttonState by remember { mutableStateOf(ButtonState.Idle) }
-    var buttonzoomout by rememberPreference(buttonzoomoutKey,false)
+    var buttonzoomout by Preferences.ZOOM_OUT_ANIMATION
     val scale by animateFloatAsState(if ((buttonState == ButtonState.Pressed) && (buttonzoomout)) 0.8f else 1f)
 
     this

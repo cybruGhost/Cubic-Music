@@ -3,7 +3,6 @@ package it.fast4x.rimusic.ui.components.themed
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +35,6 @@ fun Title(
     @DrawableRes icon: Int? = R.drawable.arrow_forward,
     enableClick: Boolean = true,
     onClick: (() -> Unit)? = null,
-    trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -68,10 +65,6 @@ fun Title(
                 contentDescription = null,
                 tint = colorPalette().text
             )
-        }
-        if (trailingIcon != null) {
-            Spacer(Modifier.width(8.dp))
-            trailingIcon()
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
+import androidx.room.Upsert
 import it.fast4x.rimusic.models.Artist
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.models.SongArtistMap
@@ -14,6 +15,18 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 @RewriteQueriesToDropUnusedColumns
 interface SongArtistMapTable {
+
+    /**
+     * Attempt to write the list of [SongArtistMap] to database.
+     *
+     * If record exist (determined by its primary key),
+     * existing record's columns will be replaced
+     * by provided data.
+     *
+     * @param songArtistMaps list of [SongArtistMap] to insert to database
+     */
+    @Upsert
+    fun upsert( songArtistMaps: List<SongArtistMap> )
 
     /**
      * Attempt to write [songArtistMap] into database.
@@ -79,6 +92,17 @@ interface SongArtistMapTable {
         LIMIT :limit
     """)
     fun findArtistsOf( songId: String, limit: Int = Int.MAX_VALUE ): Flow<List<Artist>>
+
+    @Query("""
+        SELECT DISTINCT S.*
+        FROM Song S
+        JOIN SongArtistMap SAM ON SAM.songId = S.id
+        JOIN Artist A ON A.id = SAM.artistId
+        WHERE A.id = :artistId
+        ORDER BY S.totalPlayTimeMs DESC
+        LIMIT :limit
+    """)
+    fun findArtistMostPlayedSongs( artistId: String, limit: Int = Int.MAX_VALUE ): Flow<List<Song>>
 
     /**
      * Delete all mappings where songs aren't exist in `Song` table

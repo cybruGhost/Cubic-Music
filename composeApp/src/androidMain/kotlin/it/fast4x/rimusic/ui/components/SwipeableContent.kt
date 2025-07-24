@@ -30,6 +30,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
+import app.kreate.android.Preferences
 import it.fast4x.innertube.Innertube
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.colorPalette
@@ -39,16 +40,8 @@ import it.fast4x.rimusic.enums.PlaylistSwipeAction
 import it.fast4x.rimusic.enums.QueueSwipeAction
 import it.fast4x.rimusic.service.MyDownloadService
 import it.fast4x.rimusic.service.modern.isLocal
-import it.fast4x.rimusic.utils.albumSwipeLeftActionKey
-import it.fast4x.rimusic.utils.albumSwipeRightActionKey
 import it.fast4x.rimusic.utils.downloadedStateMedia
 import it.fast4x.rimusic.utils.getDownloadState
-import it.fast4x.rimusic.utils.isSwipeToActionEnabledKey
-import it.fast4x.rimusic.utils.playlistSwipeLeftActionKey
-import it.fast4x.rimusic.utils.playlistSwipeRightActionKey
-import it.fast4x.rimusic.utils.queueSwipeLeftActionKey
-import it.fast4x.rimusic.utils.queueSwipeRightActionKey
-import it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -74,7 +67,7 @@ fun SwipeableContent(
             return@rememberSwipeToDismissBoxState false
         }
     )
-    val isSwipeToActionEnabled by rememberPreference(isSwipeToActionEnabledKey, true)
+    val isSwipeToActionEnabled by Preferences.ENABLE_SWIPE_ACTION
 
     val current = LocalViewConfiguration.current
     CompositionLocalProvider(LocalViewConfiguration provides object : ViewConfiguration by current{
@@ -179,8 +172,8 @@ fun SwipeableQueueItem(
         }
     }
 
-    val queueSwipeLeftAction by rememberPreference(queueSwipeLeftActionKey, QueueSwipeAction.RemoveFromQueue)
-    val queueSwipeRightAction by rememberPreference(queueSwipeRightActionKey, QueueSwipeAction.PlayNext)
+    val queueSwipeLeftAction by Preferences.QUEUE_SWIPE_LEFT_ACTION
+    val queueSwipeRightAction by Preferences.QUEUE_SWIPE_RIGHT_ACTION
 
     fun getActionCallback(actionName: QueueSwipeAction): () -> Unit {
         return when (actionName) {
@@ -242,8 +235,8 @@ fun SwipeablePlaylistItem(
         }
     }
 
-    val playlistSwipeLeftAction by rememberPreference(playlistSwipeLeftActionKey, PlaylistSwipeAction.Favourite)
-    val playlistSwipeRightAction by rememberPreference(playlistSwipeRightActionKey, PlaylistSwipeAction.PlayNext)
+    val playlistSwipeLeftAction by Preferences.PLAYLIST_SWIPE_LEFT_ACTION
+    val playlistSwipeRightAction by Preferences.PLAYLIST_SWIPE_RIGHT_ACTION
 
     fun getActionCallback(actionName: PlaylistSwipeAction): () -> Unit {
         return when (actionName) {
@@ -290,8 +283,8 @@ fun SwipeableAlbumItem(
                 .findById( albumItem.key )
     }.collectAsState( null, Dispatchers.IO )
 
-    val albumSwipeLeftAction by rememberPreference(albumSwipeLeftActionKey, AlbumSwipeAction.PlayNext)
-    val albumSwipeRightAction by rememberPreference(albumSwipeRightActionKey, AlbumSwipeAction.Bookmark)
+    val albumSwipeLeftAction by Preferences.ALBUM_SWIPE_LEFT_ACTION
+    val albumSwipeRightAction by Preferences.ALBUM_SWIPE_RIGHT_ACTION
 
     fun getActionCallback(actionName: AlbumSwipeAction): () -> Unit {
         return when (actionName) {

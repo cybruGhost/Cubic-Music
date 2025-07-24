@@ -1,6 +1,9 @@
 package it.fast4x.rimusic.enums
 
-enum class MaxTopPlaylistItems {
+import androidx.compose.runtime.Composable
+import me.knighthat.enums.TextView
+
+enum class MaxTopPlaylistItems: TextView {
     `10`,
     `20`,
     `30`,
@@ -11,6 +14,10 @@ enum class MaxTopPlaylistItems {
     `100`,
     `150`,
     `200`;
+
+    override val text: String
+        @Composable
+        get() = this.name
 
     fun toInt(): Int = this.name.toInt()
 }

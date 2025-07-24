@@ -1,6 +1,13 @@
 package it.fast4x.rimusic.enums
 
-enum class FontType {
+import androidx.compose.runtime.Composable
+import me.knighthat.enums.TextView
+
+enum class FontType: TextView {
     Rubik,
-    Poppins
+    Poppins;
+
+    override val text: String
+        @Composable
+        get() = this.name
 }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="cancel">Anulează</string>
     <string name="done">Finalizat</string>
@@ -512,7 +512,7 @@
     <string name="bg_colors_gradient_background_from_cover">Gradient din coperta melodiei</string>
     <string name="bg_colors_gradient_background_from_theme">Gradient din tema</string>
     <string name="vimusic_show_search_button_in_navigation_bar">Afișează butonul de căutare în bara de navigare</string>
-    <string name="vismusic_only_in_left_right_navigation_bar">Doar pentru bara de navigare din stânga sau dreapta în interfața jenMusic</string>
+    <string name="vismusic_only_in_left_right_navigation_bar">Doar pentru bara de navigare din stânga sau dreapta în interfața ViMusic</string>
     <string name="enable_monthly_playlists_creation">Activează crearea playlist-urilor lunare</string>
     <string name="info_no_singles_yet">Nu sunt single-uri disponibile</string>
     <string name="info_no_albums_yet">Nu sunt albume disponibile</string>
@@ -917,7 +917,7 @@
     <string name="please_wait">Please Wait</string>
     <string name="songs_liked_yt">Song(s) are Liked in YouTube</string>
     <string name="song_unliked_yt">Song is Unliked in YouTube</string>
-    <string name="add_rimusic_to_ytm_favorites">Like RiMusic Liked songs in Youtube</string>
+    <string name="add_rimusic_to_ytm_favorites">Like melodiile \"Liked\" de RiMusic pe YouTube</string>
     <string name="do_you_really_want_to_like_all_rimusictoytmusic">(estimated time) is required to like all the songs. This action cannot be resumed if cancelled in between. You need to close the app to cancel this process. Do you want to continue?</string>
     <string name="do_you_really_want_to_like_all">(estimated time) is required to like all the songs. You need to close the app to cancel this process. Do you want to continue?</string>
     <string name="songs_liked_yt_failed">Failed to like the song in YouTube</string>
@@ -964,5 +964,17 @@
     <string name="rotating_cover_title">Rotating album cover</string>
     <string name="title_playback_speed">Viteza redării</string>
     <string name="description_playback_speed">Adjust how slow/fast the song goes</string>
-    <string name="log_in_to_ytm">Conectează-te la contul tău YTM pentru mai mult conținut</string>
+    <string name="log_in_to_ytm">Streaming optimized. Bugs will be fixed on release. © 2025 by CyberGhost</string>
+    <string name="word_documentation">Visit our Distribution site</string>
+    <string name="opens_link_in_web_browser">Opens link in web browser</string>
+    <string name="setting_entry_smart_rewind">Smart rewind</string>
+    <string name="setting_description_smart_rewind">Previous button will act like rewind button after %s secd seconds</string>
+    <string name="setting_entry_show_chip">Show \"%s\" chip</string>
+    <string name="entry_setting_quick_picks_show_section">Show \"%s\"</string>
+    <string name="setting_entry_crash_log">Crash log</string>
+    <string name="setting_entry_logs">Logs</string>
+    <string name="setting_description_copy_or_export_logs">Tap here to export, tap icon to copy</string>
+    <string name="error_message_unsupported_local_playlist">Unsupported format</string>
+    <string name="error_message_import_local_playlist_failed">Error occurs while importing local playlist</string>
+    <string name="dialog_title_color_picker">Color picker</string>
 </resources>

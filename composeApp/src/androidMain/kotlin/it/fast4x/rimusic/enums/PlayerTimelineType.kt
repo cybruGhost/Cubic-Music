@@ -12,9 +12,9 @@ enum class PlayerTimelineType(
 
     Wavy( R.string.wavy_timeline ),
 
-    PinBar( R.string.bodied_bar ),
+    PinBar( R.string.pin_bar ),
 
-    BodiedBar( R.string.pin_bar ),
+    BodiedBar( R.string.bodied_bar ),
 
     FakeAudioBar( R.string.fake_audio_bar ),
 

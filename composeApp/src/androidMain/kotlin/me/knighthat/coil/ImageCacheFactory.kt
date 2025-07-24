@@ -3,10 +3,12 @@ package me.knighthat.coil
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import app.kreate.android.Preferences
 import app.kreate.android.R
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -21,24 +23,20 @@ import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.enums.CoilDiskCacheMaxSize
 import it.fast4x.rimusic.thumbnail
 import it.fast4x.rimusic.thumbnailShape
-import it.fast4x.rimusic.utils.coilCustomDiskCacheKey
-import it.fast4x.rimusic.utils.coilDiskCacheMaxSizeKey
-import it.fast4x.rimusic.utils.getEnum
-import it.fast4x.rimusic.utils.preferences
 
 object ImageCacheFactory {
 
-    private val DISK_CACHE: DiskCache by lazy {
-        val preferences = appContext().preferences
-        val diskSize = preferences.getEnum( coilDiskCacheMaxSizeKey, CoilDiskCacheMaxSize.`128MB` )
+    val DISK_CACHE: DiskCache by lazy {
+        val diskSize by Preferences.THUMBNAIL_CACHE_SIZE
 
         DiskCache.Builder()
                  .directory( appContext().filesDir.resolve( "coil" ) )
                  .maxSizeBytes(
                      when( diskSize ) {
-                         CoilDiskCacheMaxSize.Custom -> preferences.getInt( coilCustomDiskCacheKey, 128 )
-                                                                   .times( 1000L )
-                                                                   .times( 1000 )
+                         CoilDiskCacheMaxSize.Custom -> Preferences.THUMBNAIL_CACHE_CUSTOM_SIZE
+                                                                .value
+                                                                .times( 1000L )
+                                                                .times( 1000 )
 
                          else                        -> diskSize.bytes
                      }

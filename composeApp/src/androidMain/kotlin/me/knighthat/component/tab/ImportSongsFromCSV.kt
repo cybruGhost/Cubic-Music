@@ -9,6 +9,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
 import app.kreate.android.R
+import app.kreate.android.exception.InvalidHeaderException
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.appContext
@@ -49,6 +50,12 @@ class ImportSongsFromCSV(
         private fun parseFromCsvFile( inputStream: InputStream ): List<SongCSV> =
             csvReader { skipEmptyLine = true }
                       .readAllWithHeader(inputStream)
+                      .also { rows ->       // Verify all headers
+                          val validHeaders = setOf( "PlaylistBrowseId", "Duration", "PlaylistName", "MediaId", "Title", "Artists", "ThumbnailUrl" )
+                          // Check if headers in this CSV file contains at least all [validHeaders]
+                          if( !rows.firstOrNull()?.keys.orEmpty().containsAll( validHeaders ) )
+                              throw InvalidHeaderException( "Unsupported format" )
+                      }
                       .fastMap { row ->      // Experimental, revert back to [map] if needed
 
                           // Previous version of Kreate uses "PlaylistBrowseId" as playlistId,
@@ -63,7 +70,9 @@ class ImportSongsFromCSV(
                           // in seconds.
                           val rawDuration = row["Duration"].orEmpty()
                           val convertedDuration =
-                              if( !DurationUtils.isHumanReadable( rawDuration ) )
+                              if( rawDuration.isBlank() )
+                                  "0"
+                              else if( !DurationUtils.isHumanReadable( rawDuration ) )
                                   formatAsDuration( rawDuration.toLong().times( 1000 ) )
                               else
                                   rawDuration
@@ -111,30 +120,36 @@ class ImportSongsFromCSV(
                     val straySongs = mutableListOf<Song>()
                     val combos = mutableMapOf<Playlist, List<Song>>()
 
-                    appContext().contentResolver
-                                .openInputStream( uri )
-                                ?.use( ::parseFromCsvFile )       // Use [use] because it closes stream on exit
-                                ?.let( ::processSongs )
-                                ?.forEach { (playlist, songs) ->
-                                    if( playlist.first.isNotBlank() ) {
-                                        val realPlaylist = Playlist(name = playlist.first, browseId = playlist.second)
-                                        combos[realPlaylist] = songs
-                                    } else
-                                        straySongs.addAll( songs )
-                                }
+                    try {
+                        appContext().contentResolver
+                                    .openInputStream( uri )
+                                    ?.use( ::parseFromCsvFile )       // Use [use] because it closes stream on exit
+                                    ?.let( ::processSongs )
+                                    ?.forEach { (playlist, songs) ->
+                                        if( playlist.first.isNotBlank() ) {
+                                            val realPlaylist = Playlist(name = playlist.first, browseId = playlist.second)
+                                            combos[realPlaylist] = songs
+                                        } else
+                                            straySongs.addAll( songs )
+                                    }
 
-                    Database.asyncTransaction {
-                        songTable.upsert( straySongs )
+                        Database.asyncTransaction {
+                            songTable.upsert( straySongs )
 
-                        combos.forEach { (playlist, songs) ->
-                            songTable.upsert( songs )       // Upsert first to override existing songs
-                            mapIgnore( playlist, *songs.toTypedArray() )
+                            combos.forEach { (playlist, songs) ->
+                                songTable.upsert( songs )       // Upsert first to override existing songs
+                                mapIgnore( playlist, *songs.toTypedArray() )
+                            }
+
+                            // Show message when it's done
+                            Toaster.done()
                         }
-
-                        // Show message when it's done
-                        Toaster.done()
+                    } catch ( e: Exception ) {
+                        when( e ) {
+                            is InvalidHeaderException   -> Toaster.e( R.string.error_message_unsupported_local_playlist )
+                            else                        -> Toaster.e( R.string.error_message_import_local_playlist_failed )
+                        }
                     }
-
                 }
             }
         )
