@@ -56,8 +56,6 @@
 
 ## 🛠 To-Do
 
-- [ ] Fix update logic
-- [ ] UI polish on large screens
 - [ ] Improved playlist mood detection
 - [ ] Optimize memory for large cache usage
 - fix ui to be more of rimusic    
