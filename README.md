@@ -25,7 +25,7 @@
 ---
 
 ## 🚀 Current Version: `v.1.5.2`  
-🔧 **Status:** Beta — actively improving and adding features
+🔧 **Status:** Beta — actively improving and adding more features
 
 ---
 ## 🚀 auto update fixed
