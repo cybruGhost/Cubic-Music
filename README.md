@@ -30,6 +30,7 @@
 ---
 ## 🚀 auto update fixed
 ## ✨ Key Features
+## explict tag added
 
 - **Smart Caching** for offline listening (custom cache size)
 - **Batch Downloads** of songs & full playlists
