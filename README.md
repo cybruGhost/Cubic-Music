@@ -41,7 +41,7 @@
 - **Music Discovery** by mood, genre, news & new albums
 - **Lyrics** (fetch, edit, translate, synced/unsynced)
 - **Playlist Management** (Import/Export, RiMusic-compatible)
-- **Custom Themes**
+- **Dynamic Themes**
 - **Sleep Timer** (fully customizable)
 - **Audio Controls:**  
   - Playback speed, pitch, volume, normalization  
