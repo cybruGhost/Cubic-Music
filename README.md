@@ -48,7 +48,7 @@
   - Skip silence toggle
 - **Widget Support** *(experimental)*
 - **Android Auto & TV Support**
-- **Check for Updates** toggle in settings
+- **Check for Updates**enabled toggle in settings
 - **Export:** settings, downloaded, and cached media
 - **import backups from Rimusic**
 - fixed ondevice
