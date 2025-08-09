@@ -24,12 +24,13 @@
 
 ---
 
-## 🚀 Current Version: `v.1.5.2`  
-🔧 **Status:** Beta — actively improving and adding features
+## 🚀 Current Version: `v.1.5.3`  
+🔧 **Status:** Beta — actively improving and adding more features
 
 ---
 ## 🚀 auto update fixed
 ## ✨ Key Features
+## explict tag added
 
 - **Smart Caching** for offline listening (custom cache size)
 - **Batch Downloads** of songs & full playlists
@@ -40,14 +41,14 @@
 - **Music Discovery** by mood, genre, news & new albums
 - **Lyrics** (fetch, edit, translate, synced/unsynced)
 - **Playlist Management** (Import/Export, RiMusic-compatible)
-- **Custom Themes**
+- **Dynamic Themes**
 - **Sleep Timer** (fully customizable)
 - **Audio Controls:**  
   - Playback speed, pitch, volume, normalization  
   - Skip silence toggle
 - **Widget Support** *(experimental)*
 - **Android Auto & TV Support**
-- **Check for Updates** toggle in settings
+- **Check for Updates**enabled toggle in settings
 - **Export:** settings, downloaded, and cached media
 - **import backups from Rimusic**
 - fixed ondevice
@@ -56,8 +57,6 @@
 
 ## 🛠 To-Do
 
-- [ ] Fix update logic
-- [ ] UI polish on large screens
 - [ ] Improved playlist mood detection
 - [ ] Optimize memory for large cache usage
 - fix ui to be more of rimusic    
