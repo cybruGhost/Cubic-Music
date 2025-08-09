@@ -193,10 +193,10 @@ sealed class Preferences<T>(
         //</editor-fold>
         //<editor-fold defaultstate="collapsed" desc="Max # of ...">
         val MAX_NUMBER_OF_SMART_RECOMMENDATIONS by lazy {
-            Enum( preferences, "MaxNumberOfSmartRecommendations", "recommendationsNumber", RecommendationsNumber.`5` )
+            Enum( preferences, "MaxNumberOfSmartRecommendations", "recommendationsNumber", RecommendationsNumber.`20` )
         }
         val MAX_NUMBER_OF_STATISTIC_ITEMS by lazy {
-            Enum( preferences, "MaxNumberOfStatisticItems", "maxStatisticsItems", MaxStatisticsItems.`10` )
+            Enum( preferences, "MaxNumberOfStatisticItems", "maxStatisticsItems", MaxStatisticsItems.`50` )
         }
         val MAX_NUMBER_OF_TOP_PLAYED by lazy {
             Enum( preferences, "MaxNumberOfTopPlayed", "MaxTopPlaylistItems", MaxTopPlaylistItems.`10` )
@@ -205,7 +205,7 @@ sealed class Preferences<T>(
             Enum( preferences, "MaxNumberOfTopPlayed", "MaxTopPlaylistItems", MaxSongs.Unlimited )
         }
         val MAX_NUMBER_OF_NEXT_IN_QUEUE by lazy {
-            Enum( preferences, "MaxNumberOfNextInQueue", "showsongs", SongsNumber.`2` )
+            Enum( preferences, "MaxNumberOfNextInQueue", "showsongs", SongsNumber.`4` )
         }
         //</editor-fold>
         //<editor-fold defaultstate="collapsed" desc="Swipe action">
@@ -328,7 +328,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "PlayerActionDownload", "showButtonPlayerDownload", true )
         }
         val PLAYER_ACTION_LOOP by lazy {
-            Boolean( preferences, "PlayerActionLoop", "showButtonPlayerLoop", true )
+            Boolean( preferences, "PlayerActionLoop", "showButtonPlayerLoop", false )
         }
         val PLAYER_ACTION_SHOW_LYRICS by lazy {
             Boolean( preferences, "PlayerActionShowLyrics", "showButtonPlayerLyrics", true )
@@ -337,22 +337,22 @@ sealed class Preferences<T>(
             Boolean( preferences, "PlayerActionToggleExpand", "expandedplayertoggle", true )
         }
         val PLAYER_ACTION_SHUFFLE by lazy {
-            Boolean( preferences, "PlayerActionShuffle", "showButtonPlayerShuffle", true )
+            Boolean( preferences, "PlayerActionShuffle", "showButtonPlayerShuffle", false )
         }
         val PLAYER_ACTION_SLEEP_TIMER by lazy {
             Boolean( preferences, "PlayerActionSleepTimer", "showButtonPlayerSleepTimer", false )
         }
         val PLAYER_ACTION_SHOW_MENU by lazy {
-            Boolean( preferences, "PlayerActionShowMenu", "showButtonPlayerMenu", false )
+            Boolean( preferences, "PlayerActionShowMenu", "showButtonPlayerMenu", true )
         }
         val PLAYER_ACTION_START_RADIO by lazy {
-            Boolean( preferences, "PlayerActionStartRadio", "showButtonPlayerStartRadio", false )
+            Boolean( preferences, "PlayerActionStartRadio", "showButtonPlayerStartRadio", true )
         }
         val PLAYER_ACTION_OPEN_EQUALIZER by lazy {
             Boolean( preferences, "PlayerActionOpenEqualizer", "showButtonPlayerSystemEqualizer", false )
         }
         val PLAYER_ACTION_DISCOVER by lazy {
-            Boolean( preferences, "PlayerActionDiscover", "showButtonPlayerDiscover", false )
+            Boolean( preferences, "PlayerActionDiscover", "showButtonPlayerDiscover", true )
         }
         val PLAYER_ACTION_TOGGLE_VIDEO by lazy {
             Boolean( preferences, "PlayerActionToggleVideo", "showButtonPlayerVideo", false )
@@ -364,7 +364,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "PlayerTransparentActionsBar", "transparentBackgroundPlayerActionBar", false )
         }
         val PLAYER_ACTION_BUTTONS_SPACED_EVENLY by lazy {
-            Boolean( preferences, "PlayerActionButtonsSpacedEvenly", "actionspacedevenly", false )
+            Boolean( preferences, "PlayerActionButtonsSpacedEvenly", "actionspacedevenly", true )
         }
         val PLAYER_ACTIONS_BAR_TAP_TO_OPEN_QUEUE by lazy {
             Boolean( preferences, "PlayerActionsBarTapToOpenQueue", "tapqueue", true )
@@ -382,7 +382,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "PlayerIsQueueDurationExpanded", "queueDurationExpanded", true )
         }
         val PLAYER_SHOW_NEXT_IN_QUEUE by lazy {
-            Boolean( preferences, "PlayerShowNextInQueue", "showNextSongsInPlayer", false )
+            Boolean( preferences, "PlayerShowNextInQueue", "showNextSongsInPlayer", true )
         }
         val PLAYER_IS_NEXT_IN_QUEUE_EXPANDED by lazy {
             Boolean( preferences, "PlayerIsNextInQueueExpanded", "miniQueueExpanded", true )
@@ -523,7 +523,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "LyricsShowAccentBackground", "showBackgroundLyrics", false )
         }
         val LYRICS_SYNCHRONIZED by lazy {
-            Boolean( preferences, "LyricsSynchronized", "isShowingSynchronizedLyrics", false )
+            Boolean( preferences, "LyricsSynchronized", "isShowingSynchronizedLyrics", true )
         }
         val LYRICS_SHOW_SECOND_LINE by lazy {
             Boolean( preferences, "LyricsShowSecondLine", "showSecondLine", false )
@@ -672,7 +672,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "QuickPicksShowMonthlyPlaylists", "showMonthlyPlaylistInQuickPicks", true )
         }
         val QUICK_PICKS_SHOW_CHARTS by lazy {
-            Boolean( preferences, "QuickPicksShowCharts", "showCharts", true )
+            Boolean( preferences, "QuickPicksShowCharts", "showCharts", false )
         }
         val QUICK_PICKS_PAGE by lazy {
             Boolean( preferences, "QuickPicksPage", "enableQuickPicksPage", true )
@@ -918,7 +918,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "EnableWallpaper", "enableWallpaper", false )
         }
         val ENABLE_DISCOVER by lazy {
-            Boolean( preferences, "EnableDiscover", "discover", false )
+            Boolean( preferences, "EnableDiscover", "discover", true )
         }
         val ENABLE_PERSISTENT_QUEUE by lazy {
             Boolean( preferences, "EnablePersistentQueue", "persistentQueue", false )
@@ -936,7 +936,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "CloseAppOnBack", "closeWithBackButton", true )
         }
         val PLAYBACK_SKIP_ON_ERROR by lazy {
-            Boolean( preferences, "PlaybackSkipOnError", "skipMediaOnError", false )
+            Boolean( preferences, "PlaybackSkipOnError", "skipMediaOnError", true )
         }
         val USE_SYSTEM_FONT by lazy {
             Boolean( preferences, "UseSystemFont", "useSystemFont", false )
@@ -987,7 +987,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "ShowPinnedPlaylists", "showPinnedPlaylists", true )
         }
         val SHOW_PLAYLIST_INDICATOR by lazy {
-            Boolean( preferences, "ShowPlaylistIndicator", "playlistindicator", false )
+            Boolean( preferences, "ShowPlaylistIndicator", "playlistindicator", true )
         }
         val PAUSE_WHEN_VOLUME_SET_TO_ZERO by lazy {
             Boolean( preferences, "PauseWhenVolumeSetToZero", "isPauseOnVolumeZeroEnabled", false )
@@ -1029,7 +1029,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "IsDataKeyLoaded", "loadedData", false )
         }
         val LOCAL_PLAYLIST_SMART_RECOMMENDATION by lazy {
-            Boolean( preferences, "LocalPlaylistSmartRecommendation", "isRecommendationEnabled", false )
+            Boolean( preferences, "LocalPlaylistSmartRecommendation", "isRecommendationEnabled", true )
         }
         val IS_CONNECTION_METERED by lazy {
             Boolean( preferences, "IsConnectionMetered", "isConnectionMeteredEnabled", true )

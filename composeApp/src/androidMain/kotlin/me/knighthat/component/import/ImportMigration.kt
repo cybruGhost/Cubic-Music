@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import me.knighthat.component.ImportFromFile
 import me.knighthat.component.dialog.RestartAppDialog
+import org.jetbrains.annotations.ApiStatus
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -26,11 +27,15 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import kotlin.io.path.createTempDirectory
 
+@Deprecated("", level = DeprecationLevel.WARNING)
+@ApiStatus.ScheduledForRemoval
 class ImportMigration private constructor(
     launcher: ManagedActivityResultLauncher<Array<String>, Uri?>
 ) : ImportFromFile(launcher) {
 
     companion object {
+        @Deprecated("", level = DeprecationLevel.WARNING)
+        @ApiStatus.ScheduledForRemoval
         @UnstableApi
         @Composable
         operator fun invoke( context: Context, binder: PlayerServiceModern.Binder? ): ImportMigration =

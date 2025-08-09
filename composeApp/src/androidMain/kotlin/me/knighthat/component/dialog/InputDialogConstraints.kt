@@ -19,6 +19,8 @@ object InputDialogConstraints {
      */
     const val ONLY_INTEGERS = "^\\d+\$"
 
+    const val POSITIVE_DECIMAL = """^(\d+\.\d+|\d+\.|\.\d+|d+|\d+|\.|)$"""
+
     /**
      * Matches most URLs
      */

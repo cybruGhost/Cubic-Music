@@ -12,19 +12,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import app.kreate.android.Preferences
 import app.kreate.android.R
+import app.kreate.android.Preferences
 import it.fast4x.innertube.Innertube
 import it.fast4x.rimusic.LocalPlayerAwareWindowInsets
 import it.fast4x.rimusic.ui.components.themed.Title
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import me.knighthat.utils.Toaster
+import timber.log.Timber
 
 @OptIn(DelicateCoroutinesApi::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -32,6 +33,9 @@ import me.knighthat.utils.Toaster
 fun YouTubeLogin(
     onLogin: (String) -> Unit
 ) {
+
+    val scope = rememberCoroutineScope()
+
     var visitorData by Preferences.YOUTUBE_VISITOR_DATA
     var dataSyncId by Preferences.YOUTUBE_SYNC_ID
     var cookie by Preferences.YOUTUBE_COOKIES
@@ -47,10 +51,12 @@ fun YouTubeLogin(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
     ) {
-        Title("Login to YouTube Music",
-            icon = R.drawable.chevron_down,
-            onClick = { onLogin(cookie) }
-        )
+        //Row(modifier = Modifier.fillMaxWidth()) {
+            Title("Login to YouTube Music",
+                icon = R.drawable.chevron_down,
+                onClick = { onLogin(cookie) }
+            )
+        //}
 
         AndroidView(
             modifier = Modifier
@@ -59,26 +65,34 @@ fun YouTubeLogin(
             factory = { context ->
                 WebView(context).apply {
                     webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String?) {
-                            loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
-                            loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
+                        override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                            if (url.startsWith("https://music.youtube.com")) {
+                                cookie = CookieManager.getInstance().getCookie(url)
+                                //onLogin(cookie)
 
-                            if ( url?.startsWith("https://music.youtube.com") == false ) return
-
-                            cookie = CookieManager.getInstance().getCookie( url )
-                            GlobalScope.launch {
-                                Innertube.accountInfo().onSuccess {
-                                    accountName = it?.name.orEmpty()
-                                    accountEmail = it?.email.orEmpty()
-                                    accountChannelHandle = it?.channelHandle.orEmpty()
-                                    accountThumbnail = it?.thumbnailUrl.orEmpty()
-                                    onLogin(cookie)
-                                }.onFailure {
-                                    it.printStackTrace()
-                                    it.message?.let( Toaster::e )
+                                GlobalScope.launch {
+                                    Innertube.accountInfo().onSuccess {
+                                        println("YoutubeLogin doUpdateVisitedHistory accountInfo() $it")
+                                        accountName = it?.name.orEmpty()
+                                        accountEmail = it?.email.orEmpty()
+                                        accountChannelHandle = it?.channelHandle.orEmpty()
+                                        accountThumbnail = it?.thumbnailUrl.orEmpty()
+                                        onLogin(cookie)
+                                    }.onFailure {
+                                        Timber.e("Error YoutubeLogin: $it.stackTraceToString()")
+                                        println("Error YoutubeLogin: ${it.stackTraceToString()}")
+                                    }
                                 }
                             }
                         }
+
+                        override fun onPageFinished(view: WebView, url: String?) {
+                            loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
+                            loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
+                        }
+
+
+
                     }
                     settings.apply {
                         javaScriptEnabled = true
@@ -86,14 +100,12 @@ fun YouTubeLogin(
                         builtInZoomControls = true
                     }
                     addJavascriptInterface(object {
-                        @Suppress("unused")     // Suppress to prevent accidental deletion
                         @JavascriptInterface
                         fun onRetrieveVisitorData(newVisitorData: String?) {
                             if (newVisitorData != null) {
                                 visitorData = newVisitorData
                             }
                         }
-                        @Suppress("unused")     // Suppress to prevent accidental deletion
                         @JavascriptInterface
                         fun onRetrieveDataSyncId(newDataSyncId: String?) {
                             if (newDataSyncId != null) {
@@ -102,7 +114,7 @@ fun YouTubeLogin(
                         }
                     }, "Android")
                     webView = this
-                    loadUrl( "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com" )
+                    loadUrl("https://accounts.google.com/ServiceLogin?ltmpl=music&service=youtube&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F")
                 }
             }
         )
@@ -110,5 +122,11 @@ fun YouTubeLogin(
         BackHandler(enabled = webView?.canGoBack() == true) {
             webView?.goBack()
         }
+
+
     }
+
+
+
 }
+

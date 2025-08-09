@@ -32,9 +32,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -49,17 +49,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
+import app.kreate.android.Preferences
+import app.kreate.android.R
 import it.fast4x.compose.persist.persist
 import it.fast4x.compose.persist.persistList
-import it.fast4x.environment.Environment
-import it.fast4x.environment.requests.discoverPage
+import it.fast4x.innertube.Innertube
+import it.fast4x.innertube.requests.discoverPage
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerAwareWindowInsets
-import it.fast4x.rimusic.R
+import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavigationBarPosition
-import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.enums.UiType
-import it.fast4x.rimusic.models.Artist
+import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.ShimmerHost
 import it.fast4x.rimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
@@ -70,23 +71,18 @@ import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.ui.styling.shimmer
 import it.fast4x.rimusic.utils.center
-import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.isLandscape
-import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.secondary
 import it.fast4x.rimusic.utils.semiBold
-import it.fast4x.rimusic.utils.showSearchTabKey
-import it.fast4x.rimusic.utils.thumbnailRoundnessKey
-import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.typography
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
 
-@ExperimentalMaterialApi
 @SuppressLint("SuspiciousIndentation")
 @UnstableApi
 @OptIn(ExperimentalAnimationApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeDiscovery(
-    onMoodClick: (mood: Environment.Mood.Item) -> Unit,
+    onMoodClick: (mood: Innertube.Mood.Item) -> Unit,
     onNewReleaseAlbumClick: (String) -> Unit,
     onSearchClick: () -> Unit
 ) {
@@ -109,21 +105,16 @@ fun HomeDiscovery(
     val thumbnailSizeDp = 20.dp
     //val thumbnailSizePx = thumbnailSizeDp.px
 
-    var discoverPage by persist<Result<Environment.DiscoverPage>>("home/discovery")
-
-    var preferitesArtists by persistList<Artist>("home/artists")
+    var discoverPage by persist<Result<Innertube.DiscoverPage>>("home/discovery")
 
     LaunchedEffect(key1 = Unit) {
-        discoverPage = Environment.discoverPage()
+        discoverPage = Innertube.discoverPage()
     }
-    LaunchedEffect(Unit) {
-        Database.preferitesArtistsByName().collect { preferitesArtists = it }
-    }
-    val showSearchTab by rememberPreference(showSearchTabKey, false)
+    val showSearchTab by Preferences.SHOW_SEARCH_IN_NAVIGATION_BAR
 
     //Log.d("mediaItemArtists",preferitesArtists.toString())
 
-    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
+    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
 
     BoxWithConstraints {
 
@@ -166,9 +157,15 @@ fun HomeDiscovery(
                 onClick = onSearchClick
             )
             discoverPage?.getOrNull()?.let { page ->
-                var newReleaseAlbumsFiltered by persistList<Environment.AlbumItem>("discovery/newalbumsartist")
+                val artists by remember {
+                    Database.artistTable
+                            .sortFollowingByName()
+                            .distinctUntilChanged()
+                }.collectAsState( emptyList(), Dispatchers.IO )
+
+                var newReleaseAlbumsFiltered by persistList<Innertube.AlbumItem>("discovery/newalbumsartist")
                 page.newReleaseAlbums.forEach { album ->
-                    preferitesArtists.forEach { artist ->
+                    artists.forEach { artist ->
                         if (artist.name == album.authors?.first()?.name) {
                             newReleaseAlbumsFiltered += album
                             //Log.d("mediaItem","artst ok")
@@ -176,7 +173,7 @@ fun HomeDiscovery(
                     }
                 }
 
-                 if ( newReleaseAlbumsFiltered.distinct().isNotEmpty() && preferitesArtists.isNotEmpty() ) {
+                 if ( newReleaseAlbumsFiltered.distinct().isNotEmpty() && artists.isNotEmpty() ) {
                     BasicText(
                         text = stringResource(R.string.new_albums_of_your_artists),
                         style = typography().m.semiBold,
@@ -317,14 +314,11 @@ fun HomeDiscovery(
 
 @Composable
 fun MoodItemColored(
-    mood: Environment.Mood.Item,
+    mood: Innertube.Mood.Item,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var thumbnailRoundness by rememberPreference(
-        thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
-    )
+    var thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
     val moodColor by remember { derivedStateOf { Color(mood.stripeColor) } }
 
@@ -334,7 +328,7 @@ fun MoodItemColored(
         modifier = Modifier
             .fillMaxWidth()
             .padding(5.dp)
-            .clip(thumbnailRoundness.shape())
+            .clip(thumbnailRoundness.shape)
             .clickable { onClick() }
 
     ) {
@@ -371,15 +365,12 @@ fun MoodItemColored(
 
 @Composable
 fun MoodGridItemColored(
-    mood: Environment.Mood.Item,
+    mood: Innertube.Mood.Item,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     thumbnailSizeDp: Dp
 ) {
-    var thumbnailRoundness by rememberPreference(
-        thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
-    )
+    var thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
     val moodColor by remember { derivedStateOf { Color(mood.stripeColor) } }
 
@@ -397,7 +388,7 @@ fun MoodGridItemColored(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxSize(0.9f)
-                .clip(thumbnailRoundness.shape())
+                .clip(thumbnailRoundness.shape)
 
         ) {
             Row(
@@ -433,15 +424,11 @@ fun MoodGridItemColored(
 
 @Composable
 fun MoodItem(
-    mood: Environment.Mood.Item,
+    mood: Innertube.Mood.Item,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var thumbnailRoundness by rememberPreference(
-        thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
-    )
-
+    var thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
     Column (
         verticalArrangement = Arrangement.SpaceAround,
@@ -449,14 +436,14 @@ fun MoodItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(5.dp)
-            .clip(thumbnailRoundness.shape())
+            .clip(thumbnailRoundness.shape)
             .clickable { onClick() }
 
     ) {
         Box(
             modifier = Modifier
                 .requiredWidth(150.dp)
-                .background(color = colorPalette().background4, shape = thumbnailRoundness.shape())
+                .background(color = colorPalette().background4, shape = thumbnailRoundness.shape)
                 .fillMaxWidth(0.9f)
                 .padding(all = 10.dp)
         ){
@@ -478,16 +465,12 @@ fun MoodItem(
 
 @Composable
 fun MoodGridItem(
-    mood: Environment.Mood.Item,
+    mood: Innertube.Mood.Item,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     thumbnailSizeDp: Dp
 ) {
-    var thumbnailRoundness by rememberPreference(
-        thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
-    )
-
+    var thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
 
     Column (
         verticalArrangement = Arrangement.SpaceAround,
@@ -495,13 +478,13 @@ fun MoodGridItem(
         modifier = modifier
             .size(thumbnailSizeDp,thumbnailSizeDp)
             //.background(colorPalette().background1)
-            .clip(thumbnailRoundness.shape())
+            .clip(thumbnailRoundness.shape)
             .clickable { onClick() }
 
     ) {
         Box(
             modifier = Modifier
-                .background(color = colorPalette().background4, shape = thumbnailRoundness.shape())
+                .background(color = colorPalette().background4, shape = thumbnailRoundness.shape)
                 .fillMaxSize(0.9f)
                 .padding(horizontal = 10.dp)
                 .padding(vertical = 50.dp)
