@@ -20,7 +20,7 @@
 
 ## 🎵 About Cubic Music
 
-**Cubic Music** is a powerful, multilingual YouTube Music frontend for Android. It features streaming, full downloads, and stunning visuals—built with a sleek, modern UI focused on performance and user freedom.
+**Cubic Music** is a Very powerful, multilingual YouTube Music frontend for Android. It features streaming, full downloads, and stunning visuals—built with a sleek, modern UI focused on performance and user freedom.
 
 ---
 
