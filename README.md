@@ -1,5 +1,5 @@
 # Cubic-Music NEW RELEASE out!
-new very version soon
+new version very soon
 #  STAR AND FOLLOW 😅 NOW.!!!the way to go
 <div align="center">
   
