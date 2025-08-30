@@ -19,6 +19,17 @@
     <string name="playlists_you_might_like">Playlists you might like</string>
     <string name="an_error_has_occurred">An error has occurred</string>
     <string name="albums">Albums</string>
+    <string name="name_prompt_title">What should we call you?</string>
+    <string name="name_prompt_message">Enter your preferred display name</string>
+    <string name="name_prompt_hint">Your name</string>
+    <string name="name_prompt_confirm">Confirm</string>
+    <string name="name_prompt_cancel">Cancel</string>
+    <string name="account_settings">Account</string>
+    <string name="change_display_name">Change Display Name</string>
+    <string name="change_display_name_desc">Change how your name appears in the app</string>
+    <string name="current_display_name">Current Display Name</string>
+    <string name="enter_new_name">Enter your new display name</string>
+    <string name="your_name">Your name</string>
     <string name="artists">Artists</string>
     <string name="enter_the_playlist_name">Enter the playlist name</string>
     <string name="playlists">Playlists</string>

@@ -42,17 +42,16 @@ import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.context
 import it.fast4x.rimusic.models.Album
+import it.fast4x.rimusic.models.Artist
 import it.fast4x.rimusic.models.Lyrics
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.service.MyDownloadHelper
 import it.fast4x.rimusic.service.modern.LOCAL_KEY_PREFIX
 import it.fast4x.rimusic.service.modern.isLocal
-import it.fast4x.rimusic.ui.components.themed.NewVersionDialog
 import it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import me.knighthat.utils.Toaster
-import java.io.File
 import java.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -81,6 +80,7 @@ val Innertube.Podcast.EpisodeItem.asMediaItem: MediaItem
                 .setArtist(author.toString())
                 .setAlbumTitle(title)
                 .setArtworkUri(thumbnail.firstOrNull()?.url?.toUri())
+                .setDurationMs( durationToMillis(durationString.orEmpty()) )
                 .setExtras(
                     bundleOf(
                         //"albumId" to album?.endpoint?.browseId,
@@ -106,6 +106,7 @@ val Innertube.SongItem.asMediaItem: MediaItem
                 .setArtist(authors?.filter {it.name?.matches(Regex("\\s*([,&])\\s*")) == false }?.joinToString(", ") { it.name ?: "" })
                 .setAlbumTitle(album?.name)
                 .setArtworkUri(thumbnail?.url?.toUri())
+                .setDurationMs( durationToMillis( durationText.orEmpty() ) )
                 .setExtras(
                     bundleOf(
                         "albumId" to album?.endpoint?.browseId,
@@ -141,6 +142,7 @@ val Innertube.VideoItem.asMediaItem: MediaItem
                 .setTitle(info?.name)
                 .setArtist(authors?.joinToString(", ") { it.name ?: "" })
                 .setArtworkUri(thumbnail?.url?.toUri())
+                .setDurationMs( durationToMillis( durationText.orEmpty() ) )
                 .setExtras(
                     bundleOf(
                         "durationText" to durationText,
@@ -167,6 +169,7 @@ val Song.asMediaItem: MediaItem
                 .setTitle(title)
                 .setArtist(artistsText)
                 .setArtworkUri(thumbnailUrl?.toUri())
+                .setDurationMs( durationToMillis( durationText.orEmpty() ) )
                 .setExtras(
                     bundleOf(
                         "durationText" to durationText,
@@ -184,6 +187,14 @@ val Song.asMediaItem: MediaItem
         )
         .setCustomCacheKey(id)
         .build()
+
+val Innertube.ArtistItem.asArtist: Artist
+    get() = Artist(
+        id = key,
+        name = title,
+        thumbnailUrl = thumbnail?.url,
+        isYoutubeArtist = true
+    )
 
 val MediaItem.asSong: Song
     get() = Song (
@@ -259,6 +270,9 @@ fun Uri?.thumbnail(size: Int): Uri? {
 
 fun formatAsDuration(millis: Long) = DateUtils.formatElapsedTime(millis / 1000).removePrefix("0")
 fun durationToMillis(duration: String): Long {
+    if( duration.isBlank() || !duration.contains( ":" ) )
+        return 0
+
     val parts = duration.split(":")
     if (parts.size == 3){
         val hours = parts[0].toLong()
@@ -358,43 +372,6 @@ suspend fun Result<LibraryPage?>.completed(): Result<LibraryPage> = runCatching 
         items = items ?: emptyList(),
         continuation = page?.continuation
     )
-}
-
-
-@Composable
-fun CheckAvailableNewVersion(
-    onDismiss: () -> Unit,
-    updateAvailable: (Boolean) -> Unit
-) {
-    var updatedProductName = ""
-    var updatedVersionName = ""
-    var updatedVersionCode = 0
-    val file = File(LocalContext.current.filesDir, "RiMusicUpdatedVersionCode.ver")
-    if (file.exists()) {
-        val dataText = file.readText().substring(0, file.readText().length - 1).split("-")
-        updatedVersionCode =
-            try {
-                dataText.first().toInt()
-            } catch (e: Exception) {
-                0
-            }
-        updatedVersionName = if(dataText.size == 3) dataText[1] else ""
-        updatedProductName =  if(dataText.size == 3) dataText[2] else ""
-    }
-
-    if (updatedVersionCode > getVersionCode()) {
-        //if (updatedVersionCode > BuildConfig.VERSION_CODE)
-        NewVersionDialog(
-            updatedVersionName = updatedVersionName,
-            updatedVersionCode = updatedVersionCode,
-            updatedProductName = updatedProductName,
-            onDismiss = onDismiss
-        )
-        updateAvailable(true)
-    } else {
-        updateAvailable(false)
-        onDismiss()
-    }
 }
 
 fun isNetworkConnected(context: Context): Boolean {
@@ -707,4 +684,3 @@ suspend fun addToYtLikedSongs(mediaItems: List<MediaItem>){
             }
     }
 }
-

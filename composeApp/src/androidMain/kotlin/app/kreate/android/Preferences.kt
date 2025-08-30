@@ -529,7 +529,7 @@ sealed class Preferences<T>(
             Boolean( preferences, "LyricsShowSecondLine", "showSecondLine", false )
         }
         val LYRICS_ANIMATE_SIZE by lazy {
-            Boolean( preferences, "LyricsAnimateSize", "lyricsSizeAnimate", false )
+            Boolean( preferences, "LyricsAnimateSize", "lyricsSizeAnimate", true )
         }
         val LYRICS_LANDSCAPE_CONTROLS by lazy {
             Boolean( preferences, "LysricsLandscapeControls", "landscapeControls", true )

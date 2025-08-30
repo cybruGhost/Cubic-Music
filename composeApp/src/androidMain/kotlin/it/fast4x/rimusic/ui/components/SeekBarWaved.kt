@@ -81,7 +81,16 @@ fun SeekBarWaved(
         .padding(horizontal = scrubberRadius)
         .drawWithContent {
             drawContent()
-            drawScrubber(range, position(), color, currentScrubberHeight)
+            //drawScrubber(range, position(), color, currentScrubberHeight)
+
+                val stepPosition =
+                    (position() - minimumValue) / (maximumValue - minimumValue) * size.width
+                drawCircle(
+                    color = color,
+                    radius = (scrubberRadius.toPx() / 1.5).toFloat(),
+                    center = center.copy(x = stepPosition),
+                )
+
         }
     ) {
         SeekBarContent(
@@ -199,9 +208,9 @@ private fun SeekBarContent(
             drawPath(
                 wavePath(size.copy(height = size.height * 2), progress),
                 color,
-                style = Stroke(width = 15f)
+                //style = Stroke(width = 15f)
                 //style = Stroke(width = 10f)
-                //style = Stroke(width = 5f)
+                style = Stroke(width = 5f)
             )
         }
     }

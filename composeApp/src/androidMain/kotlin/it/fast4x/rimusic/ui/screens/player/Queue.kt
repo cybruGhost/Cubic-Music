@@ -85,6 +85,7 @@ import it.fast4x.rimusic.utils.DisposableListener
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.asSong
 import it.fast4x.rimusic.utils.enqueue
+import it.fast4x.rimusic.utils.findMediaItemIndexById
 import it.fast4x.rimusic.utils.isDownloadedSong
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.isNowPlaying
@@ -274,7 +275,7 @@ fun Queue(
                         SwipeableQueueItem(
                             mediaItem = mediaItem,
                             onPlayNext = {
-                                binder.player.moveMediaItem( index, binder.player.currentMediaItemIndex + 1 )
+                                binder.player.moveMediaItem( index, binder.player.currentMediaItemIndex )
                             },
                             onDownload = {
                                 binder.cache.removeResource(song.id)
@@ -286,7 +287,18 @@ fun Queue(
                                     )
                             },
                             onRemoveFromQueue = {
-                                player.removeMediaItem( index )
+                                /*
+                                     Compose gotcha here, variables passed into this
+                                     block will be held through recomposition.
+
+                                     Meaning, if index at initialization is 0
+                                     then 0 will stay here through recomposition.
+
+                                     To bypass it, pass another function that requires
+                                     computation to extract data.
+                                 */
+                                val actualIndex = player.findMediaItemIndexById( song.id )
+                                player.removeMediaItem( actualIndex )
                                 Toaster.s(
                                     "${context.resources.getString(R.string.deleted)} ${song.cleanTitle()}"
                                 )
