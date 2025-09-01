@@ -1,12 +1,12 @@
 package it.fast4x.rimusic.utils
 
 import android.content.Context
-import coil.ImageLoader
-import coil.request.CachePolicy
-import coil.request.ErrorResult
-import coil.request.ImageRequest
-import coil.request.SuccessResult
+import coil3.request.CachePolicy
+import coil3.request.ErrorResult
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
 import kotlinx.coroutines.Dispatchers
+import me.knighthat.coil.ImageCacheFactory
 
 
 fun cacheImage(context: Context, url: String, key: String) {
@@ -22,15 +22,13 @@ fun cacheImage(context: Context, url: String, key: String) {
     }
     val imageRequest = ImageRequest.Builder(context)
         .data(url.thumbnail(256))
-        .allowHardware(false)
         .listener(listener)
-        .dispatcher(Dispatchers.Main)
         .memoryCacheKey(url.thumbnail(256))
         .diskCacheKey(url.thumbnail(256))
         .diskCachePolicy(CachePolicy.ENABLED)
         .memoryCachePolicy(CachePolicy.ENABLED)
         .build()
 
-    ImageLoader(context).enqueue(imageRequest)
+            ImageCacheFactory.LOADER.enqueue(imageRequest)
 
 }

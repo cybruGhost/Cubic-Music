@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.kreate.android.R
-import coil.compose.AsyncImage
 import it.fast4x.innertube.Innertube
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.MONTHLY_PREFIX
@@ -74,8 +73,8 @@ fun RenderThumbnail(
     if( thumbnailUrl.matches( HTTP_REGEX ) )
         ImageCacheFactory.Thumbnail( thumbnailUrl, contentDescription, contentScale, modifier )
     else
-        AsyncImage(
-            model = thumbnailUrl,
+        ImageCacheFactory.AsyncImage(
+            thumbnailUrl = thumbnailUrl,
             contentDescription = contentDescription,
             contentScale = contentScale,
             modifier = modifier

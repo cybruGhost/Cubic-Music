@@ -15,16 +15,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.password
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.kreate.android.R
 import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.utils.conditional
 import org.intellij.lang.annotations.MagicConstant
+import androidx.compose.ui.semantics.password
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
+import it.fast4x.rimusic.utils.conditional
 
 abstract class TextInputDialog(
     @MagicConstant(valuesFromClass = InputDialogConstraints::class)
@@ -71,11 +71,11 @@ abstract class TextInputDialog(
             leadingIcon = { LeadingIcon() },
             trailingIcon = { TrailingIcon() },
             modifier = Modifier.fillMaxWidth()
-                               .conditional( keyboardOption.keyboardType == KeyboardType.Password
-                                       || keyboardOption.keyboardType == KeyboardType.NumberPassword
-                               ) {
-                                   semantics { password() }
-                               },
+            .conditional( keyboardOption.keyboardType == KeyboardType.Password
+                    || keyboardOption.keyboardType == KeyboardType.NumberPassword
+            ) {
+                semantics { password() }
+            },
             colors = InputDialog.defaultTextFieldColors()
                                 .copy(
                                     errorTextColor = colorPalette().text,

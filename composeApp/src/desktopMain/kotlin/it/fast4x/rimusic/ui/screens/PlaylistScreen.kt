@@ -150,7 +150,7 @@ fun PlaylistScreen(
 
                     playlistPage?.let {
                         AsyncImage(
-                            model = playlistPage!!.thumbnail?.url?.resize(1200, 900),
+                            model = playlistPage!!.thumbnail?.url?.resize(1200, 1200),
                             contentDescription = "loading...",
                             modifier = Modifier
                                 .fillMaxWidth()

@@ -8,7 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
@@ -19,7 +18,7 @@ import me.knighthat.utils.Toaster
 @Composable
 fun ApplyDiscoverToQueue() {
     /*   DISCOVER  */
-    val discoverIsEnabled by Preferences.ENABLE_DISCOVER
+    val discoverIsEnabled by rememberPreference(discoverKey, false)
     if (!discoverIsEnabled) return
 
     val binder = LocalPlayerServiceBinder.current

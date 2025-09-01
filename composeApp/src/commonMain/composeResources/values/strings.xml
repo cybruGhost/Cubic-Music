@@ -13,7 +13,7 @@
     <string name="remove_from_queue">Remove from queue</string>
     <string name="remove_from_playlist">Remove from playlist</string>
     <string name="hide">Hide</string>
-    <string name="hide_from_quick_picks">Hide from \"Cubic picks\"</string>
+    <string name="hide_from_quick_picks">Hide from \"Quick picks\"</string>
     <string name="related_albums">Related albums</string>
     <string name="similar_artists">Similar artists</string>
     <string name="playlists_you_might_like">Playlists you might like</string>
@@ -23,7 +23,7 @@
     <string name="enter_the_playlist_name">Enter the playlist name</string>
     <string name="playlists">Playlists</string>
     <string name="favorites">Favorites</string>
-    <string name="quick_picks">Cubic picks</string>
+    <string name="quick_picks">Quick picks</string>
     <string name="songs">Songs</string>
     <string name="other_versions">Other versions</string>
     <string name="album_no_alternative_version">This album doesn\'t have any alternative version</string>
@@ -75,8 +75,8 @@
     <string name="image_cache">IMAGE CACHE</string>
     <string name="max_size">Max size</string>
     <string name="database">Database</string>
-    <string name="reset_quick_picks">Reset Cubic picks</string>
-    <string name="quick_picks_are_cleared">Cubic picks are cleared</string>
+    <string name="reset_quick_picks">Reset quick picks</string>
+    <string name="quick_picks_are_cleared">Quick picks are cleared</string>
     <string name="backup">BACKUP</string>
     <string name="personal_preference">Personal preferences (i.e. the theme mode) and the cache are excluded.</string>
     <string name="backup_1">Backup</string>
@@ -117,8 +117,8 @@
     <string name="left">%1$s left</string>
     <string name="confirm">Confirm</string>
     <string name="show">Show</string>
-    <string name="unsynchronized_lyrics">Static lyrics</string>
-    <string name="synchronized_lyrics">Realtime lyrics🙀</string>
+    <string name="unsynchronized_lyrics">unsynchronized lyrics</string>
+    <string name="synchronized_lyrics">synchronized lyrics</string>
     <string name="provided_by">Provided by</string>
     <string name="delete_playback_events">Delete %1$s playback events</string>
     <string name="existing_data_will_be_overwritten">Existing data will be overwritten.%1$s will automatically close itself after restoring the mpDatabase.</string>
@@ -195,7 +195,7 @@
     <string name="moods_and_genres">Moods and genres</string>
     <string name="search_queries">" search queries"</string>
     <string name="not_find_battery_optimization_settings">Couldn\'t find battery optimization settings, please whitelist manually</string>
-    <string name="search">Search...</string>
+    <string name="search">Search</string>
     <string name="no" >No</string>
     <string name="stop" >Stop</string>
     <string name="listen_on_youtube">Listen on YouTube</string>
@@ -272,10 +272,10 @@
     <string name="show_favorite_button_in_lock_screen_and_notification_area">Show Favorite button in lock screen and notification area</string>
     <string name="show_download_button">Show Download button</string>
     <string name="show_download_button_in_lock_screen_and_notification_area">Show Download button in lock screen and notification area</string>
-    <string name="by_most_played_song">By Most Cubic played song</string>
+    <string name="by_most_played_song">By Most played song</string>
     <string name="by_last_played_song">By Last played song</string>
     <string name="audio_quality_automatic">Automatic</string>
-    <string name="statistics_songs_heard">Cubic songs heard</string>
+    <string name="statistics_songs_heard">songs heard</string>
     <string name="statistics_of_time_taken">of time taken</string>
     <string name="statistics_max_number_of_items">Max number of items</string>
     <string name="arabic">Arabic</string>
@@ -325,7 +325,7 @@
     <string name="lang_sinhala">Sinhala</string>
     <string name="update_available">Update available</string>
     <string name="actions_you_can_do">Actions you can do:</string>
-    <string name="open_the_github_releases_web_page_and_download_latest_version">Tap one of these Two *Download icons*  on the Right to get the latest version.</string>
+    <string name="open_the_github_releases_web_page_and_download_latest_version">Open the Github releases web page and download latest version</string>
     <string name="download_latest_version_from_github_you_will_find_the_file_in_the_notification_area_and_you_can_install_by_clicking_on_it">Download latest version from Github, you will find the file in the notification area and you can install by clicking on it</string>
     <string name="f_droid_users_can_wait_for_the_update_info">F-Droid users can wait for the update from F-Droid, which usually arrives within a few hours with the IzzyOnDroid repo, and a few days with F-Droid.org\'s repo.</string>
     <string name="check_update">Check Update</string>
@@ -480,7 +480,7 @@
     <string name="info_wait_it_may_take_a_few_minutes">Wait, it may take a few minutes...</string>
     <string name="album_and_alternative_versions">Album and alternative versions</string>
     <string name="album_alternative_versions">Alternative versions</string>
-    <string name="monthly_playlists">Monthly wrapped✨️</string>
+    <string name="monthly_playlists">Monthly playlists</string>
     <string name="month_january_s">January %s</string>
     <string name="month_february_s">February %s</string>
     <string name="month_march_s">March %s</string>
@@ -570,7 +570,7 @@
     <string name="exclude_songs_with_duration_limit">Exclude songs with duration limit</string>
     <string name="exclude_songs_with_duration_limit_description">If enabled, songs with duration over the limit will be excluded, applied to mytop and playback queue</string>
     <string name="no_log_available">No log available</string>
-    <string name="enable_quick_picks_page">Enable Cubic Picks page</string>
+    <string name="enable_quick_picks_page">Enable Quick Picks page</string>
     <string name="lang_vietnamese">Vietnamese</string>
     <string name="parental_control">Parental control</string>
     <string name="info_prevent_play_songs_with_age_limitation">Prevent play songs with age limitation</string>
@@ -679,7 +679,7 @@
     <string name="event_volumekeysinfo">Volume UP next and volume DOWN previous song</string>
     <string name="paste">Paste</string>
     <string name="searches_no_suggestions">No suggestions</string>
-    <string name="action_bar_show_discover_button">Show Enable Jennie Ai🌟</string>
+    <string name="action_bar_show_discover_button">Show discover button</string>
     <string name="playertype">Player Type</string>
     <string name="noblur">No Blur when Lyrics is Disabled</string>
     <string name="fadingedge">Fading Edge</string>

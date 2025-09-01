@@ -1,8 +1,8 @@
 package it.fast4x.rimusic.utils
 
-import app.kreate.android.Preferences
 import io.ktor.http.Url
 import it.fast4x.rimusic.models.PipedSession
+import it.fast4x.rimusic.appContext
 import timber.log.Timber
 
 /*
@@ -24,18 +24,21 @@ fun getPipedSession(): PipedSession {
 
 fun getPipedSession(): PipedSession {
 
+    val context = appContext()
     val pipedSession = PipedSession(
         instanceName = "",
         apiBaseUrl = Url(""),
         token = "",
         username = ""
     )
-    if ( Preferences.ENABLE_PIPED.value && isAtLeastAndroid7 ) {
+    if (context.preferences.getBoolean(isPipedEnabledKey, false) && isAtLeastAndroid7) {
         runCatching {
-            pipedSession.username = Preferences.PIPED_USERNAME.value
-            pipedSession.instanceName = Preferences.PIPED_PASSWORD.value
-            pipedSession.apiBaseUrl = Url(Preferences.PIPED_INSTANCE_NAME.value)
-            pipedSession.token = Preferences.PIPED_API_BASE_URL.value
+            with(context.encryptedPreferences) {
+                pipedSession.username = getString(pipedUsernameKey, "").toString()
+                pipedSession.instanceName = getString(pipedInstanceNameKey, "").toString()
+                pipedSession.apiBaseUrl = Url(getString(pipedApiBaseUrlKey, "").toString())
+                pipedSession.token = getString(pipedApiTokenKey, "").toString()
+            }
         }.onFailure {
             Timber.e("GetPipedSession get encryptedPreferences error ${it.stackTraceToString()}")
         }

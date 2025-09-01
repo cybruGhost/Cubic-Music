@@ -2,13 +2,12 @@ package it.fast4x.rimusic.utils
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.enums.IconLikeType
 
 @Composable
 fun getLikedIcon(): Int {
-    val iconLikeType by Preferences.LIKE_ICON
+    val iconLikeType by rememberPreference(iconLikeTypeKey, IconLikeType.Essential)
 
     return when (iconLikeType) {
         IconLikeType.Essential -> R.drawable.heart
@@ -23,7 +22,7 @@ fun getLikedIcon(): Int {
 
 @Composable
 fun getUnlikedIcon(): Int {
-    val iconLikeType by Preferences.LIKE_ICON
+    val iconLikeType by rememberPreference(iconLikeTypeKey, IconLikeType.Essential)
 
     return when (iconLikeType) {
         IconLikeType.Essential -> R.drawable.heart_outline

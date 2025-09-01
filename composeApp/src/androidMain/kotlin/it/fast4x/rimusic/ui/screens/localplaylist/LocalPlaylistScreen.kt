@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import com.github.doyaaaaaken.kotlincsv.client.KotlinCsvExperimental
 import it.fast4x.compose.persist.PersistMapCleanup
 import it.fast4x.rimusic.colorPalette
@@ -44,6 +43,9 @@ import it.fast4x.rimusic.enums.PlayerPosition
 import it.fast4x.rimusic.enums.TransitionEffect
 import it.fast4x.rimusic.enums.UiType
 import it.fast4x.rimusic.ui.components.navigation.header.AppHeader
+import it.fast4x.rimusic.utils.playerPositionKey
+import it.fast4x.rimusic.utils.rememberPreference
+import it.fast4x.rimusic.utils.transitionEffectKey
 
 @OptIn(KotlinCsvExperimental::class)
 @ExperimentalTextApi
@@ -58,8 +60,8 @@ fun LocalPlaylistScreen(
     modifier: Modifier = Modifier,
     miniPlayer: @Composable () -> Unit = {}
 ) {
-    val transitionEffect by Preferences.TRANSITION_EFFECT
-    val playerPosition by Preferences.MINI_PLAYER_POSITION
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
     val saveableStateHolder = rememberSaveableStateHolder()
     PersistMapCleanup(tagPrefix = "localPlaylist/$playlistId/")
 

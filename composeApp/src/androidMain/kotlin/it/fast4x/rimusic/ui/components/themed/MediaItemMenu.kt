@@ -60,7 +60,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
@@ -74,6 +73,8 @@ import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.context
 import it.fast4x.rimusic.enums.MenuStyle
 import it.fast4x.rimusic.enums.NavRoutes
+import it.fast4x.rimusic.enums.PlaylistSortBy
+import it.fast4x.rimusic.enums.SortOrder
 import it.fast4x.rimusic.models.Info
 import it.fast4x.rimusic.models.Playlist
 import it.fast4x.rimusic.models.PlaylistPreview
@@ -99,9 +100,14 @@ import it.fast4x.rimusic.utils.getLikeState
 import it.fast4x.rimusic.utils.getPipedSession
 import it.fast4x.rimusic.utils.isDownloadedSong
 import it.fast4x.rimusic.utils.isNetworkConnected
+import it.fast4x.rimusic.utils.isPipedEnabledKey
 import it.fast4x.rimusic.utils.manageDownload
 import it.fast4x.rimusic.utils.medium
+import it.fast4x.rimusic.utils.menuStyleKey
+import it.fast4x.rimusic.utils.playlistSortByKey
+import it.fast4x.rimusic.utils.playlistSortOrderKey
 import it.fast4x.rimusic.utils.positionAndDurationState
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.removeFromPipedPlaylist
 import it.fast4x.rimusic.utils.removeYTSongFromPlaylist
 import it.fast4x.rimusic.utils.semiBold
@@ -111,11 +117,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import me.knighthat.sync.YouTubeSync
-import me.knighthat.utils.Toaster
 import timber.log.Timber
 import java.time.LocalTime.now
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import me.knighthat.component.tab.Search
+import me.knighthat.utils.Toaster
 
 @ExperimentalTextApi
 @ExperimentalAnimationApi
@@ -172,7 +179,7 @@ fun InPlaylistMediaItemMenu(
     modifier: Modifier = Modifier,
     disableScrollingText: Boolean
 ) {
-    val isPipedEnabled by Preferences.ENABLE_PIPED
+    val isPipedEnabled by rememberPreference(isPipedEnabledKey, false)
     val coroutineScope = rememberCoroutineScope()
     val pipedSession = getPipedSession()
     val context = LocalContext.current
@@ -277,7 +284,10 @@ fun NonQueuedMediaItemMenuLibrary(
         )
     }
 
-    val menuStyle by Preferences.MENU_STYLE
+    val menuStyle by rememberPreference(
+        menuStyleKey,
+        MenuStyle.List
+    )
 
     if (menuStyle == MenuStyle.Grid) {
 
@@ -291,7 +301,7 @@ fun NonQueuedMediaItemMenuLibrary(
             onPlayNext = { binder?.player?.addNext(mediaItem, context) },
             onEnqueue = { binder?.player?.enqueue(mediaItem, context) },
             onDownload = onDownload,
-            onRemoveFromPlaylist = onRemoveFromPlaylist,
+            onRemoveFromPlaylist = onRemoveFromPlaylist as ((Playlist) -> Unit)?,
             onHideFromDatabase = { isHiding = true },
             onRemoveFromQuickPicks = onRemoveFromQuickPicks,
             onAddToPreferites = {
@@ -370,7 +380,10 @@ fun NonQueuedMediaItemMenu(
     val binder = LocalPlayerServiceBinder.current
     val context = LocalContext.current
 
-    val menuStyle by Preferences.MENU_STYLE
+    val menuStyle by rememberPreference(
+        menuStyleKey,
+        MenuStyle.List
+    )
 
     //println("mediaItem in NonQueuedMediaItemMenu albumId ${mediaItem.mediaMetadata.extras?.getString("albumId")}")
 
@@ -385,7 +398,7 @@ fun NonQueuedMediaItemMenu(
             onPlayNext = { binder?.player?.addNext(mediaItem, context) },
             onEnqueue = { binder?.player?.enqueue(mediaItem, context) },
             onDownload = onDownload,
-            onRemoveFromPlaylist = onRemoveFromPlaylist,
+            onRemoveFromPlaylist = onRemoveFromPlaylist as ((Playlist) -> Unit)?,
             onHideFromDatabase = onHideFromDatabase,
             onDeleteFromDatabase = onDeleteFromDatabase,
             onRemoveFromQuickPicks = onRemoveFromQuickPicks,
@@ -435,7 +448,10 @@ fun QueuedMediaItemMenu(
     val binder = LocalPlayerServiceBinder.current
     val context = LocalContext.current
 
-    val menuStyle by Preferences.MENU_STYLE
+    val menuStyle by rememberPreference(
+        menuStyleKey,
+        MenuStyle.List
+    )
 
     if (menuStyle == MenuStyle.Grid) {
         BaseMediaItemGridMenu(
@@ -538,7 +554,7 @@ fun BaseMediaItemMenu(
     val context = LocalContext.current
 
     val coroutineScope = rememberCoroutineScope()
-    val isPipedEnabled by Preferences.ENABLE_PIPED
+    val isPipedEnabled by rememberPreference(isPipedEnabledKey, false)
     val pipedSession = getPipedSession()
 
     //println("mediaItem in BaseMediaItemMenu albumId ${mediaItem.mediaMetadata.extras?.getString("albumId")}")
@@ -576,9 +592,7 @@ fun BaseMediaItemMenu(
                     videos = listOf(mediaItem.mediaId)
                 )
             }
-
-
-
+            Toaster.done()
         },
         onHideFromDatabase = onHideFromDatabase,
         onDeleteFromDatabase = onDeleteFromDatabase,
@@ -648,6 +662,7 @@ fun MiniMediaItemMenu(
                 }
             }
             onDismiss()
+            Toaster.done()
         },
         onGoToPlaylist = {
             navController.navigate(route = "${NavRoutes.localPlaylist.name}/$it")
@@ -798,8 +813,10 @@ fun MediaItemMenu(
         }, label = ""
     ) { currentIsViewingPlaylists ->
         if (currentIsViewingPlaylists) {
+            val sortBy by rememberPreference(playlistSortByKey, PlaylistSortBy.DateAdded)
+            val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
             val playlistPreviews by remember {
-                Database.playlistTable.sortPreviewsByName()
+                Database.playlistTable.sortPreviews( sortBy, sortOrder )
             }.collectAsState( emptyList(), Dispatchers.IO )
 
             val playlistIds by remember {
@@ -822,6 +839,9 @@ fun MediaItemMenu(
             var isCreatingNewPlaylist by rememberSaveable {
                 mutableStateOf(false)
             }
+
+            val search = Search()
+            val title = stringResource(R.string.playlists)
 
             if (isCreatingNewPlaylist && onAddToPlaylist != null) {
                 InputTextDialog(
@@ -854,6 +874,8 @@ fun MediaItemMenu(
                 modifier = modifier
                     .requiredHeight(height)
             ) {
+                val search = Search()
+                val title = stringResource(R.string.playlists)
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -869,17 +891,38 @@ fun MediaItemMenu(
                             .padding(all = 4.dp)
                             .size(20.dp)
                     )
-
+                    IconButton(
+                        onClick = { search.isVisible = !search.isVisible },
+                        icon = R.drawable.search_circle,
+                        color = colorPalette().favoritesIcon,
+                        modifier = Modifier
+                            .padding(all = 4.dp)
+                            .size(24.dp)
+                    )
+                    BasicText(
+                        text = title,
+                        style = typography().m.semiBold,
+                        modifier = Modifier.weight(1f).padding(start = 8.dp)
+                    )
                     if (onAddToPlaylist != null) {
-                        SecondaryTextButton(
-                            text = stringResource(R.string.new_playlist),
+                        IconButton(
                             onClick = { isCreatingNewPlaylist = true },
-                            alternative = true
+                            icon = R.drawable.add_in_playlist,
+                            color = colorPalette().text,
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(24.dp)
                         )
                     }
                 }
+                if (search.isVisible) {
+                    search.SearchBar(this)
+                }
+                val filteredPinnedPlaylists = pinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+                val filteredYoutubePlaylists = youtubePlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+                val filteredUnpinnedPlaylists = unpinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
 
-                if (pinnedPlaylists.isNotEmpty()) {
+                if (filteredPinnedPlaylists.isNotEmpty()) {
                     BasicText(
                         text = stringResource(R.string.pinned_playlists),
                         style = typography().m.semiBold,
@@ -887,14 +930,15 @@ fun MediaItemMenu(
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
-                        pinnedPlaylists.forEach { playlistPreview ->
+                        filteredPinnedPlaylists.forEach { playlistPreview ->
                             MenuEntry(
-                                icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                                icon = R.drawable.add_in_playlist,
                                 text = cleanPrefix(playlistPreview.playlist.name),
                                 secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                 onClick = {
-                                    onDismiss()
                                     onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                                    Toaster.done()
+                                    onDismiss()
                                 },
                                 trailingContent = {
                                     if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -935,7 +979,7 @@ fun MediaItemMenu(
                     }
                 }
 
-                if (youtubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
+                if (filteredYoutubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
                     BasicText(
                         text = stringResource(R.string.ytm_playlists),
                         style = typography().m.semiBold,
@@ -943,14 +987,15 @@ fun MediaItemMenu(
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
-                        youtubePlaylists.forEach { playlistPreview ->
+                        filteredYoutubePlaylists.forEach { playlistPreview ->
                             MenuEntry(
-                                icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                                icon = R.drawable.add_in_playlist,
                                 text = cleanPrefix(playlistPreview.playlist.name),
                                 secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                 onClick = {
-                                    onDismiss()
                                     onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                                    Toaster.done()
+                                    onDismiss()
                                 },
                                 trailingContent = {
                                     IconButton(
@@ -972,7 +1017,7 @@ fun MediaItemMenu(
                     }
                 }
 
-                if (unpinnedPlaylists.isNotEmpty()) {
+                if (filteredUnpinnedPlaylists.isNotEmpty()) {
                     BasicText(
                         text = stringResource(R.string.playlists),
                         style = typography().m.semiBold,
@@ -980,14 +1025,15 @@ fun MediaItemMenu(
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
-                        unpinnedPlaylists.forEach { playlistPreview ->
+                        filteredUnpinnedPlaylists.forEach { playlistPreview ->
                             MenuEntry(
-                                icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                                icon = R.drawable.add_in_playlist,
                                 text = cleanPrefix(playlistPreview.playlist.name),
                                 secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                 onClick = {
-                                    onDismiss()
                                     onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                                    Toaster.done()
+                                    onDismiss()
                                 },
                                 trailingContent = {
                                     if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -1663,8 +1709,10 @@ fun AddToPlaylistItemMenu(
             }
         )
     }
+    val sortBy by rememberPreference(playlistSortByKey, PlaylistSortBy.DateAdded)
+    val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
     val playlistPreviews by remember {
-        Database.playlistTable.sortPreviewsByName()
+        Database.playlistTable.sortPreviews( sortBy, sortOrder )
     }.collectAsState( emptyList(), Dispatchers.IO )
 
     val playlistIds by remember {
@@ -1688,6 +1736,8 @@ fun AddToPlaylistItemMenu(
         modifier = Modifier
             .requiredHeight(0.75*screenHeight)
     ) {
+        val search = Search()
+        val title = stringResource(R.string.playlists)
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -1703,15 +1753,36 @@ fun AddToPlaylistItemMenu(
                     .padding(all = 4.dp)
                     .size(20.dp)
             )
-
-            SecondaryTextButton(
-                text = stringResource(R.string.new_playlist),
+            IconButton(
+                onClick = { search.isVisible = !search.isVisible },
+                icon = R.drawable.search_circle,
+                color = colorPalette().favoritesIcon,
+                modifier = Modifier
+                    .padding(all = 4.dp)
+                    .size(24.dp)
+            )
+            BasicText(
+                text = title,
+                style = typography().m.semiBold,
+                modifier = Modifier.weight(1f).padding(start = 8.dp)
+            )
+            IconButton(
                 onClick = { isCreatingNewPlaylist = true },
-                alternative = true
+                icon = R.drawable.add_in_playlist,
+                color = colorPalette().text,
+                modifier = Modifier
+                    .padding(all = 4.dp)
+                    .size(24.dp)
             )
         }
+        if (search.isVisible) {
+            search.SearchBar(this)
+        }
+        val filteredPinnedPlaylists = pinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+        val filteredYoutubePlaylists = youtubePlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+        val filteredUnpinnedPlaylists = unpinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
 
-        if (pinnedPlaylists.isNotEmpty()) {
+        if (filteredPinnedPlaylists.isNotEmpty()) {
             BasicText(
                 text = stringResource(R.string.pinned_playlists),
                 style = typography().m.semiBold,
@@ -1719,15 +1790,15 @@ fun AddToPlaylistItemMenu(
             )
 
             onAddToPlaylist.let { onAddToPlaylist ->
-                pinnedPlaylists.forEach { playlistPreview ->
+                filteredPinnedPlaylists.forEach { playlistPreview ->
                     MenuEntry(
-                        icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                        icon = R.drawable.add_in_playlist,
                         text = cleanPrefix(playlistPreview.playlist.name),
                         secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                         onClick = {
-                            if (playlistIds.contains(playlistPreview.playlist.id)){
-                                onRemoveFromPlaylist(playlistPreview.playlist)
-                            } else onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                            onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                            Toaster.done()
+                            onDismiss()
                         },
                         trailingContent = {
                             if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -1768,7 +1839,7 @@ fun AddToPlaylistItemMenu(
             }
         }
 
-        if (youtubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
+        if (filteredYoutubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
             BasicText(
                 text = stringResource(R.string.ytm_playlists),
                 style = typography().m.semiBold,
@@ -1776,15 +1847,15 @@ fun AddToPlaylistItemMenu(
             )
 
             onAddToPlaylist.let { onAddToPlaylist ->
-                youtubePlaylists.forEach { playlistPreview ->
+                filteredYoutubePlaylists.forEach { playlistPreview ->
                     MenuEntry(
-                        icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                        icon = R.drawable.add_in_playlist,
                         text = cleanPrefix(playlistPreview.playlist.name),
                         secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                         onClick = {
-                            if (playlistIds.contains(playlistPreview.playlist.id)){
-                                onRemoveFromPlaylist(playlistPreview.playlist)
-                            } else onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                            onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                            Toaster.done()
+                            onDismiss()
                         },
                         trailingContent = {
                             IconButton(
@@ -1806,7 +1877,7 @@ fun AddToPlaylistItemMenu(
             }
         }
 
-        if (unpinnedPlaylists.isNotEmpty()) {
+        if (filteredUnpinnedPlaylists.isNotEmpty()) {
             BasicText(
                 text = stringResource(R.string.playlists),
                 style = typography().m.semiBold,
@@ -1814,15 +1885,15 @@ fun AddToPlaylistItemMenu(
             )
 
             onAddToPlaylist.let { onAddToPlaylist ->
-                unpinnedPlaylists.forEach { playlistPreview ->
+                filteredUnpinnedPlaylists.forEach { playlistPreview ->
                     MenuEntry(
-                        icon = if (playlistIds.contains(playlistPreview.playlist.id)) R.drawable.checkmark else R.drawable.add_in_playlist,
+                        icon = R.drawable.add_in_playlist,
                         text = cleanPrefix(playlistPreview.playlist.name),
                         secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                         onClick = {
-                            if (playlistIds.contains(playlistPreview.playlist.id)){
-                                onRemoveFromPlaylist(playlistPreview.playlist)
-                            } else onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                            onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
+                            Toaster.done()
+                            onDismiss()
                         },
                         trailingContent = {
                             if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -1866,6 +1937,7 @@ fun AddToPlaylistArtistSongsMenu(
     onDismiss: () -> Unit,
     onAddToPlaylist: ((PlaylistPreview) -> Unit),
     onGoToPlaylist: ((Long) -> Unit)? = null,
+    onRemoveFromPlaylist: ((Playlist) -> Unit)? = null
 ) {
     var isCreatingNewPlaylist by rememberSaveable {
         mutableStateOf(false)
@@ -1898,8 +1970,10 @@ fun AddToPlaylistArtistSongsMenu(
             }
         )
     }
+    val sortBy by rememberPreference(playlistSortByKey, PlaylistSortBy.DateAdded)
+    val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
     val playlistPreviews by remember {
-        Database.playlistTable.sortPreviewsByName()
+        Database.playlistTable.sortPreviews( sortBy, sortOrder )
     }.collectAsState( emptyList(), Dispatchers.IO )
 
     val pinnedPlaylists = playlistPreviews.filter {
@@ -1919,6 +1993,8 @@ fun AddToPlaylistArtistSongsMenu(
         modifier = Modifier
             .requiredHeight(0.75*screenHeight)
     ) {
+        val search = Search()
+        val title = stringResource(R.string.playlists)
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -1934,15 +2010,36 @@ fun AddToPlaylistArtistSongsMenu(
                     .padding(all = 4.dp)
                     .size(20.dp)
             )
-
-            SecondaryTextButton(
-                text = stringResource(R.string.new_playlist),
+            IconButton(
+                onClick = { search.isVisible = !search.isVisible },
+                icon = R.drawable.search_circle,
+                color = colorPalette().favoritesIcon,
+                modifier = Modifier
+                    .padding(all = 4.dp)
+                    .size(24.dp)
+            )
+            BasicText(
+                text = title,
+                style = typography().m.semiBold,
+                modifier = Modifier.weight(1f).padding(start = 8.dp)
+            )
+            IconButton(
                 onClick = { isCreatingNewPlaylist = true },
-                alternative = true
+                icon = R.drawable.add_in_playlist,
+                color = colorPalette().text,
+                modifier = Modifier
+                    .padding(all = 4.dp)
+                    .size(24.dp)
             )
         }
+        if (search.isVisible) {
+            search.SearchBar(this)
+        }
+        val filteredPinnedPlaylists = pinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+        val filteredYoutubePlaylists = youtubePlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+        val filteredUnpinnedPlaylists = unpinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
 
-        if (pinnedPlaylists.isNotEmpty()) {
+        if (filteredPinnedPlaylists.isNotEmpty()) {
             BasicText(
                 text = stringResource(R.string.pinned_playlists),
                 style = typography().m.semiBold,
@@ -1950,19 +2047,20 @@ fun AddToPlaylistArtistSongsMenu(
             )
 
             onAddToPlaylist.let { onAddToPlaylist ->
-                pinnedPlaylists.forEach { playlistPreview ->
+                filteredPinnedPlaylists.forEach { playlistPreview ->
                     MenuEntry(
                         icon = R.drawable.add_in_playlist,
                         text = cleanPrefix(playlistPreview.playlist.name),
                         secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                         onClick = {
-                            onDismiss()
                             onAddToPlaylist(
                                 PlaylistPreview(
                                     playlistPreview.playlist,
                                     playlistPreview.songCount
                                 )
                             )
+                            Toaster.done()
+                            onDismiss()
                         },
                         trailingContent = {
                             if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -2003,7 +2101,7 @@ fun AddToPlaylistArtistSongsMenu(
             }
         }
 
-        if (youtubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
+        if (filteredYoutubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
             BasicText(
                 text = stringResource(R.string.ytm_playlists),
                 style = typography().m.semiBold,
@@ -2011,19 +2109,20 @@ fun AddToPlaylistArtistSongsMenu(
             )
 
             onAddToPlaylist.let { onAddToPlaylist ->
-                youtubePlaylists.forEach { playlistPreview ->
+                filteredYoutubePlaylists.forEach { playlistPreview ->
                     MenuEntry(
                         icon = R.drawable.add_in_playlist,
                         text = cleanPrefix(playlistPreview.playlist.name),
                         secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                         onClick = {
-                            onDismiss()
                             onAddToPlaylist(
                                 PlaylistPreview(
                                     playlistPreview.playlist,
                                     playlistPreview.songCount
                                 )
                             )
+                            Toaster.done()
+                            onDismiss()
                         },
                         trailingContent = {
                             IconButton(
@@ -2045,7 +2144,7 @@ fun AddToPlaylistArtistSongsMenu(
             }
         }
 
-        if (unpinnedPlaylists.isNotEmpty()) {
+        if (filteredUnpinnedPlaylists.isNotEmpty()) {
             BasicText(
                 text = stringResource(R.string.playlists),
                 style = typography().m.semiBold,
@@ -2053,19 +2152,20 @@ fun AddToPlaylistArtistSongsMenu(
             )
 
             onAddToPlaylist.let { onAddToPlaylist ->
-                unpinnedPlaylists.forEach { playlistPreview ->
+                filteredUnpinnedPlaylists.forEach { playlistPreview ->
                     MenuEntry(
                         icon = R.drawable.add_in_playlist,
                         text = cleanPrefix(playlistPreview.playlist.name),
                         secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                         onClick = {
-                            onDismiss()
                             onAddToPlaylist(
                                 PlaylistPreview(
                                     playlistPreview.playlist,
                                     playlistPreview.songCount
                                 )
                             )
+                            Toaster.done()
+                            onDismiss()
                         },
                         trailingContent = {
                             if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))

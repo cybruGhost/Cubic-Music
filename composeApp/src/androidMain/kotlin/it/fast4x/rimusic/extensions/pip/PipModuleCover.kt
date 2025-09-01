@@ -8,8 +8,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.util.UnstableApi
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import me.knighthat.coil.ImageCacheFactory
 
 @Composable
 @OptIn(UnstableApi::class)
@@ -17,14 +16,11 @@ fun PipModuleCover(
     url: String,
     modifier: Modifier = Modifier
 ){
-    AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(url)
-            .build(),
+    ImageCacheFactory.AsyncImage(
+        thumbnailUrl = url,
         contentDescription = "",
         contentScale = ContentScale.Fit,
         modifier = modifier
             .fillMaxSize()
-
     )
 }

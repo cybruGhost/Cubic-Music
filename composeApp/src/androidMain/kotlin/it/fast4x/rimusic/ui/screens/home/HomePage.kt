@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.compose.persist.persist
 import it.fast4x.innertube.Innertube
@@ -46,6 +45,7 @@ import it.fast4x.innertube.requests.HomePage
 import it.fast4x.rimusic.LocalPlayerAwareWindowInsets
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
+import it.fast4x.rimusic.enums.Countries
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.UiType
@@ -62,9 +62,16 @@ import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.WelcomeMessage
 import it.fast4x.rimusic.utils.asMediaItem
+import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.forcePlay
 import it.fast4x.rimusic.utils.isLandscape
+import it.fast4x.rimusic.utils.loadedDataKey
+import it.fast4x.rimusic.utils.parentalControlEnabledKey
+import it.fast4x.rimusic.utils.rememberPreference
+import it.fast4x.rimusic.utils.selectedCountryCodeKey
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showFloatingIconKey
+import it.fast4x.rimusic.utils.showSearchTabKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -102,8 +109,12 @@ fun HomePage(
     val context = LocalContext.current
     val refreshScope = rememberCoroutineScope()
 
+    var selectedCountryCode by rememberPreference(selectedCountryCodeKey, Countries.ZZ)
+
+    val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
+
     //var loadedData by rememberSaveable { mutableStateOf(false) }
-    var loadedData by Preferences.IS_DATA_KEY_LOADED
+    var loadedData by rememberPreference(loadedDataKey, false)
 
     suspend fun loadData() {
 
@@ -168,8 +179,8 @@ fun HomePage(
 
     val hapticFeedback = LocalHapticFeedback.current
 
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
-    val showSearchTab by Preferences.SHOW_SEARCH_IN_NAVIGATION_BAR
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
+    val showSearchTab by rememberPreference(showSearchTabKey, false)
 
     PullToRefreshBox(
         isRefreshing = refreshing,
@@ -309,7 +320,7 @@ fun HomePage(
             }
 
 
-            val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
+            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if (UiType.ViMusic.isCurrent() && showFloatingIcon)
                 MultiFloatingActionsContainer(
                     iconId = R.drawable.search,

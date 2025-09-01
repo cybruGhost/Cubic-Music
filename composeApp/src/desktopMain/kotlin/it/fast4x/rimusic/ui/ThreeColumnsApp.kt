@@ -631,22 +631,13 @@ fun CenterPanelContent(
                         onLongClick = {}
                     )
             )
-            Image(
-                painter = painterResource(Res.drawable.app_logo_text),
-                colorFilter = ColorFilter.tint(
-                    Color.White
-                    /*
-                    when (colorPaletteMode) {
-                        ColorPaletteMode.Light, ColorPaletteMode.System -> colorPalette.text
-                        else -> Color.White
-                    }
-
-                     */
-                ),
-                contentDescription = null,
+            Text(
+                text = "Cubic-Music",
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White,
                 modifier = Modifier
-                    .width(100.dp)
                     .clickable { onHomeClick() }
+                    .padding(horizontal = 8.dp)
             )
         }
 

@@ -20,8 +20,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import app.kreate.android.R
-import coil.compose.AsyncImage
+import me.knighthat.coil.ImageCacheFactory
+import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.PIPED_PREFIX
 import it.fast4x.rimusic.cleanPrefix
@@ -59,16 +61,16 @@ fun Playlist(
     PlaylistItem(
         thumbnailContent = {
             if (thumbnailUrl != null) {
-                AsyncImage(
-                    model = thumbnailUrl.thumbnail(thumbnailSizePx),
+                ImageCacheFactory.AsyncImage(
+                    thumbnailUrl = thumbnailUrl.thumbnail(thumbnailSizePx),
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
             } else if (thumbnails.toSet().size == 1) {
-                AsyncImage(
-                    model = thumbnails.first().thumbnail(thumbnailSizePx),
+                ImageCacheFactory.AsyncImage(
+                    thumbnailUrl = thumbnails.first().thumbnail(thumbnailSizePx),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     //modifier = it KOTLIN 2
@@ -84,8 +86,8 @@ fun Playlist(
                         Alignment.BottomStart,
                         Alignment.BottomEnd
                     ).forEachIndexed { index, alignment ->
-                        AsyncImage(
-                            model = thumbnails.getOrNull(index),
+                        ImageCacheFactory.AsyncImage(
+                            thumbnailUrl = thumbnails.getOrNull(index),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier

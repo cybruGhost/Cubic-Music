@@ -64,10 +64,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
 import app.kreate.android.R
-import app.kreate.android.Preferences
-import coil.compose.AsyncImage
-import it.fast4x.compose.persist.persist
+import me.knighthat.coil.ImageCacheFactory
+import it.fast4x.rimusic.colorPalette
 import it.fast4x.innertube.Innertube
+import it.fast4x.compose.persist.persist
 import it.fast4x.innertube.models.bodies.BrowseBody
 import it.fast4x.innertube.requests.podcastPage
 import it.fast4x.rimusic.Database
@@ -75,6 +75,7 @@ import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.NavigationBarPosition
+import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.enums.UiType
 import it.fast4x.rimusic.models.Playlist
 import it.fast4x.rimusic.service.modern.isLocal
@@ -102,6 +103,7 @@ import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.addToYtPlaylist
 import it.fast4x.rimusic.utils.asMediaItem
+import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.durationTextToMillis
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.fadingEdge
@@ -114,9 +116,12 @@ import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.isNowPlaying
 import it.fast4x.rimusic.utils.manageDownload
 import it.fast4x.rimusic.utils.medium
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.resize
 import it.fast4x.rimusic.utils.secondary
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showFloatingIconKey
+import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -187,8 +192,12 @@ fun Podcast(
         mutableStateOf(Download.STATE_STOPPED)
     }
 
-    var thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    var thumbnailRoundness by rememberPreference(
+        thumbnailRoundnessKey,
+        ThumbnailRoundness.Heavy
+    )
+
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
     var totalPlayTimes = 0L
     podcastPage?.listEpisode?.forEach {
@@ -259,8 +268,8 @@ fun Podcast(
                     ) {
                         if (podcastPage != null) {
                             if(!isLandscape)
-                                AsyncImage(
-                                    model = podcastPage!!.thumbnail.firstOrNull()?.url?.resize(1200, 900),
+                                ImageCacheFactory.AsyncImage(
+                                    thumbnailUrl = podcastPage!!.thumbnail.firstOrNull()?.url?.resize(1200, 1200),
                                     contentDescription = "loading...",
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -782,7 +791,7 @@ fun Podcast(
                 }
             }
 
-            val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
+            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if( UiType.ViMusic.isCurrent() && showFloatingIcon )
             FloatingActionsContainerWithScrollToTop(
                 lazyListState = lazyListState,

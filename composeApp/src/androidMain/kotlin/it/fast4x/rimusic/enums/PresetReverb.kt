@@ -1,10 +1,8 @@
 package it.fast4x.rimusic.enums
 
 import android.media.audiofx.PresetReverb
-import androidx.compose.runtime.Composable
-import me.knighthat.enums.TextView
 
-enum class PresetsReverb: TextView {
+enum class PresetsReverb {
     NONE,
     SMALLROOM,
     MEDIUMROOM,
@@ -24,8 +22,7 @@ enum class PresetsReverb: TextView {
             PLATE -> PresetReverb.PRESET_PLATE
         }
 
-    override val text: String
-        @Composable
+    val textName: String
         get() = when (this) {
             NONE -> "None"
             SMALLROOM -> "Small Room"
@@ -35,4 +32,7 @@ enum class PresetsReverb: TextView {
             LARGEHALL -> "Large Hall"
             PLATE -> "Plate"
         }
+
+
+
 }

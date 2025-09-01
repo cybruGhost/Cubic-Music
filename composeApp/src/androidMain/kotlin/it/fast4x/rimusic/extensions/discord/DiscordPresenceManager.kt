@@ -1,33 +1,67 @@
 package it.fast4x.rimusic.extensions.discord
 
 import android.content.Context
+import android.net.Uri
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
+import app.kreate.android.R
 import com.my.kizzyrpc.KizzyRPC
 import com.my.kizzyrpc.model.Activity
 import com.my.kizzyrpc.model.Assets
 import com.my.kizzyrpc.model.Timestamps
-import kotlinx.coroutines.*
-import okhttp3.*
-import kotlinx.serialization.*
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import java.io.File
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
+import io.ktor.client.call.body
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
+import it.fast4x.innertube.Innertube
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import android.graphics.BitmapFactory
-import android.graphics.Bitmap
-import java.io.FileOutputStream
-import androidx.core.graphics.scale
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.putJsonArray
+import me.knighthat.utils.ImageProcessor
+import me.knighthat.utils.Toaster
+import me.knighthat.utils.isNetworkAvailable
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.jetbrains.annotations.Contract
 import timber.log.Timber
-import java.util.UUID
+
+/**
+     * THIS IS STILL IN BETA AND MAY NOT WORK AS EXPECTED AND CAUSE CRASH
+     * Call this method when the playing state changes.
+     * - isPlaying = true : send the "playing" presence and refresh it every 10s
+     * - isPlaying = false : launch a timer, then send the "paused" presence (frozen time)
+     */
+
 
 class DiscordPresenceManager(
     private val context: Context,
     private val getToken: () -> String?,
     private val externalScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) {
+    companion object {
+
+        private const val APPLICATION_ID = "1379051016007454760"
+        private const val TEMP_FILE_HOST = "https://litterbox.catbox.moe/resources/internals/api.php"
+        private const val MAX_DIMENSION = 1024                           // Per Discord's guidelines
+        private const val MAX_FILE_SIZE_BYTES = 2L * 1024 * 1024     // 2 MB in bytes
+    }
+
     private var rpc: KizzyRPC? = null
     private var lastToken: String? = null
     private var lastMediaItem: MediaItem? = null
@@ -39,19 +73,147 @@ class DiscordPresenceManager(
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .build()
-    private val json = Json { ignoreUnknownKeys = true }
-    private val uploadApi = "https://tmpfiles.org/api/v1/upload"
-    @Volatile private var isUpdatingPresence = false
+    @Volatile
+    private var smallImage: String? = null
+    @Volatile
+    private var largeImage: String? = null
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private suspend fun uploadArtwork( artworkUri: Uri? ): Result<Uri> =
+        runCatching {
+            val uploadableUri = ImageProcessor.compressArtwork(
+                context,
+                artworkUri,
+                MAX_DIMENSION,
+                MAX_DIMENSION,
+                MAX_FILE_SIZE_BYTES
+            )!!
+            if( uploadableUri.scheme!!.startsWith( "http" ) )
+                return@runCatching uploadableUri
+
+            Innertube.client
+                .submitFormWithBinaryData(
+                    url = TEMP_FILE_HOST,
+                    formData = formData {
+                        val (mimeType, fileData) = with( context.contentResolver ) {
+                            getType( uploadableUri )!! to openInputStream( uploadableUri )!!.readBytes()
+                        }
+
+                        append("reqtype", "fileupload")
+                        append("time", "1h")
+                        append("fileToUpload", fileData, io.ktor.http.Headers.build {
+                            append( HttpHeaders.ContentDisposition, "filename=\"${System.currentTimeMillis()}\"" )
+                            append( HttpHeaders.ContentType, mimeType )
+                        })
+                    }
+                )
+                .bodyAsText()
+                .toUri()
+        }
+
+    private suspend fun getDiscordAssetUri( imageUrl: String ): String? {
+        if ( imageUrl.startsWith( "mp:" ) ) return imageUrl
+
+        val token = rpc?.token ?: return null
+        return runCatching {
+            Innertube.client
+                .post( "https://discord.com/api/v9/applications/$APPLICATION_ID/external-assets" ) {
+                    headers.append( "Authorization", token )
+                    setBody(
+                        // Use this to ensure syntax
+                        // {"urls":[imageUrl]}
+                        buildJsonObject {
+                            putJsonArray( "urls" ) { add( imageUrl ) }
+                        }
+                    )
+                }
+                .body<JsonArray>()
+                .firstOrNull()
+                ?.jsonObject["external_asset_path"]
+                ?.jsonPrimitive
+                ?.content
+                ?.let { "mp:$it" }
+        }.onFailure { exception ->
+            // Handle rate limiting (429) silently to avoid disturbing the user
+            if (exception.message?.contains("429") == true || exception.message?.contains("Too Many Requests") == true) {
+                Timber.tag("DiscordPresence").d("Rate limited by Discord API, skipping asset upload")
+            } else {
+                // Log other errors but don't show them to the user to avoid disturbance
+                Timber.tag("DiscordPresence").w("Failed to get Discord asset URI: ${exception.message}")
+            }
+        }.getOrNull()
+    }
+
+    @Contract("_,null->null")
+    private suspend fun getLargeImageUrl( artworkUri: Uri? ): String? =
+        uploadArtwork( artworkUri ).fold(
+            onSuccess = {
+                getDiscordAssetUri( it.toString() )
+            },
+            onFailure = {
+                // Log the error but don't show it to the user to avoid disturbance
+                Timber.tag("DiscordPresence").w("Failed to upload artwork: ${it.message}")
+
+                getLargeImageFallback()
+            }
+        )
+
+    private suspend fun getSmallImageUrl(): String? =
+        if ( smallImage != null )
+            smallImage
+        else
+            getDiscordAssetUri( "https://raw.githubusercontent.com/cybrughost/Cubic-Music/main/assets/discord/fallback_app.png" )
+                ?.also { smallImage = it }
+
+    private suspend fun getLargeImageFallback(): String? =
+        if ( largeImage != null )
+            largeImage
+        else
+            getDiscordAssetUri( "https://raw.githubusercontent.com/cybrughost/Cubic-Music/main/assets/discord/fallback_album.png" )
+                ?.also { largeImage = it }
+
 
     /**
-     * THIS IS STILL IN BETA AND MAY NOT WORK AS EXPECTED AND CAUSE CRASH
-     * Call this method when the playing state changes.
-     * - isPlaying = true : send the "playing" presence and refresh it every 10s
-     * - isPlaying = false : launch a timer, then send the "paused" presence (frozen time)
+     * Validate the token
      */
+
+     internal suspend fun validateToken(token: String): Boolean? = withContext(Dispatchers.IO) {
+        if (!isNetworkAvailable(context)) return@withContext null
+        val request = Request.Builder()
+            .url("https://discord.com/api/v9/users/@me")
+            .header("Authorization", token)
+            .get()
+            .build()
+
+        runCatching {
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
+        }.getOrElse { exception ->
+            // Handle rate limiting and network errors silently
+            if (exception.message?.contains("429") == true || exception.message?.contains("Too Many Requests") == true) {
+                Timber.tag("DiscordPresence").d("Rate limited by Discord API during token validation")
+                null // Treat as network error to retry later
+            } else {
+                Timber.tag("DiscordPresence").e(exception, "Error validating token: ${exception.message}")
+                if (exception is java.io.IOException) {
+                    null
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
+
     fun onPlayingStateChanged(mediaItem: MediaItem?, isPlaying: Boolean, position: Long = 0L, duration: Long = 0L, now: Long = System.currentTimeMillis(), getCurrentPosition: (() -> Long)? = null, isPlayingProvider: (() -> Boolean)? = null) {
         if (isStopped) return
         val token = getToken() ?: return
+        if (token.isEmpty()) return
+
+        if (!isNetworkAvailable(context)) {
+            return
+        }
 
         refreshJob?.cancel()
         refreshJob = null
@@ -70,21 +232,29 @@ class DiscordPresenceManager(
         }
         if (isPlaying) {
             sendPlayingPresence(mediaItem, position, duration, now)
+            // Store current values to avoid calling lambdas later
+            val currentIsPlaying = isPlaying
+            val currentPosition = position
             startRefreshJob(
-                isPlayingProvider = isPlayingProvider ?: { true },
+                isPlayingProvider = { currentIsPlaying },
                 mediaItem = mediaItem,
-                getCurrentPosition = getCurrentPosition ?: { position },
+                getCurrentPosition = { currentPosition },
                 pausedPosition = position,
-                duration = duration
+                duration = duration,
+                startTime = now // Store the original start time
             )
         } else {
             sendPausedPresence(duration, now, position)
+            // Store current values to avoid calling lambdas later
+            val currentIsPlaying = isPlaying
+            val currentPosition = position
             startRefreshJob(
-                isPlayingProvider = isPlayingProvider ?: { false },
+                isPlayingProvider = { currentIsPlaying },
                 mediaItem = mediaItem,
-                getCurrentPosition = getCurrentPosition ?: { position },
+                getCurrentPosition = { currentPosition },
                 pausedPosition = position,
-                duration = duration
+                duration = duration,
+                startTime = now
             )
         }
     }
@@ -96,12 +266,14 @@ class DiscordPresenceManager(
         if (isStopped) return
         val mediaItem = lastMediaItem ?: return
         val frozenTimestamp = now - pausedPosition
+        val title = mediaItem.mediaMetadata.title?.toString().takeIf { !it.isNullOrBlank() } ?: context.getString(R.string.unknown_title)
+        val artist = mediaItem.mediaMetadata.artist?.toString().takeIf { !it.isNullOrBlank() } ?: context.getString(R.string.unknown_artist)
         discordScope.launch {
             if (isStopped) return@launch
             sendActivity(
                 mediaItem = mediaItem,
-                details = "⏸️ Paused: ${mediaItem.mediaMetadata.title}",
-                state = mediaItem.mediaMetadata.artist?.toString() ?: "N-Zik",
+                details = "⏸️ Paused: $title",
+                state = artist,
                 start = frozenTimestamp,
                 end = frozenTimestamp,
                 status = "online",
@@ -124,18 +296,34 @@ class DiscordPresenceManager(
     ) {
         if (isStopped) return
         val token = getToken() ?: return
+        if (token.isEmpty()) return
+
+        when (validateToken(token)) {
+            false -> {
+                Timber.tag("DiscordPresence").e("Invalid token, stopping presence updates")
+                Toaster.e(R.string.discord_token_text_invalid)
+                return
+            }
+            null -> {
+                Timber.tag("DiscordPresence").w("Network error while updating presence, skipping.")
+                return
+            }
+            true -> { /* Token is valid, continue */ }
+        }
+
         if (token != lastToken) {
             rpc?.closeRPC()
             rpc = KizzyRPC(token)
             lastToken = token
         }
-        val largeImageUrl = getLargeImageUrl(mediaItem)
-            ?: "mp:attachments/1231921505923760150/1379170235298615377/album.png?ex=6843e11f&is=68428f9f&hm=eaeede43ecac89039749913711b09871adb61f92bc234ed688048d8bd1285f6c&="
+        val largeImageUrl = getLargeImageUrl(mediaItem.mediaMetadata.artworkUri)
+        val smallImageUrl = getSmallImageUrl()
+        val largeTextValue = if (state.isNotBlank()) "$details - $state" else details
         runCatching {
             rpc?.setActivity(
                 activity = Activity(
-                    applicationId = "1379051016007454760",
-                    name = "N-Zik",
+                    applicationId = APPLICATION_ID,
+                    name = "Cubic-Music",
                     details = details,
                     state = state,
                     type = TypeDiscordActivity.LISTENING.value,
@@ -145,14 +333,14 @@ class DiscordPresenceManager(
                     ),
                     assets = Assets(
                         largeImage = largeImageUrl,
-                        smallImage = "mp:attachments/1231921505923760150/1379166057809575997/N-Zik_Discord.png?ex=6843dd3b&is=68428bbb&hm=c812f13ede8f4fbe757f95290099124a372f1f05abd58184eac3900a25ffafc4&=",
-                        largeText = mediaItem.mediaMetadata.title?.toString() + " - " + mediaItem.mediaMetadata.artist?.toString(),
+                        smallImage = smallImageUrl,
+                        largeText = largeTextValue,
                         smallText = "v${getVersionName(context)}",
                     ),
-                    buttons = listOf("Get N-Zik", "Listen to YTMusic"),
+                    buttons = listOf("Get Cubic-Music", "Listen to YTMusic"),
                     metadata = com.my.kizzyrpc.model.Metadata(
                         listOf(
-                            "https://github.com/NEVARLeVrai/N-Zik/",
+                            "https://github.com/cybrughost/Cubic-Music/",
                             "https://music.youtube.com/watch?v=${mediaItem.mediaId}",
                         )
                     )
@@ -161,7 +349,8 @@ class DiscordPresenceManager(
                 since = System.currentTimeMillis()
             )
         }.onFailure {
-            Timber.tag("DiscordPresence").e(it, "Error setActivity: ${it.message}")
+            // Log the error but don't show it to the user to avoid disturbance
+            Timber.tag("DiscordPresence").w("Error setting Discord activity: ${it.message}")
         }
     }
 
@@ -199,93 +388,18 @@ class DiscordPresenceManager(
     }
 
     /**
-     * Upload an image to the tmpfiles.org
-     */
-    private suspend fun uploadImage(file: File): String? = withContext(Dispatchers.IO) {
-        val compressed = if (file.length() > 1_000_000) compressImage(file) else file
-        try {
-            val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("file", compressed!!.name, compressed.readBytes().toRequestBody("image/*".toMediaType()))
-                .build()
-            val request = Request.Builder().url(uploadApi).post(requestBody).build()
-            runCatching {
-                client.newCall(request).execute().use { response ->
-                    val body = response.body?.string() ?: return@runCatching null
-                    json.decodeFromString<ApiResponse>(body).data.url
-                }
-            }.onFailure {
-                Timber.tag("DiscordPresence").e(it, "Error upload: ${it.message}")
-            }.getOrNull()?.replace("https://tmpfiles.org/", "https://tmpfiles.org/dl/")
-        } finally {
-            if (compressed != null && compressed != file) compressed.delete()
-        }
-    }
-
-    /**
-     * Get the artwork file
-     */
-    private fun getArtworkFile(mediaItem: MediaItem): File? {
-        val uri = mediaItem.mediaMetadata.artworkUri ?: return null
-        val file = if (uri.scheme == "file" || uri.scheme == null) File(uri.path!!) else null
-        if (file != null && file.length() > 1_000_000) {
-            return compressImage(file)
-        }
-        return file
-    }
-
-    /**
-     * Get the discord asset uri
-     */
-    private suspend fun getDiscordAssetUri(imageUrl: String, token: String): String? = withContext(Dispatchers.IO) {
-        if (imageUrl.startsWith("mp:")) return@withContext imageUrl
-        val api = "https://discord.com/api/v9/applications/1379051016007454760/external-assets"
-        val request = Request.Builder().url(api)
-            .header("Authorization", token)
-            .post("{\"urls\":[\"$imageUrl\"]}".toRequestBody("application/json".toMediaType()))
-            .build()
-        runCatching {
-            client.newCall(request).execute().use { response ->
-                val body = response.body?.string() ?: return@runCatching null
-                val jsonArr = runCatching { Json.parseToJsonElement(body).jsonArray }
-                    .getOrElse {
-                        Timber.tag("DiscordPresence").e(it, "Error parsing JSON: ${it.message}")
-                        return@runCatching null
-                    }
-                val externalAssetPath = jsonArr.firstOrNull()?.jsonObject?.get("external_asset_path")?.toString()?.replace("\"", "")
-                externalAssetPath?.let { "mp:$it" }
-            }
-        }.onFailure {
-            Timber.tag("DiscordPresence").e(it, "Error assetUri: ${it.message}")
-        }.getOrNull()
-    }
-
-    /**
-     * Get the large image url
-     */
-    private suspend fun getLargeImageUrl(mediaItem: MediaItem): String? {
-        val token = getToken() ?: return null
-        val artworkFile = getArtworkFile(mediaItem)
-
-        val url = if (artworkFile != null && artworkFile.exists()) {
-            uploadImage(artworkFile)
-        } else {
-            mediaItem.mediaMetadata.artworkUri?.toString()?.takeIf { it.startsWith("http") }
-        }
-        val asset = if (url != null) getDiscordAssetUri(url, token) else null
-        return asset
-    }
-
-    /**
      * Send a custom discord activity
      */
     private fun sendPlayingPresence(mediaItem: MediaItem, position: Long, duration: Long, now: Long) {
         val start = now - position
         val end = start + duration
+        val title = mediaItem.mediaMetadata.title?.toString().takeIf { !it.isNullOrBlank() } ?: context.getString(R.string.unknown_title)
+        val artist = mediaItem.mediaMetadata.artist?.toString().takeIf { !it.isNullOrBlank() } ?: context.getString(R.string.unknown_artist)
         discordScope.launch {
             sendActivity(
                 mediaItem = mediaItem,
-                details = mediaItem.mediaMetadata.title?.toString() ?: "N-Zik",
-                state = mediaItem.mediaMetadata.artist?.toString() ?: "N-Zik",
+                details = title,
+                state = artist,
                 start = start,
                 end = end,
                 status = "online",
@@ -303,51 +417,23 @@ class DiscordPresenceManager(
         mediaItem: MediaItem,
         getCurrentPosition: () -> Long,
         pausedPosition: Long,
-        duration: Long
+        duration: Long,
+        startTime: Long
     ) {
         refreshJob = discordScope.launch {
             while (isActive && !isStopped) {
-                delay(20_000L)
+                delay(15_000L)
+                if (!isNetworkAvailable(context)) {
+                    continue
+                }
                 val isPlaying = isPlayingProvider()
                 if (isPlaying) {
                     val pos = getCurrentPosition()
-                    sendPlayingPresence(mediaItem, pos, duration, System.currentTimeMillis())
+                    sendPlayingPresence(mediaItem, pos, duration, startTime)
                 } else {
                     sendPausedPresence(duration, System.currentTimeMillis(), pausedPosition)
                 }
             }
         }
     }
-
-    /**
-     * Compress an image
-     */
-    private fun compressImage(file: File, maxSize: Int = 512): File? {
-        return try {
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = false }
-            var bitmap = BitmapFactory.decodeFile(file.absolutePath, options)
-
-            if (bitmap.width > maxSize || bitmap.height > maxSize) {
-                val ratio = minOf(maxSize.toFloat() / bitmap.width, maxSize.toFloat() / bitmap.height)
-                val width = (bitmap.width * ratio).toInt()
-                val height = (bitmap.height * ratio).toInt()
-                bitmap = bitmap.scale(width, height)
-            }
-
-            val compressedFile = File.createTempFile("compressed_", ".jpg", file.parentFile)
-            FileOutputStream(compressedFile).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 5, out)
-            }
-            compressedFile
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-}
-
-@Serializable
-data class ApiResponse(val status: String, val data: Data) {
-    @Serializable
-    data class Data(val url: String)
 }

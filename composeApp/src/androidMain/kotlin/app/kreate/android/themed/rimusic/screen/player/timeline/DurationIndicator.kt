@@ -36,7 +36,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.ColorPaletteMode
@@ -45,10 +44,14 @@ import it.fast4x.rimusic.service.modern.PlayerServiceModern
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.styling.favoritesIcon
 import it.fast4x.rimusic.utils.DURATION_INDICATOR_HEIGHT
+import it.fast4x.rimusic.utils.colorPaletteModeKey
 import it.fast4x.rimusic.utils.formatAsDuration
+import it.fast4x.rimusic.utils.pauseBetweenSongsKey
 import it.fast4x.rimusic.utils.positionAndDurationState
 import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showRemainingSongTimeKey
+import it.fast4x.rimusic.utils.textoutlineKey
 import kotlinx.coroutines.delay
 
 /**
@@ -101,8 +104,8 @@ private fun RowScope.SkipTimeButton(
 
 @Composable
 private fun outlineColorState(): State<Color> {
-    val colorPaletteMode by Preferences.THEME_MODE
-    val textOutline by Preferences.TEXT_OUTLINE
+    val colorPaletteMode by rememberPreference( colorPaletteModeKey, ColorPaletteMode.Dark )
+    val textOutline by rememberPreference( textoutlineKey, false )
     val isDarkTheme = isSystemInDarkTheme()
 
     return remember {
@@ -185,7 +188,7 @@ fun DurationIndicator(
         }
 
         // Remaining duration
-        val showRemainingSongTime by Preferences.PLAYER_SHOW_SONGS_REMAINING_TIME
+        val showRemainingSongTime by rememberPreference( showRemainingSongTimeKey, true )
         if( showRemainingSongTime ) {
             Box(
                 modifier = Modifier.weight( 1f )
@@ -200,7 +203,7 @@ fun DurationIndicator(
                 }
                 var isPaused by remember { mutableStateOf(false) }
 
-                val pauseBetweenSongs by Preferences.PAUSE_BETWEEN_SONGS
+                val pauseBetweenSongs by rememberPreference(pauseBetweenSongsKey, PauseBetweenSongs.`0`)
                 if(pauseBetweenSongs != PauseBetweenSongs.`0`)
                     LaunchedEffect(timeRemaining) {
                         if(timeRemaining < 500) {

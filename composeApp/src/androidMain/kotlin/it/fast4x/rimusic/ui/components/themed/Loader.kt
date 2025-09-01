@@ -22,7 +22,7 @@ fun Loader(
     modifier = modifier,
 ) {
     Image(
-        painter = painterResource(R.drawable.loader),
+        painter = painterResource(R.drawable.looder),
         contentDescription = null,
         colorFilter = ColorFilter.tint(colorPalette().text),
         modifier = Modifier

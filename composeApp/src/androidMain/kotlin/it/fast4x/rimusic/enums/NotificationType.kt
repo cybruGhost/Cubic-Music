@@ -1,13 +1,18 @@
 package it.fast4x.rimusic.enums
 
-import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import app.kreate.android.R
-import me.knighthat.enums.TextView
 
-enum class NotificationType(
-    @StringRes override val textId: Int
-): TextView {
+enum class NotificationType {
+    Default,
+    Advanced;
 
-    Default( R.string.notification_type_default ),
-    Advanced( R.string.notification_type_advanced );
+    val textName: String
+        @Composable
+        get() = when (this) {
+            Default -> stringResource(R.string.notification_type_default)
+            Advanced -> stringResource(R.string.notification_type_advanced)
+
+        }
 }

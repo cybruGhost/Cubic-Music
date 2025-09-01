@@ -100,6 +100,7 @@ kotlin {
             implementation(libs.coil.compose.core)
             implementation(libs.coil.compose)
             implementation(libs.coil.mp)
+            implementation(libs.coil.network.okhttp)
 
             implementation(libs.translator)
 
@@ -115,6 +116,12 @@ android {
         includeInBundle = false
     }
 
+    androidComponents {
+        beforeVariants(selector().withBuildType("release")) {
+            it.enable = false
+        }
+    }
+
     buildFeatures {
         buildConfig = true
         compose = true
@@ -124,10 +131,10 @@ android {
 
     defaultConfig {
         applicationId = "com.Cubic.music"
-        minSdk = 21
-        targetSdk = 35
-        versionCode = 103
-        versionName = "1.5.1"
+        minSdk = 23
+        targetSdk = 36
+        versionCode = 108
+        versionName = "1.6.8"
 
         /*
                 UNIVERSAL VARIABLES
@@ -147,10 +154,12 @@ android {
 
     buildTypes {
         debug {
+            manifestPlaceholders += mapOf()
             applicationIdSuffix = ".debug"
             manifestPlaceholders["appName"] = "$APP_NAME-debug"
 
             buildConfigField( "Boolean", "IS_AUTOUPDATE", "false" )
+            signingConfig = signingConfigs.getByName("debug")
         }
 
         create( "full" ) {
@@ -171,22 +180,9 @@ android {
             )
         }
 
-        create( "izzy" ) {
-            initWith( maybeCreate("minified") )
-
-            // App's properties
-            versionNameSuffix = "-izzy"
-
-            buildConfigField( "Boolean", "IS_AUTOUPDATE", "false" )
-        }
-
-        // Specifically tailored to F-Droid build
-        // inherited from minified build type
-        release {
-            initWith( maybeCreate("noAutoUpdate") )
-
-            // App's properties
-            versionNameSuffix = "-fdroid"
+        create( "beta" ) {
+            initWith( maybeCreate("full") )
+            versionNameSuffix = "-b"
         }
 
         /**
@@ -202,12 +198,7 @@ android {
     applicationVariants.all {
         outputs.map { it as BaseVariantOutputImpl }
                .forEach { output ->
-                   val typeName =
-                       if( buildType.name == "noAutoUpdate" )
-                           "no-autoupdate"
-                       else
-                           buildType.name
-
+                   val typeName = buildType.name
                    output.outputFileName = "$APP_NAME-$typeName.apk"
                }
     }
@@ -269,7 +260,6 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.ui)
     implementation(libs.compose.shimmer)
-    implementation(libs.compose.coil)
     implementation(libs.androidx.palette)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.datasource.okhttp)
@@ -291,6 +281,7 @@ dependencies {
     implementation(libs.gson)
     implementation (libs.hypnoticcanvas)
     implementation (libs.hypnoticcanvas.shaders)
+    implementation(libs.github.jeziellago.compose.markdown)
 
     implementation(libs.room)
     ksp(libs.room.compiler)

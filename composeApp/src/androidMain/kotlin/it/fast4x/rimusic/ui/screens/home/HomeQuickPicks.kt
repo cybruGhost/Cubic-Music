@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -45,6 +46,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.compose.persist.persist
 import it.fast4x.compose.persist.persistList
@@ -62,6 +63,7 @@ import it.fast4x.innertube.models.bodies.NextBody
 import it.fast4x.innertube.requests.HomePage
 import it.fast4x.innertube.requests.chartsPageComplete
 import it.fast4x.innertube.requests.discoverPage
+import it.fast4x.innertube.requests.relatedPage
 import it.fast4x.innertube.requests.relatedPage
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.EXPLICIT_PREFIX
@@ -106,9 +108,13 @@ import it.fast4x.rimusic.utils.asSong
 import it.fast4x.rimusic.utils.bold
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.color
+import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.forcePlay
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.isNowPlaying
+import it.fast4x.rimusic.utils.loadedDataKey
+import it.fast4x.rimusic.utils.parentalControlEnabledKey
+import it.fast4x.rimusic.utils.playEventsTypeKey
 import it.fast4x.rimusic.utils.playVideo
 import it.fast4x.rimusic.utils.quickPicsDiscoverPageKey
 import it.fast4x.rimusic.utils.quickPicsHomePageKey
@@ -116,7 +122,19 @@ import it.fast4x.rimusic.utils.quickPicsRelatedPageKey
 import it.fast4x.rimusic.utils.quickPicsTrendingSongKey
 import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.secondary
+import it.fast4x.rimusic.utils.selectedCountryCodeKey
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showChartsKey
+import it.fast4x.rimusic.utils.showFloatingIconKey
+import it.fast4x.rimusic.utils.showMonthlyPlaylistInQuickPicksKey
+import it.fast4x.rimusic.utils.showMoodsAndGenresKey
+import it.fast4x.rimusic.utils.showNewAlbumsArtistsKey
+import it.fast4x.rimusic.utils.showNewAlbumsKey
+import it.fast4x.rimusic.utils.showPlaylistMightLikeKey
+import it.fast4x.rimusic.utils.showRelatedAlbumsKey
+import it.fast4x.rimusic.utils.showSearchTabKey
+import it.fast4x.rimusic.utils.showSimilarArtistsKey
+import it.fast4x.rimusic.utils.showTipsKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -125,6 +143,8 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ColorFilter
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,11 +167,15 @@ fun HomeQuickPicks(
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
     val windowInsets = LocalPlayerAwareWindowInsets.current
-    var playEventType by Preferences.QUICK_PICKS_TYPE
+    var playEventType by rememberPreference(playEventsTypeKey, PlayEventsType.MostPlayed)
 
+    var trendingList by remember { mutableStateOf<List<Song>>(emptyList()) }
     var trending by persist<Song?>("home/trending")
     val trendingInit by persist<Song?>(tag = "home/trending")
     var trendingPreference by rememberPreference(quickPicsTrendingSongKey, trendingInit)
+
+    // Variable to store the real most popular song (before shuffle)
+    var mostPopularSong by remember { mutableStateOf<Song?>(null) }
 
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/relatedPageResult")
     var relatedInit by persist<Innertube.RelatedPage?>(tag = "home/relatedPage")
@@ -176,26 +200,35 @@ fun HomeQuickPicks(
     val context = LocalContext.current
 
 
-    val showRelatedAlbums by Preferences.QUICK_PICKS_SHOW_RELATED_ALBUMS
-    val showSimilarArtists by Preferences.QUICK_PICKS_SHOW_RELATED_ARTISTS
-    val showNewAlbumsArtists by Preferences.QUICK_PICKS_SHOW_NEW_ALBUMS_ARTISTS
-    val showPlaylistMightLike by Preferences.QUICK_PICKS_SHOW_MIGHT_LIKE_PLAYLISTS
-    val showMoodsAndGenres by Preferences.QUICK_PICKS_SHOW_MOODS_AND_GENRES
-    val showNewAlbums by Preferences.QUICK_PICKS_SHOW_NEW_ALBUMS
-    val showMonthlyPlaylistInQuickPicks by Preferences.QUICK_PICKS_SHOW_MONTHLY_PLAYLISTS
-    val showTips by Preferences.QUICK_PICKS_SHOW_TIPS
-    val showCharts by Preferences.QUICK_PICKS_SHOW_CHARTS
+    val showRelatedAlbums by rememberPreference(showRelatedAlbumsKey, true)
+    val showSimilarArtists by rememberPreference(showSimilarArtistsKey, true)
+    val showNewAlbumsArtists by rememberPreference(showNewAlbumsArtistsKey, true)
+    val showPlaylistMightLike by rememberPreference(showPlaylistMightLikeKey, true)
+    val showMoodsAndGenres by rememberPreference(showMoodsAndGenresKey, true)
+    val showNewAlbums by rememberPreference(showNewAlbumsKey, true)
+    val showMonthlyPlaylistInQuickPicks by rememberPreference(
+        showMonthlyPlaylistInQuickPicksKey,
+        true
+    )
+    val showTips by rememberPreference(showTipsKey, true)
+    val showCharts by rememberPreference(showChartsKey, true)
 
     val refreshScope = rememberCoroutineScope()
     val last50Year: Duration = 18250.days
     val from = last50Year.inWholeMilliseconds
 
-    var selectedCountryCode = Countries.US
+    var selectedCountryCode by rememberPreference(selectedCountryCodeKey, Countries.ZZ)
 
-    val parentalControlEnabled by Preferences.PARENTAL_CONTROL
+    val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
 
     //var loadedData by rememberSaveable { mutableStateOf(false) }
-    var loadedData by Preferences.IS_DATA_KEY_LOADED
+    var loadedData by rememberPreference(loadedDataKey, false)
+
+    val localRecommandationsNumber by rememberPreference(
+        key = "LocalRecommandationsNumber",
+        defaultValue = it.fast4x.rimusic.enums.LocalRecommandationsNumber.SixQ
+    )
+    val localCount = localRecommandationsNumber.value
 
     suspend fun loadData() {
 
@@ -213,47 +246,64 @@ fun HomeQuickPicks(
                         Database.eventTable
                                 .findSongsMostPlayedBetween(
                                     from = from,
-                                    limit = 1
+                                    limit = localCount
                                 )
                                 .distinctUntilChanged()
                                 .collect { songs ->
-                                    val song = songs.firstOrNull()
-                                    if (relatedPageResult == null || trending?.id != song?.id) {
+                                    trendingList = songs.distinctBy { it.id }.take(localCount)
+                                    trending = trendingList.firstOrNull()
+                                    mostPopularSong = trendingList.firstOrNull() // the first is the most popular
+                                    if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
                                         relatedPageResult = Innertube.relatedPage(
                                             NextBody(
-                                                videoId = (song?.id ?: "HZnNt9nnEhw")
+                                                videoId = (trending?.id ?: "HZnNt9nnEhw")
                                             )
                                         )
                                     }
-                                    trending = song
                                 }
-
-                    PlayEventsType.LastPlayed, PlayEventsType.CasualPlayed -> {
-                        val numSongs = if (playEventType == PlayEventsType.LastPlayed) 3 else 100
+                    PlayEventsType.LastPlayed -> {
                         Database.eventTable
-                                .findSongsMostPlayedBetween(
-                                    from = 0,
-                                    limit = numSongs
+                                .findSongsLastPlayed(
+                                    limit = localCount
                                 )
                                 .distinctUntilChanged()
                                 .collect { songs ->
-                                    val song =
-                                        if (playEventType == PlayEventsType.LastPlayed)
-                                            songs.firstOrNull()
-                                        else
-                                            songs.shuffled().firstOrNull()
-                                    if (relatedPageResult == null || trending?.id != song?.id) {
+                                    trendingList = songs.distinctBy { it.id }.take(localCount)
+                                    trending = trendingList.firstOrNull()
+                                    mostPopularSong = trendingList.firstOrNull() // the first is the most recent
+                                    if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
                                         relatedPageResult =
                                             Innertube.relatedPage(
                                                 NextBody(
-                                                    videoId = (song?.id ?: "HZnNt9nnEhw")
+                                                    videoId = (trending?.id ?: "HZnNt9nnEhw")
                                                 )
                                             )
                                     }
-                                    trending = song
                                 }
                     }
-
+                    PlayEventsType.CasualPlayed -> {
+                        Database.eventTable
+                                .findSongsMostPlayedBetween(
+                                    from = 0,
+                                    limit = 100
+                                )
+                                .distinctUntilChanged()
+                                .collect { songs ->
+                                    val originalList = songs.distinctBy { it.id }
+                                    mostPopularSong = originalList.firstOrNull() // Garder la vraie plus populaire
+                                    val shuffled = originalList.shuffled().take(localCount)
+                                    trendingList = shuffled
+                                    trending = shuffled.firstOrNull()
+                                    if (relatedPageResult == null || trending?.id != shuffled.firstOrNull()?.id) {
+                                        relatedPageResult =
+                                            Innertube.relatedPage(
+                                                NextBody(
+                                                    videoId = (trending?.id ?: "HZnNt9nnEhw")
+                                                )
+                                            )
+                                    }
+                                }
+                    }
                 }
             }
 
@@ -275,7 +325,15 @@ fun HomeQuickPicks(
         }
     }
 
-    LaunchedEffect(Unit, playEventType, selectedCountryCode) {
+    LaunchedEffect(playEventType, selectedCountryCode) {
+        // Reset of all states related
+        loadedData = false
+        relatedPageResult = null
+        relatedInit = null
+        trending = null
+        trendingList = emptyList()
+        // Delay to ensure the reset (optional)
+        kotlinx.coroutines.delay(100)
         loadData()
     }
 
@@ -283,6 +341,7 @@ fun HomeQuickPicks(
 
     fun refresh() {
         if (refreshing) return
+        trendingList = emptyList()
         loadedData = false
         relatedPageResult = null
         relatedInit = null
@@ -317,7 +376,7 @@ fun HomeQuickPicks(
         .padding(top = 24.dp, bottom = 8.dp)
         .padding(endPaddingValues)
 
-    val showSearchTab by Preferences.SHOW_SEARCH_IN_NAVIGATION_BAR
+    val showSearchTab by rememberPreference(showSearchTabKey, false)
 
     val downloadedSongs = remember {
         MyDownloadHelper.downloads.value.filter {
@@ -331,7 +390,7 @@ fun HomeQuickPicks(
 
     val hapticFeedback = LocalHapticFeedback.current
 
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
     PullToRefreshBox(
         isRefreshing = refreshing,
@@ -349,9 +408,9 @@ fun HomeQuickPicks(
         ) {
             val quickPicksLazyGridItemWidthFactor =
                 if (isLandscape && maxWidth * 0.475f >= 320.dp) {
-                    0.475f
+                    0.375f
                 } else {
-                    0.9f
+                    0.7f
                 }
             val itemInHorizontalGridWidth = maxWidth * quickPicksLazyGridItemWidthFactor
 
@@ -483,8 +542,6 @@ fun HomeQuickPicks(
                             binder?.player?.addMediaItems(relatedInit?.songs?.map { it.asMediaItem }
                                 ?: emptyList())
                         }
-
-                        //modifier = Modifier.fillMaxWidth(0.7f)
                     )
 
                     BasicText(
@@ -495,57 +552,91 @@ fun HomeQuickPicks(
                             .padding(bottom = 8.dp)
                     )
 
-                    LazyHorizontalGrid(
-                        state = quickPicksLazyGridState,
-                        rows = GridCells.Fixed(if (relatedInit != null) 3 else 1),
-                        flingBehavior = ScrollableDefaults.flingBehavior(),
-                        contentPadding = endPaddingValues,
-                        modifier = Modifier.fillMaxWidth()
+                    if (relatedPageResult != null) {
+                        // Prepare the final list : 6 locals (or less depending on the local recommandations number) + 14 YT recommendations (or less), then shuffle to show max 21 songs
+                        val recommendations = remember(trendingList, relatedInit, localCount, playEventType) {
+                            val mainIds = trendingList.map { it.id }.toSet()
+                            if (playEventType == PlayEventsType.MostPlayed || playEventType == PlayEventsType.LastPlayed) {
+                                val first = trendingList.firstOrNull()
+                                val others = trendingList.drop(1)
+                                val relatedSongs = relatedInit?.songs
+                                    ?.map { it.asSong }
+                                    ?.filter { it.id !in mainIds }
+                                    ?.distinctBy { it.id }
+                                        ?.take(21 - (1 + others.size))
+                                    .orEmpty()
+                                val total = (others + relatedSongs)
+                                val extra = if (total.size < 21) {
+                                    relatedInit?.songs
+                                        ?.map { it.asSong }
+                                        ?.filter { it.id !in (others.map { s -> s.id } + (first?.id ?: "")) }
+                                        ?.distinctBy { it.id }
+                                        ?.take(21 - total.size)
+                                        .orEmpty()
+                                } else emptyList()
+                                (listOfNotNull(first) + (total + extra).shuffled()).distinctBy { it.id }
+                            } else {
+                                // Random Mode will randomize the list : all mixed
+                                val locals = trendingList.take(localCount)
+                                val relatedSongs = relatedInit?.songs
+                                    ?.map { it.asSong }
+                                    ?.filter { it.id !in locals.map { it.id } }
+                                    ?.distinctBy { it.id }
+                                    ?.take(21 - locals.size)
+                                    .orEmpty()
+                                val total = (locals + relatedSongs)
+                                val extra = if (total.size < 21) {
+                                    relatedInit?.songs
+                                        ?.map { it.asSong }
+                                        ?.filter { it.id !in total.map { s -> s.id } }
+                                        ?.distinctBy { it.id }
+                                        ?.take(21 - total.size)
+                                        .orEmpty()
+                                } else emptyList()
+                                (total + extra).shuffled().distinctBy { it.id }
+                            }
+                        }
+
+                        LazyHorizontalGrid(
+                            state = quickPicksLazyGridState,
+                            rows = GridCells.Fixed(if (relatedInit != null) 3 else 1),
+                            flingBehavior = ScrollableDefaults.flingBehavior(),
+                            contentPadding = endPaddingValues,
+                            modifier = Modifier.fillMaxWidth()
                                            .height(
                                                if ( relatedInit != null)
                                                    Dimensions.itemsVerticalPadding * 3 * 9
                                                else
                                                    Dimensions.itemsVerticalPadding * 9
                                            )
-                    ) {
-                        trending?.let { song ->
-                            item {
+                        ) {
+                            items(recommendations, key = { it.id }) { song ->
                                 me.knighthat.component.SongItem(
                                     song = song,
                                     navController = navController,
-                                    onClick = {
-                                        binder?.startRadio( song, true )
-                                    },
-                                    modifier = Modifier.width( itemInHorizontalGridWidth )
-                                )
-                            }
-                        }
-
-                        relatedInit?.let { relatedPage ->
-                            items(
-                                items = relatedPage.songs
-                                                   ?.distinctBy( Innertube.SongItem::key )
-                                                   ?.filter {
-                                                       cachedSongs == null || cachedSongs.indexOf( it.key ) < 0
-                                                   }
-                                                   ?.dropLast( if( trending == null) 0 else 1 )
-                                                   ?.map( Innertube.SongItem::asSong )
-                                                   .orEmpty(),
-                                key = Song::id
-                            ) { song ->
-                                me.knighthat.component.SongItem(
-                                    song = song,
-                                    navController = navController,
-                                    onClick = {
-                                        binder?.startRadio( song, true )
-                                    },
-                                    modifier = Modifier.width( itemInHorizontalGridWidth )
+                                    onClick = { binder?.startRadio(song, true) },
+                                    modifier = Modifier.width(itemInHorizontalGridWidth),
+                                    thumbnailOverlay = {
+                                        if (playEventType != PlayEventsType.CasualPlayed && 
+                                            mostPopularSong != null && 
+                                            song.id == mostPopularSong!!.id) {
+                                            Image(
+                                                painter = painterResource(R.drawable.star_brilliant),
+                                                contentDescription = null,
+                                                colorFilter = ColorFilter.tint(colorPalette().accent),
+                                                modifier = Modifier
+                                                    .size(23.dp)
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(4.dp)
+                                            )
+                                        }
+                                    }
                                 )
                             }
                         }
                     }
 
-                    if (relatedInit == null) Loader()
+                    if (relatedPageResult == null) Loader()
                 }
 
 
@@ -1172,7 +1263,7 @@ fun HomeQuickPicks(
             }
 
 
-            val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
+            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if (UiType.ViMusic.isCurrent() && showFloatingIcon)
                 MultiFloatingActionsContainer(
                     iconId = R.drawable.search,

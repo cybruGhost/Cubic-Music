@@ -74,9 +74,7 @@ import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastFirst
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
-import coil.compose.AsyncImage
 import it.fast4x.compose.persist.persist
 import it.fast4x.compose.persist.persistList
 import it.fast4x.innertube.Innertube
@@ -86,9 +84,11 @@ import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.cleanPrefix
+import me.knighthat.coil.ImageCacheFactory
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.NavigationBarPosition
+import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.enums.UiType
 import it.fast4x.rimusic.models.Playlist
 import it.fast4x.rimusic.models.Song
@@ -118,6 +118,7 @@ import it.fast4x.rimusic.utils.align
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.asSong
 import it.fast4x.rimusic.utils.color
+import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.durationTextToMillis
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.fadingEdge
@@ -132,9 +133,13 @@ import it.fast4x.rimusic.utils.isNetworkConnected
 import it.fast4x.rimusic.utils.languageDestination
 import it.fast4x.rimusic.utils.manageDownload
 import it.fast4x.rimusic.utils.medium
+import it.fast4x.rimusic.utils.parentalControlEnabledKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.resize
 import it.fast4x.rimusic.utils.secondary
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showFloatingIconKey
+import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -168,8 +173,8 @@ fun PlaylistSongList(
     val lazyListState = rememberLazyListState()
 
     // Settings
-    val parentalControlEnabled by Preferences.PARENTAL_CONTROL
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
     var playlistPage by persist<PlaylistPage?>("playlist/$browseId/playlistPage")
     var continuation: String? by remember { mutableStateOf( null ) }
@@ -255,7 +260,10 @@ fun PlaylistSongList(
         mutableStateOf(false)
     }
 
-    var thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
+    var thumbnailRoundness by rememberPreference(
+        thumbnailRoundnessKey,
+        ThumbnailRoundness.Heavy
+    )
 
     var showYoutubeLikeConfirmDialog by remember {
         mutableStateOf(false)
@@ -356,8 +364,8 @@ fun PlaylistSongList(
                         if (playlistPage != null) {
                             if(!isLandscape)
                                 Box {
-                                    AsyncImage(
-                                        model = playlistPage!!.playlist.thumbnail?.url?.resize(
+                                    ImageCacheFactory.AsyncImage(
+                                        thumbnailUrl = playlistPage!!.playlist.thumbnail?.url?.resize(
                                             1200,
                                             1200
                                         ),
@@ -1052,7 +1060,7 @@ fun PlaylistSongList(
                     item( "loading" ) { SongItemPlaceholder() }
             }
 
-            val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
+            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if( UiType.ViMusic.isCurrent() && showFloatingIcon )
             FloatingActionsContainerWithScrollToTop(
                 lazyListState = lazyListState,

@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.MONTHLY_PREFIX
@@ -49,16 +48,25 @@ import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.MenuStyle
 import it.fast4x.rimusic.enums.NavRoutes
+import it.fast4x.rimusic.enums.PlaylistSortBy
+import it.fast4x.rimusic.enums.SortOrder
 import it.fast4x.rimusic.models.Album
 import it.fast4x.rimusic.models.Playlist
 import it.fast4x.rimusic.models.PlaylistPreview
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.items.AlbumItem
 import it.fast4x.rimusic.ui.styling.Dimensions
+import it.fast4x.rimusic.ui.styling.favoritesIcon
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.isNetworkConnected
+import it.fast4x.rimusic.utils.menuStyleKey
+import it.fast4x.rimusic.utils.playlistSortByKey
+import it.fast4x.rimusic.utils.playlistSortOrderKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
+import me.knighthat.component.tab.Search
+import me.knighthat.utils.Toaster
 
 @ExperimentalTextApi
 @SuppressLint("SuspiciousIndentation")
@@ -94,7 +102,10 @@ fun AlbumsItemMenu(
         mutableStateOf(0.dp)
     }
 
-    val menuStyle by Preferences.MENU_STYLE
+    val menuStyle by rememberPreference(
+        menuStyleKey,
+        MenuStyle.List
+    )
 
     if (menuStyle == MenuStyle.Grid) {
         AlbumsItemGridMenu(
@@ -102,6 +113,8 @@ fun AlbumsItemMenu(
             onDismiss = onDismiss,
             album = album,
             onSelectUnselect = onSelectUnselect,
+            onSelect = onSelect,
+            onUncheck = onUncheck,
             onChangeAlbumTitle = onChangeAlbumTitle,
             onChangeAlbumAuthors = onChangeAlbumAuthors,
             onChangeAlbumCover = onChangeAlbumCover,
@@ -128,8 +141,10 @@ fun AlbumsItemMenu(
         ) { currentIsViewingPlaylists ->
             if (currentIsViewingPlaylists) {
                 val context = LocalContext.current
+                val sortBy by rememberPreference(playlistSortByKey, PlaylistSortBy.DateAdded)
+                val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
                 val playlistPreviews by remember {
-                    Database.playlistTable.sortPreviewsByName()
+                    Database.playlistTable.sortPreviews( sortBy, sortOrder )
                 }.collectAsState( emptyList(), Dispatchers.IO )
 
                 val pinnedPlaylists = playlistPreviews.filter {
@@ -182,8 +197,9 @@ fun AlbumsItemMenu(
                     modifier = modifier
                         .requiredHeight(height)
                 ) {
+                    val search = Search()
+                    val title = stringResource(R.string.playlists)
                     Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -197,17 +213,39 @@ fun AlbumsItemMenu(
                                 .padding(all = 4.dp)
                                 .size(20.dp)
                         )
-
+                        IconButton(
+                            onClick = { search.isVisible = !search.isVisible },
+                            icon = R.drawable.search_circle,
+                            color = colorPalette().favoritesIcon,
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(24.dp)
+                        )
+                        BasicText(
+                            text = title,
+                            style = typography().m.semiBold,
+                            modifier = Modifier.weight(1f).padding(start = 8.dp)
+                        )
                         if (onAddToPlaylist != null) {
-                            SecondaryTextButton(
-                                text = stringResource(R.string.new_playlist),
+                            IconButton(
                                 onClick = { isCreatingNewPlaylist = true },
-                                alternative = true
+                                icon = R.drawable.add_in_playlist,
+                                color = colorPalette().text,
+                                modifier = Modifier
+                                    .padding(all = 4.dp)
+                                    .size(24.dp)
                             )
                         }
                     }
+                    if (search.isVisible) {
+                        search.SearchBar(this)
+                    }
 
-                    if (pinnedPlaylists.isNotEmpty()) {
+                    val filteredPinnedPlaylists = pinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+                    val filteredYoutubePlaylists = youtubePlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+                    val filteredUnpinnedPlaylists = unpinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+
+                    if (filteredPinnedPlaylists.isNotEmpty()) {
                         BasicText(
                             text = stringResource(R.string.pinned_playlists),
                             style = typography().m.semiBold,
@@ -215,7 +253,7 @@ fun AlbumsItemMenu(
                         )
 
                         onAddToPlaylist?.let { onAddToPlaylist ->
-                            pinnedPlaylists.forEach { playlistPreview ->
+                            filteredPinnedPlaylists.forEach { playlistPreview ->
                                 MenuEntry(
                                     icon = R.drawable.add_in_playlist,
                                     text = cleanPrefix(playlistPreview.playlist.name),
@@ -223,13 +261,14 @@ fun AlbumsItemMenu(
                                         R.string.songs
                                     ),
                                     onClick = {
-                                        onDismiss()
                                         onAddToPlaylist(
                                             PlaylistPreview(
                                                 playlistPreview.playlist,
                                                 playlistPreview.songCount
                                             )
                                         )
+                                        Toaster.done()
+                                        onDismiss()
                                     },
                                     trailingContent = {
                                         if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -270,7 +309,7 @@ fun AlbumsItemMenu(
                         }
                     }
 
-                    if (youtubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
+                    if (filteredYoutubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
                         BasicText(
                             text = stringResource(R.string.ytm_playlists),
                             style = typography().m.semiBold,
@@ -278,19 +317,20 @@ fun AlbumsItemMenu(
                         )
 
                         onAddToPlaylist?.let { onAddToPlaylist ->
-                            youtubePlaylists.forEach { playlistPreview ->
+                            filteredYoutubePlaylists.forEach { playlistPreview ->
                                 MenuEntry(
                                     icon = R.drawable.add_in_playlist,
                                     text = cleanPrefix(playlistPreview.playlist.name),
                                     secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                     onClick = {
-                                        onDismiss()
                                         onAddToPlaylist(
                                             PlaylistPreview(
                                                 playlistPreview.playlist,
                                                 playlistPreview.songCount
                                             )
                                         )
+                                        Toaster.done()
+                                        onDismiss()
                                     },
                                     trailingContent = {
                                         IconButton(
@@ -312,7 +352,7 @@ fun AlbumsItemMenu(
                         }
                     }
 
-                    if (unpinnedPlaylists.isNotEmpty()) {
+                    if (filteredUnpinnedPlaylists.isNotEmpty()) {
                         BasicText(
                             text = stringResource(R.string.playlists),
                             style = typography().m.semiBold,
@@ -320,7 +360,7 @@ fun AlbumsItemMenu(
                         )
 
                         onAddToPlaylist?.let { onAddToPlaylist ->
-                            unpinnedPlaylists.forEach { playlistPreview ->
+                            filteredUnpinnedPlaylists.forEach { playlistPreview ->
                                 MenuEntry(
                                     icon = R.drawable.add_in_playlist,
                                     text = cleanPrefix(playlistPreview.playlist.name),
@@ -328,13 +368,14 @@ fun AlbumsItemMenu(
                                         R.string.songs
                                     ),
                                     onClick = {
-                                        onDismiss()
                                         onAddToPlaylist(
                                             PlaylistPreview(
                                                 playlistPreview.playlist,
                                                 playlistPreview.songCount
                                             )
                                         )
+                                        Toaster.done()
+                                        onDismiss()
                                     },
                                     trailingContent = {
                                         if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))

@@ -46,10 +46,8 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
-import app.kreate.android.themed.rimusic.component.ItemSelector
-import coil.compose.AsyncImagePainter
+import coil3.compose.AsyncImagePainter
 import it.fast4x.compose.persist.PersistMapCleanup
 import it.fast4x.innertube.Innertube
 import it.fast4x.rimusic.Database
@@ -63,7 +61,6 @@ import it.fast4x.rimusic.enums.UiType
 import it.fast4x.rimusic.models.Album
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import it.fast4x.rimusic.ui.components.themed.AutoResizeText
@@ -86,6 +83,7 @@ import it.fast4x.rimusic.utils.asSong
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.color
 import it.fast4x.rimusic.utils.conditional
+import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.durationTextToMillis
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.fadingEdge
@@ -95,8 +93,11 @@ import it.fast4x.rimusic.utils.getHttpClient
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.languageDestination
 import it.fast4x.rimusic.utils.medium
+import it.fast4x.rimusic.utils.parentalControlEnabledKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.secondary
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
@@ -106,6 +107,7 @@ import me.knighthat.component.SongItem
 import me.knighthat.component.album.AlbumModifier
 import me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
 import me.knighthat.component.tab.DownloadAllSongsDialog
+import me.knighthat.component.tab.ItemSelector
 import me.knighthat.component.tab.Locator
 import me.knighthat.component.tab.Radio
 import me.knighthat.component.tab.SongShuffler
@@ -136,10 +138,10 @@ fun AlbumDetails(
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
     val lazyListState = rememberLazyListState()
-    val menuState = LocalMenuState.current
 
     // Settings
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
     val items by remember {
         Database.songAlbumMapTable
@@ -147,9 +149,7 @@ fun AlbumDetails(
                 .distinctUntilChanged()
     }.collectAsState( emptyList(), Dispatchers.IO )
 
-    val itemSelector = remember {
-        ItemSelector( menuState ) { addAll( items ) }
-    }
+    val itemSelector = ItemSelector<Song>()
 
     fun getSongs() = itemSelector.ifEmpty { items }
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
@@ -543,7 +543,7 @@ fun AlbumDetails(
                     }
             }
 
-            val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
+            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if ( UiType.ViMusic.isCurrent() && showFloatingIcon )
                 MultiFloatingActionsContainer(
                     iconId = R.drawable.shuffle,

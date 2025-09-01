@@ -37,7 +37,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheSpan
 import app.kreate.android.R
-import app.kreate.android.Preferences
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
@@ -49,9 +48,16 @@ import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.themed.IconButton
 import it.fast4x.rimusic.ui.styling.onOverlay
 import it.fast4x.rimusic.ui.styling.overlay
+import it.fast4x.rimusic.utils.blackgradientKey
 import it.fast4x.rimusic.utils.color
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.medium
+import it.fast4x.rimusic.utils.playerBackgroundColorsKey
+import it.fast4x.rimusic.utils.playerTypeKey
+import it.fast4x.rimusic.utils.rememberPreference
+import it.fast4x.rimusic.utils.showthumbnailKey
+import it.fast4x.rimusic.utils.statsfornerdsKey
+import it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
 import kotlinx.coroutines.Dispatchers
 import kotlin.math.roundToInt
 
@@ -87,12 +93,18 @@ fun StatsForNerds(
         val format by remember {
             Database.formatTable.findBySongId( mediaId )
         }.collectAsState( null, Dispatchers.IO )
-        val showThumbnail by Preferences.PLAYER_SHOW_THUMBNAIL
-        val statsForNerds by Preferences.PLAYER_STATS_FOR_NERDS
-        val playerType by Preferences.PLAYER_TYPE
-        val transparentBackgroundActionBarPlayer by Preferences.PLAYER_TRANSPARENT_ACTIONS_BAR
-        var blackgradient by Preferences.BLACK_GRADIENT
-        val playerBackgroundColors by Preferences.PLAYER_BACKGROUND
+        val showThumbnail by rememberPreference(showthumbnailKey, true)
+        val statsForNerds by rememberPreference(statsfornerdsKey, false)
+        val playerType by rememberPreference(playerTypeKey, PlayerType.Essential)
+        val transparentBackgroundActionBarPlayer by rememberPreference(
+            transparentBackgroundPlayerActionBarKey,
+            false
+        )
+        var blackgradient by rememberPreference(blackgradientKey, false)
+        val playerBackgroundColors by rememberPreference(
+            playerBackgroundColorsKey,
+            PlayerBackgroundColors.BlurredCoverColor
+        )
         var statsfornerdsfull by remember {mutableStateOf(false)}
         val rotationAngle by animateFloatAsState(
             targetValue = if (statsfornerdsfull) 180f else 0f,

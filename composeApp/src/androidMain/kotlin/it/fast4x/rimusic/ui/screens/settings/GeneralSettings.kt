@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,14 +28,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.BuildConfig
 import app.kreate.android.R
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.AudioQualityFormat
+
 import it.fast4x.rimusic.enums.DurationInMilliseconds
 import it.fast4x.rimusic.enums.DurationInMinutes
 import it.fast4x.rimusic.enums.ExoPlayerMinTimeForEvent
@@ -55,11 +58,9 @@ import it.fast4x.rimusic.ui.styling.DefaultLightColorPalette
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.utils.RestartActivity
 import it.fast4x.rimusic.utils.RestartPlayerService
-import it.fast4x.rimusic.utils.audioQualityFormatKey
+
 import it.fast4x.rimusic.utils.audioReverbPresetKey
-import it.fast4x.rimusic.utils.autoDownloadSongKey
-import it.fast4x.rimusic.utils.autoDownloadSongWhenAlbumBookmarkedKey
-import it.fast4x.rimusic.utils.autoDownloadSongWhenLikedKey
+
 import it.fast4x.rimusic.utils.autoLoadSongsInQueueKey
 import it.fast4x.rimusic.utils.bassboostEnabledKey
 import it.fast4x.rimusic.utils.bassboostLevelKey
@@ -94,7 +95,7 @@ import it.fast4x.rimusic.utils.exoPlayerMinTimeForEventKey
 import it.fast4x.rimusic.utils.handleAudioFocusEnabledKey
 import it.fast4x.rimusic.utils.isAtLeastAndroid12
 import it.fast4x.rimusic.utils.isAtLeastAndroid6
-import it.fast4x.rimusic.utils.isConnectionMeteredEnabledKey
+
 import it.fast4x.rimusic.utils.isPauseOnVolumeZeroEnabledKey
 import it.fast4x.rimusic.utils.jumpPreviousKey
 import it.fast4x.rimusic.utils.keepPlayerMinimizedKey
@@ -108,7 +109,7 @@ import it.fast4x.rimusic.utils.navigationBarTypeKey
 import it.fast4x.rimusic.utils.notificationTypeKey
 import it.fast4x.rimusic.utils.nowPlayingIndicatorKey
 import it.fast4x.rimusic.utils.pauseBetweenSongsKey
-import it.fast4x.rimusic.utils.pauseListenHistoryKey
+
 import it.fast4x.rimusic.utils.persistentQueueKey
 import it.fast4x.rimusic.utils.pipModuleKey
 import it.fast4x.rimusic.utils.playbackFadeAudioDurationKey
@@ -123,9 +124,11 @@ import it.fast4x.rimusic.utils.skipMediaOnErrorKey
 import it.fast4x.rimusic.utils.skipSilenceKey
 import it.fast4x.rimusic.utils.useVolumeKeysToChangeSongKey
 import it.fast4x.rimusic.utils.volumeNormalizationKey
+import it.fast4x.rimusic.ui.components.themed.ValueSelectorDialog
+import it.fast4x.rimusic.ui.components.themed.InputTextDialog
+
 import me.knighthat.component.dialog.RestartAppDialog
 import me.knighthat.component.tab.Search
-import me.knighthat.updater.Updater
 
 
 @ExperimentalAnimationApi
@@ -155,9 +158,6 @@ fun GeneralSettings(
     var skipSilence by rememberPreference(skipSilenceKey, false)
     var skipMediaOnError by rememberPreference(skipMediaOnErrorKey, false)
     var volumeNormalization by rememberPreference(volumeNormalizationKey, false)
-    var audioQualityFormat by rememberPreference(audioQualityFormatKey, AudioQualityFormat.Auto)
-    var isConnectionMeteredEnabled by rememberPreference(isConnectionMeteredEnabledKey, true)
-
 
     var keepPlayerMinimized by rememberPreference(keepPlayerMinimizedKey,   false)
 
@@ -204,12 +204,10 @@ fun GeneralSettings(
     var discoverIsEnabled by rememberPreference(discoverKey, false)
     var isPauseOnVolumeZeroEnabled by rememberPreference(isPauseOnVolumeZeroEnabledKey, false)
 
-
     val launchEqualizer by rememberEqualizerLauncher(audioSessionId = { binder?.player?.audioSessionId })
 
     var minimumSilenceDuration by rememberPreference(minimumSilenceDurationKey, 2_000_000L)
 
-    var pauseListenHistory by rememberPreference(pauseListenHistoryKey, false)
     var restartService by rememberSaveable { mutableStateOf(false) }
     var restartActivity by rememberSaveable { mutableStateOf(false) }
 
@@ -226,16 +224,10 @@ fun GeneralSettings(
     var pipModule by rememberPreference(pipModuleKey, PipModule.Cover)
     var jumpPrevious by rememberPreference(jumpPreviousKey,"3")
     var notificationType by rememberPreference(notificationTypeKey, NotificationType.Default)
-    var autoDownloadSong by rememberPreference(autoDownloadSongKey, false)
-    var autoDownloadSongWhenLiked by rememberPreference(autoDownloadSongWhenLikedKey, false)
-    var autoDownloadSongWhenAlbumBookmarked by rememberPreference(autoDownloadSongWhenAlbumBookmarkedKey, false)
-
-
 
     Column(
         modifier = Modifier
             .background(colorPalette().background0)
-            //.fillMaxSize()
             .fillMaxHeight()
             .fillMaxWidth(
                 if (navigationBarPosition == NavigationBarPosition.Left ||
@@ -245,13 +237,6 @@ fun GeneralSettings(
                 else Dimensions.contentWidthRightBar
             )
             .verticalScroll(rememberScrollState())
-            /*
-            .padding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Vertical + WindowInsetsSides.End)
-                    .asPaddingValues()
-            )
-             */
     ) {
         HeaderWithIcon(
             title = stringResource(R.string.tab_general),
@@ -261,6 +246,14 @@ fun GeneralSettings(
             modifier = Modifier,
             onClick = {}
         )
+
+                 SettingsDescription(
+             text = stringResource(R.string.general_settings_description),
+             modifier = Modifier.fillMaxWidth(),
+             textAlign = TextAlign.Center
+         ) 
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         search.ToolBarButton()
         search.SearchBar( this )
@@ -305,282 +298,352 @@ fun GeneralSettings(
             )
         }
 
-        SettingsEntryGroupText( stringResource(R.string.update) )
-        if( search.inputValue.isBlank() || stringResource(R.string.update).contains( search.inputValue, true ) )
-            Updater.SettingEntry()
+                 // Language Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(600)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(600),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.languages),
+                 icon = R.drawable.discover,
+                 content = {
 
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(title = stringResource(R.string.languages))
-
-        SettingsDescription(text = stringResource(R.string.system_language)+": $systemLocale")
-
-        if (search.inputValue.isBlank() || stringResource(R.string.app_language).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.app_language),
+                                           var showLanguageDialog by remember { mutableStateOf(false) }
+                      if (search.inputValue.isBlank() || stringResource(R.string.app_language).contains(search.inputValue,true)) {
+                          OtherSettingsEntry(
+                              title = stringResource(R.string.app_language),
+                              text = languageApp.text,
+                              onClick = { showLanguageDialog = true },
+                              icon = R.drawable.translate
+                          )
+                      }
+                      
+                      if (showLanguageDialog) {
+                          ValueSelectorDialog(
+                title = stringResource(R.string.app_language)+": $systemLocale",
                 selectedValue = languageApp,
                 onValueSelected = {
                     languageApp = it
-
                     RestartAppDialog.showDialog()
                 },
-                valueText = {
-                    languageDestinationName(it)
-                }
-            )
+                              valueText = { it.text },
+                              values = Languages.values().toList(),
+                              onDismiss = { showLanguageDialog = false }
+                          )
+                      }
+                 }
+             )
+         }
 
+         Spacer(modifier = Modifier.height(16.dp))
 
-
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(stringResource(R.string.player))
-
+         // Notifications Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(700)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(700),
+                 initialScale = 0.9f
+             )
+         ) {
+                                                       SettingsSectionCard(
+                   title = stringResource(R.string.notifications),
+                   icon = R.drawable.notification2,
+                   content = {
+                     var showNotificationTypeDialog by remember { mutableStateOf(false) }
         if (search.inputValue.isBlank() || stringResource(R.string.notification_type).contains(search.inputValue,true)) {
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.notification_type),
+                                                                                                       OtherSettingsEntry(
+                               title = stringResource(R.string.notification_type),
+                               text = notificationType.textName,
+                               onClick = { showNotificationTypeDialog = true },
+                               icon = R.drawable.notification1
+                           )
+                         ImportantSettingsDescription(text = stringResource(R.string.restarting_rimusic_is_required))
+                     }
+                     
+                                           if (showNotificationTypeDialog) {
+                          ValueSelectorDialog(
+                title = stringResource(R.string.notification_type_info),
                 selectedValue = notificationType,
                 onValueSelected = {
                     notificationType = it
-                },
-                valueText = {
-                    it.textName
-                }
-            )
-            SettingsDescription(text = stringResource(R.string.notification_type_info))
-            ImportantSettingsDescription(text = stringResource(R.string.restarting_rimusic_is_required))
-        }
+                                  RestartAppDialog.showDialog()
+                              },
+                              valueText = { it.textName },
+                              values = NotificationType.values().toList(),
+                              onDismiss = { showNotificationTypeDialog = false }
+                          )
+                      }
+                 }
+             )
+         }
 
-        if (search.inputValue.isBlank() || stringResource(R.string.audio_quality_format).contains(search.inputValue,true)) {
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.audio_quality_format),
-                selectedValue = audioQualityFormat,
-                onValueSelected = {
-                    audioQualityFormat = it
-                    restartService = true
-                },
-                valueText = {
-                    when (it) {
-                        AudioQualityFormat.Auto -> stringResource(R.string.audio_quality_automatic)
-                        AudioQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
-                        AudioQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
-                        AudioQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
-                    }
-                }
-            )
+         Spacer(modifier = Modifier.height(16.dp))
 
-            RestartPlayerService(restartService, onRestart = { restartService = false } )
+         // Playback Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(800)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(800),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.playback),
+                 icon = R.drawable.play_forward,
+                 content = {
 
-        }
-
-        if (search.inputValue.isBlank() || stringResource(R.string.enable_connection_metered).contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = stringResource(R.string.enable_connection_metered),
-                text = stringResource(R.string.info_enable_connection_metered),
-                isChecked = isConnectionMeteredEnabled,
-                onCheckedChange = {
-                    isConnectionMeteredEnabled = it
-                    if (it)
-                        audioQualityFormat = AudioQualityFormat.Auto
-                }
-            )
-
+                                         var showJumpPreviousDialog by remember { mutableStateOf(false) }
         if (search.inputValue.isBlank() || stringResource(R.string.jump_previous).contains(search.inputValue,true)) {
-            BasicText(
-                text = stringResource(R.string.jump_previous),
-                style = typography().xs.semiBold.copy(color = colorPalette().text),
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    //.padding(all = 12.dp)
-            )
-            BasicText(
-                text = stringResource(R.string.jump_previous_blank),
-                style = typography().xxs.semiBold.copy(color = colorPalette().textDisabled),
-                modifier = Modifier
-                    .padding(start = 12.dp)
-            )
-            TextField(
+                         OtherSettingsEntry(
+                             title = stringResource(R.string.jump_previous),
+                text = jumpPrevious,
+                             onClick = { showJumpPreviousDialog = true },
+                             icon = R.drawable.play_skip_back
+                         )
+                     }
+                     
+                     if (showJumpPreviousDialog) {
+                         InputTextDialog(
+                             title = stringResource(R.string.jump_previous_blank),
                 value = jumpPrevious,
-                onValueChange = {
+                             placeholder = stringResource(R.string.jump_previous_blank),
+                             onDismiss = { showJumpPreviousDialog = false },
+                             setValue = { 
                     if (TextUtils.isDigitsOnly(it))
                     jumpPrevious = it
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    unfocusedTextColor = colorPalette().text,
-                    focusedTextColor = colorPalette().text,
-                    focusedIndicatorColor = colorPalette().text,
-                    unfocusedIndicatorColor = colorPalette().text,
-                    unfocusedContainerColor = colorPalette().background2,
-                    focusedContainerColor = colorPalette().background2
-                ),
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    //.padding(all = 12.dp)
-            )
-        }
+                             }
+                         )
+                     }
 
+                                         var showMinListeningTimeDialog by remember { mutableStateOf(false) }
         if (search.inputValue.isBlank() || stringResource(R.string.min_listening_time).contains(search.inputValue,true)) {
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.min_listening_time),
-                selectedValue = exoPlayerMinTimeForEvent,
-                onValueSelected = { exoPlayerMinTimeForEvent = it },
-                valueText = {
-                    when (it) {
-                        ExoPlayerMinTimeForEvent.`10s` -> "10s"
-                        ExoPlayerMinTimeForEvent.`15s` -> "15s"
-                        ExoPlayerMinTimeForEvent.`20s` -> "20s"
-                        ExoPlayerMinTimeForEvent.`30s` -> "30s"
-                        ExoPlayerMinTimeForEvent.`40s` -> "40s"
-                        ExoPlayerMinTimeForEvent.`60s` -> "60s"
-                    }
-                }
-            )
-            SettingsDescription(text = stringResource(R.string.is_min_list_time_for_tips_or_quick_pics))
-        }
+                         OtherSettingsEntry(
+                             title = stringResource(R.string.min_listening_time),
+                             text = when (exoPlayerMinTimeForEvent) {
+                                 ExoPlayerMinTimeForEvent.`10s` -> "10s"
+                                 ExoPlayerMinTimeForEvent.`15s` -> "15s"
+                                 ExoPlayerMinTimeForEvent.`20s` -> "20s"
+                                 ExoPlayerMinTimeForEvent.`30s` -> "30s"
+                                 ExoPlayerMinTimeForEvent.`40s` -> "40s"
+                                 ExoPlayerMinTimeForEvent.`60s` -> "60s"
+                             },
+                             onClick = { showMinListeningTimeDialog = true },
+                             icon = R.drawable.time
+                         )
+                     }
+                     
+                                           if (showMinListeningTimeDialog) {
+                          ValueSelectorDialog(
+                 title = stringResource(R.string.is_min_list_time_for_tips_or_quick_pics),
+                 selectedValue = exoPlayerMinTimeForEvent,
+                 onValueSelected = { exoPlayerMinTimeForEvent = it },
+                 valueText = {
+                     when (it) {
+                         ExoPlayerMinTimeForEvent.`10s` -> "10s"
+                         ExoPlayerMinTimeForEvent.`15s` -> "15s"
+                         ExoPlayerMinTimeForEvent.`20s` -> "20s"
+                         ExoPlayerMinTimeForEvent.`30s` -> "30s"
+                         ExoPlayerMinTimeForEvent.`40s` -> "40s"
+                         ExoPlayerMinTimeForEvent.`60s` -> "60s"
+                     }
+                              },
+                              values = ExoPlayerMinTimeForEvent.values().toList(),
+                              onDismiss = { showMinListeningTimeDialog = false }
+                          )
+                      }
 
-        if (search.inputValue.isBlank() || stringResource(R.string.min_listening_time).contains(search.inputValue,true)) {
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.exclude_songs_with_duration_limit),
-                selectedValue = excludeSongWithDurationLimit,
-                onValueSelected = { excludeSongWithDurationLimit = it },
-                valueText = {
-                    when (it) {
-                        DurationInMinutes.Disabled -> stringResource(R.string.vt_disabled)
-                        DurationInMinutes.`3` -> "3m"
-                        DurationInMinutes.`5` -> "5m"
-                        DurationInMinutes.`10` -> "10m"
-                        DurationInMinutes.`15` -> "15m"
-                        DurationInMinutes.`20` -> "20m"
-                        DurationInMinutes.`25` -> "25m"
-                        DurationInMinutes.`30` -> "30m"
-                        DurationInMinutes.`60` -> "60m"
-                    }
-                }
-            )
-            SettingsDescription(text = stringResource(R.string.exclude_songs_with_duration_limit_description))
-        }
+                                         var showExcludeSongsDialog by remember { mutableStateOf(false) }
+                     if (search.inputValue.isBlank() || stringResource(R.string.exclude_songs_with_duration_limit).contains(search.inputValue,true)) {
+                         OtherSettingsEntry(
+                             title = stringResource(R.string.exclude_songs_with_duration_limit),
+                             text = when (excludeSongWithDurationLimit) {
+                                 DurationInMinutes.Disabled -> stringResource(R.string.vt_disabled)
+                                 DurationInMinutes.`3` -> "3m"
+                                 DurationInMinutes.`5` -> "5m"
+                                 DurationInMinutes.`10` -> "10m"
+                                 DurationInMinutes.`15` -> "15m"
+                                 DurationInMinutes.`20` -> "20m"
+                                 DurationInMinutes.`25` -> "25m"
+                                 DurationInMinutes.`30` -> "30m"
+                                 DurationInMinutes.`60` -> "60m"
+                             },
+                             onClick = { showExcludeSongsDialog = true },
+                             icon = R.drawable.playbackduration
+                         )
+                     }
+                     
+                                           if (showExcludeSongsDialog) {
+                          ValueSelectorDialog(
+                 title = stringResource(R.string.exclude_songs_with_duration_limit_description),
+                 selectedValue = excludeSongWithDurationLimit,
+                 onValueSelected = { excludeSongWithDurationLimit = it },
+                 valueText = {
+                     when (it) {
+                         DurationInMinutes.Disabled -> stringResource(R.string.vt_disabled)
+                         DurationInMinutes.`3` -> "3m"
+                         DurationInMinutes.`5` -> "5m"
+                         DurationInMinutes.`10` -> "10m"
+                         DurationInMinutes.`15` -> "15m"
+                         DurationInMinutes.`20` -> "20m"
+                         DurationInMinutes.`25` -> "25m"
+                         DurationInMinutes.`30` -> "30m"
+                         DurationInMinutes.`60` -> "60m"
+                     }
+                              },
+                              values = DurationInMinutes.values().toList(),
+                              onDismiss = { showExcludeSongsDialog = false }
+                          )
+                      }
 
-        if (search.inputValue.isBlank() || stringResource(R.string.pause_between_songs).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.pause_between_songs),
-                selectedValue = pauseBetweenSongs,
-                onValueSelected = { pauseBetweenSongs = it },
-                valueText = {
-                    when (it) {
-                        PauseBetweenSongs.`0` -> "0s"
-                        PauseBetweenSongs.`5` -> "5s"
-                        PauseBetweenSongs.`10` -> "10s"
-                        PauseBetweenSongs.`15` -> "15s"
-                        PauseBetweenSongs.`20` -> "20s"
-                        PauseBetweenSongs.`30` -> "30s"
-                        PauseBetweenSongs.`40` -> "40s"
-                        PauseBetweenSongs.`50` -> "50s"
-                        PauseBetweenSongs.`60` -> "60s"
-                    }
-                }
-            )
+                                         var showPauseBetweenSongsDialog by remember { mutableStateOf(false) }
+                     if (search.inputValue.isBlank() || stringResource(R.string.pause_between_songs).contains(search.inputValue,true)) {
+                         OtherSettingsEntry(
+                             title = stringResource(R.string.pause_between_songs),
+                             text = when (pauseBetweenSongs) {
+                                 PauseBetweenSongs.`0` -> "0s"
+                                 PauseBetweenSongs.`5` -> "5s"
+                                 PauseBetweenSongs.`10` -> "10s"
+                                 PauseBetweenSongs.`15` -> "15s"
+                                 PauseBetweenSongs.`20` -> "20s"
+                                 PauseBetweenSongs.`30` -> "30s"
+                                 PauseBetweenSongs.`40` -> "40s"
+                                 PauseBetweenSongs.`50` -> "50s"
+                                 PauseBetweenSongs.`60` -> "60s"
+                             },
+                             onClick = { showPauseBetweenSongsDialog = true },
+                             icon = R.drawable.pause
+                         )
+                     }
+                     
+                                           if (showPauseBetweenSongsDialog) {
+                          ValueSelectorDialog(
+                 title = stringResource(R.string.pause_between_songs_description),
+                 selectedValue = pauseBetweenSongs,
+                 onValueSelected = { pauseBetweenSongs = it },
+                 valueText = {
+                     when (it) {
+                         PauseBetweenSongs.`0` -> "0s"
+                         PauseBetweenSongs.`5` -> "5s"
+                         PauseBetweenSongs.`10` -> "10s"
+                         PauseBetweenSongs.`15` -> "15s"
+                         PauseBetweenSongs.`20` -> "20s"
+                         PauseBetweenSongs.`30` -> "30s"
+                         PauseBetweenSongs.`40` -> "40s"
+                         PauseBetweenSongs.`50` -> "50s"
+                         PauseBetweenSongs.`60` -> "60s"
+                     }
+                              },
+                              values = PauseBetweenSongs.values().toList(),
+                              onDismiss = { showPauseBetweenSongsDialog = false }
+                          )
+                                           }
+                 }
+             )
+         }
 
-        if (search.inputValue.isBlank() || stringResource(R.string.player_pause_listen_history).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
-                title = stringResource(R.string.player_pause_listen_history),
-                text = stringResource(R.string.player_pause_listen_history_info),
-                isChecked = pauseListenHistory,
-                onCheckedChange = {
-                    pauseListenHistory = it
-                    restartService = true
-                }
-            )
-            RestartPlayerService(restartService, onRestart = { restartService = false } )
-        }
+         Spacer(modifier = Modifier.height(16.dp))
 
+         // Player Controls Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(900)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(900),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.player_controls),
+                 icon = R.drawable.player_control,
+                 content = {
         if (search.inputValue.isBlank() || stringResource(R.string.player_pause_on_volume_zero).contains(search.inputValue,true))
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.player_pause_on_volume_zero),
                 text = stringResource(R.string.info_pauses_player_when_volume_zero),
                 isChecked = isPauseOnVolumeZeroEnabled,
                 onCheckedChange = {
                     isPauseOnVolumeZeroEnabled = it
-                }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.effect_fade_audio).contains(search.inputValue,true)) {
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.effect_fade_audio),
-                selectedValue = playbackFadeAudioDuration,
-                onValueSelected = { playbackFadeAudioDuration = it },
-                valueText = {
-                    when (it) {
-                        DurationInMilliseconds.Disabled -> stringResource(R.string.vt_disabled)
-                        else -> {
-                            it.toString()
-                        }
-                    }
-                }
-            )
-            SettingsDescription(text = stringResource(R.string.effect_fade_audio_description))
-        }
-
-        /*
-        if (filter.isNullOrBlank() || stringResource(R.string.effect_fade_songs).contains(filterCharSequence,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.effect_fade_songs),
-                selectedValue = playbackFadeDuration,
-                onValueSelected = { playbackFadeDuration = it },
-                valueText = {
-                    when (it) {
-                        DurationInSeconds.Disabled -> stringResource(R.string.vt_disabled)
-                        DurationInSeconds.`3` -> "3 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`4` -> "4 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`5` -> "5 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`6` -> "6 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`7` -> "7 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`8` -> "8 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`9` -> "9 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`10` -> "10 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`11` -> "11 %s".format(stringResource(R.string.time_seconds))
-                        DurationInSeconds.`12` -> "12 %s".format(stringResource(R.string.time_seconds))
-                    }
-                }
-            )
-         */
-
-
+                             },
+                             icon = R.drawable.volume_up
+                         )
 
             if (search.inputValue.isBlank() || stringResource(R.string.player_keep_minimized).contains(search.inputValue,true))
-                SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                     title = stringResource(R.string.player_keep_minimized),
                     text = stringResource(R.string.when_click_on_a_song_player_start_minimized),
                     isChecked = keepPlayerMinimized,
                     onCheckedChange = {
                         keepPlayerMinimized = it
-                    }
+                             },
+                             icon = R.drawable.maximize
                 )
 
-
         if (search.inputValue.isBlank() || stringResource(R.string.player_collapsed_disable_swiping_down).contains(search.inputValue,true))
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.player_collapsed_disable_swiping_down),
                 text = stringResource(R.string.avoid_closing_the_player_cleaning_queue_by_swiping_down),
                 isChecked = disableClosingPlayerSwipingDown,
                 onCheckedChange = {
                     disableClosingPlayerSwipingDown = it
-                }
+                             },
+                             icon = R.drawable.reorder
             )
 
         if (search.inputValue.isBlank() || stringResource(R.string.player_auto_load_songs_in_queue).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.player_auto_load_songs_in_queue),
                 text = stringResource(R.string.player_auto_load_songs_in_queue_description),
                 isChecked = autoLoadSongsInQueue,
                 onCheckedChange = {
                     autoLoadSongsInQueue = it
                     restartService = true
-                }
+                             },
+                             icon = R.drawable.playlist
             )
             RestartPlayerService(restartService, onRestart = { restartService = false })
-        }
+                     }
+                 }
+             )
+         }
 
-        if (search.inputValue.isBlank() || stringResource(R.string.max_songs_in_queue).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
+         Spacer(modifier = Modifier.height(16.dp))
+
+         // Queue Management Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1000)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(1000),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.queue_management),
+                 icon = R.drawable.playlist,
+                 content = {
+                     var showMaxSongsDialog by remember { mutableStateOf(false) }
+                     if (search.inputValue.isBlank() || stringResource(R.string.max_songs_in_queue).contains(search.inputValue,true)) {
+                         OtherSettingsEntry(
+                             title = stringResource(R.string.max_songs_in_queue),
+                             text = when (maxSongsInQueue) {
+                                 MaxSongs.Unlimited -> stringResource(R.string.unlimited)
+                                 MaxSongs.`50` -> MaxSongs.`50`.name
+                                 MaxSongs.`100` -> MaxSongs.`100`.name
+                                 MaxSongs.`200` -> MaxSongs.`200`.name
+                                 MaxSongs.`300` -> MaxSongs.`300`.name
+                                 MaxSongs.`500` -> MaxSongs.`500`.name
+                                 MaxSongs.`1000` -> MaxSongs.`1000`.name
+                                 MaxSongs.`2000` -> MaxSongs.`2000`.name
+                                 MaxSongs.`3000` -> MaxSongs.`3000`.name
+                             },
+                             onClick = { showMaxSongsDialog = true },
+                             icon = R.drawable.music_file
+                         )
+                     }
+                     
+                     if (showMaxSongsDialog) {
+                         ValueSelectorDialog(
                 title = stringResource(R.string.max_songs_in_queue),
                 selectedValue = maxSongsInQueue,
                 onValueSelected = { maxSongsInQueue = it },
@@ -596,63 +659,96 @@ fun GeneralSettings(
                         MaxSongs.`2000` -> MaxSongs.`2000`.name
                         MaxSongs.`3000` -> MaxSongs.`3000`.name
                     }
-                }
-            )
+                             },
+                             values = MaxSongs.values().toList(),
+                             onDismiss = { showMaxSongsDialog = false }
+                         )
+                     }
 
-        if (search.inputValue.isBlank() || stringResource(R.string.discover).contains(
-                search.inputValue,
-                true
-            )
-        )
-            SwitchSettingEntry(
+                     if (search.inputValue.isBlank() || stringResource(R.string.discover).contains(search.inputValue, true))
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.discover),
                 text = stringResource(R.string.discoverinfo),
                 isChecked = discoverIsEnabled,
-                onCheckedChange = { discoverIsEnabled = it }
+                             onCheckedChange = { discoverIsEnabled = it },
+                             icon = R.drawable.search
             )
 
         if (search.inputValue.isBlank() || stringResource(R.string.playlistindicator).contains(search.inputValue,true))
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.playlistindicator),
                 text = stringResource(R.string.playlistindicatorinfo),
                 isChecked = playlistindicator,
                 onCheckedChange = {
                     playlistindicator = it
-                }
-            )
+                             },
+                             icon = R.drawable.playlist
+                         )
 
-        if (search.inputValue.isBlank() || stringResource(R.string.now_playing_indicator).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
+                     var showNowPlayingIndicatorDialog by remember { mutableStateOf(false) }
+                     if (search.inputValue.isBlank() || stringResource(R.string.now_playing_indicator).contains(search.inputValue,true)) {
+                         OtherSettingsEntry(
+                             title = stringResource(R.string.now_playing_indicator),
+                             text = nowPlayingIndicator.text,
+                             onClick = { showNowPlayingIndicatorDialog = true },
+                             icon = R.drawable.playing_indicator
+                         )
+                     }
+                     
+                     if (showNowPlayingIndicatorDialog) {
+                         ValueSelectorDialog(
                 title = stringResource(R.string.now_playing_indicator),
                 selectedValue = nowPlayingIndicator,
                 onValueSelected = { nowPlayingIndicator = it },
-                valueText = { it.text }
-            )
+                             valueText = { it.text },
+                             values = MusicAnimationType.values().toList(),
+                             onDismiss = { showNowPlayingIndicatorDialog = false }
+                         )
+                     }
+                 }
+             )
+         }
 
+         Spacer(modifier = Modifier.height(16.dp))
+
+         // App Behavior Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1100)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(1100),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.app_behavior),
+                 icon = R.drawable.settings,
+                 content = {
         if (search.inputValue.isBlank() || stringResource(R.string.resume_playback).contains(search.inputValue,true)) {
             if (isAtLeastAndroid6) {
-                SwitchSettingEntry(
+                             OtherSwitchSettingEntry(
                     title = stringResource(R.string.resume_playback),
                     text = stringResource(R.string.when_device_is_connected),
                     isChecked = resumePlaybackWhenDeviceConnected,
                     onCheckedChange = {
                         resumePlaybackWhenDeviceConnected = it
                         restartService = true
-                    }
+                                 },
+                                 icon = R.drawable.play
                 )
                 RestartPlayerService(restartService, onRestart = { restartService = false })
             }
         }
 
         if (search.inputValue.isBlank() || stringResource(R.string.persistent_queue).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.persistent_queue),
                 text = stringResource(R.string.save_and_restore_playing_songs),
                 isChecked = persistentQueue,
                 onCheckedChange = {
                     persistentQueue = it
                     restartService = true
-                }
+                             },
+                             icon = R.drawable.download
             )
             RestartPlayerService(restartService, onRestart = { restartService = false })
 
@@ -660,14 +756,15 @@ fun GeneralSettings(
                 Column(
                     modifier = Modifier.padding(start = 25.dp)
                 ) {
-                    SwitchSettingEntry(
+                                 OtherSwitchSettingEntry(
                         title =  stringResource(R.string.resume_playback_on_start),
                         text = stringResource(R.string.resume_automatically_when_app_opens),
                         isChecked = resumePlaybackOnStart,
                         onCheckedChange = {
                             resumePlaybackOnStart = it
                             restartService = true
-                        }
+                                     },
+                                     icon = R.drawable.play
                     )
                     RestartPlayerService(restartService, onRestart = { restartService = false } )
                 }
@@ -675,62 +772,80 @@ fun GeneralSettings(
         }
 
         if (search.inputValue.isBlank() || stringResource(R.string.close_app_with_back_button).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
-                isEnabled = Build.VERSION.SDK_INT >= 33,
+                         if (Build.VERSION.SDK_INT >= 33) {
+                             OtherSwitchSettingEntry(
                 title = stringResource(R.string.close_app_with_back_button),
                 text = stringResource(R.string.when_you_use_the_back_button_from_the_home_page),
                 isChecked = closeWithBackButton,
                 onCheckedChange = {
                     closeWithBackButton = it
                     restartActivity = true
-                }
+                                 },
+                                 icon = R.drawable.close
             )
-            //ImportantSettingsDescription(text = stringResource(R.string.restarting_rimusic_is_required))
+                         }
             RestartActivity(restartActivity, onRestart = { restartActivity = false })
         }
 
         if (search.inputValue.isBlank() || stringResource(R.string.close_background_player).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.close_background_player),
                 text = stringResource(R.string.when_app_swipe_out_from_task_manager),
                 isChecked = closebackgroundPlayer,
                 onCheckedChange = {
                     closebackgroundPlayer = it
                     restartService = true
-                }
+                             },
+                             icon = R.drawable.close
             )
             RestartPlayerService(restartService, onRestart = { restartService = false } )
         }
 
         if (search.inputValue.isBlank() || stringResource(R.string.skip_media_on_error).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.skip_media_on_error),
                 text = stringResource(R.string.skip_media_on_error_description),
                 isChecked = skipMediaOnError,
                 onCheckedChange = {
                     skipMediaOnError = it
                     restartService = true
-                }
+                             },
+                             icon = R.drawable.alert_circle
             )
-
             RestartPlayerService(restartService, onRestart = { restartService = false } )
+                     }
+                 }
+             )
+         }
 
-        }
+         Spacer(modifier = Modifier.height(16.dp))
 
+         // Audio Effects Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1200)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(1200),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.audio_effects),
+                 icon = R.drawable.sound_effect,
+                 content = {
         if (search.inputValue.isBlank() || stringResource(R.string.skip_silence).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.skip_silence),
                 text = stringResource(R.string.skip_silent_parts_during_playback),
                 isChecked = skipSilence,
                 onCheckedChange = {
                     skipSilence = it
-                }
+                             },
+                             icon = R.drawable.pause
             )
 
             AnimatedVisibility(visible = skipSilence) {
                 val initialValue by remember { derivedStateOf { minimumSilenceDuration.toFloat() / 1000L } }
                 var newValue by remember(initialValue) { mutableFloatStateOf(initialValue) }
-
 
                 Column(
                     modifier = Modifier.padding(start = 25.dp)
@@ -751,22 +866,21 @@ fun GeneralSettings(
                     RestartPlayerService(restartService, onRestart = { restartService = false } )
                 }
             }
-
         }
 
         if (search.inputValue.isBlank() || stringResource(R.string.loudness_normalization).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.loudness_normalization),
                 text = stringResource(R.string.autoadjust_the_volume),
                 isChecked = volumeNormalization,
                 onCheckedChange = {
                     volumeNormalization = it
-                }
+                             },
+                             icon = R.drawable.volume_up
             )
             AnimatedVisibility(visible = volumeNormalization) {
                 val initialValue by remember { derivedStateOf { loudnessBaseGain } }
                 var newValue by remember(initialValue) { mutableFloatStateOf(initialValue) }
-
 
                 Column(
                     modifier = Modifier.padding(start = 25.dp)
@@ -787,18 +901,18 @@ fun GeneralSettings(
         }
 
         if (search.inputValue.isBlank() || stringResource(R.string.settings_audio_bass_boost).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.settings_audio_bass_boost),
                 text = "",
                 isChecked = bassboostEnabled,
                 onCheckedChange = {
                     bassboostEnabled = it
-                }
+                             },
+                             icon = R.drawable.equalizer
             )
             AnimatedVisibility(visible = bassboostEnabled) {
                 val initialValue by remember { derivedStateOf { bassboostLevel } }
                 var newValue by remember(initialValue) { mutableFloatStateOf(initialValue) }
-
 
                 Column(
                     modifier = Modifier.padding(start = 25.dp)
@@ -818,77 +932,141 @@ fun GeneralSettings(
             }
         }
 
+                     var showAudioReverbDialog by remember { mutableStateOf(false) }
         if (search.inputValue.isBlank() || stringResource(R.string.settings_audio_reverb).contains(search.inputValue,true)) {
-            EnumValueSelectorSettingsEntry(
+                         OtherSettingsEntry(
                 title = stringResource(R.string.settings_audio_reverb),
-                text = stringResource(R.string.settings_audio_reverb_info_apply_a_depth_effect_to_the_audio),
-                selectedValue = audioReverb,
-                onValueSelected = {
-                    audioReverb = it
-                    restartService = true
-                },
-                valueText = {
-                    it.textName
-                }
-            )
-            RestartPlayerService(restartService, onRestart = { restartService = false } )
-        }
+                text = audioReverb.textName,
+                             onClick = { showAudioReverbDialog = true },
+                             icon = R.drawable.reverb
+                         )
+                         RestartPlayerService(restartService, onRestart = { restartService = false } )
+                     }
+                     
+                                           if (showAudioReverbDialog) {
+                          ValueSelectorDialog(
+                              title = stringResource(R.string.settings_audio_reverb_info_apply_a_depth_effect_to_the_audio),
+                 selectedValue = audioReverb,
+                 onValueSelected = {
+                     audioReverb = it
+                     restartService = true
+                 },
+                              valueText = { it.textName },
+                              values = PresetsReverb.values().toList(),
+                              onDismiss = { showAudioReverbDialog = false }
+                          )
+         }
 
         if (search.inputValue.isBlank() || stringResource(R.string.settings_audio_focus).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.settings_audio_focus),
                 text = stringResource(R.string.settings_audio_focus_info),
                 isChecked = audioFocusEnabled,
                 onCheckedChange = {
                     audioFocusEnabled = it
-                }
-            )
-        }
+                             },
+                             icon = R.drawable.focus_audio
+                         )
+                     }
 
+                     if (search.inputValue.isBlank() || stringResource(R.string.equalizer).contains(search.inputValue,true))
+                         OtherSettingsEntry(
+                             title = stringResource(R.string.equalizer),
+                             text = stringResource(R.string.interact_with_the_system_equalizer),
+                             onClick = launchEqualizer,
+                             icon = R.drawable.equalizer
+                         )
+                 }
+             )
+         }
+
+         Spacer(modifier = Modifier.height(16.dp))
+
+         // Gestures & Events Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1300)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(1300),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.gestures_events),
+                 icon = R.drawable.gesture,
+                 content = {
         if (search.inputValue.isBlank() || stringResource(R.string.event_volumekeys).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.event_volumekeys),
                 text = stringResource(R.string.event_volumekeysinfo),
                 isChecked = useVolumeKeysToChangeSong,
                 onCheckedChange = {
                     useVolumeKeysToChangeSong = it
                     restartService = true
-                }
+                             },
+                             icon = R.drawable.volume_control
             )
             RestartPlayerService(restartService, onRestart = { restartService = false } )
         }
 
-
         if (search.inputValue.isBlank() || stringResource(R.string.event_shake).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.event_shake),
                 text = stringResource(R.string.shake_to_change_song),
                 isChecked = shakeEventEnabled,
                 onCheckedChange = {
                     shakeEventEnabled = it
                     restartService = true
-                }
+                             },
+                             icon = R.drawable.shake_gesture
             )
             RestartPlayerService(restartService, onRestart = { restartService = false } )
-        }
+                     }
+                 }
+             )
+         }
 
+         Spacer(modifier = Modifier.height(16.dp))
+
+         // Picture in Picture Section
+         AnimatedVisibility(
+             visible = true,
+             enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1400)) + androidx.compose.animation.scaleIn(
+                 animationSpec = androidx.compose.animation.core.tween(1400),
+                 initialScale = 0.9f
+             )
+         ) {
+             SettingsSectionCard(
+                 title = stringResource(R.string.picture_in_picture),
+                 icon = R.drawable.video,
+                 content = {
         if (search.inputValue.isBlank() || stringResource(R.string.settings_enable_pip).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
+                         OtherSwitchSettingEntry(
                 title = stringResource(R.string.settings_enable_pip),
                 text = "",
                 isChecked = enablePictureInPicture,
                 onCheckedChange = {
                     enablePictureInPicture = it
                     restartActivity = true
-                }
+                             },
+                             icon = R.drawable.logo_youtube
             )
             RestartActivity(restartActivity, onRestart = { restartActivity = false })
             AnimatedVisibility(visible = enablePictureInPicture) {
                 Column(
                     modifier = Modifier.padding(start = 25.dp)
                 ) {
-
-                    EnumValueSelectorSettingsEntry(
+                                 var showPipModuleDialog by remember { mutableStateOf(false) }
+                                 OtherSettingsEntry(
+                                     title = stringResource(R.string.settings_pip_module),
+                                     text = when (pipModule) {
+                                         PipModule.Cover -> stringResource(R.string.pipmodule_cover)
+                                     },
+                                     onClick = { showPipModuleDialog = true },
+                                     icon = R.drawable.logo_youtube
+                                 )
+                                 
+                                 if (showPipModuleDialog) {
+                                     ValueSelectorDialog(
                         title = stringResource(R.string.settings_pip_module),
                         selectedValue = pipModule,
                         onValueSelected = {
@@ -899,84 +1077,34 @@ fun GeneralSettings(
                             when (it) {
                                 PipModule.Cover -> stringResource(R.string.pipmodule_cover)
                             }
-                        }
+                                         },
+                                         values = PipModule.values().toList(),
+                                         onDismiss = { showPipModuleDialog = false }
                     )
+                                 }
 
-                    SwitchSettingEntry(
-                        isEnabled = isAtLeastAndroid12,
+                                 if (isAtLeastAndroid12) {
+                                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.settings_enable_pip_auto),
                         text = stringResource(R.string.pip_info_from_android_12_pip_can_be_automatically_enabled),
                         isChecked = enablePictureInPictureAuto,
                         onCheckedChange = {
                             enablePictureInPictureAuto = it
                             restartActivity = true
-                        }
+                                         },
+                                         icon = R.drawable.logo_youtube
                     )
+                                 }
                     RestartActivity(restartActivity, onRestart = { restartActivity = false })
                 }
-
-            }
-        }
-
-        if (search.inputValue.isBlank() || stringResource(R.string.settings_enable_autodownload_song).contains(search.inputValue,true)) {
-            SwitchSettingEntry(
-                title = stringResource(R.string.settings_enable_autodownload_song),
-                text = "",
-                isChecked = autoDownloadSong,
-                onCheckedChange = {
-                    autoDownloadSong = it
-                }
-            )
-            AnimatedVisibility(visible = autoDownloadSong) {
-                Column(
-                    modifier = Modifier.padding(start = 25.dp)
-                ) {
-                    SwitchSettingEntry(
-                        title = stringResource(R.string.settings_enable_autodownload_song_when_liked),
-                        text = "",
-                        isChecked = autoDownloadSongWhenLiked,
-                        onCheckedChange = {
-                            autoDownloadSongWhenLiked = it
-                        }
-                    )
-                    SwitchSettingEntry(
-                        title = stringResource(R.string.settings_enable_autodownload_song_when_album_bookmarked),
-                        text = "",
-                        isChecked = autoDownloadSongWhenAlbumBookmarked,
-                        onCheckedChange = {
-                            autoDownloadSongWhenAlbumBookmarked = it
-                        }
-                    )
-                }
-
-            }
-        }
-
-        if (search.inputValue.isBlank() || stringResource(R.string.equalizer).contains(search.inputValue,true))
-            SettingsEntry(
-                title = stringResource(R.string.equalizer),
-                text = stringResource(R.string.interact_with_the_system_equalizer),
-                onClick = launchEqualizer
-                /*
-                onClick = {
-                    val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                        putExtra(AudioEffect.EXTRA_AUDIO_SESSION, binder?.player?.audioSessionId)
-                        putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                        putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-                    }
-
-                    try {
-                        activityResultLauncher.launch(intent)
-                    } catch (e: ActivityNotFoundException) {
-                        SmartMessage(context.resources.getString(R.string.info_not_find_application_audio), type = PopupType.Warning, context = context)
-                    }
-                }
-                 */
-            )
+                         }
+                     }
+                 }
+             )
+         }
 
         SettingsGroupSpacer(
             modifier = Modifier.height(Dimensions.bottomSpacer)
         )
-
     }
 }

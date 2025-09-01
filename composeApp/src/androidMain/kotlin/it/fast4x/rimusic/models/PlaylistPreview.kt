@@ -6,6 +6,6 @@ import androidx.room.Embedded
 @Immutable
 data class PlaylistPreview(
     @Embedded val playlist: Playlist,
-    val songCount: Int,
-    val thumbnailUrl: String? = null
+    val songCount: Int
 )
+

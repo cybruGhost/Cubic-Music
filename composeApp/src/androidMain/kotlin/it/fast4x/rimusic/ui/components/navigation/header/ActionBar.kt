@@ -11,12 +11,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
-import coil.compose.AsyncImage
+import me.knighthat.coil.ImageCacheFactory
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.extensions.pip.isPipSupported
@@ -24,6 +22,8 @@ import it.fast4x.rimusic.extensions.pip.rememberPipHandler
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.ui.components.themed.DropdownMenu
 import it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
+import it.fast4x.rimusic.utils.enablePictureInPictureKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.ytAccountThumbnail
 
 @Composable
@@ -32,12 +32,12 @@ private fun HamburgerMenu(
     onItemClick: (NavRoutes) -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    val enablePictureInPicture by Preferences.IS_PIP_ENABLED
+    val enablePictureInPicture by rememberPreference(enablePictureInPictureKey, false)
     val pipHandler = rememberPipHandler()
 
     val menu = DropdownMenu(
         expanded = expanded,
-        modifier = Modifier.background( colorPalette().background0.copy(0.90f) ),
+        modifier = Modifier.background(colorPalette().background0.copy(0.90f)),
         onDismissRequest = onDismissRequest
     )
     // History button
@@ -70,7 +70,6 @@ private fun HamburgerMenu(
             R.string.settings
         ) { onItemClick( NavRoutes.settings ) }
     )
-
     menu.Draw()
 }
 
@@ -86,12 +85,11 @@ fun ActionBar(
 
     if (isYouTubeLoggedIn()) {
         if (ytAccountThumbnail() != "")
-            AsyncImage(
-                model = ytAccountThumbnail(),
+            ImageCacheFactory.AsyncImage(
+                thumbnailUrl = ytAccountThumbnail(),
                 contentDescription = null,
                 modifier = Modifier.height(40.dp)
                     .padding(end = 10.dp)
-                    .clip( thumbnailShape() )
                     .clickable { expanded = !expanded }
             )
         else HeaderIcon( R.drawable.ytmusic, size = 30.dp ) { expanded = !expanded }

@@ -11,6 +11,7 @@ fun <T> persist(tag: String, initialValue: T): MutableState<T> {
     val context = LocalContext.current
 
     return remember {
+        // If PersistMap is not available, just use a regular mutableStateOf
         context.persistMap?.getOrPut(tag) { mutableStateOf(initialValue) } as? MutableState<T>
             ?: mutableStateOf(initialValue)
     }

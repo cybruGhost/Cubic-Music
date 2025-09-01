@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,12 +22,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.Preferences
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.enums.MusicAnimationType
 import it.fast4x.rimusic.utils.DisposableListener
+import it.fast4x.rimusic.utils.mediaItems
+import it.fast4x.rimusic.utils.nowPlayingIndicatorKey
+import it.fast4x.rimusic.utils.rememberPreference
+import it.fast4x.rimusic.utils.shouldBePlaying
 import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
@@ -50,7 +57,7 @@ fun MusicAnimation(
         }
     }
 
-    val nowPlayingIndicator by Preferences.NOW_PLAYING_INDICATOR
+    val nowPlayingIndicator by rememberPreference(nowPlayingIndicatorKey, MusicAnimationType.Bubbles)
     if (nowPlayingIndicator == MusicAnimationType.Disabled) return
 
     val animatablesWithSteps = remember {

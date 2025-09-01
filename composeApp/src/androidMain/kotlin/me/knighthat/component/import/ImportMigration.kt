@@ -7,19 +7,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.Preferences
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.enums.ExoPlayerCacheLocation
 import it.fast4x.rimusic.enums.ExoPlayerDiskCacheMaxSize
-import it.fast4x.rimusic.enums.ExoPlayerDiskDownloadCacheMaxSize
 import it.fast4x.rimusic.service.MyDownloadHelper
 import it.fast4x.rimusic.service.modern.PlayerServiceModern
+import it.fast4x.rimusic.utils.exoPlayerCacheLocationKey
+import it.fast4x.rimusic.utils.exoPlayerDiskCacheMaxSizeKey
+import it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
+import it.fast4x.rimusic.utils.getEnum
+import it.fast4x.rimusic.utils.preferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import me.knighthat.component.ImportFromFile
 import me.knighthat.component.dialog.RestartAppDialog
-import org.jetbrains.annotations.ApiStatus
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -27,15 +29,11 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import kotlin.io.path.createTempDirectory
 
-@Deprecated("", level = DeprecationLevel.WARNING)
-@ApiStatus.ScheduledForRemoval
 class ImportMigration private constructor(
     launcher: ManagedActivityResultLauncher<Array<String>, Uri?>
 ) : ImportFromFile(launcher) {
 
     companion object {
-        @Deprecated("", level = DeprecationLevel.WARNING)
-        @ApiStatus.ScheduledForRemoval
         @UnstableApi
         @Composable
         operator fun invoke( context: Context, binder: PlayerServiceModern.Binder? ): ImportMigration =
@@ -55,7 +53,7 @@ class ImportMigration private constructor(
                                    ZipInputStream( inStream ).use { zipIn ->
                                        var entry: ZipEntry? = zipIn.nextEntry
 
-                                       val cacheDir = when( Preferences.SONG_CACHE_SIZE.value ) {
+                                       val cacheDir = when( context.preferences.getEnum( exoPlayerDiskCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` ) ) {
                                            // Temporary directory deletes itself after close
                                            // It means songs remain on device as long as it's open
                                            ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( PlayerServiceModern.CACHE_DIRNAME ).toFile()
@@ -64,7 +62,7 @@ class ImportMigration private constructor(
                                                // Looks a bit ugly but what it does is
                                                // check location set by user and return
                                                // appropriate path with [CACHE_DIRNAME] appended.
-                                               when( Preferences.EXO_CACHE_LOCATION.value ) {
+                                               when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
                                                    ExoPlayerCacheLocation.System -> context.cacheDir
                                                    ExoPlayerCacheLocation.Private -> context.filesDir
                                                }.resolve( PlayerServiceModern.CACHE_DIRNAME )
@@ -72,16 +70,16 @@ class ImportMigration private constructor(
                                        // Ensure folder is empty
                                        cacheDir.listFiles()?.forEach( File::deleteRecursively )
 
-                                       val downloadDir = when( Preferences.SONG_DOWNLOAD_SIZE.value ) {
+                                       val downloadDir = when( context.preferences.getEnum( exoPlayerDiskDownloadCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` ) ) {
                                            // Temporary directory deletes itself after close
                                            // It means songs remain on device as long as it's open
-                                           ExoPlayerDiskDownloadCacheMaxSize.Disabled -> createTempDirectory( MyDownloadHelper.CACHE_DIRNAME ).toFile()
+                                           ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( MyDownloadHelper.CACHE_DIRNAME ).toFile()
 
                                            else                               ->
                                                // Looks a bit ugly but what it does is
                                                // check location set by user and return
                                                // appropriate path with [CACHE_DIRNAME] appended.
-                                               when( Preferences.EXO_CACHE_LOCATION.value ) {
+                                               when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
                                                    ExoPlayerCacheLocation.System -> context.cacheDir
                                                    ExoPlayerCacheLocation.Private -> context.filesDir
                                                }.resolve( MyDownloadHelper.CACHE_DIRNAME )

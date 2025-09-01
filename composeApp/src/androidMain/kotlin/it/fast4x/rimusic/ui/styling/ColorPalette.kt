@@ -67,8 +67,10 @@ val DefaultDarkColorPalette = ColorPalette(
     textSecondary = Color(0xffa3a4a6),
     textDisabled = Color(0xff6f6f73),
     iconButtonPlayer = Color(0xffe1e1e2),
-    accent = Color(0xFF2b9348),
+    accent = Color(0xFF8B5CF6),
     onAccent = Color.White,
+    red = Color(0xffbf4040),
+    blue = Color(0xff4472cf),
     isDark = true
 )
 
@@ -82,8 +84,10 @@ val DefaultLightColorPalette = ColorPalette(
     textSecondary = Color(0xff656566),
     textDisabled = Color(0xff9d9d9d),
     iconButtonPlayer = Color(0xff212121),
-    accent = Color(0xFF2b9348),
+    accent = Color(0xFF8B5CF6),
     onAccent = Color.White,
+    red = Color(0xffbf4040),
+    blue = Color(0xff4472cf),
     isDark = false
 )
 

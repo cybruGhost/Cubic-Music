@@ -162,7 +162,7 @@ fun HeaderWithIcon (
 ){
     //val disableIconButtonOnTop by rememberPreference(disableIconButtonOnTopKey, false)
     Row (
-        horizontalArrangement = Arrangement.End,
+        horizontalArrangement = if (UiType.ViMusic.isCurrent()) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             //.requiredHeight(Dimensions.halfheaderHeight)
@@ -170,28 +170,58 @@ fun HeaderWithIcon (
 
     ){
 
-        BasicText(
-            text = title,
-            style = TextStyle(
-                fontSize = typography().xxl.bold.fontSize,
-                fontWeight = typography().xxl.bold.fontWeight,
-                color = colorPalette().text,
-                textAlign = if( UiType.ViMusic.isNotCurrent()) TextAlign.Center else TextAlign.End
-
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .fillMaxSize(if( showIcon && UiType.ViMusic.isCurrent() ) 0.9f else 1f)
-        )
-
-        if ( showIcon && UiType.ViMusic.isCurrent() &&
-            ( NavigationBarPosition.Left.isCurrent() || NavigationBarPosition.Right.isCurrent()) )
-            SecondaryButton(
-                iconId = iconId,
-                enabled = enabled,
-                onClick = onClick,
+        if (UiType.ViMusic.isCurrent()) {
+            // Old behavior for ViMusic
+            BasicText(
+                text = title,
+                style = TextStyle(
+                    fontSize = typography().xxl.bold.fontSize,
+                    fontWeight = typography().xxl.bold.fontWeight,
+                    color = colorPalette().text,
+                    textAlign = TextAlign.End
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxSize(if( showIcon ) 0.9f else 1f)
             )
+
+            if ( showIcon ) {
+                SecondaryButton(
+                    iconId = iconId,
+                    enabled = enabled,
+                    onClick = onClick,
+                )
+            }
+        } else {
+            // New behavior for RiMusic and others
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if ( showIcon ) {
+                    SecondaryButton(
+                        iconId = iconId,
+                        enabled = enabled,
+                        onClick = onClick,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                BasicText(
+                    text = title,
+                    style = TextStyle(
+                        fontSize = typography().xxl.bold.fontSize,
+                        fontWeight = typography().xxl.bold.fontWeight,
+                        color = colorPalette().text,
+                        textAlign = TextAlign.Start
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
 
     }
 }

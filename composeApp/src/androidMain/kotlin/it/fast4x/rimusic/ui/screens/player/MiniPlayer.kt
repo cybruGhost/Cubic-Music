@@ -60,7 +60,6 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
@@ -77,14 +76,20 @@ import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.favoritesIcon
 import it.fast4x.rimusic.ui.styling.favoritesOverlay
 import it.fast4x.rimusic.utils.DisposableListener
+import it.fast4x.rimusic.utils.backgroundProgressKey
 import it.fast4x.rimusic.utils.conditional
+import it.fast4x.rimusic.utils.disableClosingPlayerSwipingDownKey
+import it.fast4x.rimusic.utils.disableScrollingTextKey
+import it.fast4x.rimusic.utils.effectRotationKey
 import it.fast4x.rimusic.utils.getLikedIcon
 import it.fast4x.rimusic.utils.getUnlikedIcon
 import it.fast4x.rimusic.utils.intent
 import it.fast4x.rimusic.utils.isExplicit
+import it.fast4x.rimusic.utils.miniPlayerTypeKey
 import it.fast4x.rimusic.utils.playNext
 import it.fast4x.rimusic.utils.playPrevious
 import it.fast4x.rimusic.utils.positionAndDurationState
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
 import it.fast4x.rimusic.utils.shouldBePlaying
 import kotlinx.coroutines.CoroutineScope
@@ -155,7 +160,10 @@ fun MiniPlayer(
                 .distinctUntilChanged()
     }.collectAsState( false, Dispatchers.IO )
 
-    var miniPlayerType by Preferences.MINI_PLAYER_TYPE
+    var miniPlayerType by rememberPreference(
+        miniPlayerTypeKey,
+        MiniPlayerType.Modern
+    )
 
     fun toggleLike() {
         CoroutineScope( Dispatchers.IO ).launch {
@@ -181,8 +189,8 @@ fun MiniPlayer(
             return@rememberSwipeToDismissBoxState false
         }
     )
-    val backgroundProgress by Preferences.MINI_PLAYER_PROGRESS_BAR
-    val effectRotationEnabled by Preferences.ROTATION_EFFECT
+    val backgroundProgress by rememberPreference(backgroundProgressKey, BackgroundProgress.MiniPlayer)
+    val effectRotationEnabled by rememberPreference(effectRotationKey, true)
     val shouldBePlayingTransition = updateTransition(shouldBePlaying, label = "shouldBePlaying")
     val playPauseRoundness by shouldBePlayingTransition.animateDp(
         transitionSpec = { tween(durationMillis = 100, easing = LinearEasing) },
@@ -195,9 +203,9 @@ fun MiniPlayer(
         targetValue = if (isRotated) 360F else 0f,
         animationSpec = tween(durationMillis = 200), label = ""
     )
-    val disableClosingPlayerSwipingDown by Preferences.MINI_DISABLE_SWIPE_DOWN_TO_DISMISS
+    val disableClosingPlayerSwipingDown by rememberPreference(disableClosingPlayerSwipingDownKey, false)
 
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
     SwipeToDismissBox(
         modifier = Modifier

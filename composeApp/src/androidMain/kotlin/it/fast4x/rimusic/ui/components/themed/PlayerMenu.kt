@@ -16,7 +16,6 @@ import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.PIPED_PREFIX
@@ -34,7 +33,10 @@ import it.fast4x.rimusic.utils.addToYtPlaylist
 import it.fast4x.rimusic.utils.asSong
 import it.fast4x.rimusic.utils.getPipedSession
 import it.fast4x.rimusic.utils.isNetworkConnected
+import it.fast4x.rimusic.utils.isPipedEnabledKey
+import it.fast4x.rimusic.utils.menuStyleKey
 import it.fast4x.rimusic.utils.rememberEqualizerLauncher
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.removeFromPipedPlaylist
 import it.fast4x.rimusic.utils.removeYTSongFromPlaylist
 import kotlinx.coroutines.CoroutineScope
@@ -58,7 +60,10 @@ fun PlayerMenu(
     disableScrollingText: Boolean
     ) {
     val menuState = LocalMenuState.current
-    val menuStyle by Preferences.MENU_STYLE
+    val menuStyle by rememberPreference(
+        menuStyleKey,
+        MenuStyle.List
+    )
 
     //val context = LocalContext.current
 
@@ -167,7 +172,10 @@ fun MiniPlayerMenu(
     disableScrollingText: Boolean
 ) {
 
-    val menuStyle by Preferences.MENU_STYLE
+    val menuStyle by rememberPreference(
+        menuStyleKey,
+        MenuStyle.List
+    )
 
     if (menuStyle == MenuStyle.Grid) {
         MiniMediaItemGridMenu(
@@ -234,7 +242,7 @@ fun AddToPlaylistPlayerMenu(
     onDismiss: () -> Unit,
     onClosePlayer: () -> Unit,
 ) {
-    val isPipedEnabled by Preferences.ENABLE_PIPED
+    val isPipedEnabled by rememberPreference(isPipedEnabledKey, false)
     val pipedSession = getPipedSession()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -314,7 +322,7 @@ fun AddToPlaylistArtistSongs(
     onDismiss: () -> Unit,
     onClosePlayer: () -> Unit,
 ) {
-    val isPipedEnabled by Preferences.ENABLE_PIPED
+    val isPipedEnabled by rememberPreference(isPipedEnabledKey, false)
     val pipedSession = getPipedSession()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()

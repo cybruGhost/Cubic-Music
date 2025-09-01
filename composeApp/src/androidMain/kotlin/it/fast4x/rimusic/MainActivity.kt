@@ -18,12 +18,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.provider.Settings
 import android.view.WindowManager
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -78,6 +80,7 @@ import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowCompat
@@ -89,11 +92,14 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.compose.rememberNavController
 import androidx.palette.graphics.Palette
 import app.kreate.android.BuildConfig
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import app.kreate.android.Threads
-import coil.imageLoader
-import coil.request.ImageRequest
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
+import coil3.Image
+import coil3.request.allowHardware
+import coil3.toBitmap
+import androidx.core.graphics.drawable.toBitmap
 import com.kieronquinn.monetcompat.core.MonetActivityAccessException
 import com.kieronquinn.monetcompat.core.MonetCompat
 import com.kieronquinn.monetcompat.interfaces.MonetColorsChangedListener
@@ -110,9 +116,12 @@ import it.fast4x.innertube.utils.NewPipeDownloaderImpl
 import it.fast4x.innertube.utils.ProxyPreferenceItem
 import it.fast4x.innertube.utils.ProxyPreferences
 import it.fast4x.rimusic.enums.AnimatedGradient
+import it.fast4x.rimusic.enums.AudioQualityFormat
 import it.fast4x.rimusic.enums.ColorPaletteMode
 import it.fast4x.rimusic.enums.ColorPaletteName
+import it.fast4x.rimusic.enums.FontType
 import it.fast4x.rimusic.enums.HomeScreenTabs
+import it.fast4x.rimusic.enums.Languages
 import it.fast4x.rimusic.enums.LogType
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.PipModule
@@ -142,28 +151,88 @@ import it.fast4x.rimusic.ui.styling.typographyOf
 import it.fast4x.rimusic.utils.InitDownloader
 import it.fast4x.rimusic.utils.LocalMonetCompat
 import it.fast4x.rimusic.utils.OkHttpRequest
+import it.fast4x.rimusic.utils.UiTypeKey
+import it.fast4x.rimusic.utils.animatedGradientKey
+import it.fast4x.rimusic.utils.applyFontPaddingKey
 import it.fast4x.rimusic.utils.asMediaItem
+import it.fast4x.rimusic.utils.audioQualityFormatKey
+import it.fast4x.rimusic.utils.backgroundProgressKey
+import it.fast4x.rimusic.utils.closeWithBackButtonKey
+import it.fast4x.rimusic.utils.colorPaletteModeKey
+import it.fast4x.rimusic.utils.colorPaletteNameKey
+import it.fast4x.rimusic.utils.customColorKey
+import it.fast4x.rimusic.utils.customThemeDark_Background0Key
+import it.fast4x.rimusic.utils.customThemeDark_Background1Key
+import it.fast4x.rimusic.utils.customThemeDark_Background2Key
+import it.fast4x.rimusic.utils.customThemeDark_Background3Key
+import it.fast4x.rimusic.utils.customThemeDark_Background4Key
+import it.fast4x.rimusic.utils.customThemeDark_TextKey
+import it.fast4x.rimusic.utils.customThemeDark_accentKey
+import it.fast4x.rimusic.utils.customThemeDark_iconButtonPlayerKey
+import it.fast4x.rimusic.utils.customThemeDark_textDisabledKey
+import it.fast4x.rimusic.utils.customThemeDark_textSecondaryKey
+import it.fast4x.rimusic.utils.customThemeLight_Background0Key
+import it.fast4x.rimusic.utils.customThemeLight_Background1Key
+import it.fast4x.rimusic.utils.customThemeLight_Background2Key
+import it.fast4x.rimusic.utils.customThemeLight_Background3Key
+import it.fast4x.rimusic.utils.customThemeLight_Background4Key
+import it.fast4x.rimusic.utils.customThemeLight_TextKey
+import it.fast4x.rimusic.utils.customThemeLight_accentKey
+import it.fast4x.rimusic.utils.customThemeLight_iconButtonPlayerKey
+import it.fast4x.rimusic.utils.customThemeLight_textDisabledKey
+import it.fast4x.rimusic.utils.customThemeLight_textSecondaryKey
+import it.fast4x.rimusic.utils.disableClosingPlayerSwipingDownKey
+import it.fast4x.rimusic.utils.disablePlayerHorizontalSwipeKey
+import it.fast4x.rimusic.utils.effectRotationKey
+import it.fast4x.rimusic.utils.fontTypeKey
 import it.fast4x.rimusic.utils.forcePlay
 import it.fast4x.rimusic.utils.getEnum
 import it.fast4x.rimusic.utils.intent
 import it.fast4x.rimusic.utils.invokeOnReady
 import it.fast4x.rimusic.utils.isAtLeastAndroid6
 import it.fast4x.rimusic.utils.isAtLeastAndroid8
+import it.fast4x.rimusic.utils.isKeepScreenOnEnabledKey
+import it.fast4x.rimusic.utils.isProxyEnabledKey
 import it.fast4x.rimusic.utils.isValidIP
 import it.fast4x.rimusic.utils.isVideo
+import it.fast4x.rimusic.utils.keepPlayerMinimizedKey
+import it.fast4x.rimusic.utils.languageAppKey
 import it.fast4x.rimusic.utils.loadAppLog
+import it.fast4x.rimusic.utils.loadedDataKey
+import it.fast4x.rimusic.utils.logDebugEnabledKey
+import it.fast4x.rimusic.utils.miniPlayerTypeKey
+import it.fast4x.rimusic.utils.navigationBarPositionKey
+import it.fast4x.rimusic.utils.navigationBarTypeKey
+import it.fast4x.rimusic.utils.parentalControlEnabledKey
+import it.fast4x.rimusic.utils.pipModuleKey
 import it.fast4x.rimusic.utils.playNext
+import it.fast4x.rimusic.utils.playerBackgroundColorsKey
+import it.fast4x.rimusic.utils.playerThumbnailSizeKey
+import it.fast4x.rimusic.utils.playerVisualizerTypeKey
 import it.fast4x.rimusic.utils.preferences
+import it.fast4x.rimusic.utils.proxyHostnameKey
+import it.fast4x.rimusic.utils.proxyModeKey
+import it.fast4x.rimusic.utils.proxyPortKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.resize
+import it.fast4x.rimusic.utils.restartActivityKey
 import it.fast4x.rimusic.utils.setDefaultPalette
+import it.fast4x.rimusic.utils.shakeEventEnabledKey
+import it.fast4x.rimusic.utils.showButtonPlayerVideoKey
+import it.fast4x.rimusic.utils.showSearchTabKey
+import it.fast4x.rimusic.utils.showTotalTimeQueueKey
 import it.fast4x.rimusic.utils.textCopyToClipboard
 import it.fast4x.rimusic.utils.thumbnail
+import it.fast4x.rimusic.utils.thumbnailRoundnessKey
+import it.fast4x.rimusic.utils.transitionEffectKey
+import it.fast4x.rimusic.utils.useSystemFontKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.knighthat.coil.ImageCacheFactory
 import me.knighthat.invidious.Invidious
 import me.knighthat.piped.Piped
 import me.knighthat.utils.Toaster
@@ -217,6 +286,18 @@ class MainActivity :
 
     private val pipState: MutableState<Boolean> = mutableStateOf(false)
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            // Si la permission est refusée, rediriger vers les paramètres
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+            }
+            startActivity(intent)
+        }
+    }
+
     override fun onStart() {
         super.onStart()
 
@@ -259,7 +340,7 @@ class MainActivity :
             startApp()
         }
 
-        if ( Preferences.AUDIO_SHAKE_TO_SKIP.value ) {
+        if (preferences.getBoolean(shakeEventEnabledKey, false)) {
             sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
             Objects.requireNonNull(sensorManager)
                 ?.registerListener(
@@ -280,6 +361,11 @@ class MainActivity :
             } catch (e: Exception) {
                 Timber.e(e, "MainActivity Error fetching Piped & Invidious instances")
             }
+        }
+
+        // Ask for notification permission if necessary
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
@@ -342,9 +428,9 @@ class MainActivity :
     fun startApp() {
 
         // Used in QuickPics for load data from remote instead of last saved in SharedPreferences
-        Preferences.IS_DATA_KEY_LOADED.value = false
+        preferences.edit(commit = true) { putBoolean(loadedDataKey, false) }
 
-        if ( !Preferences.CLOSE_APP_ON_BACK.value )
+        if (!preferences.getBoolean(closeWithBackButtonKey, false))
             if (Build.VERSION.SDK_INT >= 33) {
                 onBackInvokedDispatcher.registerOnBackInvokedCallback(
                     OnBackInvokedDispatcher.PRIORITY_DEFAULT
@@ -367,13 +453,13 @@ class MainActivity :
         intentUriData = intent.data ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.toUri()
 
         with(preferences) {
-            if ( Preferences.KEEP_SCREEN_ON.value ) {
+            if (getBoolean(isKeepScreenOnEnabledKey, false)) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            if ( Preferences.IS_PROXY_ENABLED.value ) {
-                val hostName by Preferences.PROXY_HOST
-                val proxyPort by Preferences.PROXY_PORT
-                val proxyMode by Preferences.PROXY_SCHEME
+            if (getBoolean(isProxyEnabledKey, false)) {
+                val hostName = getString(proxyHostnameKey, null)
+                val proxyPort = getInt(proxyPortKey, 8080)
+                val proxyMode = getEnum(proxyModeKey, Proxy.Type.HTTP)
                 if (isValidIP(hostName)) {
                     hostName?.let { hName ->
                         ProxyPreferences.preference =
@@ -388,14 +474,16 @@ class MainActivity :
         }
 
         setContent {
-            val colorPaletteMode by Preferences.THEME_MODE
+            val colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
             val isPicthBlack = colorPaletteMode == ColorPaletteMode.PitchBlack
 //            val isDark =
 //                colorPaletteMode == ColorPaletteMode.Dark || isPicthBlack || (colorPaletteMode == ColorPaletteMode.System && isSystemInDarkTheme())
 
             // Valid to get log when app crash
             if (intent.action == action_copy_crash_log) {
-                Preferences.DEBUG_LOG.value = true
+                preferences.edit(commit = true) {
+                    putBoolean(logDebugEnabledKey, true)
+                }
                 loadAppLog(this@MainActivity, type = LogType.Crash).let {
                     if (it != null) textCopyToClipboard(it, this@MainActivity)
                 }
@@ -415,8 +503,8 @@ class MainActivity :
             val navController = rememberNavController()
             var showPlayer by rememberSaveable { mutableStateOf(false) }
             var switchToAudioPlayer by rememberSaveable { mutableStateOf(false) }
-            var animatedGradient by Preferences.ANIMATED_GRADIENT
-            var customColor by Preferences.CUSTOM_COLOR_HASH_CODE
+            var animatedGradient by rememberPreference(animatedGradientKey, AnimatedGradient.Linear)
+            var customColor by rememberPreference(customColorKey, Color.Green.hashCode())
             val lightTheme = colorPaletteMode == ColorPaletteMode.Light || (colorPaletteMode == ColorPaletteMode.System && (!isSystemInDarkTheme()))
 
 
@@ -426,21 +514,25 @@ class MainActivity :
                     gl = Locale.getDefault().country
                 )
 
+            preferences.getEnum(audioQualityFormatKey, AudioQualityFormat.Auto)
+
             var appearance by rememberSaveable(
                 !lightTheme,
                 stateSaver = Appearance.Companion
             ) {
                 with(preferences) {
-                    val colorPaletteName by Preferences.COLOR_PALETTE
-                    val colorPaletteMode by Preferences.THEME_MODE
-                    val thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
-                    val useSystemFont by Preferences.USE_SYSTEM_FONT
-                    val applyFontPadding by Preferences.APPLY_FONT_PADDING
+                    val colorPaletteName =
+                        getEnum(colorPaletteNameKey, ColorPaletteName.Dynamic)
+                    val colorPaletteMode = getEnum(colorPaletteModeKey, ColorPaletteMode.Dark)
+                    val thumbnailRoundness =
+                        getEnum(thumbnailRoundnessKey, ThumbnailRoundness.Heavy)
+                    val useSystemFont = getBoolean(useSystemFontKey, false)
+                    val applyFontPadding = getBoolean(applyFontPaddingKey, false)
 
                     var colorPalette =
                         colorPaletteOf(colorPaletteName, colorPaletteMode, !lightTheme)
 
-                    val fontType by Preferences.FONT
+                    val fontType = getEnum(fontTypeKey, FontType.Rubik)
 
                     if (colorPaletteName == ColorPaletteName.MaterialYou) {
                         colorPalette = dynamicColorPaletteOf(
@@ -474,59 +566,91 @@ class MainActivity :
 
             }
 
-            fun setDynamicPalette(url: String) {
-                val playerBackgroundColors by Preferences.PLAYER_BACKGROUND
-                val colorPaletteName by Preferences.COLOR_PALETTE
+            fun setDynamicPalette(url: String?) {
+                val playerBackgroundColors = preferences.getEnum(
+                    playerBackgroundColorsKey,
+                    PlayerBackgroundColors.BlurredCoverColor
+                )
+                val colorPaletteName =
+                    preferences.getEnum(colorPaletteNameKey, ColorPaletteName.Dynamic)
                 val isDynamicPalette = colorPaletteName == ColorPaletteName.Dynamic
                 val isCoverColor =
                     playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient ||
                             playerBackgroundColors == PlayerBackgroundColors.CoverColor ||
                             animatedGradient == AnimatedGradient.FluidCoverColorGradient
 
-                if (!isDynamicPalette) return
+                if (!isDynamicPalette) {
+                    return
+                }
 
-                val colorPaletteMode by Preferences.THEME_MODE
-                coroutineScope.launch(Dispatchers.Main) {
-                    val result = imageLoader.execute(
-                        ImageRequest.Builder(this@MainActivity)
-                            .data(url)
-                            .allowHardware(false)
-                            .build()
-                    )
+                // If the URL is null or empty, return to the default palette with violet accent
+                if (url.isNullOrEmpty()) {
+                    val colorPaletteMode = preferences.getEnum(colorPaletteModeKey, ColorPaletteMode.Dark)
                     val isPicthBlack = colorPaletteMode == ColorPaletteMode.PitchBlack
-                    val isDark =
-                        colorPaletteMode == ColorPaletteMode.Dark || isPicthBlack || (colorPaletteMode == ColorPaletteMode.System && isSystemInDarkTheme)
+                    val isDark = colorPaletteMode == ColorPaletteMode.Dark || isPicthBlack || (colorPaletteMode == ColorPaletteMode.System && isSystemInDarkTheme)
+                    
+                    // Create a palette with fixed violet accent
+                    val violetAccent = Color(0.54509807f, 0.36078432f, 0.9647059f) // Couleur violette
+                    val defaultColorPalette = dynamicColorPaletteOf(violetAccent, isDark)
+                    setSystemBarAppearance(defaultColorPalette.isDark)
+                    appearance = appearance.copy(
+                        colorPalette = if (!isPicthBlack) defaultColorPalette else defaultColorPalette.copy(
+                            background0 = Color.Black,
+                            background1 = Color.Black,
+                            background2 = Color.Black,
+                            background3 = Color.Black,
+                            background4 = Color.Black,
+                        ),
+                        typography = appearance.typography.copy(defaultColorPalette.text)
+                    )
+                    return
+                }
 
-                    val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
-                    if (bitmap != null) {
-                        val palette = Palette
-                            .from(bitmap)
-                            .maximumColorCount(8)
-                            .addFilter(if (isDark) ({ _, hsl -> hsl[0] !in 36f..100f }) else null)
-                            .generate()
-                        println("Mainactivity onmediaItemTransition palette dominantSwatch: ${palette.dominantSwatch}")
+                val colorPaletteMode =
+                    preferences.getEnum(colorPaletteModeKey, ColorPaletteMode.Dark)
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        val result = coil3.SingletonImageLoader.get(this@MainActivity).execute(
+                            coil3.request.ImageRequest.Builder(this@MainActivity)
+                                .data(url)
+                                .allowHardware(false)
+                                .build()
+                        )
+                        
+                        val isPicthBlack = colorPaletteMode == ColorPaletteMode.PitchBlack
+                        val isDark =
+                            colorPaletteMode == ColorPaletteMode.Dark || isPicthBlack || (colorPaletteMode == ColorPaletteMode.System && isSystemInDarkTheme)
 
-                        dynamicColorPaletteOf(bitmap, isDark)?.let {
-                            withContext(Dispatchers.Main) {
-                                setSystemBarAppearance(it.isDark)
+                        val bitmap = result.image?.toBitmap()
+                        if (bitmap != null) {
+                            val palette = Palette
+                                .from(bitmap)
+                                .maximumColorCount(8)
+                                .addFilter(if (isDark) ({ _, hsl -> hsl[0] !in 36f..100f }) else null)
+                                .generate()
+
+                            dynamicColorPaletteOf(bitmap, isDark)?.let {
+                                withContext(Dispatchers.Main) {
+                                    setSystemBarAppearance(it.isDark)
+                                    val newAppearance = appearance.copy(
+                                        colorPalette = if (!isPicthBlack) it else it.copy(
+                                            background0 = Color.Black,
+                                            background1 = Color.Black,
+                                            background2 = Color.Black,
+                                            background3 = Color.Black,
+                                            background4 = Color.Black,
+                                            // text = Color.White
+                                        ),
+                                        typography = appearance.typography.copy(it.text)
+                                    )
+                                    appearance = newAppearance
+                                }
                             }
-                            appearance = appearance.copy(
-                                colorPalette = if (!isPicthBlack) it else it.copy(
-                                    background0 = Color.Black,
-                                    background1 = Color.Black,
-                                    background2 = Color.Black,
-                                    background3 = Color.Black,
-                                    background4 = Color.Black,
-                                    // text = Color.White
-                                ),
-                                typography = appearance.typography.copy(it.text)
-                            )
-                            println("Mainactivity onmediaItemTransition appearance inside: ${appearance.colorPalette}")
                         }
-
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
-                println("Mainactivity onmediaItemTransition appearance outside: ${appearance.colorPalette}")
             }
 
 
@@ -577,8 +701,8 @@ class MainActivity :
                     SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
                         when (key) {
 
-                            Preferences.APP_LANGUAGE.key -> {
-                                val lang = sharedPreferences.getEnum( key, Preferences.APP_LANGUAGE.defaultValue )
+                            languageAppKey -> {
+                                val lang = sharedPreferences.getEnum( languageAppKey, Languages.System )
                                 val languageTag: String = lang.code.ifEmpty {
                                     AppCompatDelegate.getApplicationLocales()[0]?.toLanguageTag().orEmpty()
                                 }
@@ -587,48 +711,58 @@ class MainActivity :
                                 )
                             }
 
-                            Preferences.PLAYER_PORTRAIT_THUMBNAIL_SIZE.key,
-                            Preferences.MAIN_THEME.key,
-                            Preferences.PLAYER_THUMBNAIL_HORIZONTAL_SWIPE_DISABLED.key,
-                            Preferences.MINI_DISABLE_SWIPE_DOWN_TO_DISMISS.key,
-                            Preferences.NAVIGATION_BAR_POSITION.key,
-                            Preferences.NAVIGATION_BAR_TYPE.key,
-                            Preferences.PLAYER_SHOW_TOTAL_QUEUE_TIME.key,
-                            Preferences.MINI_PLAYER_PROGRESS_BAR.key,
-                            Preferences.TRANSITION_EFFECT.key,
-                            Preferences.PLAYER_BACKGROUND.key,
-                            Preferences.MINI_PLAYER_TYPE.key,
-                            Preferences.RESTART_ACTIVITY.key
+                            effectRotationKey, playerThumbnailSizeKey,
+                            playerVisualizerTypeKey,
+                            UiTypeKey,
+                            disablePlayerHorizontalSwipeKey,
+                            disableClosingPlayerSwipingDownKey,
+                            showSearchTabKey,
+                            navigationBarPositionKey,
+                            navigationBarTypeKey,
+                            showTotalTimeQueueKey,
+                            backgroundProgressKey,
+                            transitionEffectKey,
+                            playerBackgroundColorsKey,
+                            miniPlayerTypeKey,
+                            restartActivityKey
                                 -> {
                                 this@MainActivity.recreate()
                                 println("MainActivity.recreate()")
                             }
 
-                            Preferences.COLOR_PALETTE.key,
-                            Preferences.THEME_MODE.key,
-                            Preferences.CUSTOM_LIGHT_THEME_BACKGROUND_0_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_THEME_BACKGROUND_1_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_THEME_BACKGROUND_2_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_THEME_BACKGROUND_3_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_THEME_BACKGROUND_4_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_TEXT_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_TEXT_SECONDARY_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_TEXT_DISABLED_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_PLAY_BUTTON_HASH_CODE.key,
-                            Preferences.CUSTOM_LIGHT_ACCENT_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_THEME_BACKGROUND_0_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_THEME_BACKGROUND_1_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_THEME_BACKGROUND_2_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_THEME_BACKGROUND_3_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_THEME_BACKGROUND_4_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_TEXT_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_TEXT_SECONDARY_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_TEXT_DISABLED_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_PLAY_BUTTON_HASH_CODE.key,
-                            Preferences.CUSTOM_DARK_ACCENT_HASH_CODE.key,
+                            colorPaletteNameKey, colorPaletteModeKey,
+                            customThemeLight_Background0Key,
+                            customThemeLight_Background1Key,
+                            customThemeLight_Background2Key,
+                            customThemeLight_Background3Key,
+                            customThemeLight_Background4Key,
+                            customThemeLight_TextKey,
+                            customThemeLight_textSecondaryKey,
+                            customThemeLight_textDisabledKey,
+                            customThemeLight_iconButtonPlayerKey,
+                            customThemeLight_accentKey,
+                            customThemeDark_Background0Key,
+                            customThemeDark_Background1Key,
+                            customThemeDark_Background2Key,
+                            customThemeDark_Background3Key,
+                            customThemeDark_Background4Key,
+                            customThemeDark_TextKey,
+                            customThemeDark_textSecondaryKey,
+                            customThemeDark_textDisabledKey,
+                            customThemeDark_iconButtonPlayerKey,
+                            customThemeDark_accentKey,
                                 -> {
-                                val colorPaletteName = sharedPreferences.getEnum( Preferences.COLOR_PALETTE.key, Preferences.COLOR_PALETTE.defaultValue )
-                                val colorPaletteMode = sharedPreferences.getEnum( Preferences.THEME_MODE.key, Preferences.THEME_MODE.defaultValue )
+                                val colorPaletteName =
+                                    sharedPreferences.getEnum(
+                                        colorPaletteNameKey,
+                                        ColorPaletteName.Dynamic
+                                    )
+
+                                val colorPaletteMode =
+                                    sharedPreferences.getEnum(
+                                        colorPaletteModeKey,
+                                        ColorPaletteMode.System
+                                    )
 
                                 var colorPalette = colorPaletteOf(
                                     colorPaletteName,
@@ -637,32 +771,9 @@ class MainActivity :
                                 )
 
                                 if (colorPaletteName == ColorPaletteName.Dynamic) {
-                                    val artworkUri =
-                                        (binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri.thumbnail(1200)
-                                            ?: "").toString()
-                                    artworkUri.let {
-                                        if (it.isNotEmpty())
-                                            setDynamicPalette(it)
-                                        else {
-
-                                            setSystemBarAppearance(colorPalette.isDark)
-                                            appearance = appearance.copy(
-                                                colorPalette = if (!isPicthBlack) colorPalette else colorPalette.copy(
-                                                    background0 = Color.Black,
-                                                    background1 = Color.Black,
-                                                    background2 = Color.Black,
-                                                    background3 = Color.Black,
-                                                    background4 = Color.Black,
-                                                    // text = Color.White
-                                                ),
-                                                typography = appearance.typography.copy(
-                                                    colorPalette.text
-                                                ),
-                                            )
-                                        }
-
-                                    }
-
+                                    // Toujours appeler setDynamicPalette quand on passe au thème dynamique
+                                    val currentArtworkUri = binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri?.thumbnail(1200)?.toString()
+                                    setDynamicPalette(currentArtworkUri)
                                 } else {
                                     //bitmapListenerJob?.cancel()
                                     //binder?.setBitmapListener(null)
@@ -704,7 +815,7 @@ class MainActivity :
                                 }
                             }
 
-                            Preferences.THUMBNAIL_BORDER_RADIUS.key -> {
+                            thumbnailRoundnessKey -> {
                                 val thumbnailRoundness =
                                     sharedPreferences.getEnum(key, ThumbnailRoundness.Heavy)
 
@@ -713,12 +824,13 @@ class MainActivity :
                                 )
                             }
 
-                            Preferences.USE_SYSTEM_FONT.key,
-                            Preferences.APPLY_FONT_PADDING.key,
-                            Preferences.FONT.key -> {
-                                val useSystemFont = sharedPreferences.getBoolean( Preferences.USE_SYSTEM_FONT.key, Preferences.USE_SYSTEM_FONT.defaultValue )
-                                val applyFontPadding = sharedPreferences.getBoolean( Preferences.APPLY_FONT_PADDING.key, Preferences.APPLY_FONT_PADDING.defaultValue )
-                                val fontType = sharedPreferences.getEnum( Preferences.FONT.key, Preferences.FONT.defaultValue )
+                            useSystemFontKey, applyFontPaddingKey, fontTypeKey -> {
+                                val useSystemFont =
+                                    sharedPreferences.getBoolean(useSystemFontKey, false)
+                                val applyFontPadding =
+                                    sharedPreferences.getBoolean(applyFontPaddingKey, false)
+                                val fontType =
+                                    sharedPreferences.getEnum(fontTypeKey, FontType.Rubik)
 
                                 appearance = appearance.copy(
                                     typography = typographyOf(
@@ -735,12 +847,11 @@ class MainActivity :
                 with(preferences) {
                     registerOnSharedPreferenceChangeListener(listener)
 
-                    val colorPaletteName by Preferences.COLOR_PALETTE
+                    val colorPaletteName =
+                        getEnum(colorPaletteNameKey, ColorPaletteName.Dynamic)
                     if (colorPaletteName == ColorPaletteName.Dynamic) {
-                        setDynamicPalette(
-                            (binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri.thumbnail(1200)
-                                ?: "").toString()
-                        )
+                        val currentArtworkUri = binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri?.thumbnail(1200)?.toString()
+                        setDynamicPalette(currentArtworkUri)
                     }
 
                     onDispose {
@@ -775,7 +886,8 @@ class MainActivity :
             }
 
             LaunchedEffect(Unit) {
-                val colorPaletteName by Preferences.COLOR_PALETTE
+                val colorPaletteName =
+                    preferences.getEnum(colorPaletteNameKey, ColorPaletteName.Dynamic)
                 if (colorPaletteName == ColorPaletteName.Customized) {
                     appearance = appearance.copy(
                         colorPalette = customColorPalette(
@@ -788,11 +900,8 @@ class MainActivity :
             }
 
 
-            if (colorPaletteMode == ColorPaletteMode.PitchBlack)
-                appearance = appearance.copy(
-                    colorPalette = appearance.colorPalette.applyPitchBlack,
-                    typography = appearance.typography.copy(appearance.colorPalette.text)
-                )
+            // Using appearance directly, Pitch Black is managed in setDynamicPalette
+            val finalAppearance = appearance
 
 
 
@@ -800,7 +909,7 @@ class MainActivity :
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(appearance.colorPalette.background0)
+                    .background(finalAppearance.colorPalette.background0)
             ) {
 
 
@@ -833,9 +942,30 @@ class MainActivity :
                     }
                 }
 
+                var openTabFromShortcut = remember { -1 }
+                if (intent.action in arrayOf(
+                        action_songs,
+                        action_albums,
+                        actions_artists,
+                        action_library,
+                        action_search
+                    )
+                ) {
+                    openTabFromShortcut =
+                        when (intent?.action) {
+                            action_songs -> HomeScreenTabs.Songs.index
+                            action_albums -> HomeScreenTabs.Albums.index
+                            actions_artists -> HomeScreenTabs.Artists.index
+                            action_library -> HomeScreenTabs.Playlists.index
+                            action_search -> -2
+                            else -> -1
+                        }
+                    intent.action = null
+                }
+
                 CrossfadeContainer(state = pipState.value) { isCurrentInPip ->
                     println("MainActivity pipState ${pipState.value} CrossfadeContainer isCurrentInPip $isCurrentInPip ")
-                    val pipModule by Preferences.PIP_MODULE
+                    val pipModule by rememberPreference(pipModuleKey, PipModule.Cover)
                     if (isCurrentInPip) {
                         Box(
                             modifier = Modifier
@@ -857,9 +987,8 @@ class MainActivity :
                         }
 
                     } else
-                        // FIXME: Why is this block getting called twice on start?
-                        CompositionLocalProvider(
-                            LocalAppearance provides appearance,
+                                                 CompositionLocalProvider(
+                             LocalAppearance provides finalAppearance,
                             LocalIndication provides ripple(bounded = true),
                             LocalRippleConfiguration provides rippleConfiguration,
                             LocalShimmerTheme provides shimmerTheme,
@@ -869,53 +998,32 @@ class MainActivity :
                             LocalDownloadHelper provides downloadHelper,
                             LocalPlayerSheetState provides playerState,
                             LocalMonetCompat provides monet,
+                            //LocalInternetConnected provides internetConnected
                         ) {
-                            // This block gets called twice on startup, first run resets
-                            // [intent.action] to empty string, second run sets
-                            // [Settings.HOME_TAB_INDEX] to default page, resulting
-                            // in default page shows regardless of shortcut
-                            val startPage = remember {
-                                // This step picks index from shortcut (if applicable)
-                                var tab = when( intent.action ) {
-                                    action_songs    -> HomeScreenTabs.Songs
-                                    action_albums   -> HomeScreenTabs.Albums
-                                    actions_artists -> HomeScreenTabs.Artists
-                                    action_library  -> HomeScreenTabs.Playlists
-                                    action_search   -> HomeScreenTabs.Search
-                                    // If not opened from shortcuts, then use default page (from settings)
-                                    else            -> Preferences.STARTUP_SCREEN.value
-                                }
-
-                                // In case [tabIndex] results to 0 and quick page
-                                // isn't enabled change it to Songs page.
-                                if( !Preferences.QUICK_PICKS_PAGE.value && tab == HomeScreenTabs.QuickPics )
-                                    tab = HomeScreenTabs.Songs
-
-                                // Always set to empty to prevent unwanted outcome
-                                intent.action = ""
-
-                                return@remember tab
-                            }
 
                             AppNavigation(
                                 navController = navController,
-                                startPage = startPage,
                                 miniPlayer = {
                                     MiniPlayer(
                                         showPlayer = { showPlayer = true },
                                         hidePlayer = { showPlayer = false },
                                         navController = navController
                                     )
-                                }
+                                },
+                                openTabFromShortcut = openTabFromShortcut
                             )
 
                             checkIfAppIsRunningInBackground()
 
 
-                            val thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
+                            val thumbnailRoundness by rememberPreference(
+                                thumbnailRoundnessKey,
+                                ThumbnailRoundness.Heavy
+                            )
 
                             val isVideo = binder?.player?.currentMediaItem?.isVideo ?: false
-                            val isVideoEnabled by Preferences.PLAYER_ACTION_TOGGLE_VIDEO
+                            val isVideoEnabled =
+                                preferences.getBoolean(showButtonPlayerVideoKey, false)
 
                             val youtubePlayer: @Composable () -> Unit = {
                                 binder?.player?.currentMediaItem?.mediaId?.let {
@@ -945,34 +1053,37 @@ class MainActivity :
                                         showPlayer = false
                                         switchToAudioPlayer = false
                                     },
-                                    containerColor = colorPalette().background0,
-                                    contentColor = colorPalette().background0,
+                                    containerColor = finalAppearance.colorPalette.background0,
+                                    contentColor = finalAppearance.colorPalette.background0,
                                     modifier = Modifier.fillMaxWidth(),
                                     sheetState = playerState,
                                     dragHandle = {
                                         Surface(
                                             modifier = Modifier.padding(vertical = 0.dp),
-                                            color = colorPalette().background0,
+                                            color = finalAppearance.colorPalette.background0,
                                             shape = thumbnailShape()
                                         ) {}
                                     },
                                     shape = thumbnailRoundness.shape
                                 ) {
-                                    Player( navController ) { showPlayer = false }
+                                    Player( navController ) { 
+                                        showPlayer = false
+                                        switchToAudioPlayer = false
+                                    }
                                 }
                             }
 
                             CustomModalBottomSheet(
                                 showSheet = isVideo && isVideoEnabled && showPlayer,
                                 onDismissRequest = { showPlayer = false },
-                                containerColor = colorPalette().background0,
-                                contentColor = colorPalette().background0,
+                                containerColor = finalAppearance.colorPalette.background0,
+                                contentColor = finalAppearance.colorPalette.background0,
                                 modifier = Modifier.fillMaxWidth(),
                                 sheetState = playerState,
                                 dragHandle = {
                                     Surface(
                                         modifier = Modifier.padding(vertical = 0.dp),
-                                        color = colorPalette().background0,
+                                        color = finalAppearance.colorPalette.background0,
                                         shape = thumbnailShape()
                                     ) {}
                                 },
@@ -1012,7 +1123,9 @@ class MainActivity :
                     } else {
                         if (launchedFromNotification) {
                             intent.replaceExtras(Bundle())
-                            showPlayer = !Preferences.PLAYER_KEEP_MINIMIZED.value
+                            if (preferences.getBoolean(keepPlayerMinimizedKey, false))
+                                showPlayer = false
+                            else showPlayer = true
                         } else {
                             showPlayer = false
                         }
@@ -1022,11 +1135,13 @@ class MainActivity :
                         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && mediaItem != null) {
                                 if (mediaItem.mediaMetadata.extras?.getBoolean("isFromPersistentQueue") != true) {
-                                    showPlayer = !Preferences.PLAYER_KEEP_MINIMIZED.value
+                                    if (preferences.getBoolean(keepPlayerMinimizedKey, false))
+                                        showPlayer = false
+                                    else showPlayer = true
                                 }
                             }
 
-                            setDynamicPalette(mediaItem?.mediaMetadata?.artworkUri.thumbnail(1200).toString())
+                                                         setDynamicPalette(mediaItem?.mediaMetadata?.artworkUri?.thumbnail(1200)?.toString())
                         }
 
 
@@ -1087,7 +1202,11 @@ class MainActivity :
                             Innertube.song(videoId)?.getOrNull()?.let { song ->
                                 val binder = snapshotFlow { binder }.filterNotNull().first()
                                 withContext(Dispatchers.Main) {
-                                    if ( !song.explicit && !Preferences.PARENTAL_CONTROL.value )
+                                    if (!song.explicit && !preferences.getBoolean(
+                                            parentalControlEnabledKey,
+                                            false
+                                        )
+                                    )
                                         binder?.player?.forcePlay(song.asMediaItem)
                                     else
                                         Toaster.w( "Parental control is enabled" )
@@ -1098,6 +1217,9 @@ class MainActivity :
                 }
                 intentUriData = null
             }
+
+
+            //throw RuntimeException("This is a simulated exception to crash");
         }
     }
 
@@ -1105,7 +1227,7 @@ class MainActivity :
     private val sensorListener: SensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
 
-            if ( Preferences.AUDIO_SHAKE_TO_SKIP.value ) {
+            if (preferences.getBoolean(shakeEventEnabledKey, false)) {
                 // Fetching x,y,z values
                 val x = event.values[0]
                 val y = event.values[1]
@@ -1190,6 +1312,7 @@ class MainActivity :
         }.onFailure {
             Timber.e("MainActivity.onDestroy removeMonetColorsChangedListener ${it.stackTraceToString()}")
         }
+
     }
 
     private fun setSystemBarAppearance(isDark: Boolean) {
@@ -1199,11 +1322,13 @@ class MainActivity :
         }
 
         if (!isAtLeastAndroid6) {
+            @Suppress("DEPRECATION")
             window.statusBarColor =
                 (if (isDark) Color.Transparent else Color.Black.copy(alpha = 0.2f)).toArgb()
         }
 
         if (!isAtLeastAndroid8) {
+            @Suppress("DEPRECATION")
             window.navigationBarColor =
                 (if (isDark) Color.Transparent else Color.Black.copy(alpha = 0.2f)).toArgb()
         }
@@ -1224,7 +1349,8 @@ class MainActivity :
         monetColors: ColorScheme,
         isInitialChange: Boolean
     ) {
-        val colorPaletteName by Preferences.COLOR_PALETTE
+        val colorPaletteName =
+            preferences.getEnum(colorPaletteNameKey, ColorPaletteName.Dynamic)
         if (!isInitialChange && colorPaletteName == ColorPaletteName.MaterialYou) {
             /*
             monet.updateMonetColors()

@@ -20,7 +20,6 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
@@ -32,6 +31,7 @@ import it.fast4x.innertube.requests.searchPage
 import it.fast4x.innertube.utils.from
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.cleanPrefix
+import it.fast4x.rimusic.enums.MaxTopPlaylistItems
 import it.fast4x.rimusic.enums.StatisticsType
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.service.MyDownloadHelper
@@ -40,8 +40,12 @@ import it.fast4x.rimusic.service.modern.MediaSessionConstants.ID_DOWNLOADED
 import it.fast4x.rimusic.service.modern.MediaSessionConstants.ID_FAVORITES
 import it.fast4x.rimusic.service.modern.MediaSessionConstants.ID_ONDEVICE
 import it.fast4x.rimusic.service.modern.MediaSessionConstants.ID_TOP
+import it.fast4x.rimusic.utils.MaxTopPlaylistItemsKey
 import it.fast4x.rimusic.utils.asMediaItem
 import it.fast4x.rimusic.utils.asSong
+import it.fast4x.rimusic.utils.getEnum
+import it.fast4x.rimusic.utils.persistentQueueKey
+import it.fast4x.rimusic.utils.preferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -275,7 +279,7 @@ class MediaLibrarySessionCallback(
                         browsableMediaItem(
                             "${PlayerServiceModern.PLAYLIST}/$ID_TOP",
                             context.getString(R.string.playlist_top),
-                            Preferences.MAX_NUMBER_OF_TOP_PLAYED.value.name,
+                            context.preferences.getEnum(MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10`).name,
                             drawableUri(R.drawable.trending),
                             MediaMetadata.MEDIA_TYPE_PLAYLIST
                         ),
@@ -336,9 +340,9 @@ class MediaLibrarySessionCallback(
                                 database.eventTable
                                         .findSongsMostPlayedBetween(
                                             from = 0,
-                                            limit = Preferences.MAX_NUMBER_OF_TOP_PLAYED
-                                                            .value
-                                                            .toInt()
+                                            limit = context.preferences
+                                                .getEnum(MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10`)
+                                                .toInt()
                                         )
                             ID_ONDEVICE -> database.songTable.allOnDevice()
                             ID_DOWNLOADED -> {
@@ -438,9 +442,9 @@ class MediaLibrarySessionCallback(
                                            // Already in DESC order
                                            .findSongsMostPlayedBetween(
                                                from = 0,
-                                               limit = Preferences.MAX_NUMBER_OF_TOP_PLAYED
-                                                               .value
-                                                               .toInt()
+                                               limit = context.preferences
+                                                   .getEnum(MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10`)
+                                                   .toInt()
                                            )
                         ID_ONDEVICE -> database.songTable.allOnDevice()
                         ID_DOWNLOADED -> {
@@ -477,7 +481,7 @@ class MediaLibrarySessionCallback(
                 0,
                 0
             )
-        if( !Preferences.ENABLE_PERSISTENT_QUEUE.value )
+        if(!context.preferences.getBoolean(persistentQueueKey, false))
             return Futures.immediateFuture(defaultResult)
 
         scope.future {
@@ -549,18 +553,18 @@ class MediaLibrarySessionCallback(
             )
             .build()
 
-    private fun Song.toMediaItem( isFromPersistentQueue: Boolean = false ): MediaItem {
+    private fun Song.toMediaItem(isFromPersistentQueue: Boolean = false): MediaItem {
         val bundle = Bundle().apply {
-            putBoolean( Preferences.ENABLE_PERSISTENT_QUEUE.key, isFromPersistentQueue )
+            putBoolean(persistentQueueKey, isFromPersistentQueue)
         }
 
         val mediaItem = asMediaItem
         val metadata: MediaMetadata = mediaItem.mediaMetadata
                                                .buildUpon()
-                                               .setExtras( bundle )
+                                               .setExtras(bundle)
                                                .build()
 
-        return mediaItem.buildUpon().setMediaMetadata( metadata ).build()
+        return mediaItem.buildUpon().setMediaMetadata(metadata).build()
     }
 
     private fun getCountCachedSongs() =

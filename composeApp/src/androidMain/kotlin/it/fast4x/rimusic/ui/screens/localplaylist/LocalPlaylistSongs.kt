@@ -23,6 +23,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,12 +51,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
-import app.kreate.android.themed.rimusic.component.ItemSelector
-import app.kreate.android.themed.rimusic.component.Search
-import app.kreate.android.themed.rimusic.component.playlist.PlaylistSongsSort
-import app.kreate.android.themed.rimusic.component.playlist.PositionLock
 import com.github.doyaaaaaken.kotlincsv.client.KotlinCsvExperimental
 import it.fast4x.compose.persist.persistList
 import it.fast4x.compose.reordering.draggedItem
@@ -75,13 +72,14 @@ import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.PlaylistSongSortBy
+import it.fast4x.rimusic.enums.RecommendationsNumber
+import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.enums.UiType
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.models.SongPlaylistMap
 import it.fast4x.rimusic.service.modern.isLocal
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.SwipeableQueueItem
 import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import it.fast4x.rimusic.ui.components.tab.toolbar.Button
@@ -104,15 +102,18 @@ import it.fast4x.rimusic.ui.styling.onOverlay
 import it.fast4x.rimusic.ui.styling.overlay
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.DeletePlaylist
+import app.kreate.android.themed.rimusic.component.playlist.PositionLock
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.addToPipedPlaylist
 import it.fast4x.rimusic.utils.asMediaItem
+import it.fast4x.rimusic.utils.autosyncKey
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.checkFileExists
 import it.fast4x.rimusic.utils.color
 import it.fast4x.rimusic.utils.completed
 import it.fast4x.rimusic.utils.deleteFileIfExists
 import it.fast4x.rimusic.utils.deletePipedPlaylist
+import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.durationTextToMillis
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.forcePlayAtIndex
@@ -121,11 +122,17 @@ import it.fast4x.rimusic.utils.formatAsTime
 import it.fast4x.rimusic.utils.getPipedSession
 import it.fast4x.rimusic.utils.isAtLeastAndroid14
 import it.fast4x.rimusic.utils.isLandscape
+import it.fast4x.rimusic.utils.isPipedEnabledKey
 import it.fast4x.rimusic.utils.manageDownload
+import it.fast4x.rimusic.utils.parentalControlEnabledKey
+import it.fast4x.rimusic.utils.recommendationsNumberKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.removeFromPipedPlaylist
 import it.fast4x.rimusic.utils.saveImageToInternalStorage
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showFloatingIconKey
 import it.fast4x.rimusic.utils.syncSongsInPipedPlaylist
+import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -135,13 +142,16 @@ import kotlinx.coroutines.withContext
 import me.knighthat.component.ResetCache
 import me.knighthat.component.SongItem
 import me.knighthat.component.playlist.PinPlaylist
+import me.knighthat.component.playlist.PlaylistSongsSort
 import me.knighthat.component.playlist.RenamePlaylistDialog
 import me.knighthat.component.playlist.Reposition
 import me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
 import me.knighthat.component.tab.DownloadAllSongsDialog
 import me.knighthat.component.tab.ExportSongsToCSVDialog
+import me.knighthat.component.tab.ItemSelector
 import me.knighthat.component.tab.LikeComponent
 import me.knighthat.component.tab.Locator
+import me.knighthat.component.tab.Search
 import me.knighthat.component.tab.SongShuffler
 import me.knighthat.utils.Toaster
 import timber.log.Timber
@@ -167,13 +177,12 @@ fun LocalPlaylistSongs(
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
     val uriHandler = LocalUriHandler.current
-    val menuState = LocalMenuState.current
 
     // Settings
-    val parentalControlEnabled by Preferences.PARENTAL_CONTROL
-    val isPipedEnabled by Preferences.ENABLE_PIPED
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
-    var isRecommendationEnabled by Preferences.LOCAL_PLAYLIST_SMART_RECOMMENDATION
+    val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
+    val isPipedEnabled by rememberPreference( isPipedEnabledKey, false )
+    val disableScrollingText by rememberPreference( disableScrollingTextKey, false )
+    var isRecommendationEnabled by remember { mutableStateOf(false) }
 
     // Non-vital
     val pipedSession = getPipedSession()
@@ -184,7 +193,7 @@ fun LocalPlaylistSongs(
                 .findById( playlistId )
     }.collectAsState( null, Dispatchers.IO )
 
-    val sort = remember { PlaylistSongsSort(menuState) }
+    val sort = PlaylistSongsSort()
     val items by remember( sort.sortBy, sort.sortOrder ) {
         Database.songPlaylistMapTable
                 .sortSongs( playlistId, sort.sortBy, sort.sortOrder )
@@ -193,14 +202,12 @@ fun LocalPlaylistSongs(
     }.collectAsState( emptyList(), Dispatchers.IO )
     var itemsOnDisplay by persistList<Song>("localPlaylist/$playlistId/songs/on_display")
 
-    val itemSelector = remember {
-        ItemSelector( menuState ) { addAll( itemsOnDisplay ) }
-    }
+    val itemSelector = ItemSelector<Song>()
 
     fun getSongs() = itemSelector.ifEmpty { itemsOnDisplay }
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
-    val search = remember { Search(lazyListState) }
+    val search = Search(lazyListState)
     val shuffle = SongShuffler ( ::getSongs )
     val renameDialog = RenamePlaylistDialog { playlist }
     val exportDialog = ExportSongsToCSVDialog(
@@ -375,15 +382,17 @@ fun LocalPlaylistSongs(
     val locator = Locator( lazyListState, ::getSongs )
 
     //<editor-fold defaultstate="collapsed" desc="Smart recommendation">
-    val recommendationsNumber by Preferences.MAX_NUMBER_OF_SMART_RECOMMENDATIONS
+    val recommendationsNumber by rememberPreference( recommendationsNumberKey, RecommendationsNumber.Adaptive )
     var relatedSongs by rememberSaveable {
         // SongEntity before Int in case random position is equal
         mutableStateOf( emptyMap<Song, Int>() )
     }
+    var isRecommendationsLoading by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect( isRecommendationEnabled ) {
         if( !isRecommendationEnabled ) {
             relatedSongs = emptyMap()
+            isRecommendationsLoading = false
             return@LaunchedEffect
         }
 
@@ -398,60 +407,97 @@ fun LocalPlaylistSongs(
         while( items.isEmpty() )
             delay( 100L )
 
-        val requestBody = NextBody( videoId =  items.random().id )
-        Innertube.relatedSongs( requestBody )
-                 ?.getOrNull()      // If result is null, all subsequence calls are cancelled
-                 ?.songs
-                 ?.filterNot { songItem ->
-                     // Fetched Song may not have properties like [likedAt]
-                     // so the result of [List.any] may be false.
-                     // Comparing their IDs is the most effective way
-                     items.map( Song::id )
-                          .any{ songItem.info?.endpoint?.videoId == it }
-                 }
-                 ?.take( recommendationsNumber.toInt() )
-                 ?.associate { songItem ->
-                     with( songItem ) {
-                         // Do NOT use [Utils#Innertube.SongItem.asSong]
-                         // It doesn't have explicit prefix
-                         val prefix = if( explicit ) EXPLICIT_PREFIX else ""
+        isRecommendationsLoading = true
 
-                         Song(
-                             // Song's ID & title must not be "null". If they are,
-                             // Something is wrong with Innertube.
-                             id = "$prefix${info!!.endpoint!!.videoId!!}",
-                             title = info!!.name!!,
-                             artistsText = authors?.joinToString { author -> author.name ?: "" },
-                             durationText = durationText,
-                             thumbnailUrl = thumbnail?.url
-                         ) to (0..items.size).random()      // Map this song with a random position from [items]
-                     }
-                 }
-                 ?.let {
-                     relatedSongs = it
-
-                     // Enable position lock
-                     positionLock.isFirstIcon = true
-                 }
+        val targetRecommendations = recommendationsNumber.calculateAdaptiveRecommendations(items.size)
+        val allRelatedSongs = mutableListOf<Song>()
+        val existingSongIds = items.map { it.id }.toSet()
+        
+        // For large playlists, make more requests to get enough recommendations
+        val numberOfRequests = when {
+            items.size <= 100 -> 1
+            items.size <= 500 -> 3
+            items.size <= 1000 -> 5
+            items.size <= 2000 -> 8
+            else -> 10
+        }
+        
+        // Select random songs from the playlist to use as seeds
+        val seedSongs = items.shuffled().take(numberOfRequests)
+        
+        for (seedSong in seedSongs) {
+            try {
+                val requestBody = NextBody(videoId = seedSong.id)
+                val relatedSongsResult = Innertube.relatedSongs(requestBody)?.getOrNull()
+                
+                relatedSongsResult?.songs?.forEach { songItem ->
+                    // Filter out songs that are already in the playlist
+                    if (!existingSongIds.contains(songItem.info?.endpoint?.videoId)) {
+                        val prefix = if (songItem.explicit) EXPLICIT_PREFIX else ""
+                        val song = Song(
+                            id = "$prefix${songItem.info!!.endpoint!!.videoId!!}",
+                            title = songItem.info!!.name!!,
+                            artistsText = songItem.authors?.joinToString { author -> author.name ?: "" },
+                            durationText = songItem.durationText,
+                            thumbnailUrl = songItem.thumbnail?.url
+                        )
+                        
+                        // Avoid duplicates
+                        if (!allRelatedSongs.any { it.id == song.id }) {
+                            allRelatedSongs.add(song)
+                        }
+                    }
+                }
+                
+                // Small delay between requests
+                if (numberOfRequests > 1) delay(200L)
+                
+            } catch (e: Exception) {
+                // Continue with other requests even if one fails
+                continue
+            }
+        }
+        
+        // Take the target number of recommendations and assign stable positions
+        // Note: We don't force the exact target number because:
+        // 1. YouTube doesn't always return 20 songs per request
+        // 2. Some songs are filtered out (already in playlist)
+        // 3. Some requests may fail
+        // 4. Better to have fewer quality recommendations than many poor ones
+        val finalRecommendations = allRelatedSongs.take(targetRecommendations)
+        val recommendationsWithPositions = finalRecommendations.associate { song ->
+            song to (0..items.size).random()
+        }
+        
+        relatedSongs = recommendationsWithPositions
+        isRecommendationsLoading = false
+        
+        // Enable position lock
+        positionLock.isFirstIcon = true
     }
     //</editor-fold>
-    LaunchedEffect( items, relatedSongs, search.input, parentalControlEnabled ) {
-        items.toMutableList()
-             .apply {
-                 relatedSongs.forEach { (song, index) ->
-                     // Make sure position can't go outside permissible range
-                     // causing [IndexOutOfBoundException]
-                     val position = index.coerceIn(0, size)
-                     add( position, song )
-                 }
-             }
+    LaunchedEffect( items, relatedSongs, search.inputValue, parentalControlEnabled ) {
+        val baseList = items.toMutableList()
+        
+        if (isRecommendationEnabled && relatedSongs.isNotEmpty()) {
+            // Use the memorized positions to maintain stability
+            relatedSongs.forEach { (song, position) ->
+                if (!baseList.any { it.id == song.id }) {
+                    // Use the memorized position, but ensure it's within bounds
+                    val safePosition = position.coerceIn(0, baseList.size)
+                    baseList.add( safePosition, song )
+                }
+            }
+        }
+        
+        baseList
              .distinctBy( Song::id )
              .filter { !parentalControlEnabled || !it.title.startsWith( EXPLICIT_PREFIX ) }
              .filter { song ->
                  // Without cleaning, user can search explicit songs with "e:"
                  // I kinda want this to be a feature, but it seems unnecessary
-                 val containsName = search appearsIn song.cleanTitle()
-                 val containsArtist = search appearsIn song.cleanArtistsText()
+                 val containsName = song.cleanTitle().contains(search.inputValue, true)
+                 val containsArtist = song.cleanArtistsText().contains(search.inputValue, true)
 
                  containsName || containsArtist
              }
@@ -473,9 +519,13 @@ fun LocalPlaylistSongs(
         }
     }
 
-    var autosync by Preferences.AUTO_SYNC
+    var autosync by rememberPreference(autosyncKey, false)
 
-    val thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
+    val thumbnailRoundness by rememberPreference(
+        thumbnailRoundnessKey,
+        ThumbnailRoundness.Heavy
+    )
+
 
     val reorderingState = rememberReorderingState(
         lazyListState = lazyListState,
@@ -600,23 +650,52 @@ fun LocalPlaylistSongs(
                             .fillMaxWidth(if (isLandscape) 0.90f else 0.80f)
                     ) {
                         Spacer(modifier = Modifier.height(10.dp))
+                        val totalSongs = if (isRecommendationEnabled && !isRecommendationsLoading && relatedSongs.isNotEmpty()) {
+                            items.size + relatedSongs.size
+                        } else {
+                            items.size
+                        }
                         IconInfo(
-                            title = items.size.toString(),
+                            title = totalSongs.toString(),
                             icon = painterResource(R.drawable.musical_notes)
                         )
                         Spacer(modifier = Modifier.height(5.dp))
 
-                        val totalDuration = items.sumOf { durationTextToMillis(it.durationText ?: "0:0") }
+                        val recommendedSongsDuration = if (isRecommendationEnabled && !isRecommendationsLoading) {
+                            relatedSongs.keys.sumOf { durationTextToMillis(it.durationText ?: "0:0") }
+                        } else {
+                            0L
+                        }
+                        val totalDuration = items.sumOf { durationTextToMillis(it.durationText ?: "0:0") } + recommendedSongsDuration
                         IconInfo(
                             title = formatAsTime( totalDuration ),
                             icon = painterResource(R.drawable.time)
                         )
                         if (isRecommendationEnabled) {
                             Spacer(modifier = Modifier.height(5.dp))
-                            IconInfo(
-                                title = relatedSongs.size.toString(),
-                                icon = painterResource(R.drawable.smart_shuffle)
-                            )
+                            if (isRecommendationsLoading) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.smart_shuffle),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color.White
+                                    )
+                                }
+                            } else {
+                                IconInfo(
+                                    title = relatedSongs.size.toString(),
+                                    icon = painterResource(R.drawable.smart_shuffle)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(30.dp))
                     }
@@ -625,21 +704,34 @@ fun LocalPlaylistSongs(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        HeaderIconButton(
-                            icon = R.drawable.smart_shuffle,
-                            enabled = true,
-                            color = if (isRecommendationEnabled) colorPalette().text else colorPalette().textDisabled,
-                            onClick = {},
-                            modifier = Modifier
-                                .combinedClickable(
-                                    onClick = {
-                                        isRecommendationEnabled = !isRecommendationEnabled
-                                    },
-                                    onLongClick = {
-                                        Toaster.i( R.string.info_smart_recommendation )
-                                    }
+                        Box(
+                            modifier = Modifier.size(48.dp), // Standard IconButton size
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isRecommendationsLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = colorPalette().text,
+                                    strokeWidth = 2.dp
                                 )
-                        )
+                            } else {
+                                HeaderIconButton(
+                                    icon = R.drawable.smart_shuffle,
+                                    enabled = true,
+                                    color = if (isRecommendationEnabled) colorPalette().text else colorPalette().textDisabled,
+                                    onClick = {},
+                                    modifier = Modifier
+                                        .combinedClickable(
+                                            onClick = {
+                                                isRecommendationEnabled = !isRecommendationEnabled
+                                            },
+                                            onLongClick = {
+                                                Toaster.i( R.string.info_smart_recommendation )
+                                            }
+                                        )
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(10.dp))
                         shuffle.ToolBarButton()
                         Spacer(modifier = Modifier.height(10.dp))
@@ -702,7 +794,7 @@ fun LocalPlaylistSongs(
 
                 }
 
-                search.SearchBar()
+                Column { search.SearchBar( this ) }
             }
 
             itemsIndexed(
@@ -858,7 +950,7 @@ fun LocalPlaylistSongs(
 
         FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
 
-        val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
+        val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
         if ( UiType.ViMusic.isCurrent() && showFloatingIcon )
             FloatingActionsContainerWithScrollToTop(
                 lazyListState = lazyListState,

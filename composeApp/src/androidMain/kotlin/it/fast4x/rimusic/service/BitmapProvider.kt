@@ -3,15 +3,17 @@ package it.fast4x.rimusic.service
 
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import androidx.core.graphics.applyCanvas
-import coil.imageLoader
-import coil.request.CachePolicy
-import coil.request.Disposable
-import coil.request.ImageRequest
-import it.fast4x.rimusic.utils.thumbnail
+import me.knighthat.coil.ImageCacheFactory
+import coil3.ImageLoader
+import coil3.request.ImageRequest
+import coil3.request.Disposable
+import coil3.request.allowHardware
+import androidx.core.graphics.drawable.toBitmap
+import coil3.toBitmap
 import it.fast4x.rimusic.appContext
+import it.fast4x.rimusic.utils.thumbnail
 import timber.log.Timber
 
 //context(Context)
@@ -19,6 +21,8 @@ class BitmapProvider(
     private val bitmapSize: Int,
     private val colorProvider: (isSystemInDarkMode: Boolean) -> Int
 ) {
+    private val imageLoader = coil3.SingletonImageLoader.get(appContext())
+
     var lastUri: Uri? = null
         private set
 
@@ -73,29 +77,25 @@ class BitmapProvider(
         lastUri = uri
 
         runCatching {
-            lastEnqueued = appContext().imageLoader.enqueue(
-                ImageRequest.Builder(appContext())
-                    .networkCachePolicy(CachePolicy.ENABLED)
-                    .data(uri.thumbnail(bitmapSize))
-                    .allowHardware(false)
-                    .diskCacheKey(uri.thumbnail(bitmapSize).toString())
-                    //.memoryCacheKey(uri.thumbnail(bitmapSize).toString())
-                    .listener(
-                        onError = { _, result ->
-                            Timber.e("Failed to load bitmap ${result.throwable.stackTraceToString()}")
-                            lastBitmap = null
-                            onDone(bitmap)
-                            //listener?.invoke(lastBitmap)
-                        },
-                        onSuccess = { _, result ->
-                            lastBitmap = (result.drawable as BitmapDrawable).bitmap
-                            onDone(bitmap)
-                            //listener?.invoke(lastBitmap)
-                        }
-                    )
-
-                    .build()
-            )
+            val imageRequest = ImageRequest.Builder(appContext())
+                .data(uri?.thumbnail(bitmapSize)?.toString())
+                .allowHardware(false)
+                .listener(
+                    onError = { _, result ->
+                        Timber.e("Failed to load bitmap ${result.throwable.stackTraceToString()}")
+                        lastBitmap = null
+                        onDone(bitmap)
+                        //listener?.invoke(lastBitmap)
+                    },
+                    onSuccess = { _, result ->
+                        lastBitmap = result.image?.toBitmap()
+                        onDone(bitmap)
+                        //listener?.invoke(lastBitmap)
+                    }
+                )
+                .build()
+            
+            lastEnqueued = imageLoader.enqueue(imageRequest)
         }.onFailure {
             Timber.e("Failed enqueue in BitmapProvider ${it.stackTraceToString()}")
         }

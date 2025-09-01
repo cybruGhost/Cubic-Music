@@ -15,9 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.Preferences
 import it.fast4x.rimusic.enums.PlayerBackgroundColors
 import it.fast4x.rimusic.enums.PlayerControlsType
+import it.fast4x.rimusic.enums.PlayerPlayButtonType
 import it.fast4x.rimusic.service.modern.PlayerServiceModern
 import it.fast4x.rimusic.ui.components.themed.PlaybackParamsDialog
 import it.fast4x.rimusic.ui.screens.player.components.controls.ControlsEssential
@@ -34,20 +34,26 @@ fun GetControls(
     mediaId: String,
     onBlurScaleChange: (Float) -> Unit
 ) {
-    val playerControlsType by Preferences.PLAYER_CONTROLS_TYPE
-    val playerPlayButtonType by Preferences.PLAYER_PLAY_BUTTON_TYPE
+    val playerControlsType by rememberPreference(playerControlsTypeKey, PlayerControlsType.Essential)
+    val playerPlayButtonType by rememberPreference(
+        playerPlayButtonTypeKey,
+        PlayerPlayButtonType.Disabled
+    )
     var isRotated by rememberSaveable { mutableStateOf(false) }
     val rotationAngle by animateFloatAsState(
         targetValue = if (isRotated) 360F else 0f,
         animationSpec = tween(durationMillis = 200), label = ""
     )
-    val playerBackgroundColors by Preferences.PLAYER_BACKGROUND
+    val playerBackgroundColors by rememberPreference(
+        playerBackgroundColorsKey,
+        PlayerBackgroundColors.BlurredCoverColor
+    )
 
     val isGradientBackgroundEnabled = playerBackgroundColors == PlayerBackgroundColors.ThemeColorGradient ||
             playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient
 
-    var playbackSpeed by Preferences.AUDIO_SPEED_VALUE
-    var playbackDuration by Preferences.PLAYBACK_DURATION
+    var playbackSpeed by rememberPreference(playbackSpeedKey, 1f)
+    var playbackDuration by rememberPreference(playbackDurationKey, 0f)
     var setPlaybackDuration by remember { mutableStateOf(false) }
 
     var showSpeedPlayerDialog by rememberSaveable {

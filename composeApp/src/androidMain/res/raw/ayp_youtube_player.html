@@ -1,195 +1,30 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style type="text/css">
-        :root {
-            --primary-color: #ff4d4d;
-            --secondary-color: #1a1a1a;
-            --accent-color: #4d88ff;
-            --text-color: #ffffff;
-            --text-muted: #b3b3b3;
-        }
-        
+  <style type="text/css">
         html, body {
             height: 100%;
             width: 100%;
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+            background-color: #000000;
             overflow: hidden;
             position: fixed;
-            font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            color: var(--text-color);
-        }
-        
-        #youTubePlayerDOM {
-            position: relative;
-            height: 100%;
-            width: 100%;
-            z-index: 1;
-        }
-        
-        .cubic-music-brand {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 2;
-            font-size: 14px;
-            color: var(--text-muted);
-            background: rgba(0, 0, 0, 0.5);
-            padding: 8px 12px;
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
-            animation: fadeIn 2s ease-in-out;
-        }
-        
-        .controls-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-            pointer-events: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        
-        .controls-overlay:hover {
-            opacity: 1;
-        }
-        
-        .control-button {
-            background: rgba(0, 0, 0, 0.7);
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            margin: 0 10px;
-            color: white;
-            font-size: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            pointer-events: auto;
-            transition: all 0.2s ease;
-        }
-        
-        .control-button:hover {
-            background: var(--primary-color);
-            transform: scale(1.1);
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .cubic-music-brand {
-                font-size: 12px;
-                bottom: 10px;
-                right: 10px;
-            }
-            
-            .control-button {
-                width: 40px;
-                height: 40px;
-                font-size: 16px;
-            }
         }
     </style>
+
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- defer forces the library to execute after the html page is fully parsed. -->
     <!-- This is needed to avoid race conditions, where the library executes and calls `onYouTubeIframeAPIReady` before the page is fully parsed. -->
     <!-- See #873 on GitHub -->
     <script defer src="https://www.youtube.com/iframe_api"></script>
-    <!-- Add Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.20.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.20.0/firebase-analytics.js"></script>
-    <script type="module">
-      // Import the functions you need from the SDKs
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-      import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-analytics.js";
-    
-      // Firebase Configuration
-      const firebaseConfig = {
-        apiKey: "AIzaSyDqp1NAog0rhrm3m48EtUF8v4FFWN9kMKg",
-        authDomain: "cubic-music-20c2a.firebaseapp.com",
-        projectId: "cubic-music-20c2a",
-        storageBucket: "cubic-music-20c2a.firebasestorage.app",
-        messagingSenderId: "634732572997",
-        appId: "1:634732572997:web:0e8d24d95711465c954e2c",
-        measurementId: "G-QXCEWR6NLX"
-      };
+  </head>
 
-      // Initialize Firebase
-      const app = initializeApp(firebaseConfig);
-      const analytics = getAnalytics(app);
-
-      // Log page view event
-      window.onload = () => {
-        logEvent(analytics, "page_view", {
-          page_title: document.title,
-          page_location: window.location.href,
-        });
-      };
-
-      // Track background app launch
-      document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-          logEvent(analytics, "app_background", {
-            status: "App is in the background",
-          });
-        } else {
-          logEvent(analytics, "app_foreground", {
-            status: "App is in the foreground",
-          });
-        }
-      });
-
-      // Example function to track when a song is played
-      function playMusic(songTitle, artist) {
-        logEvent(analytics, "music_played", {
-          song: songTitle,
-          artist: artist,
-        });
-      }
-
-      // Example function to track when a song is added to a playlist
-      function addToPlaylist(songTitle, artist) {
-        logEvent(analytics, "song_added_to_playlist", {
-          song: songTitle,
-          artist: artist,
-        });
-      }
-
-      // Example function to track when a song is skipped
-      function skipSong(songTitle, artist) {
-        logEvent(analytics, "song_skipped", {
-          song: songTitle,
-          artist: artist,
-        });
-      }
-    </script>
-</head>
-<body>
+  <body>
     <div id="youTubePlayerDOM"></div>
-    <div class="cubic-music-brand">Cubic Music</div>
-    <div class="controls-overlay">
-        <button class="control-button" onclick="previousVideo()">⏮</button>
-        <button class="control-button" onclick="playVideo()">▶</button>
-        <button class="control-button" onclick="pauseVideo()">⏸</button>
-        <button class="control-button" onclick="nextVideo()">⏭</button>
-    </div>
-</body>
+  </body>
 
-<script type="text/javascript">
+  <script type="text/javascript">
     var UNSTARTED = "UNSTARTED";
     var ENDED = "ENDED";
     var PLAYING = "PLAYING";
@@ -203,308 +38,271 @@
     var timerId;
     let adblockIntervalId;
 
-    function hideCaption() {
-        setInterval(() => {
-            if(!player) {
-                return;
-            }
-            player.unloadModule('captions');
-        }, 1000);
+function hideCaption() {
+  setInterval(() => {
+    if(!player) {
+      return;
+    }
+    player.unloadModule('captions');
+  }, 1000);
+}
+
+function showCaption() {
+  if(!player) {
+    return;
+  }
+  player.loadModule('captions');
+}
+
+function hideTabletPopup() {
+  setInterval(() => {
+    const playerIFrame = document.querySelector("iframe");
+    if (!playerIFrame) {
+      return;
     }
 
-    function showCaption() {
-        if(!player) {
-            return;
+    const frameDoc = playerIFrame.contentDocument;
+    if (!frameDoc) {
+      return;
+    }
+
+    const collection = frameDoc.getElementsByClassName("ytp-pause-overlay-container")[0];
+    if (!collection) {
+      return;
+    }
+    collection.style.display = 'none';
+  }, 100);
+}
+
+        function hideVideoTitle() {
+      setInterval(() => {
+        const playerIFrame = document.querySelector("iframe");
+        if (!playerIFrame) {
+          return;
         }
-        player.loadModule('captions');
-    }
 
-    function hideTabletPopup() {
-        setInterval(() => {
-            const playerIFrame = document.querySelector("iframe");
-            if (!playerIFrame) {
-                return;
-            }
+        const frameDoc = playerIFrame.contentDocument;
+        if (!frameDoc) {
+          return;
+        }
 
-            const frameDoc = playerIFrame.contentDocument;
-            if (!frameDoc) {
-                return;
-            }
-
-            const collection = frameDoc.getElementsByClassName("ytp-pause-overlay-container")[0];
-            if (!collection) {
-                return;
-            }
-            collection.style.display = 'none';
-        }, 100);
-    }
-
-    function hideVideoTitle() {
-        setInterval(() => {
-            const playerIFrame = document.querySelector("iframe");
-            if (!playerIFrame) {
-                return;
-            }
-
-            const frameDoc = playerIFrame.contentDocument;
-            if (!frameDoc) {
-                return;
-            }
-
-            const title = frameDoc.querySelector('.ytp-chrome-top');
-            if (title) {
-                title.style.display = 'none';
-            }
-        }, 100);
+        const title = frameDoc.querySelector('.ytp-chrome-top');
+        if (title) {
+          title.style.display = 'none';
+        }
+      }, 100);
     }
 
     function initializeAdBlock() {
-        if (adblockIntervalId) {
-            clearInterval(adblockIntervalId);
-        }
+      if (adblockIntervalId) {
+        clearInterval(adblockIntervalId);
+      }
 
-        const playerIFrame = document.querySelector("iframe");
-        if (playerIFrame) {
-            adblockIntervalId = setInterval(() => {
-                if (!playerIFrame) {
-                    return;
-                }
+      const playerIFrame = document.querySelector("iframe");
+      if (playerIFrame) {
+        adblockIntervalId = setInterval(() => {
+          if (!playerIFrame) {
+            return;
+          }
 
-                const frameDoc = playerIFrame.contentDocument;
-                if (!frameDoc) {
-                    return;
-                }
+          const frameDoc = playerIFrame.contentDocument;
+          if (!frameDoc) {
+            return;
+          }
 
-                const adsContainer = frameDoc.querySelector('.video-ads');
-                if (!adsContainer || adsContainer.childElementCount == 0) {
-                    return;
-                }
 
-                const adsVideo = adsContainer.querySelector("video");
+          const adsContainer = frameDoc.querySelector('.video-ads');
+          if (!adsContainer || adsContainer.childElementCount == 0) {
+            return;
+          }
 
-                if (adsVideo) {
-                    adsVideo.muted = true;
-                    adsVideo.style.display = 'none';
-                    adsVideo.currentTime = adsVideo.duration - 0.15;
-                    adsVideo.muted = false;
-                    adsVideo.style.display = '';
-                    if (adblockIntervalId) {
-                        clearInterval(adblockIntervalId);
-                    }
-                }
-                else {
-                    const isAdShowing = frameDoc.getElementsByClassName('ad-showing').length != 0;
-                    if (!isAdShowing) {
-                        return;
-                    }
+          const adsVideo = adsContainer.querySelector("video");
 
-                    const mainVideo = frameDoc.querySelector('.html5-main-video');
-                    if (!mainVideo) {
-                        return;
-                    }
+          if (adsVideo) {
+            adsVideo.muted = true;
+            adsVideo.style.display = 'none';
+            adsVideo.currentTime = adsVideo.duration - 0.15;
+            adsVideo.muted = false;
+            adsVideo.style.display = '';
+            if (adblockIntervalId) {
+              clearInterval(adblockIntervalId);
+            }
+          }
+          else {
+            const isAdShowing = frameDoc.getElementsByClassName('ad-showing').length != 0;
+            if (!isAdShowing) {
+              return;
+            }
 
-                    mainVideo.muted = true;
-                    mainVideo.currentTime = mainVideo.duration - 0.15;
-                    mainVideo.muted = false;
-                    if (adblockIntervalId) {
-                        clearInterval(adblockIntervalId);
-                    }
-                }
-            }, 100);
-        }
+            const mainVideo = frameDoc.querySelector('.html5-main-video');
+            if (!mainVideo) {
+              return;
+            }
+
+            mainVideo.muted = true;
+            mainVideo.currentTime = mainVideo.duration - 0.15;
+            mainVideo.muted = false;
+            if (adblockIntervalId) {
+              clearInterval(adblockIntervalId);
+            }
+          }
+        }, 100);
+      }
     }
 
     function onYouTubeIframeAPIReady() {
-        YouTubePlayerBridge.sendYouTubeIFrameAPIReady();
+
+      YouTubePlayerBridge.sendYouTubeIFrameAPIReady();
             
-        player = new YT.Player('youTubePlayerDOM', {
-            height: '100%',
-            width: '100%',
-            events: {
-                onReady: function(event) {
-                    hideVideoTitle();
-                    hideTabletPopup();
-                    hideCaption();
-                    YouTubePlayerBridge.sendReady();
-                },
-                onStateChange: function(event) { sendPlayerStateChange(event.data) },
-                onPlaybackQualityChange: function(event) { YouTubePlayerBridge.sendPlaybackQualityChange(event.data) },
-                onPlaybackRateChange: function(event) { YouTubePlayerBridge.sendPlaybackRateChange(event.data) },
-                onError: function(error) { YouTubePlayerBridge.sendError(error.data) },
-                onApiChange: function(event) { YouTubePlayerBridge.sendApiChange() }
-            },
-            playerVars: <<injectedPlayerVars>>
-        });
+    	player = new YT.Player('youTubePlayerDOM', {
+    			
+        height: '100%',
+    	  width: '100%',
+    			
+        events: {
+    	    onReady: function(event) {
+              hideVideoTitle()
+              hideTabletPopup()
+              YouTubePlayerBridge.sendReady()
+    	    },
+    		  onStateChange: function(event) { sendPlayerStateChange(event.data) },
+    		  onPlaybackQualityChange: function(event) { YouTubePlayerBridge.sendPlaybackQualityChange(event.data) },
+    		  onPlaybackRateChange: function(event) { YouTubePlayerBridge.sendPlaybackRateChange(event.data) },
+    		  onError: function(error) { YouTubePlayerBridge.sendError(error.data) },
+    		  onApiChange: function(event) { YouTubePlayerBridge.sendApiChange() }
+    	  },
+
+    	  playerVars: <<injectedPlayerVars>>
+
+      });
     }
 
     function sendPlayerStateChange(playerState) {
-        clearTimeout(timerId);
-        initializeAdBlock();
+      clearTimeout(timerId);
+      initializeAdBlock();
 
-        switch (playerState) {
-            case YT.PlayerState.UNSTARTED:
-                sendStateChange(UNSTARTED);
-                sendVideoIdFromPlaylistIfAvailable(player);
-                return;
+      switch (playerState) {
+        case YT.PlayerState.UNSTARTED:
+          sendStateChange(UNSTARTED);
+          sendVideoIdFromPlaylistIfAvailable(player);
+          return;
 
-            case YT.PlayerState.ENDED:
-                sendStateChange(ENDED);
-                return;
+        case YT.PlayerState.ENDED:
+          sendStateChange(ENDED);
+          return;
 
-            case YT.PlayerState.PLAYING:
-                sendStateChange(PLAYING);
-                startSendCurrentTimeInterval();
-                sendVideoData(player);
-                return;
+        case YT.PlayerState.PLAYING:
+          sendStateChange(PLAYING);
 
-            case YT.PlayerState.PAUSED:
-                sendStateChange(PAUSED);
-                return;
+          startSendCurrentTimeInterval();
+          sendVideoData(player);
+          return;
 
-            case YT.PlayerState.BUFFERING:
-                sendStateChange(BUFFERING);
-                return;
+        case YT.PlayerState.PAUSED:
+          sendStateChange(PAUSED);
+          return;
 
-            case YT.PlayerState.CUED:
-                sendStateChange(CUED);
-                return;
+        case YT.PlayerState.BUFFERING:
+          sendStateChange(BUFFERING);
+          return;
+
+        case YT.PlayerState.CUED:
+          sendStateChange(CUED);
+          return;
+      }
+
+      function sendVideoData(player) {
+        var videoDuration = player.getDuration();
+
+        YouTubePlayerBridge.sendVideoDuration(videoDuration);
+      }
+
+      // This method checks if the player is playing a playlist.
+      // If yes, it sends out the video id of the video being played.
+      function sendVideoIdFromPlaylistIfAvailable(player) {
+        var playlist = player.getPlaylist();
+        if ( typeof playlist !== 'undefined' && Array.isArray(playlist) && playlist.length > 0 ) {
+          var index = player.getPlaylistIndex();
+          var videoId = playlist[index];
+          YouTubePlayerBridge.sendVideoId(videoId);
         }
+      }
 
-        function sendVideoData(player) {
-            var videoDuration = player.getDuration();
-            YouTubePlayerBridge.sendVideoDuration(videoDuration);
-        }
+      function sendStateChange(newState) {
+        YouTubePlayerBridge.sendStateChange(newState)
+      }
 
-        function sendVideoIdFromPlaylistIfAvailable(player) {
-            var playlist = player.getPlaylist();
-            if ( typeof playlist !== 'undefined' && Array.isArray(playlist) && playlist.length > 0 ) {
-                var index = player.getPlaylistIndex();
-                var videoId = playlist[index];
-                YouTubePlayerBridge.sendVideoId(videoId);
-            }
-        }
-
-        function sendStateChange(newState) {
-            YouTubePlayerBridge.sendStateChange(newState)
-        }
-
-        function startSendCurrentTimeInterval() {
-            timerId = setInterval(function() {
-                YouTubePlayerBridge.sendVideoCurrentTime(player.getCurrentTime());
-                YouTubePlayerBridge.sendVideoLoadedFraction(player.getVideoLoadedFraction());
-            }, 100);
-        }
+      function startSendCurrentTimeInterval() {
+        timerId = setInterval(function() {
+          YouTubePlayerBridge.sendVideoCurrentTime( player.getCurrentTime() )
+          YouTubePlayerBridge.sendVideoLoadedFraction( player.getVideoLoadedFraction() )
+        }, 100 );
+      }
     }
 
-    // Enhanced player control functions
+    // JAVA to WEB functions
+
     function seekTo(startSeconds) {
-        player.seekTo(startSeconds, true);
-        playMusic("Current Song", "Current Artist"); // Example analytics tracking
+      player.seekTo(startSeconds, true);
     }
 
     function pauseVideo() {
-        player.pauseVideo();
-        logEvent(analytics, "video_paused");
+      player.pauseVideo();
     }
 
     function playVideo() {
-        player.playVideo();
-        logEvent(analytics, "video_played");
+      player.playVideo();
     }
 
     function loadVideo(videoId, startSeconds) {
-        player.loadVideoById(videoId, startSeconds);
-        YouTubePlayerBridge.sendVideoId(videoId);
-        playMusic("New Song Loaded", "Unknown Artist"); // Example analytics tracking
+      player.loadVideoById(videoId, startSeconds);
+      YouTubePlayerBridge.sendVideoId(videoId);
     }
 
     function cueVideo(videoId, startSeconds) {
-        player.cueVideoById(videoId, startSeconds);
-        YouTubePlayerBridge.sendVideoId(videoId);
+      player.cueVideoById(videoId, startSeconds);
+      YouTubePlayerBridge.sendVideoId(videoId);
     }
 
     function mute() {
-        player.mute();
-        logEvent(analytics, "audio_muted");
+      player.mute();
     }
 
     function unMute() {
-        player.unMute();
-        logEvent(analytics, "audio_unmuted");
+      player.unMute();
     }
 
     function setVolume(volumePercent) {
-        player.setVolume(volumePercent);
-        logEvent(analytics, "volume_changed", { volume: volumePercent });
+      player.setVolume(volumePercent);
     }
 
     function setPlaybackRate(playbackRate) {
-        player.setPlaybackRate(playbackRate);
+      player.setPlaybackRate(playbackRate);
     }
 
     function toggleFullscreen() {
-        player.toggleFullscreen();
-        logEvent(analytics, "fullscreen_toggled");
+      player.toggleFullscreen();
     }
 
     function nextVideo() {
-        player.nextVideo();
-        logEvent(analytics, "next_video");
+      player.nextVideo();
     }
 
     function previousVideo() {
-        player.previousVideo();
-        logEvent(analytics, "previous_video");
+      player.previousVideo();
     }
 
     function playVideoAt(index) {
-        player.playVideoAt(index);
+      player.playVideoAt(index);
     }
 
     function setLoop(loop) {
-        player.setLoop(loop);
+      player.setLoop(loop);
     }
 
     function setShuffle(shuffle) {
-        player.setShuffle(shuffle);
-        logEvent(analytics, "shuffle_toggled", { shuffle: shuffle });
+      player.setShuffle(shuffle);
     }
 
-    // Add keyboard controls
-    document.addEventListener('keydown', function(event) {
-        if (!player) return;
-        
-        switch(event.key) {
-            case ' ':
-                if (player.getPlayerState() === YT.PlayerState.PLAYING) {
-                    pauseVideo();
-                } else {
-                    playVideo();
-                }
-                break;
-            case 'ArrowRight':
-                seekTo(player.getCurrentTime() + 5);
-                break;
-            case 'ArrowLeft':
-                seekTo(player.getCurrentTime() - 5);
-                break;
-            case 'ArrowUp':
-                setVolume(Math.min(player.getVolume() + 10, 100));
-                break;
-            case 'ArrowDown':
-                setVolume(Math.max(player.getVolume() - 10, 0));
-                break;
-            case 'm':
-                if (player.isMuted()) {
-                    unMute();
-                } else {
-                    mute();
-                }
-                break;
-            case 'f':
-                toggleFullscreen();
-                break;
-        }
-    });
-</script>
+  </script>
 </html>

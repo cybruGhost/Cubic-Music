@@ -24,7 +24,9 @@ import it.fast4x.rimusic.models.SongArtistMap
 import it.fast4x.rimusic.models.SongPlaylistMap
 import it.fast4x.rimusic.models.SortedSongPlaylistMap
 import it.fast4x.rimusic.utils.asSong
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import me.knighthat.database.AlbumTable
 import me.knighthat.database.ArtistTable
@@ -350,6 +352,9 @@ object Database {
                                      }
 
     fun close() = _internal.close()
+    fun artistSongs(browseId: String): Flow<List<Song>> {
+        return songTable.artistSongs(browseId)
+    }
 }
 
 @androidx.room.Database(

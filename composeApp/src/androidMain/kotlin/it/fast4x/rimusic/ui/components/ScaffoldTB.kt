@@ -42,11 +42,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
-import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.PlayerPosition
 import it.fast4x.rimusic.enums.TransitionEffect
+import it.fast4x.rimusic.utils.playerPositionKey
+import it.fast4x.rimusic.utils.rememberPreference
+import it.fast4x.rimusic.utils.transitionEffectKey
+import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.ui.components.navigation.header.AppHeader
 import it.fast4x.rimusic.ui.components.navigation.nav.HorizontalNavigationBar
 
@@ -85,8 +87,8 @@ fun ScaffoldTB(
     //val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     //var expanded by remember { mutableStateOf(false) }
-    val transitionEffect by Preferences.TRANSITION_EFFECT
-    val playerPosition by Preferences.MINI_PLAYER_POSITION
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
 
     androidx.compose.material3.Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

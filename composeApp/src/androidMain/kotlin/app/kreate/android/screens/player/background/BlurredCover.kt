@@ -92,10 +92,9 @@ private fun BlurFilter(
 
         ImageCacheFactory.Thumbnail(
             thumbnailUrl = thumbnailUrl,
-            transformations = blurTransformation,
             contentDescription = "blurred_background",
             contentScale = ContentScale.Fit,
-            // [Modifier.blur] will be ignore on unsupported devices by default
+            // [Modifier.blur] will be
             modifier = modifier.fillMaxSize()
                                .blur( blurRadius.dp )       // ignored on unsupported devices by default
                                .graphicsLayer {

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.fast4x.rimusic.colorPalette
+import androidx.compose.foundation.basicMarquee
 
 val GridMenuItemHeight = 96.dp
 
@@ -75,6 +76,7 @@ fun LazyGridScope.GridMenuItem(
     titleString: String = "",
     enabled: Boolean = true,
     onClick: () -> Unit,
+    disableScrollingText: Boolean = false
 ) = GridMenuItem(
     modifier = modifier,
     icon = {
@@ -89,7 +91,8 @@ fun LazyGridScope.GridMenuItem(
     titleString = titleString,
     enabled = enabled,
     onClick = onClick,
-    colorText = colorText
+    colorText = colorText,
+    disableScrollingText = disableScrollingText
 )
 
 
@@ -101,6 +104,7 @@ fun LazyGridScope.GridMenuItem(
     titleString: String = "",
     enabled: Boolean = true,
     onClick: () -> Unit,
+    disableScrollingText: Boolean = false
 ) {
     item {
         Column(
@@ -128,50 +132,10 @@ fun LazyGridScope.GridMenuItem(
                 style = MaterialTheme.typography.labelLarge,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .let { if (!disableScrollingText) it.basicMarquee(iterations = Int.MAX_VALUE) else it }
             )
         }
     }
 }
-
-
-/*
-@Composable
-@OptIn(UnstableApi::class)
-fun LazyGridScope.DownloadGridMenu(
-    @Download.State state: Int?,
-    onRemoveDownload: () -> Unit,
-    onDownload: () -> Unit,
-) {
-    when (state) {
-        Download.STATE_COMPLETED -> {
-            GridMenuItem(
-                icon = R.drawable.downloaded,
-                title = "Remove download",
-                onClick = onRemoveDownload
-            )
-        }
-
-        Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {
-            GridMenuItem(
-                icon = {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                },
-                title = "Downloading",
-                onClick = onRemoveDownload
-            )
-        }
-
-        else -> {
-            GridMenuItem(
-                icon = R.drawable.download,
-                title = R.string.download,
-                onClick = onDownload
-            )
-        }
-    }
-}
-*/

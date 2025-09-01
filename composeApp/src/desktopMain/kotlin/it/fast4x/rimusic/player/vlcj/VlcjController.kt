@@ -20,7 +20,7 @@ import kotlin.io.path.pathString
 class VlcjController : PlayerController {
 
     init {
-        //println("desktop VlcjController init ${System.setProperty("jna.library.path", system.getProperty("user.dir"))}")
+        //println("desktop VlcjController init ${System.setProperty("jna.library.path", System.getProperty("user.dir"))}")
         addSearchPath(
             RuntimeUtil.getLibVlcLibraryName(),
             Paths.get(System.getProperty("user.dir"), "lib", "libvlc.dll").pathString

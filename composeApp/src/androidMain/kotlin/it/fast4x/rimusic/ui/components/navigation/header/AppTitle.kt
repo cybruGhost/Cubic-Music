@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
@@ -43,9 +44,9 @@ private fun appIconClickAction(
                 navController.navigate( NavRoutes.gamePacman.name )
                 ""
             }
-            3 -> "Do you like clicking? Then continue..."
-            6 -> "Okay, you’re looking for something, keep..."
-            9 -> "You are a number one, click and enjoy the surprise"
+            3 -> context.getString(R.string.easter_egg_click_message)
+            6 -> context.getString(R.string.easter_egg_keep_going)
+            9 -> context.getString(R.string.easter_egg_number_one)
             else -> ""
         }
     if( message.isNotEmpty() )
@@ -56,7 +57,7 @@ private fun appIconLongClickAction(
     navController: NavController,
     context: Context
 ) {
-    Toaster.n( "You are a number one, click and enjoy the surprise", Toast.LENGTH_LONG )
+    Toaster.n( context.getString(R.string.easter_egg_last), Toast.LENGTH_LONG )
     navController.navigate( NavRoutes.gameSnake.name )
 }
 
@@ -86,16 +87,18 @@ private fun AppLogoText( navController: NavController ) {
             navController.navigate(NavRoutes.home.name)
     }
 
-
-
-    Button(
-        iconId = R.drawable.app_logo_text,
-        color = AppBar.contentColor(),
-        padding = 0.dp,
-        size = 36.dp,
-        forceWidth = 100.dp,
-        modifier = Modifier.clickable { iconTextClick() }
-    ).Draw()
+    BasicText(
+        text = "Cubic-Music",
+        style = TextStyle(
+            fontSize = typography().xl.semiBold.fontSize,
+            fontWeight = typography().xl.semiBold.fontWeight,
+            fontFamily = typography().xl.semiBold.fontFamily,
+            color = AppBar.contentColor()
+        ),
+        modifier = Modifier
+            .clickable { iconTextClick() }
+            .padding(horizontal = 8.dp)
+    )
 }
 
 // START

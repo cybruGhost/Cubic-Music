@@ -31,7 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.kreate.android.R
-import coil.compose.rememberAsyncImagePainter
+import me.knighthat.coil.ImageCacheFactory
 import com.google.gson.annotations.SerializedName
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.typography
@@ -51,7 +51,7 @@ data class Developer(
     @Composable
     fun Draw() {
         val uriHandler = LocalUriHandler.current
-        val avatarPainter = rememberAsyncImagePainter( this.avatar )
+        val avatarPainter = ImageCacheFactory.Painter( this.avatar )
         val backgroundColor = if (id == 1484476) colorPalette().background1 else Color.Transparent
 
 

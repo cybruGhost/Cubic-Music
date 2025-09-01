@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -13,13 +14,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.Preferences
-import coil.Coil
-import coil.annotation.ExperimentalCoilApi
+import coil3.annotation.ExperimentalCoilApi
+import me.knighthat.coil.ImageCacheFactory
 import it.fast4x.rimusic.LocalPlayerServiceBinder
 import it.fast4x.rimusic.enums.CacheType
+import it.fast4x.rimusic.enums.CoilDiskCacheMaxSize
 import it.fast4x.rimusic.enums.ExoPlayerDiskCacheMaxSize
 import it.fast4x.rimusic.enums.ExoPlayerDiskDownloadCacheMaxSize
+import it.fast4x.rimusic.utils.coilDiskCacheMaxSizeKey
+import it.fast4x.rimusic.utils.exoPlayerDiskCacheMaxSizeKey
+import it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
+import it.fast4x.rimusic.utils.rememberPreference
 
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -31,9 +36,19 @@ fun CacheSpaceIndicator(
     horizontalPadding: Dp = 12.dp,
 ) {
 
-    val coilDiskCacheMaxSize by Preferences.THUMBNAIL_CACHE_SIZE
-    val exoPlayerDiskCacheMaxSize by Preferences.SONG_CACHE_SIZE
-    val exoPlayerDiskDownloadCacheMaxSize by Preferences.SONG_DOWNLOAD_SIZE
+    val coilDiskCacheMaxSize by rememberPreference(
+        coilDiskCacheMaxSizeKey,
+        CoilDiskCacheMaxSize.`128MB`
+    )
+    val exoPlayerDiskCacheMaxSize by rememberPreference(
+        exoPlayerDiskCacheMaxSizeKey,
+        ExoPlayerDiskCacheMaxSize.`2GB`
+    )
+
+    val exoPlayerDiskDownloadCacheMaxSize by rememberPreference(
+        exoPlayerDiskDownloadCacheMaxSizeKey,
+        ExoPlayerDiskDownloadCacheMaxSize.`2GB`
+    )
 
     when (cacheType) {
         CacheType.Images -> {}
@@ -49,7 +64,7 @@ fun CacheSpaceIndicator(
     val binder = LocalPlayerServiceBinder.current
 
     val imageDiskCacheSize = remember {
-        Coil.imageLoader(context).diskCache?.size
+        ImageCacheFactory.getCacheSize()
     }
 
     val cachedSongsDiskCacheSize = remember {

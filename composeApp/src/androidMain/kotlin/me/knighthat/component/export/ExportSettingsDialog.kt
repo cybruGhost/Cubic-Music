@@ -22,61 +22,52 @@ import kotlinx.coroutines.launch
 import me.knighthat.component.ExportToFileDialog
 
 class ExportSettingsDialog private constructor(
-    valueState: MutableState<TextFieldValue>,
-    activeState: MutableState<Boolean>,
-    launcher: ManagedActivityResultLauncher<String, Uri?>
-): ExportToFileDialog(valueState, activeState, launcher) {
-
+    private val launcher: ManagedActivityResultLauncher<String, Uri?>,
+    private val context: Context
+) {
     companion object {
         private fun onExport(
             uri: Uri,
             context: Context
-        ) = CoroutineScope( Dispatchers.IO ).launch {       // Run in background to prevent UI thread from freezing due to large file.
+        ) = CoroutineScope( Dispatchers.IO ).launch {
             val entries: List<Triple<String, String, Any>> = context.preferences
-                                                                    .all
-                                                                    .map {
-                                                                        val value = it.value ?: Unit
-                                                                        val type = value::class.simpleName ?: "null"
-                                                                        Triple( type, it.key, value )
-                                                                    }
-                                                                    .filter { it.first != "null" && it.third !== Unit }
+                .all
+                .map {
+                    val value = it.value ?: Unit
+                    val type = value::class.simpleName ?: "null"
+                    Triple( type, it.key, value )
+                }
+                .filter { it.first != "null" && it.third !== Unit }
 
             context.contentResolver
-                   .openOutputStream( uri )
-                   ?.use { outStream ->         // Use [use] because it closes stream on exit
-                       csvWriter().open( outStream ) {
-                           writeRow( "Type", "Key", "Value" )
-                           flush()
-
-                           entries.forEach {
-                               writeRow( it.first, it.second, it.third )
-                           }
-                           close()
-                       }
-                   }
+                .openOutputStream( uri )
+                ?.use { outStream ->
+                    csvWriter().open( outStream ) {
+                        writeRow( "Type", "Key", "Value" )
+                        flush()
+                        entries.forEach {
+                            writeRow( it.first, it.second, it.third )
+                        }
+                        close()
+                    }
+                }
         }
 
         @Composable
         operator fun invoke( context: Context ): ExportSettingsDialog =
             ExportSettingsDialog(
-                remember {
-                    mutableStateOf( TextFieldValue() )
-                },
-                rememberSaveable { mutableStateOf(false) },
                 rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument( "text/csv" )
                 ) { uri ->
-                    // [uri] must be non-null (meaning path exists) in order to work
                     uri ?: return@rememberLauncherForActivityResult
                     onExport( uri, context )
-                }
+                },
+                context
             )
     }
 
-    override val extension: String = "xml"
-    override val dialogTitle: String
-        @Composable
-        get() = stringResource( R.string.title_export_settings )
-
-    override fun defaultFileName(): String = "${BuildConfig.APP_NAME}_settings"
+    fun export() {
+        val fileName = "${BuildConfig.APP_NAME}_settings"
+        launcher.launch("$fileName.csv")
+    }
 }

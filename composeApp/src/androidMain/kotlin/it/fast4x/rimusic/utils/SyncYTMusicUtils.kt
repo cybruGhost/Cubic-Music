@@ -8,7 +8,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
-import app.kreate.android.Preferences
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.utils.completed
@@ -197,7 +196,7 @@ suspend fun removeYTSongFromPlaylist(
 @Composable
 fun autoSyncToolbutton(messageId: Int): MenuIcon = object : MenuIcon, DynamicColor, Descriptive {
 
-    override var isFirstColor: Boolean by Preferences.AUTO_SYNC
+    override var isFirstColor: Boolean by rememberPreference(autosyncKey, false)
     override val iconId: Int = R.drawable.sync
     override val messageId: Int = messageId
     override val menuIconTitle: String

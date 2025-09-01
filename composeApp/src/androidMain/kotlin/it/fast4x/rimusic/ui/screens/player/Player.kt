@@ -116,7 +116,6 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import androidx.palette.graphics.Palette
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import app.kreate.android.drawable.APP_ICON_IMAGE_BITMAP
 import app.kreate.android.screens.player.background.BlurredCover
@@ -141,12 +140,17 @@ import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.AnimatedGradient
 import it.fast4x.rimusic.enums.BackgroundProgress
+import it.fast4x.rimusic.enums.CarouselSize
 import it.fast4x.rimusic.enums.ColorPaletteMode
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.PlayerBackgroundColors
+import it.fast4x.rimusic.enums.PlayerThumbnailSize
 import it.fast4x.rimusic.enums.PlayerType
+import it.fast4x.rimusic.enums.QueueLoopType
 import it.fast4x.rimusic.enums.QueueType
 import it.fast4x.rimusic.enums.SwipeAnimationNoThumbnail
+import it.fast4x.rimusic.enums.ThumbnailCoverType
+import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.enums.ThumbnailType
 import it.fast4x.rimusic.models.Info
 import it.fast4x.rimusic.models.ui.toUiMedia
@@ -171,9 +175,28 @@ import it.fast4x.rimusic.ui.styling.favoritesOverlay
 import it.fast4x.rimusic.utils.DisposableListener
 import it.fast4x.rimusic.utils.SearchYoutubeEntity
 import it.fast4x.rimusic.utils.VerticalfadingEdge2
+import it.fast4x.rimusic.utils.VinylSizeKey
+import it.fast4x.rimusic.utils.albumCoverRotationKey
+import it.fast4x.rimusic.utils.animatedGradientKey
+import it.fast4x.rimusic.utils.backgroundProgressKey
+import it.fast4x.rimusic.utils.blackgradientKey
+import it.fast4x.rimusic.utils.bottomgradientKey
+import it.fast4x.rimusic.utils.carouselKey
+import it.fast4x.rimusic.utils.carouselSizeKey
+import it.fast4x.rimusic.utils.clickOnLyricsTextKey
+import it.fast4x.rimusic.utils.colorPaletteModeKey
+import it.fast4x.rimusic.utils.controlsExpandedKey
+import it.fast4x.rimusic.utils.coverThumbnailAnimationKey
 import it.fast4x.rimusic.utils.currentWindow
+import it.fast4x.rimusic.utils.disablePlayerHorizontalSwipeKey
+import it.fast4x.rimusic.utils.disableScrollingTextKey
+import it.fast4x.rimusic.utils.discoverKey
 import it.fast4x.rimusic.utils.doubleShadowDrop
 import it.fast4x.rimusic.utils.durationTextToMillis
+import it.fast4x.rimusic.utils.effectRotationKey
+import it.fast4x.rimusic.utils.expandedplayerKey
+import it.fast4x.rimusic.utils.extraspaceKey
+import it.fast4x.rimusic.utils.fadingedgeKey
 import it.fast4x.rimusic.utils.formatAsDuration
 import it.fast4x.rimusic.utils.formatAsTime
 import it.fast4x.rimusic.utils.getBitmapFromUrl
@@ -181,13 +204,43 @@ import it.fast4x.rimusic.utils.horizontalFadingEdge
 import it.fast4x.rimusic.utils.isExplicit
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.mediaItems
+import it.fast4x.rimusic.utils.noblurKey
 import it.fast4x.rimusic.utils.playAtIndex
 import it.fast4x.rimusic.utils.playNext
 import it.fast4x.rimusic.utils.playPrevious
+import it.fast4x.rimusic.utils.playerBackgroundColorsKey
+import it.fast4x.rimusic.utils.playerThumbnailSizeKey
+import it.fast4x.rimusic.utils.playerThumbnailSizeLKey
+import it.fast4x.rimusic.utils.playerTypeKey
 import it.fast4x.rimusic.utils.positionAndDurationState
+import it.fast4x.rimusic.utils.queueDurationExpandedKey
+import it.fast4x.rimusic.utils.queueLoopTypeKey
+import it.fast4x.rimusic.utils.queueTypeKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
 import it.fast4x.rimusic.utils.shouldBePlaying
+import it.fast4x.rimusic.utils.showButtonPlayerMenuKey
+import it.fast4x.rimusic.utils.showCoverThumbnailAnimationKey
+import it.fast4x.rimusic.utils.showTopActionsBarKey
+import it.fast4x.rimusic.utils.showTotalTimeQueueKey
+import it.fast4x.rimusic.utils.showlyricsthumbnailKey
+import it.fast4x.rimusic.utils.showthumbnailKey
+import it.fast4x.rimusic.utils.showvisthumbnailKey
+import it.fast4x.rimusic.utils.statsExpandedKey
+import it.fast4x.rimusic.utils.statsfornerdsKey
+import it.fast4x.rimusic.utils.swipeAnimationsNoThumbnailKey
+import it.fast4x.rimusic.utils.textoutlineKey
 import it.fast4x.rimusic.utils.thumbnail
+import it.fast4x.rimusic.utils.thumbnailFadeExKey
+import it.fast4x.rimusic.utils.thumbnailFadeKey
+import it.fast4x.rimusic.utils.thumbnailRoundnessKey
+import it.fast4x.rimusic.utils.thumbnailSpacingKey
+import it.fast4x.rimusic.utils.thumbnailSpacingLKey
+import it.fast4x.rimusic.utils.thumbnailTapEnabledKey
+import it.fast4x.rimusic.utils.thumbnailTypeKey
+import it.fast4x.rimusic.utils.timelineExpandedKey
+import it.fast4x.rimusic.utils.titleExpandedKey
+import it.fast4x.rimusic.utils.topPaddingKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -218,54 +271,54 @@ fun Player(
     val menuState = LocalMenuState.current
     val binder = LocalPlayerServiceBinder.current ?: return
     // Settings
-    val disablePlayerHorizontalSwipe by Preferences.PLAYER_THUMBNAIL_HORIZONTAL_SWIPE_DISABLED
-    val showlyricsthumbnail by Preferences.LYRICS_SHOW_THUMBNAIL
-    val effectRotationEnabled by Preferences.ROTATION_EFFECT
-    val playerThumbnailSize by Preferences.PLAYER_PORTRAIT_THUMBNAIL_SIZE
-    var playerThumbnailSizeL by Preferences.PLAYER_LANDSCAPE_THUMBNAIL_SIZE
-    val showvisthumbnail by Preferences.PLAYER_SHOW_THUMBNAIL_ON_VISUALIZER
-    var thumbnailSpacing  by Preferences.PLAYER_THUMBNAIL_SPACING
-    var thumbnailSpacingL  by Preferences.PLAYER_THUMBNAIL_SPACING_LANDSCAPE
-    var thumbnailFade  by Preferences.PLAYER_THUMBNAIL_FADE
-    var thumbnailFadeEx  by Preferences.PLAYER_THUMBNAIL_FADE_EX
-    var imageCoverSize by Preferences.PLAYER_THUMBNAIL_VINYL_SIZE
-    val queueDurationExpanded by Preferences.PLAYER_IS_QUEUE_DURATION_EXPANDED
-    val statsExpanded by Preferences.PLAYER_IS_STATS_FOR_NERDS_EXPANDED
-    var showthumbnail by Preferences.PLAYER_SHOW_THUMBNAIL
-    val showButtonPlayerMenu by Preferences.PLAYER_ACTION_SHOW_MENU
-    val showTotalTimeQueue by Preferences.PLAYER_SHOW_TOTAL_QUEUE_TIME
-    val backgroundProgress by Preferences.MINI_PLAYER_PROGRESS_BAR
-    var queueLoopState = Preferences.QUEUE_LOOP_TYPE
-    val playerType by Preferences.PLAYER_TYPE
-    val queueType by Preferences.QUEUE_TYPE
-    val noblur by Preferences.PLAYER_BACKGROUND_BLUR
-    val fadingedge by Preferences.PLAYER_BACKGROUND_FADING_EDGE
-    val colorPaletteMode by Preferences.THEME_MODE
-    val playerBackgroundColors by Preferences.PLAYER_BACKGROUND
-    val animatedGradient by Preferences.ANIMATED_GRADIENT
-    val thumbnailTapEnabled by Preferences.PLAYER_TAP_THUMBNAIL_FOR_LYRICS
-    val showTopActionsBar by Preferences.PLAYER_SHOW_TOP_ACTIONS_BAR
-    val blackgradient by Preferences.BLACK_GRADIENT
-    val bottomgradient by Preferences.PLAYER_BOTTOM_GRADIENT
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
-    var discoverState = Preferences.ENABLE_DISCOVER
-    val titleExpanded by Preferences.PLAYER_IS_TITLE_EXPANDED
-    val timelineExpanded by Preferences.PLAYER_IS_TIMELINE_EXPANDED
-    val controlsExpanded by Preferences.PLAYER_IS_CONTROLS_EXPANDED
-    val showCoverThumbnailAnimation by Preferences.PLAYER_THUMBNAIL_ANIMATION
-    var coverThumbnailAnimation by Preferences.PLAYER_THUMBNAIL_TYPE
-    var albumCoverRotation by Preferences.PLAYER_THUMBNAIL_ROTATION
-    val textoutline by Preferences.TEXT_OUTLINE
-    val carousel by Preferences.PLAYER_THUMBNAILS_CAROUSEL
-    val carouselSize by Preferences.CAROUSEL_SIZE
-    val clickLyricsText by Preferences.LYRICS_JUMP_ON_TAP
-    var extraspace by Preferences.PLAYER_EXTRA_SPACE
-    val thumbnailRoundness by Preferences.THUMBNAIL_BORDER_RADIUS
-    val thumbnailType by Preferences.THUMBNAIL_TYPE
-    val statsfornerds by Preferences.PLAYER_STATS_FOR_NERDS
-    val topPadding by Preferences.PLAYER_TOP_PADDING
-    var swipeAnimationNoThumbnail by Preferences.PLAYER_NO_THUMBNAIL_SWIPE_ANIMATION
-    val expandPlayerState = Preferences.PLAYER_EXPANDED
+    val disablePlayerHorizontalSwipe by rememberPreference(disablePlayerHorizontalSwipeKey, false)
+    val showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
+    val effectRotationEnabled by rememberPreference(effectRotationKey, true)
+    val playerThumbnailSize by rememberPreference( playerThumbnailSizeKey, PlayerThumbnailSize.Biggest )
+    var playerThumbnailSizeL by rememberPreference( playerThumbnailSizeLKey, PlayerThumbnailSize.Biggest )
+    val showvisthumbnail by rememberPreference(showvisthumbnailKey, false)
+    var thumbnailSpacing  by rememberPreference( thumbnailSpacingKey, 0f )
+    var thumbnailSpacingL  by rememberPreference( thumbnailSpacingLKey, 0f )
+    var thumbnailFade  by rememberPreference( thumbnailFadeKey, 5f )
+    var thumbnailFadeEx  by rememberPreference( thumbnailFadeExKey, 5f )
+    var imageCoverSize by rememberPreference( VinylSizeKey, 50f )
+    val queueDurationExpanded by rememberPreference( queueDurationExpandedKey, true )
+    val statsExpanded by rememberPreference( statsExpandedKey, true )
+    var showthumbnail by rememberPreference( showthumbnailKey, true )
+    val showButtonPlayerMenu by rememberPreference( showButtonPlayerMenuKey, false )
+    val showTotalTimeQueue by rememberPreference( showTotalTimeQueueKey, true )
+    val backgroundProgress by rememberPreference( backgroundProgressKey, BackgroundProgress.MiniPlayer )
+    var queueLoopState = rememberPreference( queueLoopTypeKey, defaultValue = QueueLoopType.Default )
+    val playerType by rememberPreference( playerTypeKey, PlayerType.Essential )
+    val queueType by rememberPreference( queueTypeKey, QueueType.Essential )
+    val noblur by rememberPreference( noblurKey, true )
+    val fadingedge by rememberPreference( fadingedgeKey, false )
+    val colorPaletteMode by rememberPreference( colorPaletteModeKey, ColorPaletteMode.Dark )
+    val playerBackgroundColors by rememberPreference( playerBackgroundColorsKey, PlayerBackgroundColors.BlurredCoverColor )
+    val animatedGradient by rememberPreference( animatedGradientKey, AnimatedGradient.Linear )
+    val thumbnailTapEnabled by rememberPreference( thumbnailTapEnabledKey, true )
+    val showTopActionsBar by rememberPreference( showTopActionsBarKey, true )
+    val blackgradient by rememberPreference( blackgradientKey, false )
+    val bottomgradient by rememberPreference( bottomgradientKey, false )
+    val disableScrollingText by rememberPreference( disableScrollingTextKey, false )
+    var discoverState = rememberPreference( discoverKey, false )
+    val titleExpanded by rememberPreference( titleExpandedKey, true )
+    val timelineExpanded by rememberPreference( timelineExpandedKey, true )
+    val controlsExpanded by rememberPreference( controlsExpandedKey, true )
+    val showCoverThumbnailAnimation by rememberPreference( showCoverThumbnailAnimationKey, false )
+    var coverThumbnailAnimation by rememberPreference( coverThumbnailAnimationKey, ThumbnailCoverType.Vinyl )
+    var albumCoverRotation by rememberPreference( albumCoverRotationKey, false )
+    val textoutline by rememberPreference( textoutlineKey, false )
+    val carousel by rememberPreference( carouselKey, true )
+    val carouselSize by rememberPreference( carouselSizeKey, CarouselSize.Biggest )
+    val clickLyricsText by rememberPreference( clickOnLyricsTextKey, true )
+    var extraspace by rememberPreference( extraspaceKey, false )
+    val thumbnailRoundness by rememberPreference( thumbnailRoundnessKey, ThumbnailRoundness.Heavy )
+    val thumbnailType by rememberPreference( thumbnailTypeKey, ThumbnailType.Modern )
+    val statsfornerds by rememberPreference( statsfornerdsKey, false )
+    val topPadding by rememberPreference( topPaddingKey, true )
+    var swipeAnimationNoThumbnail by rememberPreference( swipeAnimationsNoThumbnailKey, SwipeAnimationNoThumbnail.Sliding )
+    val expandPlayerState = rememberPreference( expandedplayerKey, false )
     var expandedplayer by expandPlayerState
 
 
@@ -300,6 +353,42 @@ fun Player(
 
     val showLyricsState = rememberSaveable { mutableStateOf( false ) }
     var isShowingLyrics by showLyricsState
+
+    // User preferences (switch)
+   var shouldRememberVisualizerState by rememberPreference("showVisualizerStateKey", false)
+   var shouldRememberLyricsState by rememberPreference("showLyricsStateKey", false)
+
+   // Saved states
+   var savedVisualizerState by rememberPreference("saveVisualizerStateKey", false)
+   var savedLyricsState by rememberPreference("saveLyricsStateKey", false)
+
+   // Restore at startup (if enabled)
+   LaunchedEffect(Unit) {
+       if (shouldRememberVisualizerState) {
+           isShowingVisualizer = savedVisualizerState
+       }
+       if (shouldRememberLyricsState) {
+           isShowingLyrics = savedLyricsState
+       }
+   }
+
+   // Save only if not closing
+   LaunchedEffect(isShowingVisualizer) {
+       if (shouldRememberVisualizerState) {
+           savedVisualizerState = isShowingVisualizer
+           if (isShowingVisualizer) {
+               isShowingLyrics = false
+           }
+       }
+   }
+   LaunchedEffect(isShowingLyrics) {
+       if (shouldRememberLyricsState) {
+           savedLyricsState = isShowingLyrics
+           if (isShowingLyrics) {
+               isShowingVisualizer = false
+           }
+       }
+   }
 
     var showThumbnailOffsetDialog by rememberSaveable {
         mutableStateOf(false)
@@ -1804,7 +1893,8 @@ fun Player(
                             )
 
                         Image(
-                            bitmap = APP_ICON_IMAGE_BITMAP,
+                            painter = painterResource(R.drawable.ic_launcher_monochrome),
+                            colorFilter = ColorFilter.tint(colorPalette().collapsedPlayerProgressBar),
                             contentDescription = "app icon in player",
                             modifier = Modifier.size( 24.dp )
                                                .clickable {

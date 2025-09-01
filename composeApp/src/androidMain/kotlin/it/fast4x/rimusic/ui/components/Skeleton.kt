@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import app.kreate.android.BuildConfig
-import app.kreate.android.Preferences
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.CheckUpdateState
 import it.fast4x.rimusic.enums.NavigationBarPosition
@@ -40,6 +39,11 @@ import it.fast4x.rimusic.ui.components.navigation.header.AppHeader
 import it.fast4x.rimusic.ui.components.navigation.nav.AbstractNavigationBar
 import it.fast4x.rimusic.ui.components.navigation.nav.HorizontalNavigationBar
 import it.fast4x.rimusic.ui.components.navigation.nav.VerticalNavigationBar
+import it.fast4x.rimusic.utils.checkUpdateStateKey
+import it.fast4x.rimusic.utils.checkBetaUpdatesKey
+import it.fast4x.rimusic.utils.playerPositionKey
+import it.fast4x.rimusic.utils.rememberPreference
+import it.fast4x.rimusic.utils.seenChangelogsVersionKey
 import it.fast4x.rimusic.utils.transition
 import me.knighthat.updater.ChangelogsDialog
 import me.knighthat.updater.CheckForUpdateDialog
@@ -129,7 +133,7 @@ fun Skeleton(
                     navigationBar.Draw()
             }
 
-            val playerPosition by Preferences.MINI_PLAYER_POSITION
+            val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
             val playerAlignment =
                 if (playerPosition == PlayerPosition.Top)
                     Alignment.TopCenter
@@ -148,16 +152,33 @@ fun Skeleton(
     NewUpdateAvailableDialog.Render()
     CheckForUpdateDialog.Render()
 
-    val check4UpdateState by Preferences.CHECK_UPDATE
+    // Function to extract the version suffix
+    fun extractVersionSuffix(versionStr: String): String {
+        val parts = versionStr.removePrefix("v").split("-")
+        return if (parts.size > 1) parts[1] else ""
+    }
+
+    val check4UpdateState by rememberPreference( checkUpdateStateKey, CheckUpdateState.Enabled )
+    val checkBetaUpdates by rememberPreference( checkBetaUpdatesKey, extractVersionSuffix(BuildConfig.VERSION_NAME) == "b" )
+    
+    // Reset update state when beta preferences change
+    LaunchedEffect( checkBetaUpdates ) {
+        if (NewUpdateAvailableDialog.isActive) {
+            // If beta preferences changed and there's an active update dialog, recheck
+            NewUpdateAvailableDialog.isCancelled = false
+            Updater.checkForUpdate(checkBetaUpdates = checkBetaUpdates)
+        }
+    }
+    
     LaunchedEffect( check4UpdateState ) {
         when( check4UpdateState ) {
-            CheckUpdateState.Enabled  -> if( !NewUpdateAvailableDialog.isCancelled ) Updater.checkForUpdate()
+            CheckUpdateState.Enabled  -> if( !NewUpdateAvailableDialog.isCancelled ) Updater.checkForUpdate(checkBetaUpdates = checkBetaUpdates)
             CheckUpdateState.Ask      -> CheckForUpdateDialog.isActive = true
             CheckUpdateState.Disabled -> { /* Does nothing */ }
         }
     }
 
-    val seenChangelogs = Preferences.SEEN_CHANGELOGS_VERSION
+    val seenChangelogs = rememberPreference( seenChangelogsVersionKey, "" )
     if( seenChangelogs.value != BuildConfig.VERSION_NAME ) {
         val changelogs = remember {
             ChangelogsDialog( seenChangelogs )

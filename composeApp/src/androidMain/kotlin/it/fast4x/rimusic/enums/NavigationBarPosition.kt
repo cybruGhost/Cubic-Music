@@ -1,8 +1,10 @@
 package it.fast4x.rimusic.enums
 
 import androidx.annotation.StringRes
-import app.kreate.android.Preferences
+import androidx.compose.runtime.Composable
 import app.kreate.android.R
+import it.fast4x.rimusic.utils.navigationBarPositionKey
+import it.fast4x.rimusic.utils.rememberPreference
 import me.knighthat.enums.TextView
 
 enum class NavigationBarPosition(
@@ -16,8 +18,10 @@ enum class NavigationBarPosition(
 
     companion object {
 
-        fun current() = Preferences.NAVIGATION_BAR_POSITION.value
+        @Composable
+        fun current() = rememberPreference( navigationBarPositionKey, Bottom ).value
     }
 
+    @Composable
     fun isCurrent(): Boolean = current() == this
 }

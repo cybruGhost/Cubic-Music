@@ -53,11 +53,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.navigation.NavController
-import app.kreate.android.Preferences
 import app.kreate.android.R
-import app.kreate.android.themed.rimusic.component.ItemSelector
-import app.kreate.android.themed.rimusic.component.Search
-import app.kreate.android.themed.rimusic.component.playlist.PositionLock
 import com.valentinilk.shimmer.shimmer
 import it.fast4x.compose.persist.persist
 import it.fast4x.compose.persist.persistList
@@ -71,7 +67,6 @@ import it.fast4x.rimusic.enums.QueueType
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.service.modern.isLocal
 import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.SwipeableQueueItem
 import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import it.fast4x.rimusic.ui.components.tab.toolbar.Button
@@ -91,10 +86,15 @@ import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.isNowPlaying
 import it.fast4x.rimusic.utils.manageDownload
 import it.fast4x.rimusic.utils.mediaItems
+import it.fast4x.rimusic.utils.queueTypeKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.shouldBePlaying
+import it.fast4x.rimusic.utils.showButtonPlayerDiscoverKey
 import me.knighthat.component.SongItem
 import me.knighthat.component.tab.ExportSongsToCSVDialog
+import me.knighthat.component.tab.ItemSelector
 import me.knighthat.component.tab.Locator
+import me.knighthat.component.tab.Search
 import me.knighthat.component.ui.screens.player.DeleteFromQueue
 import me.knighthat.component.ui.screens.player.Discover
 import me.knighthat.component.ui.screens.player.QueueArrow
@@ -102,6 +102,7 @@ import me.knighthat.component.ui.screens.player.Repeat
 import me.knighthat.component.ui.screens.player.ShuffleQueue
 import me.knighthat.utils.Toaster
 import timber.log.Timber
+import app.kreate.android.themed.rimusic.component.playlist.PositionLock
 
 
 @ExperimentalTextApi
@@ -120,7 +121,6 @@ fun Queue(
     val windowInsets = WindowInsets.systemBars
     val binder = LocalPlayerServiceBinder.current
     val player = binder?.player ?: return
-    val menuState = LocalMenuState.current
 
     val rippleIndication = ripple(bounded = false)
 
@@ -148,9 +148,7 @@ fun Queue(
 
         val positionLock = remember { PositionLock() }
 
-        val itemSelector = remember {
-            ItemSelector( menuState ) { addAll( itemsOnDisplay ) }
-        }
+        val itemSelector = ItemSelector<Song>()
         LaunchedEffect( itemSelector.isActive ) {
             // Setting this field to true means disable it
             if( itemSelector.isActive )
@@ -159,13 +157,13 @@ fun Queue(
 
         fun getSongs() = itemSelector.ifEmpty { items }
 
-        val search = remember { Search(lazyListState) }
-        LaunchedEffect( items, search.input ) {
+        val search = Search(lazyListState)
+        LaunchedEffect( items, search.inputValue ) {
             items.filter {
                     // Without cleaning, user can search explicit songs with "e:"
                     // I kinda want this to be a feature, but it seems unnecessary
-                    val containsTitle = search appearsIn it.cleanTitle()
-                    val containsArtist = search appearsIn it.cleanArtistsText()
+                    val containsTitle = it.cleanTitle().contains( search.inputValue, true )
+                    val containsArtist = it.cleanArtistsText().contains( search.inputValue, true )
 
                     containsTitle || containsArtist
                 }
@@ -217,7 +215,7 @@ fun Queue(
         (deleteDialog as Dialog).Render()
 
         Column {
-            val queueType by Preferences.QUEUE_TYPE
+            val queueType by rememberPreference( queueTypeKey, QueueType.Essential )
             val backgroundAlpha = if( queueType == QueueType.Modern ) .5f else 1f
 
             LazyColumn(
@@ -275,7 +273,10 @@ fun Queue(
                         SwipeableQueueItem(
                             mediaItem = mediaItem,
                             onPlayNext = {
-                                binder.player.moveMediaItem( index, binder.player.currentMediaItemIndex )
+                                binder.player.moveMediaItem(index, binder.player.currentMediaItemIndex)
+                                binder.player.seekToDefaultPosition(binder.player.currentMediaItemIndex - 1)
+                                binder.player.prepare()
+                                binder.player.playWhenReady = true
                             },
                             onDownload = {
                                 binder.cache.removeResource(song.id)
@@ -357,7 +358,7 @@ fun Queue(
             Box(
                 modifier = Modifier.fillMaxWidth()
                                    .background( colorPalette().background1 ),
-            ) { search.SearchBar() }
+            ) { search.SearchBar( this@Column ) }
 
             Box(
                 modifier = Modifier.fillMaxWidth()
@@ -425,7 +426,7 @@ fun Queue(
                         buttons = mutableListOf<Button>().apply {
                             add( locator )
                             add( search )
-                            if( Preferences.PLAYER_ACTION_DISCOVER.value )
+                            if( rememberPreference( showButtonPlayerDiscoverKey, false ).value )
                                 add( discover )
                             add( positionLock )
                             add( repeat )

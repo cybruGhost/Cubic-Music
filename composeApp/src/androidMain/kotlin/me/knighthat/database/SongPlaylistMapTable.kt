@@ -14,9 +14,7 @@ import it.fast4x.rimusic.models.Playlist
 import it.fast4x.rimusic.models.Song
 import it.fast4x.rimusic.models.SongPlaylistMap
 import it.fast4x.rimusic.utils.durationTextToMillis
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.take
 
@@ -206,48 +204,6 @@ interface SongPlaylistMapTable {
         )
     """)
     fun map( songId: String, playlistId: Long )
-
-    /**
-     * Compile a list of songs that are most listened to in **descending** order.
-     *
-     * @param playlistId playlist to query
-     * @param limit number of items to include
-     */
-    @Query("""
-        SELECT DISTINCT s.*
-        FROM SongPlaylistMap spm
-        LEFT JOIN Song s ON s.id = spm.songId
-        WHERE spm.playlistId = :playlistId
-        ORDER BY s.totalPlayTimeMs DESC
-        LIMIT :limit
-    """)
-    fun findMostPlayedSongsOf(playlistId: Long, limit: Int = Int.MAX_VALUE ): Flow<List<Song>>
-
-    /**
-     * Compile a list of thumbnail url from songs that are
-     * most listened to in **descending** order.
-     *
-     * @param playlistId playlist to query
-     * @param limit number of items to include
-     */
-    fun findThumbnailsOfMostPlayedSongIn(
-        playlistId: Long,
-        limit: Int = Int.MAX_VALUE
-    ): Flow<List<String>> =
-        findMostPlayedSongsOf( playlistId )
-            .map { list ->
-                val results = mutableListOf<String>()
-
-                for( song in list ) {
-                    if( results.size == limit )
-                        break
-                    else if( song.thumbnailUrl != null && song.thumbnailUrl !in results )
-                        results.add( song.thumbnailUrl )
-                }
-
-                results
-            }
-            .flowOn( Dispatchers.Default )
 
     //<editor-fold defaultstate="collapsed" desc="Sort songs of playlist">
     @Query("""

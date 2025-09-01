@@ -39,11 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.Preferences
 import app.kreate.android.R
-import app.kreate.android.themed.rimusic.component.Search
-import app.kreate.android.themed.rimusic.component.tab.ItemSize
-import app.kreate.android.themed.rimusic.component.tab.Sort
 import it.fast4x.compose.persist.persistList
 import it.fast4x.innertube.YtMusic
 import it.fast4x.rimusic.Database
@@ -56,6 +52,7 @@ import it.fast4x.rimusic.models.Artist
 import it.fast4x.rimusic.ui.components.ButtonsRow
 import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
+import it.fast4x.rimusic.ui.components.tab.ItemSize
 import it.fast4x.rimusic.ui.components.tab.TabHeader
 import it.fast4x.rimusic.ui.components.tab.toolbar.Randomizer
 import it.fast4x.rimusic.ui.components.themed.FilterMenu
@@ -67,13 +64,24 @@ import it.fast4x.rimusic.ui.items.ArtistItem
 import it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.LocalAppearance
+import it.fast4x.rimusic.utils.Preference.HOME_ARTISTS_SORT_BY
+import it.fast4x.rimusic.utils.Preference.HOME_ARTISTS_SORT_ORDER
+import it.fast4x.rimusic.utils.Preference.HOME_ARTIST_ITEM_SIZE
+import it.fast4x.rimusic.utils.artistTypeKey
 import it.fast4x.rimusic.utils.autoSyncToolbutton
+import it.fast4x.rimusic.utils.autosyncKey
+import it.fast4x.rimusic.utils.disableScrollingTextKey
+import it.fast4x.rimusic.utils.filterByKey
 import it.fast4x.rimusic.utils.importYTMSubscribedChannels
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
+import it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.knighthat.component.Sort
+import me.knighthat.component.tab.Search
 import me.knighthat.component.tab.SongShuffler
 
 @ExperimentalMaterial3Api
@@ -95,8 +103,8 @@ fun HomeArtists(
     val coroutineScope = rememberCoroutineScope()
 
     // Settings
-    var artistType by Preferences.HOME_ARTIST_TYPE
-    var filterBy by Preferences.HOME_ARTIST_AND_ALBUM_FILTER
+    var artistType by rememberPreference(artistTypeKey, ArtistsType.Favorites )
+    var filterBy by rememberPreference(filterByKey, FilterBy.All)
 
 
     var items by persistList<Artist>( "")
@@ -104,14 +112,13 @@ fun HomeArtists(
 
     var itemsOnDisplay by persistList<Artist>( "home/artists/on_display" )
 
-    val disableScrollingText by Preferences.SCROLLING_TEXT_DISABLED
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
-    val search = remember { Search(lazyGridState) }
+    val search = Search(lazyGridState)
 
-    val sort = remember {
-        Sort(menuState, Preferences.HOME_ARTISTS_SORT_BY, Preferences.HOME_ARTISTS_SORT_ORDER)
-    }
-    val itemSize = remember { ItemSize(Preferences.HOME_ARTIST_ITEM_SIZE, menuState) }
+    val sort = Sort( HOME_ARTISTS_SORT_BY, HOME_ARTISTS_SORT_ORDER )
+
+    val itemSize = ItemSize.init( HOME_ARTIST_ITEM_SIZE )
 
     val randomizer = object: Randomizer<Artist> {
         override fun getItems(): List<Artist> = itemsOnDisplay
@@ -143,9 +150,9 @@ fun HomeArtists(
         }
 
     }
-    LaunchedEffect( items, search.input ) {
+    LaunchedEffect( items, search.inputValue ) {
         itemsOnDisplay = items.filter {
-            it.name?.let( search::appearsIn ) ?: false
+            it.name?.contains( search.inputValue, true ) ?: false
         }
     }
     if (items.any{it.thumbnailUrl == null}) {
@@ -165,7 +172,7 @@ fun HomeArtists(
 
     val sync = autoSyncToolbutton(R.string.autosync_channels)
 
-    val doAutoSync by Preferences.AUTO_SYNC
+    val doAutoSync by rememberPreference(autosyncKey, false)
     var justSynced by rememberSaveable { mutableStateOf(!doAutoSync) }
 
     var refreshing by remember { mutableStateOf(false) }
@@ -277,7 +284,7 @@ fun HomeArtists(
                 }
 
                 // Sticky search bar
-                search.SearchBar()
+                search.SearchBar( this )
 
                 LazyVerticalGrid(
                     state = lazyGridState,
@@ -306,7 +313,7 @@ fun HomeArtists(
 
             FloatingActionsContainerWithScrollToTop(lazyGridState = lazyGridState)
 
-            val showFloatingIcon by Preferences.SHOW_FLOATING_ICON
+            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if( UiType.ViMusic.isCurrent() && showFloatingIcon )
                 MultiFloatingActionsContainer(
                     iconId = R.drawable.search,

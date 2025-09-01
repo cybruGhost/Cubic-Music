@@ -9,6 +9,7 @@ import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Update
 import androidx.room.Upsert
+import androidx.room.Transaction
 import it.fast4x.rimusic.MODIFIED_PREFIX
 import it.fast4x.rimusic.enums.SongSortBy
 import it.fast4x.rimusic.enums.SortOrder
@@ -544,4 +545,15 @@ interface SongTable {
         SongSortBy.AlbumName        -> sortFavoritesByAlbumName()
     }.map( sortOrder::applyTo ).take( limit )
     //</editor-fold>
+
+    @Transaction
+    @Query("""
+        SELECT S.*
+        FROM Song S
+        JOIN SongArtistMap ON S.id = SongArtistMap.songId
+        WHERE SongArtistMap.artistId = :artistId
+        AND totalPlayTimeMs > 0
+        ORDER BY S.ROWID DESC
+    """)
+    fun artistSongs(artistId: String): Flow<List<Song>>
 }

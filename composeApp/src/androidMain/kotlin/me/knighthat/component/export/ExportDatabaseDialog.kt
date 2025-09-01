@@ -23,52 +23,34 @@ import me.knighthat.utils.TimeDateUtils
 import java.io.FileInputStream
 
 class ExportDatabaseDialog private constructor(
-    valueState: MutableState<TextFieldValue>,
-    activeState: MutableState<Boolean>,
-    launcher: ManagedActivityResultLauncher<String, Uri?>
-): ExportToFileDialog(valueState, activeState, launcher) {
-
+    private val launcher: ManagedActivityResultLauncher<String, Uri?>
+) {
     companion object {
         @Composable
-        operator fun invoke( context: Context ): ExportDatabaseDialog =
+        operator fun invoke(context: Context): ExportDatabaseDialog =
             ExportDatabaseDialog(
-                remember {
-                    mutableStateOf( TextFieldValue() )
-                },
-                rememberSaveable { mutableStateOf(false) },
                 rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/vnd.sqlite3")
                 ) { uri ->
-                    // [uri] must be non-null (meaning path exists) in order to work
                     uri ?: return@rememberLauncherForActivityResult
-
-                    /*
-                        WAL [Database#checkpoint] shouldn't be running inside a `query` or `transaction` block
-                        because it requires all commits to be finalized and written to
-                        base file.
-                     */
                     CoroutineScope(Dispatchers.IO).launch {
                         Database.checkpoint()
-
                         context.applicationContext
-                               .contentResolver
-                               .openOutputStream(uri)
-                               ?.use { outStream ->
-                                   val dbFile = context.getDatabasePath( Database.FILE_NAME )
-                                   FileInputStream(dbFile).use { inStream ->
-                                       inStream.copyTo(outStream)
-                                   }
-                               }
+                            .contentResolver
+                            .openOutputStream(uri)
+                            ?.use { outStream ->
+                                val dbFile = context.getDatabasePath(Database.FILE_NAME)
+                                FileInputStream(dbFile).use { inStream ->
+                                    inStream.copyTo(outStream)
+                                }
+                            }
                     }
                 }
             )
     }
 
-    override val extension: String = "sqlite"
-    override val dialogTitle: String
-        @Composable
-        get() = stringResource( R.string.title_name_your_export )
-
-    override fun defaultFileName(): String =
-        "${BuildConfig.APP_NAME}_database_${TimeDateUtils.localizedDateNoDelimiter()}_${TimeDateUtils.timeNoDelimiter()}"
+    fun export() {
+        val fileName = "${BuildConfig.APP_NAME}_database_${TimeDateUtils.localizedDateNoDelimiter()}_${TimeDateUtils.timeNoDelimiter()}"
+        launcher.launch("$fileName.sqlite")
+    }
 }

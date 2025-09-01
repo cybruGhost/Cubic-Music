@@ -30,9 +30,9 @@ import androidx.annotation.MainThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.util.fastMap
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
@@ -75,7 +75,6 @@ import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionToken
-import app.kreate.android.Preferences
 import app.kreate.android.R
 import app.kreate.android.service.createDataSourceFactory
 import app.kreate.android.widget.Widget
@@ -90,8 +89,10 @@ import it.fast4x.rimusic.MainActivity
 import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.enums.AudioQualityFormat
+import it.fast4x.rimusic.enums.DurationInMilliseconds
 import it.fast4x.rimusic.enums.ExoPlayerCacheLocation
 import it.fast4x.rimusic.enums.ExoPlayerDiskCacheMaxSize
+import it.fast4x.rimusic.enums.ExoPlayerMinTimeForEvent
 import it.fast4x.rimusic.enums.NotificationButtons
 import it.fast4x.rimusic.enums.NotificationType
 import it.fast4x.rimusic.enums.PresetsReverb
@@ -100,7 +101,7 @@ import it.fast4x.rimusic.enums.WallpaperType
 import it.fast4x.rimusic.extensions.audiovolume.AudioVolumeObserver
 import it.fast4x.rimusic.extensions.audiovolume.OnAudioVolumeChangedListener
 import it.fast4x.rimusic.extensions.connectivity.AndroidConnectivityObserverLegacy
-import it.fast4x.rimusic.extensions.discord.sendDiscordPresence
+import it.fast4x.rimusic.extensions.discord.DiscordPresenceManager
 import it.fast4x.rimusic.isHandleAudioFocusEnabled
 import it.fast4x.rimusic.models.Event
 import it.fast4x.rimusic.models.PersistentQueue
@@ -116,8 +117,21 @@ import it.fast4x.rimusic.utils.TimerJob
 import it.fast4x.rimusic.utils.YouTubeRadio
 import it.fast4x.rimusic.utils.activityPendingIntent
 import it.fast4x.rimusic.utils.asMediaItem
+import it.fast4x.rimusic.utils.audioQualityFormatKey
+import it.fast4x.rimusic.utils.audioReverbPresetKey
+import it.fast4x.rimusic.utils.autoLoadSongsInQueueKey
+import it.fast4x.rimusic.utils.bassboostEnabledKey
+import it.fast4x.rimusic.utils.bassboostLevelKey
 import it.fast4x.rimusic.utils.broadCastPendingIntent
+import it.fast4x.rimusic.utils.closebackgroundPlayerKey
 import it.fast4x.rimusic.utils.collect
+import it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
+import it.fast4x.rimusic.utils.enableWallpaperKey
+import it.fast4x.rimusic.utils.encryptedPreferences
+import it.fast4x.rimusic.utils.exoPlayerCacheLocationKey
+import it.fast4x.rimusic.utils.exoPlayerCustomCacheKey
+import it.fast4x.rimusic.utils.exoPlayerDiskCacheMaxSizeKey
+import it.fast4x.rimusic.utils.exoPlayerMinTimeForEventKey
 import it.fast4x.rimusic.utils.fadeInEffect
 import it.fast4x.rimusic.utils.fadeOutEffect
 import it.fast4x.rimusic.utils.forcePlay
@@ -127,22 +141,44 @@ import it.fast4x.rimusic.utils.isAtLeastAndroid10
 import it.fast4x.rimusic.utils.isAtLeastAndroid6
 import it.fast4x.rimusic.utils.isAtLeastAndroid7
 import it.fast4x.rimusic.utils.isAtLeastAndroid8
-import it.fast4x.rimusic.utils.isAtLeastAndroid81
+import it.fast4x.rimusic.utils.isPauseOnVolumeZeroEnabledKey
+import it.fast4x.rimusic.utils.loudnessBaseGainKey
 import it.fast4x.rimusic.utils.manageDownload
 import it.fast4x.rimusic.utils.mediaItems
+import it.fast4x.rimusic.utils.minimumSilenceDurationKey
+import it.fast4x.rimusic.utils.notificationPlayerFirstIconKey
+import it.fast4x.rimusic.utils.notificationPlayerSecondIconKey
+import it.fast4x.rimusic.utils.notificationTypeKey
+import it.fast4x.rimusic.utils.pauseListenHistoryKey
+import it.fast4x.rimusic.utils.persistentQueueKey
 import it.fast4x.rimusic.utils.playNext
 import it.fast4x.rimusic.utils.playPrevious
+import it.fast4x.rimusic.utils.playbackFadeAudioDurationKey
+import it.fast4x.rimusic.utils.playbackPitchKey
+import it.fast4x.rimusic.utils.playbackSpeedKey
+import it.fast4x.rimusic.utils.playbackVolumeKey
 import it.fast4x.rimusic.utils.preferences
+import it.fast4x.rimusic.utils.putEnum
+import it.fast4x.rimusic.utils.queueLoopTypeKey
+import it.fast4x.rimusic.utils.resumePlaybackOnStartKey
+import it.fast4x.rimusic.utils.resumePlaybackWhenDeviceConnectedKey
 import it.fast4x.rimusic.utils.setGlobalVolume
+import it.fast4x.rimusic.utils.showDownloadButtonBackgroundPlayerKey
+import it.fast4x.rimusic.utils.showLikeButtonBackgroundPlayerKey
+import it.fast4x.rimusic.utils.skipMediaOnErrorKey
+import it.fast4x.rimusic.utils.skipSilenceKey
 import it.fast4x.rimusic.utils.timer
 import it.fast4x.rimusic.utils.toggleRepeatMode
 import it.fast4x.rimusic.utils.toggleShuffleMode
+import it.fast4x.rimusic.utils.volumeNormalizationKey
+import it.fast4x.rimusic.utils.wallpaperTypeKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -170,7 +206,8 @@ import kotlin.io.path.createTempDirectory
 import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import android.os.Binder as AndroidBinder
-
+import androidx.compose.ui.util.fastMap
+import it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 
 const val LOCAL_KEY_PREFIX = "local:"
 
@@ -201,10 +238,18 @@ class PlayerServiceModern : MediaLibraryService(),
     private var audioDeviceCallback: AudioDeviceCallback? = null
     private lateinit var downloadListener: DownloadManager.Listener
 
+
+    /**
+     * Discord presence
+     */
+    private var discordPresenceManager: DiscordPresenceManager? = null
+
     var loudnessEnhancer: LoudnessEnhancer? = null
     private var binder = Binder()
     private var bassBoost: BassBoost? = null
     private var reverbPreset: PresetReverb? = null
+    private var showLikeButton = true
+    private var showDownloadButton = true
 
     lateinit var audioQualityFormat: AudioQualityFormat
     lateinit var sleepTimer: SleepTimer
@@ -230,14 +275,9 @@ class PlayerServiceModern : MediaLibraryService(),
 
     @kotlin.OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     override fun onCreate() {
-        // When persistent queue is enabled, Android
-        // will start this service before MainApplication,
-        // this will cause [Settings.preferences] to
-        // throw error because it isn't init yet.
-        // Problem can be solved by loading it here
-        Preferences.load( this )
-
         super.onCreate()
+
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Enable Android Auto if disabled, REQUIRE ENABLING DEV MODE IN ANDROID AUTO
         try {
@@ -260,7 +300,8 @@ class PlayerServiceModern : MediaLibraryService(),
             }
         }
 
-        when( Preferences.NOTIFICATION_TYPE.value ){
+        val notificationType = preferences.getEnum(notificationTypeKey, NotificationType.Default)
+        when(notificationType){
             NotificationType.Default -> {
                 // DEFAULT NOTIFICATION PROVIDER
                 //        setMediaNotificationProvider(
@@ -311,18 +352,22 @@ class PlayerServiceModern : MediaLibraryService(),
             Timber.e("Failed init bitmap provider in PlayerService ${it.stackTraceToString()}")
         }
 
+        preferences.registerOnSharedPreferenceChangeListener(this)
+
         val preferences = preferences
-        isPersistentQueueEnabled = Preferences.ENABLE_PERSISTENT_QUEUE.value
+        isPersistentQueueEnabled = preferences.getBoolean(persistentQueueKey, false)
 
-        audioQualityFormat = Preferences.AUDIO_QUALITY.value
+        audioQualityFormat = preferences.getEnum(audioQualityFormatKey, AudioQualityFormat.Auto)
+        showLikeButton = preferences.getBoolean(showLikeButtonBackgroundPlayerKey, true)
+        showDownloadButton = preferences.getBoolean(showDownloadButtonBackgroundPlayerKey, true)
 
-        val cacheSize by Preferences.SONG_CACHE_SIZE
+        val cacheSize = preferences.getEnum( exoPlayerDiskCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` )
 
         val cacheEvictor = when( cacheSize ) {
             ExoPlayerDiskCacheMaxSize.Unlimited -> NoOpCacheEvictor()
 
             ExoPlayerDiskCacheMaxSize.Custom    -> {
-                val customCacheSize = Preferences.SONG_CACHE_CUSTOM_SIZE.value * 1000 * 1000L
+                val customCacheSize = preferences.getInt( exoPlayerCustomCacheKey, 32 ) * 1000 * 1000L
                 LeastRecentlyUsedCacheEvictor( customCacheSize )
             }
 
@@ -338,8 +383,8 @@ class PlayerServiceModern : MediaLibraryService(),
                 // Looks a bit ugly but what it does is
                 // check location set by user and return
                 // appropriate path with [CACHE_DIRNAME] appended.
-                when( Preferences.EXO_CACHE_LOCATION.value ) {
-                    ExoPlayerCacheLocation.System  -> cacheDir
+                when( preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
+                    ExoPlayerCacheLocation.System -> cacheDir
                     ExoPlayerCacheLocation.Private -> filesDir
                 }.resolve( CACHE_DIRNAME )
         }
@@ -373,8 +418,6 @@ class PlayerServiceModern : MediaLibraryService(),
                 addListener(sleepTimer)
                 addAnalyticsListener(PlaybackStatsListener(false, this@PlayerServiceModern))
             }
-
-        preferences.registerOnSharedPreferenceChangeListener(this)
 
         // Force player to add all commands available, prior to android 13
         val forwardingPlayer =
@@ -419,17 +462,17 @@ class PlayerServiceModern : MediaLibraryService(),
                 ))
                 .build()
 
-        player.skipSilenceEnabled = Preferences.AUDIO_SKIP_SILENCE.value
+        player.skipSilenceEnabled = preferences.getBoolean(skipSilenceKey, false)
         player.addListener(this@PlayerServiceModern)
         player.addAnalyticsListener(PlaybackStatsListener(false, this@PlayerServiceModern))
 
-        player.repeatMode = Preferences.QUEUE_LOOP_TYPE.value.type
+        player.repeatMode = preferences.getEnum(queueLoopTypeKey, QueueLoopType.Default).type
 
         binder.player.playbackParameters = PlaybackParameters(
-            Preferences.AUDIO_SPEED_VALUE.value,
-            Preferences.AUDIO_PITCH.value
+            preferences.getFloat(playbackSpeedKey, 1f),
+            preferences.getFloat(playbackPitchKey, 1f)
         )
-        binder.player.volume = Preferences.AUDIO_VOLUME.value
+        binder.player.volume = preferences.getFloat(playbackVolumeKey, 1f)
         binder.player.setGlobalVolume(binder.player.volume)
 
         // Keep a connected controller so that notification works
@@ -485,9 +528,6 @@ class PlayerServiceModern : MediaLibraryService(),
 
             updateDefaultNotification()
             withContext(Dispatchers.Main) {
-                if (song != null) {
-                    updateDiscordPresence()
-                }
                 updateWidgets()
             }
         }
@@ -513,7 +553,18 @@ class PlayerServiceModern : MediaLibraryService(),
 
         }
 
-
+        /**
+         * Discord presence
+         */
+        if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
+            val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
+            if (token?.isNotEmpty() == true) {
+                discordPresenceManager = DiscordPresenceManager(
+                    context = this,
+                    getToken = { token },
+                )
+            }
+        }
     }
 
     override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
@@ -527,8 +578,11 @@ class PlayerServiceModern : MediaLibraryService(),
 
     override fun onRepeatModeChanged(repeatMode: Int) {
         updateDefaultNotification()
-        Preferences.QUEUE_LOOP_TYPE.value = QueueLoopType.from( repeatMode )
+        preferences.edit {
+            putEnum(queueLoopTypeKey, QueueLoopType.from(repeatMode))
+        }
     }
+
 
 
 
@@ -537,7 +591,7 @@ class PlayerServiceModern : MediaLibraryService(),
         playbackStats: PlaybackStats
     ) {
         // if pause listen history is enabled, don't register statistic event
-        if ( Preferences.PAUSE_HISTORY.value ) return
+        if (preferences.getBoolean(pauseListenHistoryKey, false)) return
 
         val mediaItem =
             eventTime.timeline.getWindow(eventTime.windowIndex, Timeline.Window()).mediaItem
@@ -550,7 +604,8 @@ class PlayerServiceModern : MediaLibraryService(),
             }
 
 
-        val minTimeForEvent by Preferences.QUICK_PICKS_MIN_DURATION
+        val minTimeForEvent =
+            preferences.getEnum(exoPlayerMinTimeForEventKey, ExoPlayerMinTimeForEvent.`20s`)
 
         if ( totalPlayTimeMs > minTimeForEvent.asMillis ) {
             Database.asyncTransaction {
@@ -567,7 +622,7 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        isclosebackgroundPlayerEnabled = Preferences.CLOSE_BACKGROUND_JOB_IN_TASK_MANAGER.value
+        isclosebackgroundPlayerEnabled = preferences.getBoolean(closebackgroundPlayerKey, false)
         if (isclosebackgroundPlayerEnabled) {
             broadCastPendingIntent<NotificationDismissReceiver>().send()
             this.stopService(this.intent<MyDownloadService>())
@@ -580,74 +635,74 @@ class PlayerServiceModern : MediaLibraryService(),
     @UnstableApi
     override fun onDestroy() {
         runCatching {
+            /**
+             * Discord presence cleanup
+             */
+            if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
+                Toaster.i("[DiscordPresence] onStop: call the manager (close discord presence)")
+                discordPresenceManager?.onStop()
+            }
             maybeSavePlayerQueue()
-
             preferences.unregisterOnSharedPreferenceChangeListener(this)
-
             stopService(intent<MyDownloadService>())
             stopService(intent<PlayerServiceModern>())
-
             player.removeListener(this)
             player.stop()
             player.release()
-
             try{
                 unregisterReceiver(notificationActionReceiver)
             } catch (e: Exception){
-                Timber.e("PlayerServiceModern onDestroy unregisterReceiver notificationActionReceiver ${e.stackTraceToString()}")
+                Timber.e("PlayerServiceModern onDestroy unregisterReceiver notificationActionReceiver "+e.stackTraceToString())
             }
-
-
             mediaSession.release()
             cache.release()
             //downloadCache.release()
             MyDownloadHelper.getDownloadManager(this).removeListener(downloadListener)
-
             loudnessEnhancer?.release()
             audioVolumeObserver.unregister()
-
             timerJob?.cancel()
             timerJob = null
-
             notificationManager?.cancel(NotificationId)
             notificationManager?.cancelAll()
             notificationManager = null
-
             coroutineScope.cancel()
 
         }.onFailure {
-            Timber.e("Failed onDestroy in PlayerService ${it.stackTraceToString()}")
+            Timber.e("Failed onDestroy in PlayerService "+it.stackTraceToString())
         }
         super.onDestroy()
     }
 
 
-    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         when (key) {
-            Preferences.ENABLE_PERSISTENT_QUEUE.key ->
-                isPersistentQueueEnabled = sharedPreferences.getBoolean( key, Preferences.ENABLE_PERSISTENT_QUEUE.defaultValue )
+            persistentQueueKey -> if (sharedPreferences != null) {
+                isPersistentQueueEnabled =
+                    sharedPreferences.getBoolean(key, isPersistentQueueEnabled)
+            }
 
-            Preferences.AUDIO_VOLUME_NORMALIZATION.key,
-            Preferences.AUDIO_VOLUME_NORMALIZATION_TARGET.key -> maybeNormalizeVolume()
+            volumeNormalizationKey, loudnessBaseGainKey -> maybeNormalizeVolume()
 
-            Preferences.RESUME_PLAYBACK_WHEN_CONNECT_TO_AUDIO_DEVICE.key -> maybeResumePlaybackWhenDeviceConnected()
+            resumePlaybackWhenDeviceConnectedKey -> maybeResumePlaybackWhenDeviceConnected()
 
-            Preferences.AUDIO_SKIP_SILENCE.key ->
-                player.skipSilenceEnabled = sharedPreferences.getBoolean( key, Preferences.AUDIO_SKIP_SILENCE.defaultValue )
+            skipSilenceKey -> if (sharedPreferences != null) {
+                player.skipSilenceEnabled = sharedPreferences.getBoolean(key, false)
+            }
 
-            Preferences.QUEUE_LOOP_TYPE.key ->
-                player.repeatMode = sharedPreferences.getEnum( key, Preferences.QUEUE_LOOP_TYPE.defaultValue ).type
+            queueLoopTypeKey -> {
+                player.repeatMode =
+                    sharedPreferences?.getEnum(queueLoopTypeKey, QueueLoopType.Default)?.type
+                        ?: QueueLoopType.Default.type
+            }
 
-            Preferences.AUDIO_BASS_BOOST_LEVEL.key,
-            Preferences.AUDIO_BASS_BOOSTED.key -> maybeBassBoost()
-
-            Preferences.AUDIO_REVERB_PRESET.key -> maybeReverb()
+            bassboostLevelKey, bassboostEnabledKey -> maybeBassBoost()
+            audioReverbPresetKey -> maybeReverb()
         }
     }
 
     private var pausedByZeroVolume = false
     override fun onAudioVolumeChanged(currentVolume: Int, maxVolume: Int) {
-        if ( Preferences.PAUSE_WHEN_VOLUME_SET_TO_ZERO.value ) {
+        if (preferences.getBoolean(isPauseOnVolumeZeroEnabledKey, false)) {
             if (player.isPlaying && currentVolume < 1) {
                 binder.gracefulPause()
                 pausedByZeroVolume = true
@@ -670,25 +725,39 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-
         println("PlayerServiceModern onMediaItemTransition mediaItem $mediaItem reason $reason")
-
         currentMediaItem.update { mediaItem }
         maybeRecoverPlaybackError()
         maybeNormalizeVolume()
-
         loadFromRadio(reason)
+        // Update bitmap with proper fallback handling
+        bitmapProvider.load(binder.player.currentMediaItem?.mediaMetadata?.artworkUri) {
+            updateDefaultNotification()
+            updateWidgets()
+        }
 
-        with(bitmapProvider) {
-            var newUriForLoad = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
-            if(lastUri == binder.player.currentMediaItem?.mediaMetadata?.artworkUri) {
-                newUriForLoad = null
+        /**
+         * Discord presence
+         */
+        val title = mediaItem?.mediaMetadata?.title ?: "<none>"
+        val duration = player.duration
+        val now = System.currentTimeMillis()
+        if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
+            val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
+            if (token?.isNotEmpty() == true) {
+                // Capture current values to avoid thread safety issues
+                val currentPosition = player.currentPosition
+                val isPlaying = player.isPlaying
+                discordPresenceManager?.onPlayingStateChanged(
+                    mediaItem,
+                    isPlaying,
+                    currentPosition,
+                    duration,
+                    now,
+                    getCurrentPosition = { currentPosition },
+                    isPlayingProvider = { isPlaying }
+                )
             }
-
-            load(newUriForLoad, {
-                updateDefaultNotification()
-                updateWidgets()
-            })
         }
     }
 
@@ -709,8 +778,36 @@ class PlayerServiceModern : MediaLibraryService(),
         }
     }
 
+
+
+    /**
+     * Discord presence
+     */
     @UnstableApi
-    override fun onIsPlayingChanged(isPlaying: Boolean) = updateWidgets()
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+        val item = player.currentMediaItem
+        val title = item?.mediaMetadata?.title ?: "<none>"
+        val duration = player.duration
+        val now = System.currentTimeMillis()
+        
+        if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
+            val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
+            if (token?.isNotEmpty() == true) {
+                // Capture current values to avoid thread safety issues
+                val currentPosition = player.currentPosition
+                discordPresenceManager?.onPlayingStateChanged(
+                    item,
+                    isPlaying,
+                    currentPosition,
+                    duration,
+                    now,
+                    getCurrentPosition = { currentPosition },
+                    isPlayingProvider = { isPlaying }
+                )
+            }
+        }
+        updateWidgets()
+    }
 
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
@@ -748,7 +845,7 @@ class PlayerServiceModern : MediaLibraryService(),
             return
         }
 
-        if ( !Preferences.PLAYBACK_SKIP_ON_ERROR.value || !player.hasNextMediaItem() )
+        if (!preferences.getBoolean(skipMediaOnErrorKey, false) || !player.hasNextMediaItem())
             return
 
         val prev = player.currentMediaItem ?: return
@@ -797,26 +894,21 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     private fun loadFromRadio( reason: Int ) {
+        val isEnabled = preferences.getBoolean( autoLoadSongsInQueueKey, true )
+        val isRepeatTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+
         // Don't fetch more item if:
         // - Feature is disabled
         // - When song is repeated
         // - Start new queue
-        if( !Preferences.QUEUE_AUTO_APPEND.value
-            || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
-            || reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED
-        ) return
-
-        val positionToLast = player.mediaItemCount - player.currentMediaItemIndex
-        // Make sure only add when about 10 songs to the last song in queue
-        // TODO: Add slider in settings to let user change number of songs
-        if( positionToLast <= 10 && !binder.isLoadingRadio )
+        if( isEnabled && !isRepeatTransition && !binder.isLoadingRadio && player.mediaItemCount > 1 && preferences.getBoolean(autoLoadSongsInQueueKey, true) )
             player.currentMediaItem?.let {
                 binder.startRadio( it, true )
             }
     }
 
     private fun maybeBassBoost() {
-        if ( !Preferences.AUDIO_BASS_BOOSTED.value ) {
+        if (!preferences.getBoolean(bassboostEnabledKey, false)) {
             runCatching {
                 bassBoost?.enabled = false
                 bassBoost?.release()
@@ -829,7 +921,7 @@ class PlayerServiceModern : MediaLibraryService(),
         runCatching {
             if (bassBoost == null) bassBoost = BassBoost(0, player.audioSessionId)
             val bassboostLevel =
-                (Preferences.AUDIO_BASS_BOOST_LEVEL.value * 1000f).toInt().toShort()
+                (preferences.getFloat(bassboostLevelKey, 0.5f) * 1000f).toInt().toShort()
             println("PlayerServiceModern maybeBassBoost bassboostLevel $bassboostLevel")
             bassBoost?.enabled = false
             bassBoost?.setStrength(bassboostLevel)
@@ -840,7 +932,7 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     private fun maybeReverb() {
-        val presetType by Preferences.AUDIO_REVERB_PRESET
+        val presetType = preferences.getEnum(audioReverbPresetKey, PresetsReverb.NONE)
         println("PlayerServiceModern maybeReverb presetType $presetType")
         if (presetType == PresetsReverb.NONE) {
             runCatching {
@@ -864,7 +956,7 @@ class PlayerServiceModern : MediaLibraryService(),
 
     @UnstableApi
     private fun maybeNormalizeVolume() {
-        if ( !Preferences.AUDIO_VOLUME_NORMALIZATION.value ) {
+        if (!preferences.getBoolean(volumeNormalizationKey, false)) {
             loudnessEnhancer?.enabled = false
             loudnessEnhancer?.release()
             loudnessEnhancer = null
@@ -882,7 +974,7 @@ class PlayerServiceModern : MediaLibraryService(),
             return
         }
 
-        val baseGain by Preferences.AUDIO_VOLUME_NORMALIZATION_TARGET
+        val baseGain = preferences.getFloat(loudnessBaseGainKey, 5.00f)
         player.currentMediaItem?.mediaId?.let { songId ->
             volumeNormalizationJob?.cancel()
             volumeNormalizationJob = coroutineScope.launch(Dispatchers.Main) {
@@ -918,7 +1010,7 @@ class PlayerServiceModern : MediaLibraryService(),
     private fun maybeResumePlaybackWhenDeviceConnected() {
         if (!isAtLeastAndroid6) return
 
-        if ( Preferences.RESUME_PLAYBACK_WHEN_CONNECT_TO_AUDIO_DEVICE.value ) {
+        if (preferences.getBoolean(resumePlaybackWhenDeviceConnectedKey, false)) {
             if (audioManager == null) {
                 audioManager = getSystemService(AUDIO_SERVICE) as AudioManager?
             }
@@ -956,9 +1048,9 @@ class PlayerServiceModern : MediaLibraryService(),
             enableFloatOutput: Boolean,
             enableAudioTrackPlaybackParams: Boolean
         ): AudioSink {
-            val minimumSilenceDuration: Long = Preferences.AUDIO_SKIP_SILENCE_LENGTH
-                                                       .value
-                                                       .coerceIn( 1_000L..2_000_000L )
+            val minimumSilenceDuration = preferences.getLong(
+                minimumSilenceDurationKey, 2_000_000L
+            ).coerceIn(1000L..2_000_000L)
 
             return DefaultAudioSink.Builder(applicationContext)
                 .setEnableFloatOutput(enableFloatOutput)
@@ -997,8 +1089,8 @@ class PlayerServiceModern : MediaLibraryService(),
 
 
     private fun buildCustomCommandButtons(): MutableList<CommandButton> {
-        val notificationPlayerFirstIcon by Preferences.MEDIA_NOTIFICATION_FIRST_ICON
-        val notificationPlayerSecondIcon by Preferences.MEDIA_NOTIFICATION_SECOND_ICON
+        val notificationPlayerFirstIcon = preferences.getEnum(notificationPlayerFirstIconKey, NotificationButtons.Download)
+        val notificationPlayerSecondIcon = preferences.getEnum(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
 
         val commandButtonsList = mutableListOf<CommandButton>()
         val firstCommandButton = NotificationButtons.entries.let { buttons ->
@@ -1081,7 +1173,10 @@ class PlayerServiceModern : MediaLibraryService(),
 
         val mediaMetadata = player.mediaMetadata
 
-        bitmapProvider.load(mediaMetadata.artworkUri) {}
+        // Load bitmap with proper fallback handling
+        bitmapProvider.load(mediaMetadata.artworkUri) {
+            // Callback is called with the final bitmap (including fallback)
+        }
 
         val customNotify = if (isAtLeastAndroid8) {
             NotificationCompat.Builder(this, NotificationChannelId)
@@ -1124,8 +1219,8 @@ class PlayerServiceModern : MediaLibraryService(),
             .addAction(R.drawable.play_skip_forward, "Skip forward", nextIntent)
 
         //***********************
-        val notificationPlayerFirstIcon by Preferences.MEDIA_NOTIFICATION_FIRST_ICON
-        val notificationPlayerSecondIcon by Preferences.MEDIA_NOTIFICATION_SECOND_ICON
+        val notificationPlayerFirstIcon = preferences.getEnum(notificationPlayerFirstIconKey, NotificationButtons.Download)
+        val notificationPlayerSecondIcon = preferences.getEnum(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
 
         NotificationButtons.entries.let { buttons ->
             buttons
@@ -1188,8 +1283,8 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     private fun updateWallpaper() {
-        val wallpaperEnabled by Preferences.ENABLE_WALLPAPER
-        val wallpaperType by Preferences.WALLPAPER_TYPE
+        val wallpaperEnabled = preferences.getBoolean(enableWallpaperKey, false)
+        val wallpaperType = preferences.getEnum(wallpaperTypeKey, WallpaperType.Lockscreen)
         if (isAtLeastAndroid7 && wallpaperEnabled) {
             coroutineScope.launch(Dispatchers.IO) {
                 val wpManager = WallpaperManager.getInstance(this@PlayerServiceModern)
@@ -1210,32 +1305,6 @@ class PlayerServiceModern : MediaLibraryService(),
         }
 
     }
-
-
-    private fun updateDiscordPresence() {
-        val isDiscordPresenceEnabled by Preferences.DISCORD_LOGIN
-        if (!isDiscordPresenceEnabled || !isAtLeastAndroid81) return
-
-        val discordPersonalAccessToken by Preferences.DISCORD_ACCESS_TOKEN
-
-        runCatching {
-            if (!discordPersonalAccessToken.isNullOrEmpty()) {
-                player.currentMediaItem?.let {
-                    sendDiscordPresence(
-                        discordPersonalAccessToken,
-                        it,
-                        timeStart = if (player.isPlaying)
-                            System.currentTimeMillis() - player.currentPosition else 0L,
-                        timeEnd = if (player.isPlaying)
-                            (System.currentTimeMillis() - player.currentPosition) + player.duration else 0L
-                    )
-                }
-            }
-        }.onFailure {
-            Timber.e("PlayerService Failed sendDiscordPresence in PlayerService ${it.stackTraceToString()}")
-        }
-    }
-
 
     fun toggleLike() {
         binder.toggleLike()
@@ -1318,8 +1387,32 @@ class PlayerServiceModern : MediaLibraryService(),
         newPosition: Player.PositionInfo,
         reason: Int
     ) {
-        Timber.d("PlayerServiceModern onPositionDiscontinuity oldPosition ${oldPosition.mediaItemIndex} newPosition ${newPosition.mediaItemIndex} reason $reason")
-        println("PlayerServiceModern onPositionDiscontinuity oldPosition ${oldPosition.mediaItemIndex} newPosition ${newPosition.mediaItemIndex} reason $reason")
+        Timber.d("PlayerServiceModern onPositionDiscontinuity oldPosition "+oldPosition.mediaItemIndex+" newPosition "+newPosition.mediaItemIndex+" reason "+reason)
+        println("PlayerServiceModern onPositionDiscontinuity oldPosition "+oldPosition.mediaItemIndex+" newPosition "+newPosition.mediaItemIndex+" reason "+reason)
+        
+        // Discord presence: update on seek/skip
+        if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SKIP) {
+            if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
+                val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
+                if (token?.isNotEmpty() == true) {
+                    // Capture current values to avoid thread safety issues
+                    val currentMediaItem = player.currentMediaItem
+                    val isPlaying = player.isPlaying
+                    val currentPosition = player.currentPosition
+                    val duration = player.duration
+                    val now = System.currentTimeMillis()
+                    discordPresenceManager?.onPlayingStateChanged(
+                        currentMediaItem,
+                        isPlaying,
+                        currentPosition,
+                        duration,
+                        now,
+                        getCurrentPosition = { currentPosition },
+                        isPlayingProvider = { isPlaying }
+                    )
+                }
+            }
+        }
         super.onPositionDiscontinuity(oldPosition, newPosition, reason)
     }
 
@@ -1356,7 +1449,7 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     private fun maybeResumePlaybackOnStart() {
-        if( isPersistentQueueEnabled && Preferences.RESUME_PLAYBACK_ON_STARTUP.value )
+        if( isPersistentQueueEnabled && preferences.getBoolean(resumePlaybackOnStartKey, false) )
             binder.gracefulPlay()
     }
 
@@ -1505,12 +1598,13 @@ class PlayerServiceModern : MediaLibraryService(),
             return super.getNotificationContentTitle(customMetadata)
         }
 
-//        override fun getNotificationContentText(metadata: MediaMetadata): CharSequence? {
-//            val customMetadata = MediaMetadata.Builder()
-//                .setArtist(cleanPrefix(metadata.artist?.toString() ?: ""))
-//                .build()
-//            return super.getNotificationContentText(customMetadata)
-//        }
+        override fun getNotificationContentText(metadata: MediaMetadata): CharSequence? {
+            val customMetadata = MediaMetadata.Builder()
+                .setArtist(cleanPrefix(metadata.artist?.toString() ?: ""))
+                .setAlbumTitle(cleanPrefix(metadata.albumTitle?.toString() ?: ""))
+                .build()
+            return super.getNotificationContentText(customMetadata)
+        }
     }
 
 
@@ -1598,8 +1692,6 @@ class PlayerServiceModern : MediaLibraryService(),
         fun startSleepTimer(delayMillis: Long) {
             timerJob?.cancel()
 
-
-
             timerJob = coroutineScope.timer(delayMillis) {
                 val notification = NotificationCompat
                     .Builder(this@PlayerServiceModern, SleepTimerNotificationChannelId)
@@ -1613,8 +1705,11 @@ class PlayerServiceModern : MediaLibraryService(),
 
                 notificationManager?.notify(SleepTimerNotificationId, notification)
 
-                stopSelf()
-                exitProcess(0)
+                coroutineScope.launch {
+                    delay(1000)
+                    stopSelf()
+                    exitProcess(0)
+                }
             }
         }
 
@@ -1677,8 +1772,8 @@ class PlayerServiceModern : MediaLibraryService(),
 
                                  // Any call to [player] must happen on Main thread
                                  val currentQueue = withContext( Dispatchers.Main ) {
-                                     player.mediaItems.fastMap( MediaItem::mediaId )
-                                 }
+                                    player.mediaItems.fastMap( MediaItem::mediaId )
+                                }
 
                                  // Songs with the same id as provided [Song] should be removed.
                                  // The song usually lives at the the first index, but this
@@ -1731,7 +1826,7 @@ class PlayerServiceModern : MediaLibraryService(),
          */
         @MainThread
         fun gracefulPause() {
-            val duration by Preferences.AUDIO_FADE_DURATION
+            val duration = preferences.getEnum( playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled )
             player.fadeOutEffect( duration.asMillis )
         }
 
@@ -1740,7 +1835,7 @@ class PlayerServiceModern : MediaLibraryService(),
          */
         @MainThread
         fun gracefulPlay() {
-            val duration by Preferences.AUDIO_FADE_DURATION
+            val duration = preferences.getEnum( playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled )
             player.fadeInEffect( duration.asMillis )
         }
 

@@ -5,8 +5,7 @@ import androidx.compose.runtime.compositionLocalOf
 
 typealias PersistMap = HashMap<String, Any?>
 
-val LocalPersistMap = compositionLocalOf<PersistMap?> {
-    Log.e("PersistMap", "Tried to reference uninitialized PersistMap, stacktrace:")
-    runCatching { error("Stack:") }.exceptionOrNull()?.printStackTrace()
-    null
+val LocalPersistMap = compositionLocalOf<PersistMap?> { 
+    // Don't log error when PersistMap is not available (it's disabled)
+    null 
 }

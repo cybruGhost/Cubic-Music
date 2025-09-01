@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
+import me.knighthat.coil.ImageCacheFactory
 import com.google.gson.annotations.SerializedName
 import app.kreate.android.R
 import it.fast4x.rimusic.ui.styling.favoritesIcon
@@ -50,7 +50,7 @@ data class Translator(
     @Composable
     fun Draw() {
         val uriHandler = LocalUriHandler.current
-        val avatarPainter = rememberAsyncImagePainter( this.avatarUrl )
+        val avatarPainter = ImageCacheFactory.Painter( this.avatarUrl )
         val backgroundColor = Color.Transparent
 
 

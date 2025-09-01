@@ -12,17 +12,20 @@ fun PersistMapCleanup(tagPrefix: String) {
     val context = LocalContext.current
     val persistMap = LocalPersistMap.current
 
-    DisposableEffect(context) {
-        onDispose {
-            if (context.findOwner<Activity>()?.isChangingConfigurations == false) {
-                context.persistMap?.keys?.removeAll { it.startsWith(tagPrefix) }
+    // Only run cleanup if PersistMap is available
+    if (persistMap != null) {
+        DisposableEffect(context) {
+            onDispose {
+                if (context.findOwner<Activity>()?.isChangingConfigurations == false) {
+                    context.persistMap?.keys?.removeAll { it.startsWith(tagPrefix) }
+                }
             }
         }
-    }
-    DisposableEffect(persistMap) {
-        onDispose {
-            if (context.findActivityNullable()?.isChangingConfigurations == false)
-                persistMap?.keys?.removeAll { it.startsWith(tagPrefix) }
+        DisposableEffect(persistMap) {
+            onDispose {
+                if (context.findActivityNullable()?.isChangingConfigurations == false)
+                    persistMap.keys?.removeAll { it.startsWith(tagPrefix) }
+            }
         }
     }
 }

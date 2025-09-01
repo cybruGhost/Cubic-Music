@@ -83,6 +83,8 @@
 # Keep classes with @JsonAdapter annotation
 -keep,allowobfuscation,allowoptimization @com.google.gson.annotations.JsonAdapter class *
 
+-dontwarn lombok.Generated
+
 ##---------------End: proguard configuration for Gson  ----------
 
 ## Rules for NewPipeExtractor
@@ -119,3 +121,4 @@
 -dontwarn jdk.dynalink.linker.support.CompositeTypeBasedGuardingDynamicLinker
 -dontwarn jdk.dynalink.linker.support.Guards
 -dontwarn jdk.dynalink.support.ChainedCallSite
+-dontwarn okhttp3.internal.Util

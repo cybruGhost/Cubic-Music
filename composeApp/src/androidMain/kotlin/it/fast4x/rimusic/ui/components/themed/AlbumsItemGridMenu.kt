@@ -8,16 +8,20 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.compositeOver
@@ -37,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
@@ -49,16 +55,27 @@ import it.fast4x.rimusic.PIPED_PREFIX
 import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
+import it.fast4x.rimusic.enums.PlaylistSortBy
+import it.fast4x.rimusic.enums.SortOrder
 import it.fast4x.rimusic.models.Album
 import it.fast4x.rimusic.models.Playlist
 import it.fast4x.rimusic.models.PlaylistPreview
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.items.AlbumItem
 import it.fast4x.rimusic.ui.styling.Dimensions
+import it.fast4x.rimusic.ui.styling.favoritesIcon
 import it.fast4x.rimusic.ui.styling.px
+import it.fast4x.rimusic.utils.conditional
 import it.fast4x.rimusic.utils.isNetworkConnected
+import it.fast4x.rimusic.utils.playlistSortByKey
+import it.fast4x.rimusic.utils.playlistSortOrderKey
+import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
+import me.knighthat.component.tab.Search
+import me.knighthat.component.playlist.NewPlaylistDialog
+import me.knighthat.utils.Toaster
+
 
 @ExperimentalTextApi
 @SuppressLint("SuspiciousIndentation")
@@ -94,7 +111,7 @@ fun AlbumsItemGridMenu(
         mutableStateOf(0.dp)
     }
 
-    val thumbnailSizeDp = Dimensions.thumbnails.song + 20.dp
+    val thumbnailSizeDp = Dimensions.thumbnails.song + 40.dp
     val thumbnailSizePx = thumbnailSizeDp.px
 
         AnimatedContent(
@@ -111,8 +128,10 @@ fun AlbumsItemGridMenu(
         ) { currentIsViewingPlaylists ->
             if (currentIsViewingPlaylists) {
                 val context = LocalContext.current
+                val sortBy by rememberPreference(playlistSortByKey, PlaylistSortBy.DateAdded)
+                val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
                 val playlistPreviews by remember {
-                    Database.playlistTable.sortPreviewsByName()
+                    Database.playlistTable.sortPreviews( sortBy, sortOrder )
                 }.collectAsState( emptyList(), Dispatchers.IO )
 
                 val pinnedPlaylists = playlistPreviews.filter {
@@ -160,13 +179,16 @@ fun AlbumsItemGridMenu(
                     isViewingPlaylists = false
                 }
 
+                val search = Search()
+                val newPlaylistButton = NewPlaylistDialog()
+                newPlaylistButton.Render()
+                val filteredPinnedPlaylists = pinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+                val filteredYoutubePlaylists = youtubePlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
+                val filteredUnpinnedPlaylists = unpinnedPlaylists.filter { it.playlist.name.contains(search.inputValue, true) }
                 Menu(
-                    modifier = modifier
-                        //.requiredHeight(height)
-                        .fillMaxHeight(0.5f)
+                    modifier = modifier.height((height * 1.3f).coerceAtLeast(height + 80.dp)),
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -180,39 +202,45 @@ fun AlbumsItemGridMenu(
                                 .padding(all = 4.dp)
                                 .size(20.dp)
                         )
-
-                        if (onAddToPlaylist != null) {
-                            SecondaryTextButton(
-                                text = stringResource(R.string.new_playlist),
-                                onClick = { isCreatingNewPlaylist = true },
-                                alternative = true
-                            )
-                        }
+                        IconButton(
+                            onClick = { search.isVisible = !search.isVisible },
+                            icon = R.drawable.search_circle,
+                            color = colorPalette().favoritesIcon,
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(24.dp)
+                        )
+                        BasicText(
+                            text = stringResource(R.string.playlists),
+                            style = typography().m.semiBold,
+                            modifier = Modifier.weight(1f).padding(start = 8.dp)
+                        )
+                        newPlaylistButton.ToolBarButton()
                     }
-
-                    if (pinnedPlaylists.isNotEmpty()) {
+                    if (search.isVisible) {
+                        search.SearchBar(this)
+                    }
+                    if (filteredPinnedPlaylists.isNotEmpty()) {
                         BasicText(
                             text = stringResource(R.string.pinned_playlists),
                             style = typography().m.semiBold,
                             modifier = modifier.padding(start = 20.dp, top = 5.dp)
                         )
-
                         onAddToPlaylist?.let { onAddToPlaylist ->
-                            pinnedPlaylists.forEach { playlistPreview ->
+                            filteredPinnedPlaylists.forEach { playlistPreview ->
                                 MenuEntry(
                                     icon = R.drawable.add_in_playlist,
                                     text = cleanPrefix(playlistPreview.playlist.name),
-                                    secondaryText = "${playlistPreview.songCount} " + stringResource(
-                                        R.string.songs
-                                    ),
+                                    secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                     onClick = {
-                                        onDismiss()
                                         onAddToPlaylist(
                                             PlaylistPreview(
                                                 playlistPreview.playlist,
                                                 playlistPreview.songCount
                                             )
                                         )
+                                        Toaster.done()
+                                        onDismiss()
                                     },
                                     trailingContent = {
                                         if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -220,8 +248,7 @@ fun AlbumsItemGridMenu(
                                                 painter = painterResource(R.drawable.piped_logo),
                                                 contentDescription = null,
                                                 colorFilter = ColorFilter.tint(colorPalette().red),
-                                                modifier = Modifier
-                                                    .size(18.dp)
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         if (playlistPreview.playlist.isYoutubePlaylist) {
                                             Image(
@@ -230,8 +257,7 @@ fun AlbumsItemGridMenu(
                                                 colorFilter = ColorFilter.tint(
                                                     Color.Red.copy(0.75f).compositeOver(Color.White)
                                                 ),
-                                                modifier = Modifier
-                                                    .size(18.dp)
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
                                         IconButton(
@@ -244,80 +270,35 @@ fun AlbumsItemGridMenu(
                                                 }
                                                 navController.navigate(route = "${NavRoutes.localPlaylist.name}/${playlistPreview.playlist.id}")
                                             },
-                                            modifier = Modifier
-                                                .size(24.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
-                                    }
+                                    },
+                                    disableScrollingText = disableScrollingText
                                 )
                             }
                         }
                     }
-
-                    if (youtubePlaylists.isNotEmpty() && isNetworkConnected(context)) {
+                    if (filteredYoutubePlaylists.isNotEmpty() && isNetworkConnected(LocalContext.current)) {
                         BasicText(
                             text = stringResource(R.string.ytm_playlists),
                             style = typography().m.semiBold,
                             modifier = Modifier.padding(start = 20.dp, top = 5.dp)
                         )
-
                         onAddToPlaylist?.let { onAddToPlaylist ->
-                            youtubePlaylists.forEach { playlistPreview ->
+                            filteredYoutubePlaylists.forEach { playlistPreview ->
                                 MenuEntry(
                                     icon = R.drawable.add_in_playlist,
                                     text = cleanPrefix(playlistPreview.playlist.name),
                                     secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
                                     onClick = {
-                                        onDismiss()
                                         onAddToPlaylist(
                                             PlaylistPreview(
                                                 playlistPreview.playlist,
                                                 playlistPreview.songCount
                                             )
                                         )
-                                    },
-                                    trailingContent = {
-                                        IconButton(
-                                            icon = R.drawable.open,
-                                            color = colorPalette().text,
-                                            onClick = {
-                                                if (onGoToPlaylist != null) {
-                                                    onGoToPlaylist(playlistPreview.playlist.id)
-                                                    onDismiss()
-                                                }
-                                                navController.navigate(route = "${NavRoutes.localPlaylist.name}/${playlistPreview.playlist.id}")
-                                            },
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    if (unpinnedPlaylists.isNotEmpty()) {
-                        BasicText(
-                            text = stringResource(R.string.playlists),
-                            style = typography().m.semiBold,
-                            modifier = modifier.padding(start = 20.dp, top = 5.dp)
-                        )
-
-                        onAddToPlaylist?.let { onAddToPlaylist ->
-                            unpinnedPlaylists.forEach { playlistPreview ->
-                                MenuEntry(
-                                    icon = R.drawable.add_in_playlist,
-                                    text = cleanPrefix(playlistPreview.playlist.name),
-                                    secondaryText = "${playlistPreview.songCount} " + stringResource(
-                                        R.string.songs
-                                    ),
-                                    onClick = {
+                                        Toaster.done()
                                         onDismiss()
-                                        onAddToPlaylist(
-                                            PlaylistPreview(
-                                                playlistPreview.playlist,
-                                                playlistPreview.songCount
-                                            )
-                                        )
                                     },
                                     trailingContent = {
                                         if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
@@ -325,10 +306,18 @@ fun AlbumsItemGridMenu(
                                                 painter = painterResource(R.drawable.piped_logo),
                                                 contentDescription = null,
                                                 colorFilter = ColorFilter.tint(colorPalette().red),
-                                                modifier = Modifier
-                                                    .size(18.dp)
+                                                modifier = Modifier.size(18.dp)
                                             )
-
+                                        if (playlistPreview.playlist.isYoutubePlaylist) {
+                                            Image(
+                                                painter = painterResource(R.drawable.ytmusic),
+                                                contentDescription = null,
+                                                colorFilter = ColorFilter.tint(
+                                                    Color.Red.copy(0.75f).compositeOver(Color.White)
+                                                ),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                         IconButton(
                                             icon = R.drawable.open,
                                             color = colorPalette().text,
@@ -339,10 +328,68 @@ fun AlbumsItemGridMenu(
                                                 }
                                                 navController.navigate(route = "${NavRoutes.localPlaylist.name}/${playlistPreview.playlist.id}")
                                             },
-                                            modifier = Modifier
-                                                .size(24.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
-                                    }
+                                    },
+                                    disableScrollingText = disableScrollingText
+                                )
+                            }
+                        }
+                    }
+                    if (filteredUnpinnedPlaylists.isNotEmpty()) {
+                        BasicText(
+                            text = stringResource(R.string.playlists),
+                            style = typography().m.semiBold,
+                            modifier = modifier.padding(start = 20.dp, top = 5.dp)
+                        )
+                        onAddToPlaylist?.let { onAddToPlaylist ->
+                            filteredUnpinnedPlaylists.forEach { playlistPreview ->
+                                MenuEntry(
+                                    icon = R.drawable.add_in_playlist,
+                                    text = cleanPrefix(playlistPreview.playlist.name),
+                                    secondaryText = "${playlistPreview.songCount} " + stringResource(R.string.songs),
+                                    onClick = {
+                                        onAddToPlaylist(
+                                            PlaylistPreview(
+                                                playlistPreview.playlist,
+                                                playlistPreview.songCount
+                                            )
+                                        )
+                                        Toaster.done()
+                                        onDismiss()
+                                    },
+                                    trailingContent = {
+                                        if (playlistPreview.playlist.name.startsWith(PIPED_PREFIX, 0, true))
+                                            Image(
+                                                painter = painterResource(R.drawable.piped_logo),
+                                                contentDescription = null,
+                                                colorFilter = ColorFilter.tint(colorPalette().red),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        if (playlistPreview.playlist.isYoutubePlaylist) {
+                                            Image(
+                                                painter = painterResource(R.drawable.ytmusic),
+                                                contentDescription = null,
+                                                colorFilter = ColorFilter.tint(
+                                                    Color.Red.copy(0.75f).compositeOver(Color.White)
+                                                ),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        IconButton(
+                                            icon = R.drawable.open,
+                                            color = colorPalette().text,
+                                            onClick = {
+                                                if (onGoToPlaylist != null) {
+                                                    onGoToPlaylist(playlistPreview.playlist.id)
+                                                    onDismiss()
+                                                }
+                                                navController.navigate(route = "${NavRoutes.localPlaylist.name}/${playlistPreview.playlist.id}")
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    },
+                                    disableScrollingText = disableScrollingText
                                 )
                             }
                         }
@@ -362,13 +409,60 @@ fun AlbumsItemGridMenu(
                             .calculateBottomPadding()
                     ),
                     topContent = {
-                        AlbumItem(
-                            album = album,
-                            thumbnailSizePx = thumbnailSizePx,
-                            thumbnailSizeDp = thumbnailSizeDp,
-                            yearCentered = false,
-                            disableScrollingText = disableScrollingText
-                        )
+                        val thumbnailSizeDp = Dimensions.thumbnails.song + 80.dp
+                        val thumbnailSizePx = thumbnailSizeDp.px
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 8.dp)
+                                .height(120.dp)
+                        ) {
+                            AlbumItem(
+                                album = album,
+                                thumbnailSizePx = thumbnailSizePx,
+                                thumbnailSizeDp = thumbnailSizeDp,
+                                yearCentered = false,
+                                disableScrollingText = disableScrollingText,
+                                modifier = Modifier
+                                    .size(thumbnailSizeDp)
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                BasicText(
+                                    text = album.title ?: "",
+                                    style = typography().m.semiBold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .conditional(!disableScrollingText) { basicMarquee(iterations = Int.MAX_VALUE) }
+                                )
+                                if (!album.authorsText.isNullOrBlank()) {
+                                    BasicText(
+                                        text = album.authorsText ?: "",
+                                        style = typography().s,
+                                        maxLines = 1,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .conditional(!disableScrollingText) { basicMarquee(iterations = Int.MAX_VALUE) }
+                                    )
+                                }
+                                if (album.year != null) {
+                                    BasicText(
+                                        text = album.year.toString(),
+                                        style = typography().xs,
+                                        maxLines = 1,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .conditional(!disableScrollingText) { basicMarquee(iterations = Int.MAX_VALUE) }
+                                    )
+                                }
+                            }
+                        }
                     }
                 ) {
 
@@ -382,7 +476,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onSelectUnselect()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -395,7 +490,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onChangeAlbumTitle()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -408,7 +504,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onChangeAlbumAuthors()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -421,7 +518,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onChangeAlbumCover()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -434,7 +532,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onDownloadAlbumCover()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -447,7 +546,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onPlayNext()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -460,7 +560,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onEnqueue()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -472,7 +573,8 @@ fun AlbumsItemGridMenu(
                             colorText = color,
                             onClick = {
                                 isViewingPlaylists = true
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
 
@@ -485,7 +587,8 @@ fun AlbumsItemGridMenu(
                             onClick = {
                                 onDismiss()
                                 onAddToFavourites()
-                            }
+                            },
+                            disableScrollingText = disableScrollingText
                         )
                     }
                 }
