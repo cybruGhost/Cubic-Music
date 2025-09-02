@@ -981,7 +981,7 @@
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> STABLE</string>
   <string name="beta_text">This is still in Beta and may contain bugs and crash</string>
-  <string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+  <string name="quick_selection_type">Choose how many recommended songs to show in Cubic Picks</string>
   <string name="quick_selection">%s recommended song</string>
   <string name="login_to_discord">Login to Discord</string>
   <string name="discord_token_text_invalid">Your Discord token is invalid, please login again</string>
@@ -1022,7 +1022,7 @@
   <string name="other_settings_description">The miscellaneous section contains various optional settings and utilities</string>
   <string name="data_settings_description">The data section contains settings that modify how the app handles data locally and remotely</string>
   <string name="accounts_settings_description">The accounts section contains Youtube sync settings, Piped streaming settings and Discord Rpc settings</string>
-  <string name="quick_picks_description">The quick picks section contains settings for the quick picks page and AI powered recommendations</string>
+  <string name="quick_picks_description">The Cubic Picks section contains settings for the Cubic Picks page and AI powered recommendations</string>
   <string name="smart_recommendations_description">The smart recommendations section contains settings for the AI powered recommendations</string>
   <string name="ai_recommendations">AI Recommendations</string>
   <string name="my_playlist_top1">My Top</string>

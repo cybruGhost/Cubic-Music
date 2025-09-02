@@ -215,7 +215,7 @@ fun Lyrics(
         val binder = LocalPlayerServiceBinder.current
 
         var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
-        var isShowingSynchronizedLyrics by rememberPreference(isShowingSynchronizedLyricsKey, false)
+        var isShowingSynchronizedLyrics by rememberPreference(isShowingSynchronizedLyricsKey, true)
         var invalidLrc by remember(mediaId, isShowingSynchronizedLyrics) { mutableStateOf(false) }
         var isPicking by remember(mediaId, isShowingSynchronizedLyrics) { mutableStateOf(false) }
         var lyricsColor by rememberPreference(

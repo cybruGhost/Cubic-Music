@@ -88,7 +88,7 @@ fun AppNavigation(
     miniPlayer: @Composable () -> Unit = {},
     openTabFromShortcut: Int
 ) {
-    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
 
     @Composable
     fun modalBottomSheetPage(content: @Composable () -> Unit) {

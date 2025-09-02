@@ -2,8 +2,12 @@ package it.fast4x.rimusic.ui.screens.home
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -11,7 +15,10 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +58,11 @@ import kotlinx.coroutines.launch
 import me.knighthat.utils.Toaster
 import kotlin.system.exitProcess
 import it.fast4x.rimusic.LocalPlayerServiceBinder
+import androidx.compose.material3.MaterialTheme
+import android.webkit.DownloadListener
+import android.os.Environment
+import android.webkit.URLUtil
+import java.io.File
 
 @ExperimentalMaterial3Api
 @ExperimentalTextApi
@@ -218,12 +230,53 @@ fun HomeScreen(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
+class ExportifyWebInterface(private val context: android.content.Context) {
+    @JavascriptInterface
+    fun onDownloadRequested(url: String) {
+        // Handle download requests from JavaScript
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
 @Composable
 fun ExportifyWebViewScreen() {
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
     var webView: WebView? by remember { mutableStateOf(null) }
+    var hasError by remember { mutableStateOf(false) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var downloadUrl by remember { mutableStateOf("") }
+
+    // Handle download dialog
+    if (showDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showDownloadDialog = false },
+            title = { Text("Download CSV") },
+            text = { Text("Do you want to download the Spotify CSV file?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDownloadDialog = false
+                        // Open download link in browser for proper download handling
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text("Download")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showDownloadDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
@@ -231,36 +284,128 @@ fun ExportifyWebViewScreen() {
                 WebView(ctx).apply {
                     webView = this
                     
-                    // Enable JavaScript
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.databaseEnabled = true
-                    settings.setSupportMultipleWindows(true)
-                    settings.loadWithOverviewMode = true
-                    settings.useWideViewPort = true
-                    settings.builtInZoomControls = true
-                    settings.displayZoomControls = false
+                    // Enhanced WebView settings to mimic a legitimate browser
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        databaseEnabled = true
+                        setSupportMultipleWindows(true)
+                        loadWithOverviewMode = true
+                        useWideViewPort = true
+                        builtInZoomControls = true
+                        displayZoomControls = false
+                        javaScriptCanOpenWindowsAutomatically = true
+                        allowContentAccess = true
+                        allowFileAccess = true
+                        setSupportZoom(true)
+                        
+                        // Set realistic desktop user agent to avoid detection
+                        userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    }
                     
-                    // Enable cookies
+                    // Enhanced cookie handling for persistent login
                     CookieManager.getInstance().setAcceptCookie(true)
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    
+                    // Handle file downloads directly to device storage
+                    setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+                        val fileName = URLUtil.guessFileName(url, contentDisposition, mimetype)
+                        downloadUrl = url
+                        showDownloadDialog = true
+                    }
                     
                     webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView?,
+                            request: WebResourceRequest?
+                        ): Boolean {
+                            val url = request?.url.toString()
+                            
+                            // Handle Spotify authentication by opening in external browser
+                            if (url.contains("accounts.spotify.com") || 
+                                url.contains("login.spotify.com")) {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                context.startActivity(intent)
+                                return true
+                            }
+                            
+                            // Handle CSV downloads through download listener
+                            if (url.endsWith(".csv") || url.contains("download=true")) {
+                                // Let the download listener handle it
+                                return false
+                            }
+                            
+                            return super.shouldOverrideUrlLoading(view, request)
+                        }
+
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             isLoading = false
+                            hasError = false
+                            
+                            // Inject JavaScript to handle authentication and downloads
+                            url?.let { currentUrl ->
+                                if (currentUrl.contains("exportify.app", ignoreCase = true)) {
+                                    view?.evaluateJavascript("""
+                                        // Intercept download clicks
+                                        document.addEventListener('click', function(e) {
+                                            const target = e.target;
+                                            if (target.tagName === 'A' && 
+                                                (target.href.includes('.csv') || 
+                                                 target.href.includes('download') ||
+                                                 target.download)) {
+                                                e.preventDefault();
+                                                // Let the native download listener handle it
+                                                window.location.href = target.href;
+                                            }
+                                        });
+                                        
+                                        // Monitor for authentication completion
+                                        if (window.location.href.includes('exportify.app') && 
+                                            !window.location.href.includes('login')) {
+                                            console.log('Exportify authentication successful');
+                                            
+                                            // Store authentication state in localStorage for persistence
+                                            localStorage.setItem('spotify_authenticated', 'true');
+                                        }
+                                        
+                                        // Check if already authenticated
+                                        if (localStorage.getItem('spotify_authenticated') === 'true') {
+                                            console.log('User is already authenticated');
+                                        }
+                                    """.trimIndent(), null)
+                                }
+                            }
+                        }
+                        
+                        override fun onReceivedError(
+                            view: WebView?, 
+                            errorCode: Int, 
+                            description: String?, 
+                            failingUrl: String?
+                        ) {
+                            super.onReceivedError(view, errorCode, description, failingUrl)
+                            isLoading = false
+                            hasError = true
                         }
                     }
                     
                     webChromeClient = WebChromeClient()
                     
+                    // Add JavaScript interface for communication
+                    addJavascriptInterface(ExportifyWebInterface(ctx), "Android")
+                    
                     // Load the Exportify website
-                    loadUrl("https://exportify.app/")
+                    loadUrl("https://thecub4.netlify.app/spotifyfeature/")
                 }
             },
             modifier = Modifier.fillMaxSize(),
             update = { view ->
-                // Update the WebView if needed
+                // Refresh if there was an error
+                if (hasError) {
+                    hasError = false
+                    isLoading = true
+                    view.loadUrl("https://thecub4.netlify.app/spotifyfeature/")
+                }
             }
         )
 
@@ -273,10 +418,31 @@ fun ExportifyWebViewScreen() {
                 Loader()
             }
         }
+        
+        if (hasError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.Center),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Failed to load Exportify. Pull down to refresh.",
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
 
     // Handle back navigation for WebView
-    BackHandler(enabled = webView?.canGoBack() == true) {
-        webView?.goBack()
+    BackHandler(enabled = true) {
+        if (webView?.canGoBack() == true) {
+            webView?.goBack()
+        } else if (hasError) {
+            // Refresh on back press if there's an error
+            hasError = false
+            isLoading = true
+            webView?.loadUrl("https://thecub4.netlify.app/spotifyfeature/")
+        }
     }
 }

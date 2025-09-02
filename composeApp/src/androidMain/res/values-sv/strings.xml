@@ -572,7 +572,7 @@
   <string name="exclude_songs_with_duration_limit">Exclude songs with duration limit</string>
   <string name="exclude_songs_with_duration_limit_description">Låtar som överskrider gränsen kommer att uteslutas från topplåtarna och uppspelningskö</string>
   <string name="no_log_available">Logg ej tillgänglig</string>
-  <string name="enable_quick_picks_page">Enable Quick Picks page</string>
+  <string name="enable_quick_picks_page">Enable Cubic Picks page</string>
   <string name="lang_vietnamese">Vietnamese (tiếng Việt)</string>
   <string name="parental_control">Föräldrakontroll</string>
   <string name="info_prevent_play_songs_with_age_limitation">Prevent play songs with age limitation</string>
@@ -732,7 +732,7 @@
   <string name="social_github">GitHub</string>
   <string name="update">Uppdatera</string>
   <string name="update_song">Vill du verkligen uppdatera den här låten? Uppspelningstid och cachade data kommer att raderas.\\nDen här åtgärden är oåterkallelig.</string>
-  <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in quick pics</string>
+  <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in Cubic Pics</string>
   <string name="vertical_widget">Vertical widget</string>
   <string name="horizontal_widget">Horizontal widget</string>
   <string name="social_reddit">Reddit</string>
@@ -1022,7 +1022,7 @@
   <string name="other_settings_description">Diverse avsnitt innehåller olika valfria inställningar och verktyg</string>
   <string name="data_settings_description">Datasektionen innehåller inställningar som ändrar hur appen hanterar data lokalt och på distans</string>
   <string name="accounts_settings_description">Sektionen för konton innehåller Youtube-synkroniseringsinställningar, Piped streaming-inställningar och Discord RPC-inställningar</string>
-  <string name="quick_picks_description">Sektionen quick picks innehåller inställningar för quick picks sida och AI drivna rekommendationer</string>
+  <string name="quick_picks_description">Sektionen Cubic Picks innehåller inställningar för Cubic Picks sida och AI drivna rekommendationer</string>
   <string name="smart_recommendations_description">Den smarta rekommendationer avsnitt innehåller inställningar för AI drivna rekommendationer</string>
   <string name="ai_recommendations">AI rekommendationer</string>
   <string name="my_playlist_top1">Min topp</string>

@@ -342,7 +342,7 @@ fun SongItem(
     val authors = mediaItem.mediaMetadata.artist.toString()
     val duration = mediaItem.mediaMetadata.extras?.getString("durationText")
 
-    val playlistindicator by rememberPreference(playlistindicatorKey,false)
+    val playlistindicator by rememberPreference(playlistindicatorKey,true)
     val isSongMappedToPlaylist by remember {
         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
     }.collectAsState( false, Dispatchers.IO )

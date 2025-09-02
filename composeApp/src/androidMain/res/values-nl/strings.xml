@@ -140,7 +140,7 @@
   <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">Het geretourneerde video-id komt niet overeen met de gevraagde</string>
   <string name="error_an_unknown_playback_error_has_occurred">Er is een onbekende afspeelfout opgetreden</string>
   <string name="tips">Voor jou</string>
-  <string name="is_min_list_time_for_tips_or_quick_pics">Minimale afspeelduur om een nummer aan te bevelen in de Quick Picks</string>
+  <string name="is_min_list_time_for_tips_or_quick_pics">Minimale afspeelduur om een nummer aan te bevelen in de Cubic Picks</string>
   <string name="min_listening_time">Min. afspeelduur</string>
   <string name="player_thumbnail_size">Miniatuurformaat</string>
   <string name="restarting_rimusic_is_required">Opnieuw starten is vereist</string>
@@ -572,7 +572,7 @@
   <string name="exclude_songs_with_duration_limit">Exclude songs with duration limit</string>
   <string name="exclude_songs_with_duration_limit_description">Nummers met een tijdsduur die de limiet overschrijdt, worden uitgesloten van de Top nummers en afspeelwachtrij</string>
   <string name="no_log_available">Log niet beschikbaar</string>
-  <string name="enable_quick_picks_page">Enable Quick Picks page</string>
+  <string name="enable_quick_picks_page">Enable Cubic Picks page</string>
   <string name="lang_vietnamese">Vietnamese (tiếng Việt)</string>
   <string name="parental_control">Parental control</string>
   <string name="info_prevent_play_songs_with_age_limitation">Prevent play songs with age limitation</string>
@@ -732,7 +732,7 @@
   <string name="social_github">GitHub</string>
   <string name="update">Update</string>
   <string name="update_song">Weet je zeker dat je dit nummer wilt bijwerken? De afspeeltijd en de opgeslagen gegevens worden gewist.\\nDeze actie is onomkeerbaar.</string>
-  <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in quick pics</string>
+  <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in Cubic Pics</string>
   <string name="vertical_widget">Vertical widget</string>
   <string name="horizontal_widget">Horizontal widget</string>
   <string name="social_reddit">Reddit</string>
@@ -1022,7 +1022,7 @@
   <string name="other_settings_description">De diverse sectie bevat verschillende optionele instellingen en toepassingen</string>
   <string name="data_settings_description">De gegevenssectie bevat instellingen die aanpassen hoe de app gegevens lokaal en op afstand behandelt</string>
   <string name="accounts_settings_description">De accounts sectie bevat instellingen voor Youtube synchronisatie, streaminginstellingen en instellingen voor Discord Rpc</string>
-  <string name="quick_picks_description">De quick picks sectie bevat instellingen voor de quick picks pagina en AI aangedreven aanbevelingen</string>
+  <string name="quick_picks_description">De Cubic Picks sectie bevat instellingen voor de Cubic Picks pagina en AI aangedreven aanbevelingen</string>
   <string name="smart_recommendations_description">De slimme aanbevelingen sectie bevat instellingen voor de AI powered aanbevelingen</string>
   <string name="ai_recommendations">AI aanbevelingen</string>
   <string name="my_playlist_top1">Mijn top</string>

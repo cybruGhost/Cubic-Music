@@ -983,7 +983,7 @@
     <string name="no_instances_found">No instances found</string>
     <string name="discord_token_text">If you notice that the RPC doesnt work, try log off and log back of your Discord account the token can expire in certain scenario</string>
     <string name="account_info">Account info</string>
-    <string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+    <string name="quick_selection_type">Choose how many recommended songs to show in Cubic Picks</string>
     <string name="quick_selection">%s recommended song</string>
     <string name="login_to_discord">Login to Discord</string>
     <string name="discord_token_text_invalid">Your Discord token is invalid, please login again</string>

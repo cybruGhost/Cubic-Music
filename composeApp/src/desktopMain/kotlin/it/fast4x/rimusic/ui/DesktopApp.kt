@@ -241,7 +241,7 @@ fun VerticalMenuBuilder(navController: NavHostController) {
             .fillMaxSize()
             .padding(start = 16.dp, top = 16.dp)
     ) {
-        Text("Quick Pics",
+        Text("Cubic Pics",
             modifier = Modifier
                 .padding(16.dp)
                 .clickable {

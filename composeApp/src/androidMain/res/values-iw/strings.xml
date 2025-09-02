@@ -573,7 +573,7 @@
 <string name="exclude_songs_with_duration_limit">Exclude songs with duration limit</string>
 <string name="exclude_songs_with_duration_limit_description">If enabled, songs with duration over the limit will be excluded, applied to mytop and playback queue</string>
 <string name="no_log_available">No log available</string>
-<string name="enable_quick_picks_page">Enable Quick Picks page</string>
+<string name="enable_quick_picks_page">Enable Cubic Picks page</string>
 <string name="lang_vietnamese">Vietnamese</string>
 <string name="parental_control">Parental control</string>
 <string name="info_prevent_play_songs_with_age_limitation">Prevent play songs with age limitation</string>
@@ -733,7 +733,7 @@
 <string name="social_github">GitHub</string>
 <string name="update">Update</string>
 <string name="update_song">Do you really want to refetch this song? Playback time and cached data will be wiped. This action is irreversible.</string>
-<string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in quick pics</string>
+<string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in Cubic Pics</string>
 <string name="vertical_widget">Vertical widget</string>
 <string name="horizontal_widget">Horizontal widget</string>
 <string name="social_reddit">Reddit</string>
@@ -804,10 +804,10 @@
 <string name="music_animations_crazy_points">Crazy Points</string>
 <string name="music_animations_bubbles">Bubbles</string>
 <string name="now_playing_indicator">Now Playing Indicator</string>
-<string name="good_afternoon">Good Afternoon☀️</string>
-<string name="good_evening">Good Evening🌤</string>
-<string name="good_morning">Good Morning🌞</string> 
-<string name="good_night">Good Night🌘</string>
+  <string name="good_afternoon">Good Afternoon☀️</string>
+  <string name="good_evening">Good Evening🌤</string>
+  <string name="good_morning">Good Morning🌞</string> 
+  <string name="good_night">Good Night🌘</string>
 <string name="colored_bar">Colored bar</string>
 <string name="about_developers_designers">Developers / Designers</string>
 <string name="set_custom_value">Custom value</string>
@@ -982,7 +982,7 @@
 <string name="beta_text">This is still in Beta and may contain bugs and crash</string>
     <string name="no_instances_found">No instances found</string>
     <string name="discord_token_text">If you notice that the RPC doesnt work, try log off and log back of your Discord account the token can expire in certain scenario</string>
-    <string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+    <string name="quick_selection_type">Choose how many recommended songs to show in Cubic Picks</string>
     <string name="account_info">Account info</string>
     <string name="quick_selection">%s recommended song</string>
     <string name="login_to_discord">Login to Discord</string>

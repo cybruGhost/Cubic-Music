@@ -981,7 +981,7 @@
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> ESTABLE</string>
   <string name="beta_text">Esto todavía está en la Beta y puede contener errores y fallos</string>
-  <string name="quick_selection_type">Elegir cuantas canciones recomendadas mostrar en Quick Picks</string>
+  <string name="quick_selection_type">Elegir cuantas canciones recomendadas mostrar en Cubic Picks</string>
   <string name="quick_selection">%s canción recomendada</string>
   <string name="login_to_discord">Iniciar sesión en Discord</string>
   <string name="discord_token_text_invalid">Tu token de Discord no es válido, por favor inicia sesión de nuevo</string>

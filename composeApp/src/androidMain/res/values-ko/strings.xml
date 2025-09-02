@@ -13,7 +13,7 @@
   <string name="remove_from_queue">대기열에서 삭제</string>
   <string name="remove_from_playlist">재생목록에서 삭제</string>
   <string name="hide">숨기기</string>
-  <string name="hide_from_quick_picks">Hide from Quick Picks</string>
+  <string name="hide_from_quick_picks">Hide from Cubic Picks</string>
   <string name="related_albums">관련 앨범</string>
   <string name="similar_artists">비슷한 아티스트</string>
   <string name="playlists_you_might_like">당신을 위한 재생목록</string>
@@ -23,7 +23,7 @@
   <string name="enter_the_playlist_name">재생목록 이름</string>
   <string name="playlists">재생목록</string>
   <string name="favorites">즐겨찾기</string>
-  <string name="quick_picks">Quick Picks</string>
+  <string name="quick_picks">Cubic Picks</string>
   <string name="songs">곡</string>
   <string name="other_versions">다른 버전</string>
   <string name="album_no_alternative_version">이 앨범의 다른 버전이 없습니다</string>
@@ -75,7 +75,7 @@
   <string name="image_cache">이미지 캐시</string>
   <string name="max_size">최대 크기</string>
   <string name="database">데이터베이스</string>
-  <string name="reset_quick_picks">Reset Quick Picks</string>
+  <string name="reset_quick_picks">Reset Cubic Picks</string>
   <string name="quick_picks_are_cleared">추천이 초기화되었습니다</string>
   <string name="backup">백업</string>
   <string name="personal_preference">개인 설정(예: 테마 모드)과 캐시는 제외됩니다.</string>
@@ -140,7 +140,7 @@
   <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">반환된 동영상 ID가 요청된 ID와 일치하지 않습니다</string>
   <string name="error_an_unknown_playback_error_has_occurred">알 수 없는 재생 오류가 발생했습니다</string>
   <string name="tips">For You</string>
-  <string name="is_min_list_time_for_tips_or_quick_pics">Minimum playback duration for a song to be suggested in Quick Picks</string>
+  <string name="is_min_list_time_for_tips_or_quick_pics">Minimum playback duration for a song to be suggested in Cubic Picks</string>
   <string name="min_listening_time">Min playback duration</string>
   <string name="player_thumbnail_size">썸네일 크기</string>
   <string name="restarting_rimusic_is_required">앱을 다시 시작해야 합니다</string>
@@ -803,10 +803,10 @@
   <string name="music_animations_crazy_points">Crazy points</string>
   <string name="music_animations_bubbles">방울</string>
   <string name="now_playing_indicator">현재 재생 중 표시</string>
-  <string name="good_morning">Good morning</string>
-  <string name="good_afternoon">Good afternoon</string>
-  <string name="good_evening">Good evening</string>
-  <string name="good_night">Good night</string>
+  <string name="good_afternoon">Good Afternoon☀️</string>
+  <string name="good_evening">Good Evening🌤</string>
+  <string name="good_morning">Good Morning🌞</string> 
+  <string name="good_night">Good Night🌘</string>
   <string name="colored_bar">색상 바</string>
   <string name="about_developers_designers">개발자 / 디자이너</string>
   <string name="set_custom_value">맞춤 값</string>
@@ -981,7 +981,7 @@
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> STABLE</string>
   <string name="beta_text">This is still in Beta and may contain bugs and crash</string>
-  <string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+  <string name="quick_selection_type">Choose how many recommended songs to show in Cubic Picks</string>
   <string name="quick_selection">%s recommended song</string>
   <string name="login_to_discord">Login to Discord</string>
   <string name="discord_token_text_invalid">Your Discord token is invalid, please login again</string>
@@ -1022,7 +1022,7 @@
   <string name="other_settings_description">The miscellaneous section contains various optional settings and utilities</string>
   <string name="data_settings_description">The data section contains settings that modify how the app handles data locally and remotely</string>
   <string name="accounts_settings_description">The accounts section contains Youtube sync settings, Piped streaming settings and Discord Rpc settings</string>
-  <string name="quick_picks_description">The quick picks section contains settings for the quick picks page and AI powered recommendations</string>
+  <string name="quick_picks_description">The Cubic Picks section contains settings for the Cubic Picks page and AI powered recommendations</string>
   <string name="smart_recommendations_description">The smart recommendations section contains settings for the AI powered recommendations</string>
   <string name="ai_recommendations">AI Recommendations</string>
   <string name="my_playlist_top1">My Top</string>

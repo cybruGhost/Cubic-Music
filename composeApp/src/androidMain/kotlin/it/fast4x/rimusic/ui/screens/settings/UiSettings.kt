@@ -432,7 +432,7 @@ fun DefaultUiSettings() {
     blackgradient = false
     var showTotalTimeQueue by rememberPreference(showTotalTimeQueueKey, true)
     showTotalTimeQueue = true
-    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, false)
+    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, true)
     showNextSongsInPlayer = false
     var showRemainingSongTime by rememberPreference(showRemainingSongTimeKey, true)
     showRemainingSongTime = true
@@ -466,7 +466,7 @@ fun DefaultUiSettings() {
     showButtonPlayerArrow = false
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
     showButtonPlayerDownload = true
-    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, true)
+    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
     showButtonPlayerLoop = true
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
     showButtonPlayerLyrics = true
@@ -637,7 +637,7 @@ fun UiSettings(
     )
     var blackgradient by rememberPreference(blackgradientKey, false)
     var showTotalTimeQueue by rememberPreference(showTotalTimeQueueKey, true)
-    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, false)
+    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, true)
     var showRemainingSongTime by rememberPreference(showRemainingSongTimeKey, true)
     var disableScrollingText by rememberPreference(disableScrollingTextKey, false)
     var effectRotationEnabled by rememberPreference(effectRotationKey, true)
@@ -657,7 +657,7 @@ fun UiSettings(
     var showButtonPlayerAddToPlaylist by rememberPreference(showButtonPlayerAddToPlaylistKey, true)
     var showButtonPlayerArrow by rememberPreference(showButtonPlayerArrowKey, true)
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
-    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, true)
+    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
     var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, true)
     var showButtonPlayerShuffle by rememberPreference(showButtonPlayerShuffleKey, true)

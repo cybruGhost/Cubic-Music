@@ -23,7 +23,7 @@
     <string name="enter_the_playlist_name">Enter the playlist name</string>
     <string name="playlists">Playlists</string>
     <string name="favorites">Favorites</string>
-    <string name="quick_picks">Quick picks</string>
+    <string name="quick_picks">Cubic Picks</string>
     <string name="songs">Songs</string>
     <string name="other_versions">Other versions</string>
     <string name="album_no_alternative_version">This album doesn\'t have any alternative version</string>
@@ -75,8 +75,8 @@
     <string name="image_cache">IMAGE CACHE</string>
     <string name="max_size">Max size</string>
     <string name="database">Database</string>
-    <string name="reset_quick_picks">Reset quick picks</string>
-    <string name="quick_picks_are_cleared">Quick picks are cleared</string>
+    <string name="reset_quick_picks">Reset Cubic Picks</string>
+    <string name="quick_picks_are_cleared"> Cubic Picksare cleared</string>
     <string name="backup">BACKUP</string>
     <string name="personal_preference">Personal preferences (i.e. the theme mode) and the cache are excluded.</string>
     <string name="backup_1">Backup</string>
@@ -140,7 +140,7 @@
     <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">The returned video id doesn\'t match the requested one</string>
     <string name="error_an_unknown_playback_error_has_occurred">An unknown playback error has occurred</string>
     <string name="tips">Tips</string>
-    <string name="is_min_list_time_for_tips_or_quick_pics">It\'s the minimum listening time, to include the song as a possible Tips or Quick Pics</string>
+    <string name="is_min_list_time_for_tips_or_quick_pics">It\'s the minimum listening time, to include the song as a possible Tips or Cubic Pics</string>
     <string name="min_listening_time">Min listening time</string>
     <string name="player_thumbnail_size">Thumbnail Size</string>
     <string name="restarting_rimusic_is_required">Restarting is required</string>
@@ -570,7 +570,7 @@
     <string name="exclude_songs_with_duration_limit">Exclude songs with duration limit</string>
     <string name="exclude_songs_with_duration_limit_description">If enabled, songs with duration over the limit will be excluded, applied to mytop and playback queue</string>
     <string name="no_log_available">No log available</string>
-    <string name="enable_quick_picks_page">Enable Quick Picks page</string>
+    <string name="enable_quick_picks_page">Enable Cubic Picks page</string>
     <string name="lang_vietnamese">Vietnamese</string>
     <string name="parental_control">Parental control</string>
     <string name="info_prevent_play_songs_with_age_limitation">Prevent play songs with age limitation</string>
@@ -729,7 +729,7 @@
     <string name="social_github">GitHub</string>
     <string name="update">Update</string>
     <string name="update_song">Do you really want to refetch this song? Playback time and cached data will be wiped. This action is irreversible.</string>
-    <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in quick pics</string>
+    <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in Cubic Pics</string>
     <string name="vertical_widget">Vertical widget</string>
     <string name="horizontal_widget">Horizontal widget</string>
     <string name="social_reddit">Reddit</string>

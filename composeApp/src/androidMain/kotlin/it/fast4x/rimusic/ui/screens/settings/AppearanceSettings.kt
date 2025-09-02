@@ -230,7 +230,7 @@ fun DefaultAppearanceSettings() {
     showButtonPlayerArrow = false
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
     showButtonPlayerDownload = true
-    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, true)
+    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
     showButtonPlayerLoop = true
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
     showButtonPlayerLyrics = true
@@ -263,13 +263,13 @@ fun DefaultAppearanceSettings() {
         BackgroundProgress.MiniPlayer
     )
     backgroundProgress = BackgroundProgress.MiniPlayer
-    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, false)
-    showNextSongsInPlayer = false
+    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, true)
+    showNextSongsInPlayer = true
     var showRemainingSongTime by rememberPreference(showRemainingSongTimeKey, true)
     showRemainingSongTime = true
     var clickLyricsText by rememberPreference(clickOnLyricsTextKey, true)
     clickLyricsText = true
-    var showBackgroundLyrics by rememberPreference(showBackgroundLyricsKey, false)
+    var showBackgroundLyrics by rememberPreference(showBackgroundLyricsKey, true)
     showBackgroundLyrics = false
     var thumbnailRoundness by rememberPreference(
         thumbnailRoundnessKey,
@@ -418,7 +418,7 @@ fun AppearanceSettings(
     var showButtonPlayerAddToPlaylist by rememberPreference(showButtonPlayerAddToPlaylistKey, true)
     var showButtonPlayerArrow by rememberPreference(showButtonPlayerArrowKey, true)
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
-    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, true)
+    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
     var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, true)
     var showButtonPlayerShuffle by rememberPreference(showButtonPlayerShuffleKey, true)
@@ -605,7 +605,7 @@ fun AppearanceSettings(
                 showTotalTimeQueue = false
                 bottomgradient = true
                 showRemainingSongTime = true
-                showNextSongsInPlayer = false
+                showNextSongsInPlayer = true
                 colorPaletteName = ColorPaletteName.Dynamic
                 colorPaletteMode = ColorPaletteMode.System
                 ///////ACTION BAR BUTTONS////////////////
@@ -613,17 +613,17 @@ fun AppearanceSettings(
                 actionspacedevenly = true
                 showButtonPlayerVideo = false
                 showButtonPlayerDiscover = false
-                showButtonPlayerDownload = false
+                showButtonPlayerDownload = true
                 showButtonPlayerAddToPlaylist = true
                 showButtonPlayerLoop = false
                 showButtonPlayerShuffle = true
-                showButtonPlayerLyrics = false
+                showButtonPlayerLyrics = true
                 expandedplayertoggle = false
                 showButtonPlayerSleepTimer = false
                 visualizerEnabled = false
                 appearanceChooser = false
                 showButtonPlayerArrow = false
-                showButtonPlayerStartradio = false
+                showButtonPlayerStartradio = true
                 showButtonPlayerMenu = true
                 ///////////////////////////
                 appearanceChooser = false
@@ -660,17 +660,17 @@ fun AppearanceSettings(
                 actionspacedevenly = true
                 showButtonPlayerVideo = false
                 showButtonPlayerDiscover = false
-                showButtonPlayerDownload = false
+                showButtonPlayerDownload = true
                 showButtonPlayerAddToPlaylist = true
                 showButtonPlayerLoop = false
                 showButtonPlayerShuffle = false
-                showButtonPlayerLyrics = false
+                showButtonPlayerLyrics =  true
                 expandedplayertoggle = true
                 showButtonPlayerSleepTimer = false
                 visualizerEnabled = false
                 appearanceChooser = false
                 showButtonPlayerArrow = false
-                showButtonPlayerStartradio = false
+                showButtonPlayerStartradio = true
                 showButtonPlayerMenu = true
                 ///////////////////////////
                 appearanceChooser = false
@@ -695,7 +695,7 @@ fun AppearanceSettings(
                 showRemainingSongTime = true
                 bottomgradient = true
                 showlyricsthumbnail = false
-                showNextSongsInPlayer = false
+                showNextSongsInPlayer = true
                 colorPaletteName = ColorPaletteName.Dynamic
                 colorPaletteMode = ColorPaletteMode.System
                 ///////ACTION BAR BUTTONS////////////////
@@ -703,17 +703,17 @@ fun AppearanceSettings(
                 actionspacedevenly = true
                 showButtonPlayerVideo = false
                 showButtonPlayerDiscover = false
-                showButtonPlayerDownload = false
+                showButtonPlayerDownload = true
                 showButtonPlayerAddToPlaylist = false
                 showButtonPlayerLoop = false
                 showButtonPlayerShuffle = false
-                showButtonPlayerLyrics = false
+                showButtonPlayerLyrics =  true
                 expandedplayertoggle = false
                 showButtonPlayerSleepTimer = false
                 visualizerEnabled = false
                 appearanceChooser = false
                 showButtonPlayerArrow = false
-                showButtonPlayerStartradio = false
+                showButtonPlayerStartradio = true
                 showButtonPlayerMenu = true
                 ///////////////////////////
                 appearanceChooser = false
@@ -744,23 +744,23 @@ fun AppearanceSettings(
                 playerType = PlayerType.Modern
                 fadingedge = true
                 thumbnailFade = 5f
-                showNextSongsInPlayer = false
+                showNextSongsInPlayer = true
                 ///////ACTION BAR BUTTONS////////////////
                 transparentBackgroundActionBarPlayer = true
                 actionspacedevenly = true
                 showButtonPlayerVideo = false
                 showButtonPlayerDiscover = false
-                showButtonPlayerDownload = false
+                showButtonPlayerDownload = true
                 showButtonPlayerAddToPlaylist = false
                 showButtonPlayerLoop = true
                 showButtonPlayerShuffle = true
-                showButtonPlayerLyrics = false
+                showButtonPlayerLyrics =  true
                 expandedplayertoggle = false
                 showButtonPlayerSleepTimer = false
                 visualizerEnabled = false
                 appearanceChooser = false
                 showButtonPlayerArrow = true
-                showButtonPlayerStartradio = false
+                showButtonPlayerStartradio = true
                 showButtonPlayerMenu = true
                 ///////////////////////////
                 appearanceChooser = false
@@ -792,7 +792,7 @@ fun AppearanceSettings(
                 thumbnailFade = 0f
                 thumbnailFadeEx = 5f
                 thumbnailSpacing = -32f
-                showNextSongsInPlayer = false
+                showNextSongsInPlayer = true
                 ///////ACTION BAR BUTTONS////////////////
                 transparentBackgroundActionBarPlayer = true
                 actionspacedevenly = true
@@ -802,13 +802,13 @@ fun AppearanceSettings(
                 showButtonPlayerAddToPlaylist = false
                 showButtonPlayerLoop = false
                 showButtonPlayerShuffle = false
-                showButtonPlayerLyrics = false
+                showButtonPlayerLyrics =  true
                 expandedplayertoggle = true
                 showButtonPlayerSleepTimer = false
                 visualizerEnabled = false
                 appearanceChooser = false
                 showButtonPlayerArrow =false
-                showButtonPlayerStartradio = false
+                showButtonPlayerStartradio = true
                 showButtonPlayerMenu = true
                 ///////////////////////////
                 appearanceChooser = false
@@ -834,13 +834,13 @@ fun AppearanceSettings(
                 showlyricsthumbnail = false
                 thumbnailType = ThumbnailType.Modern
                 thumbnailRoundness = ThumbnailRoundness.Heavy
-                showNextSongsInPlayer = false
+                showNextSongsInPlayer = true
                 ///////ACTION BAR BUTTONS////////////////
                 transparentBackgroundActionBarPlayer = true
                 actionspacedevenly = true
                 showButtonPlayerVideo = false
                 showButtonPlayerDiscover = false
-                showButtonPlayerDownload = false
+                showButtonPlayerDownload = true
                 showButtonPlayerAddToPlaylist = false
                 showButtonPlayerLoop = false
                 showButtonPlayerShuffle = true
@@ -850,7 +850,7 @@ fun AppearanceSettings(
                 visualizerEnabled = false
                 appearanceChooser = false
                 showButtonPlayerArrow =false
-                showButtonPlayerStartradio = false
+                showButtonPlayerStartradio = true
                 showButtonPlayerMenu = true
                 ///////////////////////////
                 appearanceChooser = false

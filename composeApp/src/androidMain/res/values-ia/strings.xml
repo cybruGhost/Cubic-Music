@@ -13,7 +13,7 @@
   <string name="remove_from_queue">Remover ab le cauda</string>
   <string name="remove_from_playlist">Remover ab le lista de reproduction</string>
   <string name="hide">Celar</string>
-  <string name="hide_from_quick_picks">Hide from Quick Picks</string>
+  <string name="hide_from_quick_picks">Hide from Cubic Picks</string>
   <string name="related_albums">Albumes affin</string>
   <string name="similar_artists">Artistas affin</string>
   <string name="playlists_you_might_like">Playlists you might like</string>
@@ -23,7 +23,7 @@
   <string name="enter_the_playlist_name">Insere le nomine del lista de reproduction</string>
   <string name="playlists">Listas de reproduction</string>
   <string name="favorites">Favoritos</string>
-  <string name="quick_picks">Quick Picks</string>
+  <string name="quick_picks">Cubic Picks</string>
   <string name="songs">Cantos</string>
   <string name="other_versions">Altere versiones</string>
   <string name="album_no_alternative_version">Iste album non ha necun versiones alternative</string>
@@ -75,7 +75,7 @@
   <string name="image_cache">CACHE DE IMAGINE</string>
   <string name="max_size">Dimension max</string>
   <string name="database">Base de datos</string>
-  <string name="reset_quick_picks">Reset Quick Picks</string>
+  <string name="reset_quick_picks">Reset Cubic Picks</string>
   <string name="quick_picks_are_cleared">Le selectiones rapide ha essite radite</string>
   <string name="backup">COPIA DE SECURITATE</string>
   <string name="personal_preference">Personal preferences (i.e. the theme mode) and the cache are excluded.</string>
@@ -140,7 +140,7 @@
   <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">The returned video id doesn\'t match the requested one</string>
   <string name="error_an_unknown_playback_error_has_occurred">Ocurreva un error incognite de reproduction</string>
   <string name="tips">For You</string>
-  <string name="is_min_list_time_for_tips_or_quick_pics">Minimum playback duration for a song to be suggested in Quick Picks</string>
+  <string name="is_min_list_time_for_tips_or_quick_pics">Minimum playback duration for a song to be suggested in Cubic Picks</string>
   <string name="min_listening_time">Min playback duration</string>
   <string name="player_thumbnail_size">Dimension del miniatura</string>
   <string name="restarting_rimusic_is_required">Le reinitio es requirite</string>
@@ -803,10 +803,10 @@
   <string name="music_animations_crazy_points">Crazy points</string>
   <string name="music_animations_bubbles">Bubbles</string>
   <string name="now_playing_indicator">Now Playing Indicator</string>
-  <string name="good_morning">Good morning</string>
-  <string name="good_afternoon">Good afternoon</string>
-  <string name="good_evening">Good evening</string>
-  <string name="good_night">Good night</string>
+  <string name="good_afternoon">Good Afternoon☀️</string>
+  <string name="good_evening">Good Evening🌤</string>
+  <string name="good_morning">Good Morning🌞</string> 
+  <string name="good_night">Good Night🌘</string>
   <string name="colored_bar">Colored bar</string>
   <string name="about_developers_designers">Developers / Designers</string>
   <string name="set_custom_value">Custom value</string>
@@ -981,7 +981,7 @@
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> STABLE</string>
   <string name="beta_text">This is still in Beta and may contain bugs and crash</string>
-  <string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+  <string name="quick_selection_type">Choose how many recommended songs to show in Cubic Picks</string>
   <string name="quick_selection">%s recommended song</string>
   <string name="login_to_discord">Login to Discord</string>
   <string name="discord_token_text_invalid">Your Discord token is invalid, please login again</string>
@@ -1022,7 +1022,7 @@
   <string name="other_settings_description">The miscellaneous section contains various optional settings and utilities</string>
   <string name="data_settings_description">The data section contains settings that modify how the app handles data locally and remotely</string>
   <string name="accounts_settings_description">The accounts section contains Youtube sync settings, Piped streaming settings and Discord Rpc settings</string>
-  <string name="quick_picks_description">The quick picks section contains settings for the quick picks page and AI powered recommendations</string>
+  <string name="quick_picks_description">The Cubic Picks section contains settings for the Cubic Picks page and AI powered recommendations</string>
   <string name="smart_recommendations_description">The smart recommendations section contains settings for the AI powered recommendations</string>
   <string name="ai_recommendations">AI Recommendations</string>
   <string name="my_playlist_top1">My Top</string>

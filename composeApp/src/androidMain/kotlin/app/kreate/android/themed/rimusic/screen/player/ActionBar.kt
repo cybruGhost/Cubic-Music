@@ -177,8 +177,8 @@ fun BoxScope.ActionBar(
     val playerBackgroundColors by rememberPreference( playerBackgroundColorsKey, PlayerBackgroundColors.BlurredCoverColor )
     val blackGradient by rememberPreference( blackgradientKey, false )
     val showLyricsThumbnail by rememberPreference(showlyricsthumbnailKey, false)
-    val showNextSongsInPlayer by rememberPreference( showNextSongsInPlayerKey, false )
-    val miniQueueExpanded by rememberPreference( miniQueueExpandedKey, true )
+    val showNextSongsInPlayer by rememberPreference( showNextSongsInPlayerKey, true )
+    val miniQueueExpanded by rememberPreference( miniQueueExpandedKey, false )
     val tapQueue by rememberPreference( tapqueueKey, true )
     val transparentBackgroundActionBarPlayer by rememberPreference( transparentBackgroundPlayerActionBarKey, false )
     val swipeUpQueue by rememberPreference( swipeUpQueueKey, true )
@@ -298,7 +298,7 @@ fun BoxScope.ActionBar(
                         )
                     }
 
-                    val showSongsState = rememberPreference( showsongsKey, SongsNumber.`2` )
+                    val showSongsState = rememberPreference( showsongsKey, SongsNumber.`4` )
                     val viewPort = remember {
                         PagerViewPort( showSongsState, pagerStateQueue )
                     }
@@ -515,7 +515,7 @@ fun BoxScope.ActionBar(
 
                 val showButtonPlayerAddToPlaylist by rememberPreference( showButtonPlayerAddToPlaylistKey, true )
                 if (showButtonPlayerAddToPlaylist) {
-                    val showPlaylistIndicator by rememberPreference( playlistindicatorKey, false )
+                    val showPlaylistIndicator by rememberPreference( playlistindicatorKey, true )
                     val colorPaletteName by rememberPreference( colorPaletteNameKey, ColorPaletteName.Dynamic )
                     val color = colorPalette()
                     val isSongMappedToPlaylist by remember( mediaItem.mediaId ) {
@@ -544,7 +544,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerLoop by rememberPreference( showButtonPlayerLoopKey, true )
+                val showButtonPlayerLoop by rememberPreference( showButtonPlayerLoopKey, false )
                 if (showButtonPlayerLoop) {
                     var queueLoopType by queueLoopState
                     val effectRotationEnabled by rememberPreference( effectRotationKey, true )
@@ -664,7 +664,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerStartRadio by rememberPreference( showButtonPlayerStartRadioKey, false )
+                val showButtonPlayerStartRadio by rememberPreference( showButtonPlayerStartRadioKey, true )
                 if (showButtonPlayerStartRadio)
                     IconButton(
                         icon = R.drawable.radio,

@@ -13,7 +13,7 @@
   <string name="remove_from_queue">Rimuovi dalla coda</string>
   <string name="remove_from_playlist">Rimuovi dalla playlist</string>
   <string name="hide">Nascondi</string>
-  <string name="hide_from_quick_picks">Nascondi da Quick Picks</string>
+  <string name="hide_from_quick_picks">Nascondi da Cubic Picks</string>
   <string name="related_albums">Album correlati</string>
   <string name="similar_artists">Artisti simili</string>
   <string name="playlists_you_might_like">Playlist che potrebbero piacerti</string>
@@ -140,7 +140,7 @@
   <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">L\'id video restituito non corrisponde a quello richiesto</string>
   <string name="error_an_unknown_playback_error_has_occurred">Si è verificato un errore di riproduzione sconosciuto</string>
   <string name="tips">Per Te</string>
-  <string name="is_min_list_time_for_tips_or_quick_pics">Durata minima di riproduzione di una canzone da suggerire in Quick Picks</string>
+  <string name="is_min_list_time_for_tips_or_quick_pics">Durata minima di riproduzione di una canzone da suggerire in Cubic Picks</string>
   <string name="min_listening_time">Durata minima riproduzione</string>
   <string name="player_thumbnail_size">Anteprima</string>
   <string name="restarting_rimusic_is_required">E\' richiesto il riavvio</string>
@@ -981,7 +981,7 @@
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> STABLE</string>
   <string name="beta_text">Questo è ancora in Beta e può contenere bug e crash</string>
-  <string name="quick_selection_type">Scegli quanti brani consigliati mostrare in Quick Picks</string>
+  <string name="quick_selection_type">Scegli quanti brani consigliati mostrare in Cubic Picks</string>
   <string name="quick_selection">%s canzone consigliata</string>
   <string name="login_to_discord">Accedi a Discord</string>
   <string name="discord_token_text_invalid">Il tuo token Discord non è valido, per favore accedi di nuovo</string>

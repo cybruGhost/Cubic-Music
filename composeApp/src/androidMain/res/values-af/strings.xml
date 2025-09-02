@@ -140,7 +140,7 @@
   <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">The returned video id doesn\'t match the requested one</string>
   <string name="error_an_unknown_playback_error_has_occurred">\'n Onbekende fout het plaasgevind</string>
   <string name="tips">Wenke</string>
-  <string name="is_min_list_time_for_tips_or_quick_pics">It\'s the minimum listening time, to include the song as a possible Tips or Quick Pics</string>
+  <string name="is_min_list_time_for_tips_or_quick_pics">It\'s the minimum listening time, to include the song as a possible Tips or Cubic Pics</string>
   <string name="min_listening_time">Min luister tyd</string>
   <string name="player_thumbnail_size">Duimnaelskets Grootte</string>
   <string name="restarting_rimusic_is_required">Vereis herbegin</string>
@@ -572,7 +572,7 @@
   <string name="exclude_songs_with_duration_limit">Exclude songs with duration limit</string>
   <string name="exclude_songs_with_duration_limit_description">If enabled, songs with duration over the limit will be excluded, applied to mytop and playback queue</string>
   <string name="no_log_available">No log available</string>
-  <string name="enable_quick_picks_page">Enable Quick Picks page</string>
+  <string name="enable_quick_picks_page">Enable Cubic Picks page</string>
   <string name="lang_vietnamese">Vietnamese</string>
   <string name="parental_control">Parental control</string>
   <string name="info_prevent_play_songs_with_age_limitation">Prevent play songs with age limitation</string>
@@ -732,7 +732,7 @@
   <string name="social_github">GitHub</string>
   <string name="update">Update</string>
   <string name="update_song">Do you really want to refetch this song? Playback time and cached data will be wiped.\\nThis action is irreversible.</string>
-  <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in quick pics</string>
+  <string name="player_pause_listen_history_info">Does not save playback events used for statistics, history and suggestions in Cubic Pics</string>
   <string name="vertical_widget">Vertical widget</string>
   <string name="horizontal_widget">Horizontal widget</string>
   <string name="social_reddit">Reddit</string>
@@ -803,10 +803,10 @@
   <string name="music_animations_crazy_points">Crazy Points</string>
   <string name="music_animations_bubbles">Bubbles</string>
   <string name="now_playing_indicator">Now Playing Indicator</string>
-  <string name="good_morning">Good Morning</string>
-  <string name="good_afternoon">Good Afternoon</string>
-  <string name="good_evening">Good Evening</string>
-  <string name="good_night">Good Night</string>
+  <string name="good_afternoon">Good Afternoon☀️</string>
+  <string name="good_evening">Good Evening🌤</string>
+  <string name="good_morning">Good Morning🌞</string> 
+  <string name="good_night">Good Night🌘</string>
   <string name="colored_bar">Colored bar</string>
   <string name="about_developers_designers">Developers / Designers</string>
   <string name="set_custom_value">Custom value</string>
@@ -981,7 +981,7 @@
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> STABLE</string>
   <string name="beta_text">This is still in Beta and may contain bugs and crash</string>
-  <string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+  <string name="quick_selection_type">Choose how many recommended songs to show in Cubic Picks</string>
   <string name="quick_selection">%s recommended song</string>
   <string name="login_to_discord">Login to Discord</string>
   <string name="discord_token_text_invalid">Your Discord token is invalid, please login again</string>
@@ -1022,7 +1022,7 @@
   <string name="other_settings_description">The miscellaneous section contains various optional settings and utilities</string>
   <string name="data_settings_description">The data section contains settings that modify how the app handles data locally and remotely</string>
   <string name="accounts_settings_description">The accounts section contains Youtube sync settings, Piped streaming settings and Discord Rpc settings</string>
-  <string name="quick_picks_description">The quick picks section contains settings for the quick picks page and AI powered recommendations</string>
+  <string name="quick_picks_description">The Cubic Picks section contains settings for the Cubic Picks page and AI powered recommendations</string>
   <string name="smart_recommendations_description">The smart recommendations section contains settings for the AI powered recommendations</string>
   <string name="ai_recommendations">AI Recommendations</string>
   <string name="my_playlist_top1">My Top</string>

@@ -110,7 +110,7 @@ fun HomeSongs(
 
     //<editor-fold defaultstate="collapsed" desc="Settings">
     val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
-    val maxTopPlaylistItems by rememberPreference( MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10` )
+    val maxTopPlaylistItems by rememberPreference( MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`40` )
     val includeLocalSongs by rememberPreference( includeLocalSongsKey, true )
     val excludeSongWithDurationLimit by rememberPreference( excludeSongsWithDurationLimitKey, DurationInMinutes.Disabled )
     //</editor-fold>

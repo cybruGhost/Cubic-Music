@@ -26,6 +26,7 @@ import me.knighthat.utils.DurationUtils
 import me.knighthat.utils.Toaster
 import me.knighthat.utils.csv.SongCSV
 import java.io.InputStream
+import java.net.URLEncoder
 
 class ImportSongsFromCSV(
     launcher: ManagedActivityResultLauncher<Array<String>, Uri?>
@@ -46,30 +47,43 @@ class ImportSongsFromCSV(
                     val hasExportifyFormat = headers.containsAll(
                         setOf("Track URI", "Track Name", "Artist Name(s)", "Album Name")
                     )
+                    val hasYourFormat = headers.containsAll(
+                        setOf("PlaylistBrowseId", "PlaylistName", "MediaId", "Title", "Artists", "Duration", "ThumbnailUrl", "AlbumId", "AlbumTitle", "ArtistIds")
+                    )
                     
-                    if (!hasCustomFormat && !hasSpotifyFormat && !hasExportifyFormat) {
+                    if (!hasCustomFormat && !hasSpotifyFormat && !hasExportifyFormat && !hasYourFormat) {
                         throw InvalidHeaderException("Unsupported CSV format")
                     }
                 }
                 .fastMap { row ->
                     val isSpotifyFormat = row.containsKey("Track Name") && row.containsKey("Artist Name(s)")
                     val isExportifyFormat = row.containsKey("Track URI") && row.containsKey("Track Name")
+                    val isYourFormat = row.containsKey("PlaylistBrowseId") && row.containsKey("PlaylistName") && 
+                                      row.containsKey("MediaId") && row.containsKey("Title") && 
+                                      row.containsKey("Artists") && row.containsKey("Duration") &&
+                                      row.containsKey("ThumbnailUrl") && row.containsKey("AlbumId") &&
+                                      row.containsKey("AlbumTitle") && row.containsKey("ArtistIds")
                     
-                    if (isExportifyFormat) {
-                        // Handle Exportify CSV format (Spotify export)
+                    if (isExportifyFormat || isSpotifyFormat) {
+                        // Handle both Spotify and Exportify CSV formats
                         val explicitPrefix = if (row["Explicit"] == "true") "e:" else ""
                         val title = row["Track Name"].orEmpty()
                         val artists = row["Artist Name(s)"].orEmpty()
-                        val trackUri = row["Track URI"].orEmpty()
                         
-                        // Extract the actual media ID from the Spotify URI (spotify:track:ABC123)
-                        val mediaId = if (trackUri.startsWith("spotify:track:")) {
-                            trackUri.substringAfter("spotify:track:")
-                        } else {
-                            // Fallback: generate a pseudo ID if URI format is unexpected
-                            (title + artists).filter { it.isLetterOrDigit() }.take(20)
-                        }
+                        // Clean up artist names (remove Spotify URIs if present)
+                        val cleanArtists = artists.split(", ")
+                            .joinToString(", ") { artist ->
+                                artist.split("spotify:artist:").last().trim()
+                            }
+                        
+                        // Create search query for YouTube Music
+                        val searchQuery = "$title $cleanArtists".trim()
+                        val encodedSearch = URLEncoder.encode(searchQuery, "UTF-8")
+                        
+                        // Use search-based ID format that YouTube Music can understand
+                        val songId = "search:$encodedSearch"
 
+                        // Convert duration from ms to proper format
                         val rawDurationMs = row["Track Duration (ms)"]?.toLongOrNull() ?: 0L
                         val convertedDuration = if (rawDurationMs > 0) {
                             formatAsDuration(rawDurationMs)
@@ -78,43 +92,40 @@ class ImportSongsFromCSV(
                         }
 
                         SongCSV(
-                            songId = mediaId, // Use the actual media ID
+                            songId = songId,
                             playlistBrowseId = "",
-                            playlistName = "Imported from Exportify",
+                            playlistName = if (isExportifyFormat) "Imported from Exportify" else "Imported from Spotify",
                             title = explicitPrefix + title,
-                            artists = artists,
+                            artists = cleanArtists,
                             duration = convertedDuration,
                             thumbnailUrl = row["Album Image URL"].orEmpty()
                         )
-                    } else if (isSpotifyFormat) {
-                        // Handle Spotify CSV format
-                        val explicitPrefix = if (row["Explicit"] == "true") "e:" else ""
-                        val title = row["Track Name"].orEmpty()
-                        val artists = row["Artist Name(s)"].orEmpty()
-                        
-                        // For Spotify format, we need to search for the song later
-                        // Create a searchable format that the app can recognize
-                        val searchQuery = "$title $artists".trim()
-                        val pseudoMediaId = "search:$searchQuery"
+                    } else if (isYourFormat) {
+                        // Handle your specific CSV format
+                        var browseId = row["PlaylistBrowseId"].orEmpty()
+                        if (browseId.toLongOrNull() != null)
+                            browseId = ""
 
-                        val rawDurationMs = row["Track Duration (ms)"]?.toLongOrNull() ?: 0L
-                        val convertedDuration = if (rawDurationMs > 0) {
-                            formatAsDuration(rawDurationMs)
-                        } else {
-                            "0"
-                        }
+                        val rawDuration = row["Duration"].orEmpty()
+                        val convertedDuration =
+                            if (rawDuration.isBlank())
+                                "0"
+                            else if (!DurationUtils.isHumanReadable(rawDuration))
+                                formatAsDuration(rawDuration.toLong().times(1000))
+                            else
+                                rawDuration
 
                         SongCSV(
-                            songId = pseudoMediaId,
-                            playlistBrowseId = "",
-                            playlistName = "Imported from Spotify",
-                            title = explicitPrefix + title,
-                            artists = artists,
+                            songId = row["MediaId"].orEmpty(),
+                            playlistBrowseId = browseId,
+                            playlistName = row["PlaylistName"].orEmpty(),
+                            title = row["Title"].orEmpty(),
+                            artists = row["Artists"].orEmpty(),
                             duration = convertedDuration,
-                            thumbnailUrl = row["Album Image URL"].orEmpty()
+                            thumbnailUrl = row["ThumbnailUrl"].orEmpty()
                         )
                     } else {
-                        // Handle custom CSV format
+                        // Handle custom CSV format (your app's original format)
                         var browseId = row["PlaylistBrowseId"].orEmpty()
                         if (browseId.toLongOrNull() != null)
                             browseId = ""
@@ -146,20 +157,14 @@ class ImportSongsFromCSV(
                 .groupBy { it.playlistName to it.playlistBrowseId }
                 .mapValues { (_, songs) ->
                     songs.fastMap {
+                        // Create proper Song objects
                         Song(
                             id = it.songId,
                             title = it.title,
                             artistsText = it.artists,
                             thumbnailUrl = it.thumbnailUrl,
                             durationText = it.duration,
-                            totalPlayTimeMs = 1L,
-                            // Add mediaId field which is crucial for playback
-                            mediaId = if (it.songId.startsWith("search:")) {
-                                // For search-based IDs, we'll need to resolve them later
-                                ""
-                            } else {
-                                it.songId
-                            }
+                            totalPlayTimeMs = 1L
                         )
                     }
                 }

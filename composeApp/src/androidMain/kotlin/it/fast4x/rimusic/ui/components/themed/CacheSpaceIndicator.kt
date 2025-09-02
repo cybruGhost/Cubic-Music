@@ -38,7 +38,7 @@ fun CacheSpaceIndicator(
 
     val coilDiskCacheMaxSize by rememberPreference(
         coilDiskCacheMaxSizeKey,
-        CoilDiskCacheMaxSize.`128MB`
+        CoilDiskCacheMaxSize.`1GB`
     )
     val exoPlayerDiskCacheMaxSize by rememberPreference(
         exoPlayerDiskCacheMaxSizeKey,

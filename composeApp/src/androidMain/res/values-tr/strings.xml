@@ -13,7 +13,7 @@
   <string name="remove_from_queue">Sıradan kaldır</string>
   <string name="remove_from_playlist">Çalma listesinden kaldır</string>
   <string name="hide">Gizle</string>
-  <string name="hide_from_quick_picks">Hide from Quick Picks</string>
+  <string name="hide_from_quick_picks">Hide from Cubic Picks</string>
   <string name="related_albums">İlgili albümler</string>
   <string name="similar_artists">Benzer sanatçılar</string>
   <string name="playlists_you_might_like">Beğenebileceğiniz çalma listeleri</string>
@@ -23,7 +23,7 @@
   <string name="enter_the_playlist_name">Çalma listesi adını girin</string>
   <string name="playlists">Çalma listeleri</string>
   <string name="favorites">Favoriler</string>
-  <string name="quick_picks">Quick Picks</string>
+  <string name="quick_picks">Cubic Picks</string>
   <string name="songs">Şarkılar</string>
   <string name="other_versions">Diğer versiyonlar</string>
   <string name="album_no_alternative_version">Bu albümün alternatif versiyonu yok</string>
@@ -75,7 +75,7 @@
   <string name="image_cache">RESİM ÖNBELLEĞİ</string>
   <string name="max_size">Maksimum boyut</string>
   <string name="database">Veritabanı</string>
-  <string name="reset_quick_picks">Reset Quick Picks</string>
+  <string name="reset_quick_picks">Reset Cubic Picks</string>
   <string name="quick_picks_are_cleared">Hızlı seçimler temizlendi</string>
   <string name="backup">YEDEKLEME</string>
   <string name="personal_preference">Kişisel tercihler (örneğin tema modu) ve önbellek hariç tutulur.</string>
@@ -140,7 +140,7 @@
   <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">Dönen video kimliği istenenle eşleşmiyor</string>
   <string name="error_an_unknown_playback_error_has_occurred">Bilinmeyen bir çalma hatası oluştu</string>
   <string name="tips">For You</string>
-  <string name="is_min_list_time_for_tips_or_quick_pics">Minimum playback duration for a song to be suggested in Quick Picks</string>
+  <string name="is_min_list_time_for_tips_or_quick_pics">Minimum playback duration for a song to be suggested in Cubic Picks</string>
   <string name="min_listening_time">Min playback duration</string>
   <string name="player_thumbnail_size">Küçük Resim Boyutu</string>
   <string name="restarting_rimusic_is_required">Yeniden başlatma gereklidir</string>
@@ -803,10 +803,10 @@
   <string name="music_animations_crazy_points">Crazy points</string>
   <string name="music_animations_bubbles">Kabarcıklar</string>
   <string name="now_playing_indicator">Şu Anda Çalıyor Göstergesi</string>
-  <string name="good_morning">Good morning</string>
-  <string name="good_afternoon">Good afternoon</string>
-  <string name="good_evening">Good evening</string>
-  <string name="good_night">Good night</string>
+  <string name="good_afternoon">Good Afternoon☀️</string>
+  <string name="good_evening">Good Evening🌤</string>
+  <string name="good_morning">Good Morning🌞</string> 
+  <string name="good_night">Good Night🌘</string>
   <string name="colored_bar">Renkli çubuk</string>
   <string name="about_developers_designers">Geliştiriciler / Tasarımcılar</string>
   <string name="set_custom_value">Özel değer</string>
@@ -981,7 +981,7 @@
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> STABLE</string>
   <string name="beta_text">This is still in Beta and may contain bugs and crash</string>
-  <string name="quick_selection_type">Choose how many recommended songs to show in Quick Picks</string>
+  <string name="quick_selection_type">Choose how many recommended songs to show in Cubic Picks</string>
   <string name="quick_selection">%s recommended song</string>
   <string name="login_to_discord">Login to Discord</string>
   <string name="discord_token_text_invalid">Your Discord token is invalid, please login again</string>
@@ -1022,7 +1022,7 @@
   <string name="other_settings_description">The miscellaneous section contains various optional settings and utilities</string>
   <string name="data_settings_description">The data section contains settings that modify how the app handles data locally and remotely</string>
   <string name="accounts_settings_description">The accounts section contains Youtube sync settings, Piped streaming settings and Discord Rpc settings</string>
-  <string name="quick_picks_description">The quick picks section contains settings for the quick picks page and AI powered recommendations</string>
+  <string name="quick_picks_description">The Cubic Picks section contains settings for the Cubic Picks page and AI powered recommendations</string>
   <string name="smart_recommendations_description">The smart recommendations section contains settings for the AI powered recommendations</string>
   <string name="ai_recommendations">AI Recommendations</string>
   <string name="my_playlist_top1">My Top</string>

@@ -19,7 +19,7 @@ enum class UiType: TextView {
         @Composable
         get() = when (this) {
             RiMusic -> "Cubic-Music"
-            ViMusic -> this.name
+            ViMusic -> "Jennie"
         }
 
     @Composable
