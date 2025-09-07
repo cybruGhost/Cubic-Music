@@ -1,4 +1,4 @@
-# Cubic-Music NEW RELEASE out!
+# Cubic-Music NEW RELEASE
 
 #  STAR AND FOLLOW 😅 NOW.!!!the way to go
 <div align="center">
