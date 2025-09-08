@@ -25,7 +25,7 @@
 
 ---
 
-## 🚀 Current Version: `v.1.6.8`  
+## 🚀 Current Version: `v.1.6.9`  
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
