@@ -29,7 +29,6 @@
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
-## 🚀 auto update fixed
 ## ✨ Key Features
 ## explict tag added
 
