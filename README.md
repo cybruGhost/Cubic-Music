@@ -38,7 +38,7 @@
 - **Background Playback**
 - **Listening Statistics & History**
 - **Audio Visualizer** with multiple styles
-- **Music Discovery** by mood, genre, news & new albums
+- **Music Discovery** by mood, genre, & new albums
 - **Lyrics** (fetch, edit, translate, synced/unsynced)
 - **Playlist Management** (Import/Export, RiMusic-compatible)
 - **Dynamic Themes**
