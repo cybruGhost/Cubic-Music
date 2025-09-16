@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Environment
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.DatabaseProvider
@@ -58,6 +59,7 @@ import kotlinx.coroutines.runBlocking
 import me.knighthat.coil.ImageCacheFactory
 import me.knighthat.utils.Toaster
 import timber.log.Timber
+import java.io.File
 import java.util.concurrent.Executors
 import kotlin.io.path.createTempDirectory
 
@@ -70,14 +72,9 @@ object MyDownloadHelper {
                 CoroutineName("MyDownloadService-Executor-Scope")
     )
 
-    // While the class is not a singleton (lifecycle), there should only be one download state at a time
-//    private val mutableDownloadState = MutableStateFlow(false)
-//    val downloadState = mutableDownloadState.asStateFlow()
-//    private val downloadQueue =
-//        Channel<DownloadManager>(onBufferOverflow = BufferOverflow.DROP_OLDEST)
-
     const val DOWNLOAD_NOTIFICATION_CHANNEL_ID = "download_channel"
     const val CACHE_DIRNAME = "exo_downloads"
+    const val ROOT_DOWNLOAD_DIR = "RiMusic/Downloads"
 
     private lateinit var databaseProvider: DatabaseProvider
     lateinit var downloadCache: Cache
@@ -86,12 +83,10 @@ object MyDownloadHelper {
     private lateinit var downloadManager: DownloadManager
     lateinit var audioQualityFormat: AudioQualityFormat
 
-
     var downloads = MutableStateFlow<Map<String, Download>>(emptyMap())
 
     fun getDownload(songId: String): Flow<Download?> {
         return downloads.map { it[songId] }
-
     }
 
     @SuppressLint("LongLogTag")
@@ -103,9 +98,7 @@ object MyDownloadHelper {
             result[cursor.download.request.id] = cursor.download
         }
         downloads.value = result
-
     }
-
 
     @Synchronized
     fun getDownloadNotificationHelper(context: Context?): DownloadNotificationHelper {
@@ -122,57 +115,90 @@ object MyDownloadHelper {
         return downloadManager
     }
 
-    /*
-        @Synchronized
-        fun getDownloadTracker(context: Context): DownloadTracker {
-            ensureDownloadManagerInitialized(context)
-            return downloadTracker
-        }
-
-     */
-
     @Synchronized
-    private fun initDownloadCache( context: Context ): SimpleCache {
-        val cacheSize = context.preferences.getEnum( exoPlayerDiskDownloadCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` )
+    private fun initDownloadCache(context: Context): SimpleCache {
+        val cacheSize = context.preferences.getEnum(exoPlayerDiskDownloadCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB`)
 
-        val cacheEvictor = when( cacheSize ) {
+        val cacheEvictor = when(cacheSize) {
             ExoPlayerDiskCacheMaxSize.Unlimited -> NoOpCacheEvictor()
-
-            ExoPlayerDiskCacheMaxSize.Custom    -> {
-                val customCacheSize = context.preferences.getInt( exoPlayerCustomCacheKey, 32 ) * 1000 * 1000L
-                LeastRecentlyUsedCacheEvictor( customCacheSize )
+            ExoPlayerDiskCacheMaxSize.Custom -> {
+                val customCacheSize = context.preferences.getInt(exoPlayerCustomCacheKey, 32) * 1000 * 1000L
+                LeastRecentlyUsedCacheEvictor(customCacheSize)
             }
-
-            else                                -> LeastRecentlyUsedCacheEvictor( cacheSize.bytes )
+            else -> LeastRecentlyUsedCacheEvictor(cacheSize.bytes)
         }
 
-        val cacheDir = when( cacheSize ) {
-            // Temporary directory deletes itself after close
-            // It means songs remain on device as long as it's open
-            ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( CACHE_DIRNAME ).toFile()
-
-            else                               ->
-                // Looks a bit ugly but what it does is
-                // check location set by user and return
-                // appropriate path with [CACHE_DIRNAME] appended.
-                when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
-                    ExoPlayerCacheLocation.System -> context.cacheDir
-                    ExoPlayerCacheLocation.Private -> context.filesDir
-                }.resolve( CACHE_DIRNAME )
+        val cacheDir = when(cacheSize) {
+            ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory(CACHE_DIRNAME).toFile()
+            else -> {
+                // FIXED: Use app-specific storage that works on all Android versions
+                when(context.preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System)) {
+                    ExoPlayerCacheLocation.System -> {
+                        // Use app-specific external storage (works on all Android versions)
+                        context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: 
+                        context.filesDir.resolve(CACHE_DIRNAME)
+                    }
+                    ExoPlayerCacheLocation.Private -> context.filesDir.resolve(CACHE_DIRNAME)
+                }
+            }
         }
 
         // Ensure this location exists
-        cacheDir.mkdirs()
+        if (!cacheDir.exists()) {
+            cacheDir.mkdirs()
+        }
 
-        return SimpleCache( cacheDir, cacheEvictor, getDatabaseProvider(context) )
+        return SimpleCache(cacheDir, cacheEvictor, getDatabaseProvider(context))
     }
 
     @Synchronized
-    fun getDownloadCache( context: Context ): Cache {
-        if ( !MyDownloadHelper::downloadCache.isInitialized )
-            downloadCache = initDownloadCache( context )
+    fun getDownloadCache(context: Context): Cache {
+        if (!MyDownloadHelper::downloadCache.isInitialized)
+            downloadCache = initDownloadCache(context)
 
         return downloadCache
+    }
+
+    // FIXED: Removed the problematic cacheDir access
+    fun getDownloadedFilePath(context: Context, songId: String): String? {
+        return try {
+            val cache = getDownloadCache(context)
+            val cacheSpans = cache.getCachedSpans(songId)
+            
+            if (cacheSpans.isNotEmpty()) {
+                // Instead of trying to access private cacheDir, reconstruct the path
+                val cacheSize = context.preferences.getEnum(exoPlayerDiskDownloadCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB`)
+                val cacheDir = when(cacheSize) {
+                    ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory(CACHE_DIRNAME).toFile()
+                    else -> {
+                        when(context.preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System)) {
+                            ExoPlayerCacheLocation.System -> {
+                                context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: 
+                                context.filesDir.resolve(CACHE_DIRNAME)
+                            }
+                            ExoPlayerCacheLocation.Private -> context.filesDir.resolve(CACHE_DIRNAME)
+                        }
+                    }
+                }
+                cacheDir.absolutePath
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e("Error getting downloaded file path: ${e.message}")
+            null
+        }
+    }
+
+    // FIXED: Proper URI handling for downloaded content
+    fun getDownloadedSongUri(context: Context, songId: String): Uri? {
+        val download = downloads.value[songId]
+        return if (download?.state == Download.STATE_COMPLETED) {
+            // ExoPlayer handles cached content automatically - return original URI
+            Uri.parse("https://music.youtube.com/watch?v=$songId")
+        } else {
+            null
+        }
     }
 
     @Synchronized
@@ -194,7 +220,6 @@ object MyDownloadHelper {
 
                 addListener(
                     object : DownloadManager.Listener {
-
                         override fun onDownloadChanged(
                             downloadManager: DownloadManager,
                             download: Download,
@@ -212,9 +237,6 @@ object MyDownloadHelper {
                     }
                 )
             }
-
-            //downloadTracker =
-            //    DownloadTracker(context, getHttpDataSourceFactory(context), downloadManager)
         }
     }
 
@@ -237,7 +259,7 @@ object MyDownloadHelper {
     fun addDownload(context: Context, mediaItem: MediaItem) {
         if (mediaItem.isLocal) return
 
-        if( !isNetworkConnected( context ) ) {
+        if(!isNetworkConnected(context)) {
             Toaster.noInternet()
             return
         }
@@ -249,27 +271,22 @@ object MyDownloadHelper {
                     ?: Uri.parse("https://music.youtube.com/watch?v=${mediaItem.mediaId}")
             )
             .setCustomCacheKey(mediaItem.mediaId)
-            .setData("${mediaItem.mediaMetadata.artist.toString()} - ${mediaItem.mediaMetadata.title.toString()}".encodeToByteArray()) // Title in notification
+            .setData("${mediaItem.mediaMetadata.artist.toString()} - ${mediaItem.mediaMetadata.title.toString()}".encodeToByteArray())
             .build()
 
         Database.asyncTransaction {
-            insertIgnore( mediaItem )
+            insertIgnore(mediaItem)
         }
 
         val imageUrl = mediaItem.mediaMetadata.artworkUri.thumbnail(1200)
 
-//            sendAddDownload(
-//                context,MyDownloadService::class.java,downloadRequest,false
-//            )
-
         coroutineScope.launch {
             context.download<MyDownloadService>(downloadRequest).exceptionOrNull()?.let {
                 if (it is CancellationException) throw it
-
                 Timber.e("MyDownloadHelper scheduleDownload exception ${it.stackTraceToString()}")
                 println("MyDownloadHelper scheduleDownload exception ${it.stackTraceToString()}")
             }
-            downloadSyncedLyrics( mediaItem.asSong )
+            downloadSyncedLyrics(mediaItem.asSong)
             ImageCacheFactory.LOADER.execute(
                 ImageRequest.Builder(context)
                     .networkCachePolicy(CachePolicy.ENABLED)
@@ -279,17 +296,14 @@ object MyDownloadHelper {
                     .build()
             )
         }
-
     }
 
     fun removeDownload(context: Context, mediaItem: MediaItem) {
         if (mediaItem.isLocal) return
 
-        //sendRemoveDownload(context,MyDownloadService::class.java,mediaItem.mediaId,false)
         coroutineScope.launch {
             context.removeDownload<MyDownloadService>(mediaItem.mediaId).exceptionOrNull()?.let {
                 if (it is CancellationException) throw it
-
                 Timber.e(it.stackTraceToString())
                 println("MyDownloadHelper removeDownload exception ${it.stackTraceToString()}")
             }
@@ -315,7 +329,7 @@ object MyDownloadHelper {
         if (context.preferences.getBoolean(autoDownloadSongWhenLikedKey, false)) {
             Database.asyncQuery {
                 runBlocking {
-                    if( songTable.isLiked( mediaItem.mediaId ).first() )
+                    if(songTable.isLiked(mediaItem.mediaId).first())
                         autoDownload(context, mediaItem)
                     else
                         removeDownload(context, mediaItem)
@@ -324,19 +338,15 @@ object MyDownloadHelper {
         }
     }
 
-    fun downloadOnLike( mediaItem: MediaItem, likeState: Boolean?, context: Context ) {
-        // Only continues when this setting is enabled
-        val isSettingEnabled = context.preferences.getBoolean( autoDownloadSongWhenLikedKey, false )
-        if( !isSettingEnabled || !isNetworkConnected( context ) )
+    fun downloadOnLike(mediaItem: MediaItem, likeState: Boolean?, context: Context) {
+        val isSettingEnabled = context.preferences.getBoolean(autoDownloadSongWhenLikedKey, false)
+        if(!isSettingEnabled || !isNetworkConnected(context))
             return
 
-        // [likeState] is a tri-state value,
-        // only `true` represents like, so
-        // `true` must be value set to download
-        if( likeState == true )
-            autoDownload( context, mediaItem )
+        if(likeState == true)
+            autoDownload(context, mediaItem)
         else
-            removeDownload( context, mediaItem )
+            removeDownload(context, mediaItem)
     }
 
     fun autoDownloadWhenAlbumBookmarked(context: Context, mediaItems: List<MediaItem>) {
@@ -347,15 +357,28 @@ object MyDownloadHelper {
         }
     }
 
-    fun handleDownload(context: Context, song: Song, removeIfDownloaded: Boolean = false ) {
-        if( song.isLocal ) return
+    fun handleDownload(context: Context, song: Song, removeIfDownloaded: Boolean = false) {
+        if(song.isLocal) return
 
         val isDownloaded =
             downloads.value.values.any{ it.state == Download.STATE_COMPLETED && it.request.id == song.id }
 
-        if( isDownloaded && removeIfDownloaded )
-            removeDownload( context, song.asMediaItem )
-        else if( !isDownloaded )
-            addDownload( context, song.asMediaItem )
+        if(isDownloaded && removeIfDownloaded)
+            removeDownload(context, song.asMediaItem)
+        else if(!isDownloaded)
+            addDownload(context, song.asMediaItem)
+    }
+
+    fun isSongDownloaded(songId: String): Boolean {
+        val download = downloads.value[songId]
+        return download?.state == Download.STATE_COMPLETED
+    }
+
+    fun getDownloadedSongsCount(): Int {
+        return downloads.value.count { it.value.state == Download.STATE_COMPLETED }
+    }
+
+    fun getDownloadedSongIds(): List<String> {
+        return downloads.value.filter { it.value.state == Download.STATE_COMPLETED }.keys.toList()
     }
 }

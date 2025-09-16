@@ -41,7 +41,7 @@ private fun appIconClickAction(
         when( countToReveal.intValue ) {
             10 -> {
                 countToReveal.intValue = 0
-                navController.navigate( NavRoutes.gamePacman.name )
+                navController.navigate( NavRoutes.gameSnake.name )
                 ""
             }
             3 -> context.getString(R.string.easter_egg_click_message)
@@ -58,7 +58,7 @@ private fun appIconLongClickAction(
     context: Context
 ) {
     Toaster.n( context.getString(R.string.easter_egg_last), Toast.LENGTH_LONG )
-    navController.navigate( NavRoutes.gameSnake.name )
+    navController.navigate( NavRoutes.gamePacman.name )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

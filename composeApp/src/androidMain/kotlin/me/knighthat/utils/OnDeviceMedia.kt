@@ -113,7 +113,7 @@ fun Context.getLocalSongs(
             }
             if( blacklistedPaths.contains( relPath ) ) continue
 
-            // Nullable so SongItem can display "--:--"
+            // Nullable so SongItem can display "✨"
             // TODO apply some non-null method
             val durationText =
                 cursor.getInt( durationColumn )

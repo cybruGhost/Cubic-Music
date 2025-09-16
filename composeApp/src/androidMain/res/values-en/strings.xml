@@ -968,7 +968,7 @@
   <string name="appearance_changes_message">If you change Player or UI settings,\nit is strongly recommended to restart the application.</string>
   <string name="title_import_settings_migration">Import migration file.</string>
   <string name="description_import_settings_migration">For old users before conversion.\nUse old app to make a backup for migration.</string>
-  <string name="log_in_to_ytm">Log in to your YTM account for more content</string>
+  <string name="log_in_to_ytm">Streaming optimized. Bugs will be fixed on release. © 2025 by CyberGhost</string>
   <string name="close">Close</string>
   <string name="view_changelog">View changelog of the version %s</string>
   <string name="no_changelog_available">No changelog available</string>
