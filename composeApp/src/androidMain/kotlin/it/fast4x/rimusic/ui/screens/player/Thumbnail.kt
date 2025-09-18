@@ -3,6 +3,7 @@ package it.fast4x.rimusic.ui.screens.player
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.SizeTransform
@@ -13,13 +14,26 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -36,7 +51,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -72,15 +89,159 @@ import it.fast4x.rimusic.utils.showlyricsthumbnailKey
 import it.fast4x.rimusic.utils.showvisthumbnailKey
 import it.fast4x.rimusic.utils.thumbnailTypeKey
 import it.fast4x.rimusic.utils.thumbnailpauseKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import me.knighthat.coil.ImageCacheFactory
 import me.knighthat.utils.Toaster
 import timber.log.Timber
 import java.net.UnknownHostException
 import java.nio.channels.UnresolvedAddressException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+
+// Data class for comments
+data class Comment(
+    val id: String,
+    val author: String,
+    val content: String,
+    val timestamp: String
+)
+
+// Function to fetch comments from API
+suspend fun fetchComments(videoId: String): List<Comment> = withContext(Dispatchers.IO) {
+    val comments = mutableListOf<Comment>()
+    
+    try {
+        val url = URL("https://yt.omada.cafe/api/v1/comments/$videoId")
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
+        
+        if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+            val reader = BufferedReader(InputStreamReader(connection.inputStream))
+            val response = StringBuilder()
+            var line: String?
+            
+            while (reader.readLine().also { line = it } != null) {
+                response.append(line)
+            }
+            reader.close()
+            
+            val jsonResponse = JSONObject(response.toString())
+            val commentsArray = jsonResponse.optJSONArray("comments")
+            
+            if (commentsArray != null) {
+                for (i in 0 until commentsArray.length()) {
+                    val commentObj = commentsArray.getJSONObject(i)
+                    comments.add(
+                        Comment(
+                            id = commentObj.optString("id", ""),
+                            author = commentObj.optString("author", "Unknown"),
+                            content = commentObj.optString("content", ""),
+                            timestamp = commentObj.optString("timestamp", "")
+                        )
+                    )
+                }
+            }
+        }
+    } catch (e: Exception) {
+        Timber.e(e, "Error fetching comments")
+    }
+    
+    return@withContext comments
+}
+
+@Composable
+fun CommentsOverlay(
+    videoId: String,
+    isVisible: Boolean,
+    onDismiss: () -> Unit
+) {
+    var comments by remember { mutableStateOf<List<Comment>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(videoId, isVisible) {
+        if (isVisible && comments.isEmpty()) {
+            isLoading = true
+            comments = fetchComments(videoId)
+            isLoading = false
+        }
+    }
+    
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(animationSpec = tween(500)),
+        exit = fadeOut(animationSpec = tween(500))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(onClick = onDismiss)
+                .padding(16.dp)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color.White
+                )
+            } else if (comments.isEmpty()) {
+                Text(
+                    text = "No comments yet",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth(0.9f)
+                        .clip(RoundedCornerShape(8.dp))
+                ) {
+                    items(comments.take(5)) { comment ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = comment.author,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = comment.timestamp,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Text(
+                                text = comment.content,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @ExperimentalAnimationApi
 @UnstableApi
@@ -143,12 +304,16 @@ fun Thumbnail(
 
     val clickLyricsText by rememberPreference(clickOnLyricsTextKey, true)
     var showvisthumbnail by rememberPreference(showvisthumbnailKey, false)
-    //var expandedlyrics by rememberPreference(expandedlyricsKey,false)
+    
+    // State for comments visibility
+    var showComments by remember { mutableStateOf(false) }
 
     player.DisposableListener {
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 nullableWindow = player.currentWindow
+                // Hide comments when song changes
+                showComments = false
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -158,8 +323,6 @@ fun Thumbnail(
             override fun onPlayerError(playbackException: PlaybackException) {
                 error = playbackException
                 binder.stopRadio()
-                //context.stopService(context.intent<PlayerService>())
-                //context.stopService(context.intent<MyDownloadService>())
             }
         }
     }
@@ -231,20 +394,12 @@ fun Thumbnail(
                     modifierUiType = modifier
                         .padding(vertical = 8.dp)
                         .aspectRatio(1f)
-                        //.size(thumbnailSizeDp)
                         .fillMaxSize()
-                        //.dropShadow(thumbnailShape(), colorPalette().overlay.copy(0.1f), 6.dp, 2.dp, 2.dp)
-                        //.dropShadow(thumbnailShape(), colorPalette().overlay.copy(0.1f), 6.dp, (-2).dp, (-2).dp)
                         .doubleShadowDrop(if (showCoverThumbnailAnimation) CircleShape else thumbnailShape(), 4.dp, 8.dp)
-                        //.clip(thumbnailShape())
                         .clip(if (showCoverThumbnailAnimation) CircleShape else thumbnailShape())
-                //.padding(14.dp)
                 else modifierUiType = modifier
                     .aspectRatio(1f)
-                    //.size(thumbnailSizeDp)
-                    //.padding(14.dp)
                     .fillMaxSize()
-                    //.clip(thumbnailShape())
                     .clip(if (showCoverThumbnailAnimation) CircleShape else thumbnailShape())
 
 
@@ -322,13 +477,32 @@ fun Thumbnail(
                         )
                     }
 
-                //if (!currentWindow.mediaItem.isLocal)
+                // Comments toggle button (pencil icon)
+                Image(
+                    painter = painterResource(R.drawable.pencil),
+                    contentDescription = "Toggle comments",
+                    colorFilter = ColorFilter.tint(Color.White),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .clickable {
+                            showComments = !showComments
+                        }
+                )
+
+                // Comments overlay
+                CommentsOverlay(
+                    videoId = currentWindow.mediaItem.mediaId,
+                    isVisible = showComments,
+                    onDismiss = { showComments = false }
+                )
+
                 if (showlyricsthumbnail)
                     Lyrics(
                         mediaId = currentWindow.mediaItem.mediaId,
                         isDisplayed = isShowingLyrics && error == null,
                         onDismiss = {
-                            //if (thumbnailTapEnabledKey)
                             onShowLyrics(false)
                         },
                         ensureSongInserted = { Database.insertIgnore( currentWindow.mediaItem ) },
@@ -372,7 +546,6 @@ fun Thumbnail(
                                 else -> unknownplaybackerror
                             }
                         )
-                    //    player.seekToNext()
                     } else errorCounter = 0
                 }
             }
@@ -392,5 +565,4 @@ fun Modifier.thumbnailpause(
             scaleX = scale
             scaleY = scale
         }
-
 }

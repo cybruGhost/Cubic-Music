@@ -962,6 +962,7 @@
 <string name="update_changelogs">%s changelogs</string>
 <string name="rotating_cover_title">Rotating album cover</string>
 <string name="title_playback_speed">Playback speed</string>
+<string name="error_no_inet">No internet connection</string>
 <string name="description_playback_speed">Adjust how slow/fast the song goes</string>
 <string name="opens_link_in_web_browser">Opens link in web browser</string>
 <string name="title_appearance_changes">Appearance Change</string>
