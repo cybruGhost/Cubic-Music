@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
@@ -79,9 +81,12 @@ import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.DisposableListener
 import it.fast4x.rimusic.utils.clickOnLyricsTextKey
+import androidx.compose.foundation.lazy.itemsIndexed
 import it.fast4x.rimusic.utils.coverThumbnailAnimationKey
 import it.fast4x.rimusic.utils.currentWindow
 import it.fast4x.rimusic.utils.doubleShadowDrop
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.platform.LocalConfiguration
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.showCoverThumbnailAnimationKey
@@ -104,21 +109,23 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.random.Random
 
 // Data class for comments
 data class Comment(
     val id: String,
     val author: String,
     val content: String,
-    val timestamp: String
+    val timestamp: String,
+    val likes: Int = 0
 )
 
-// Function to fetch comments from API
-suspend fun fetchComments(videoId: String): List<Comment> = withContext(Dispatchers.IO) {
+// Function to fetch comments from API with pagination
+suspend fun fetchComments(videoId: String, page: Int = 1): List<Comment> = withContext(Dispatchers.IO) {
     val comments = mutableListOf<Comment>()
     
     try {
-        val url = URL("https://yt.omada.cafe/api/v1/comments/$videoId")
+        val url = URL("https://yt.omada.cafe/api/v1/comments/$videoId?page=$page")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
         connection.connectTimeout = 10000
@@ -145,7 +152,8 @@ suspend fun fetchComments(videoId: String): List<Comment> = withContext(Dispatch
                             id = commentObj.optString("id", ""),
                             author = commentObj.optString("author", "Unknown"),
                             content = commentObj.optString("content", ""),
-                            timestamp = commentObj.optString("timestamp", "")
+                            timestamp = commentObj.optString("timestamp", ""),
+                            likes = commentObj.optInt("likes", 0)
                         )
                     )
                 }
@@ -158,6 +166,23 @@ suspend fun fetchComments(videoId: String): List<Comment> = withContext(Dispatch
     return@withContext comments
 }
 
+// Function to shuffle comments without repetition
+fun shuffleComments(comments: List<Comment>): List<Comment> {
+    val shuffled = comments.toMutableList()
+    var currentIndex = shuffled.size
+    
+    // Fisher-Yates shuffle algorithm
+    while (currentIndex != 0) {
+        val randomIndex = Random.nextInt(currentIndex)
+        currentIndex--
+        val temp = shuffled[currentIndex]
+        shuffled[currentIndex] = shuffled[randomIndex]
+        shuffled[randomIndex] = temp
+    }
+    
+    return shuffled
+}
+
 @Composable
 fun CommentsOverlay(
     videoId: String,
@@ -166,15 +191,12 @@ fun CommentsOverlay(
 ) {
     var comments by remember { mutableStateOf<List<Comment>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+    var currentPage by remember { mutableIntStateOf(1) }
+    var selectedComment by remember { mutableStateOf<String?>(null) }
+    val scrollState = rememberLazyListState()
     
-    LaunchedEffect(videoId, isVisible) {
-        if (isVisible && comments.isEmpty()) {
-            isLoading = true
-            comments = fetchComments(videoId)
-            isLoading = false
-        }
-    }
-    
+    // Dark overlay for better readability - only when comments are visible
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(animationSpec = tween(500)),
@@ -183,7 +205,42 @@ fun CommentsOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.8f),
+                            Color.Black.copy(alpha = 0.6f)
+                        )
+                    )
+                )
                 .clickable(onClick = onDismiss)
+        )
+    }
+    
+    LaunchedEffect(videoId, isVisible) {
+        if (isVisible && comments.isEmpty()) {
+            isLoading = true
+            val fetchedComments = fetchComments(videoId, 1)
+            comments = shuffleComments(fetchedComments)
+            isLoading = false
+        }
+    }
+    
+    LaunchedEffect(isVisible) {
+        if (!isVisible) {
+            selectedComment = null
+            currentPage = 1
+        }
+    }
+    
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(animationSpec = tween(700)),
+        exit = fadeOut(animationSpec = tween(500))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
                 .padding(16.dp)
         ) {
             if (isLoading) {
@@ -192,49 +249,148 @@ fun CommentsOverlay(
                     color = Color.White
                 )
             } else if (comments.isEmpty()) {
-                Text(
-                    text = "No comments yet",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth(0.9f)
-                        .clip(RoundedCornerShape(8.dp))
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(comments.take(5)) { comment ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
+                    Text(
+                        text = "No comments yet",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Text(
+                        text = "@cyberghost",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.95f)
+                        .height(LocalConfiguration.current.screenHeightDp.dp * 0.8f) // 80% of screen height
+                ) {
+                    // Comments title
+                    Text(
+                        text = "Community Reactions",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
+                    // Comments list
+                    // Comments list
+                    LazyColumn(
+                        state = scrollState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.3f))
+                            .padding(8.dp)
+                    ) {
+                    itemsIndexed(
+                        comments,
+                        key = { index, comment ->
+                            if (comment.id.isNotBlank()) "${comment.id}_$index"
+                            else "${comment.author}_${comment.timestamp}_$index"
+                        } // <-- just close the lambda here
+                    ) { index: Int, comment: Comment ->  // <-- start the itemsIndexed lambda
+                        // Use the same key for both selection + LazyColumn uniqueness
+                        val commentKey = if (comment.id.isNotBlank()) "${comment.id}_$index"
+                                        else "${comment.author}_${comment.timestamp}_$index"
+
+                        val isSelected = selectedComment == commentKey
+
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (isSelected) Color.White.copy(alpha = 0.2f)
+                                        else Color.Transparent
+                                    )
+                                    .clickable {
+                                        selectedComment = if (isSelected) null else commentKey
+                                    }
                             ) {
-                                Text(
-                                    text = comment.author,
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.weight(1f))
-                                Text(
-                                    text = comment.timestamp,
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 12.sp
-                                )
+                                Column(
+                                    modifier = Modifier.padding(12.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = comment.author,
+                                            color = if (isSelected) Color.Cyan else Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        Text(
+                                            text = comment.timestamp,
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = comment.content,
+                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.9f),
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                    if (comment.likes > 0) {
+                                        Text(
+                                            text = "${comment.likes} ♥",
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
+                                }
                             }
-                            Text(
-                                text = comment.content,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
+                        }
+
+                        item {
+                            if (isLoadingMore) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .padding(16.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else if (comments.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp)
+                                        .clickable {
+                                            isLoadingMore = true
+                                            currentPage++
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                val moreComments = fetchComments(videoId, currentPage)
+                                                val newShuffledComments = shuffleComments(moreComments)
+                                                comments = comments + newShuffledComments
+                                                isLoadingMore = false
+                                            }
+                                        }
+                                ) {
+                                    Text(
+                                        text = "Load more comments...",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.align(Alignment.Center)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -350,6 +506,11 @@ fun Thumbnail(
     val showCoverThumbnailAnimation by rememberPreference(showCoverThumbnailAnimationKey, false)
     var coverThumbnailAnimation by rememberPreference(coverThumbnailAnimationKey, ThumbnailCoverType.Vinyl)
 
+    // Dim the thumbnail when comments are visible
+    val thumbnailAlpha by animateFloatAsState(
+        targetValue = if (showComments) 0.3f else 1f,
+        animationSpec = tween(durationMillis = 500), label = ""
+    )
 
     AnimatedContent(
         targetState = window,
@@ -402,8 +563,6 @@ fun Thumbnail(
                     .fillMaxSize()
                     .clip(if (showCoverThumbnailAnimation) CircleShape else thumbnailShape())
 
-
-
         Box(
             modifier = modifierUiType
         ) {
@@ -418,7 +577,7 @@ fun Thumbnail(
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onLongPress = { onShowStatsForNerds(true) },
-                                            onTap = if (thumbnailTapEnabledKey) {
+                                            onTap = if (thumbnailTapEnabledKey && !showComments) {
                                                 {
                                                     onShowLyrics(true)
                                                     onShowEqualizer(false)
@@ -426,8 +585,8 @@ fun Thumbnail(
                                             } else null,
                                             onDoubleTap = { onDoubleTap() }
                                         )
-
-                                    },
+                                    }
+                                    .graphicsLayer { alpha = thumbnailAlpha },
                                 type = coverThumbnailAnimation
                             )
                         else
@@ -439,7 +598,7 @@ fun Thumbnail(
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onLongPress = { onShowStatsForNerds(true) },
-                                            onTap = if (thumbnailTapEnabledKey) {
+                                            onTap = if (thumbnailTapEnabledKey && !showComments) {
                                                 {
                                                     onShowLyrics(true)
                                                     onShowEqualizer(false)
@@ -447,10 +606,10 @@ fun Thumbnail(
                                             } else null,
                                             onDoubleTap = { onDoubleTap() }
                                         )
-
                                     }
                                     .fillMaxSize()
                                     .clip(thumbnailShape())
+                                    .graphicsLayer { alpha = thumbnailAlpha }
                             )
 
                     } else {
@@ -460,7 +619,7 @@ fun Thumbnail(
                                 .pointerInput(Unit) {
                                     detectTapGestures(
                                         onLongPress = { onShowStatsForNerds(true) },
-                                        onTap = if (thumbnailTapEnabledKey) {
+                                        onTap = if (thumbnailTapEnabledKey && !showComments) {
                                             {
                                                 onShowLyrics(true)
                                                 onShowEqualizer(false)
@@ -468,28 +627,30 @@ fun Thumbnail(
                                         } else null,
                                         onDoubleTap = { onDoubleTap() }
                                     )
-
                                 }
                                 .fillMaxSize()
-                                .clip(thumbnailShape()),
+                                .clip(thumbnailShape())
+                                .graphicsLayer { alpha = thumbnailAlpha },
                             contentDescription = "Background Image",
                             contentScale = ContentScale.Fit
                         )
                     }
 
-                // Comments toggle button (pencil icon)
-                Image(
-                    painter = painterResource(R.drawable.pencil),
-                    contentDescription = "Toggle comments",
-                    colorFilter = ColorFilter.tint(Color.White),
-                    modifier = Modifier
-                        .size(36.dp)
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .clickable {
-                            showComments = !showComments
-                        }
-                )
+                // Comments toggle button (pencil icon) - only show when comments are not visible
+                if (!showComments) {
+                    Image(
+                        painter = painterResource(R.drawable.comments),
+                        contentDescription = "Toggle comments",
+                        colorFilter = ColorFilter.tint(Color.White),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .clickable {
+                                showComments = true
+                            }
+                    )
+                }
 
                 // Comments overlay
                 CommentsOverlay(
@@ -501,7 +662,7 @@ fun Thumbnail(
                 if (showlyricsthumbnail)
                     Lyrics(
                         mediaId = currentWindow.mediaItem.mediaId,
-                        isDisplayed = isShowingLyrics && error == null,
+                        isDisplayed = isShowingLyrics && error == null && !showComments,
                         onDismiss = {
                             onShowLyrics(false)
                         },
@@ -515,12 +676,12 @@ fun Thumbnail(
 
                 StatsForNerds(
                     mediaId = currentWindow.mediaItem.mediaId,
-                    isDisplayed = isShowingStatsForNerds && error == null,
+                    isDisplayed = isShowingStatsForNerds && error == null && !showComments,
                     onDismiss = { onShowStatsForNerds(false) }
                 )
                 if (showvisthumbnail) {
                     NextVisualizer(
-                        isDisplayed = isShowingVisualizer
+                        isDisplayed = isShowingVisualizer && !showComments
                     )
                 }
 
