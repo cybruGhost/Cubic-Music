@@ -193,6 +193,7 @@ fun CommentsOverlay(
     var currentPage by remember { mutableIntStateOf(1) }
     var selectedComment by remember { mutableStateOf<String?>(null) }
     var hasMoreComments by remember { mutableStateOf(true) }
+    var expandedComments by remember { mutableStateOf<Set<String>>(setOf()) }
     val scrollState = rememberLazyListState()
     
     // Dark overlay for better readability - only when comments are visible
@@ -230,6 +231,7 @@ fun CommentsOverlay(
         if (!isVisible) {
             selectedComment = null
             currentPage = 1
+            expandedComments = setOf()
         }
     }
     
@@ -304,6 +306,7 @@ fun CommentsOverlay(
                                             else "${comment.author}_${comment.timestamp}_$index"
 
                             val isSelected = selectedComment == commentKey
+                            val isExpanded = expandedComments.contains(commentKey)
 
                             Box(
                                 modifier = Modifier
@@ -343,26 +346,45 @@ fun CommentsOverlay(
                                         text = comment.content,
                                         color = if (isSelected) Color.White else Color.White.copy(alpha = 0.9f),
                                         fontSize = 14.sp,
-                                        modifier = Modifier.padding(top = 4.dp)
+                                        modifier = Modifier.padding(top = 4.dp),
+                                        maxLines = if (isExpanded) Int.MAX_VALUE else 3,
+                                        overflow = TextOverflow.Ellipsis
                                     )
+                                    
+                                    // Show "Read more" for long comments
+                                    if (comment.content.length > 150 && !isExpanded) {
+                                        Text(
+                                            text = "Read more",
+                                            color = Color(0xFF8A2BE2),
+                                            fontSize = 12.sp,
+                                            modifier = Modifier
+                                                .padding(top = 4.dp)
+                                                .clickable {
+                                                    expandedComments = expandedComments + commentKey
+                                                }
+                                        )
+                                    }
+                                    
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.padding(top = 4.dp)
                                     ) {
-                                        if (comment.likes > 0) {
-                                            Image(
-                                                painter = painterResource(R.drawable.heart_shape),
-                                                contentDescription = "Likes",
-                                                colorFilter = ColorFilter.tint(Color(0xFF8A2BE2)), // Purple heart
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Text(
-                                                text = formatLikes(comment.likes),
-                                                color = Color.White.copy(alpha = 0.6f),
-                                                fontSize = 12.sp,
-                                                modifier = Modifier.padding(start = 4.dp)
-                                            )
-                                        }
+                                        Image(
+                                            painter = painterResource(R.drawable.heart_shape),
+                                            contentDescription = "Likes",
+                                            colorFilter = ColorFilter.tint(
+                                                if (comment.likes > 0) Color(0xFF8A2BE2) 
+                                                else Color.White.copy(alpha = 0.3f)
+                                            ),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = formatLikes(comment.likes),
+                                            color = if (comment.likes > 0) Color.White.copy(alpha = 0.8f) 
+                                                   else Color.White.copy(alpha = 0.3f),
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(start = 4.dp)
+                                        )
                                     }
                                 }
                             }
@@ -370,19 +392,23 @@ fun CommentsOverlay(
 
                         item {
                             if (isLoadingMore) {
-                                CircularProgressIndicator(
+                                Box(
                                     modifier = Modifier
-                                        .align(Alignment.CenterHorizontally)
-                                        .padding(16.dp),
-                                    color = Color(0xFF8A2BE2), // Purple color
-                                    strokeWidth = 2.dp
-                                )
+                                        .fillMaxWidth()
+                                        .padding(16.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.align(Alignment.Center),
+                                        color = Color(0xFF8A2BE2),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
                             } else if (hasMoreComments) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(16.dp)
-                                        .clickable {
+                                        .clickable(enabled = !isLoadingMore) {
                                             isLoadingMore = true
                                             currentPage++
                                             CoroutineScope(Dispatchers.IO).launch {
@@ -394,7 +420,18 @@ fun CommentsOverlay(
                                                     val newComments = moreComments.filter { newComment -> 
                                                         !comments.any { it.id == newComment.id }
                                                     }
-                                                    comments = comments + shuffleComments(newComments)
+                                                    if (newComments.isNotEmpty()) {
+                                                        comments = comments + shuffleComments(newComments)
+                                                    } else {
+                                                        // If we got duplicates, try next page
+                                                        currentPage++
+                                                        val nextPageComments = fetchComments(videoId, currentPage)
+                                                        if (nextPageComments.isNotEmpty()) {
+                                                            comments = comments + shuffleComments(nextPageComments)
+                                                        } else {
+                                                            hasMoreComments = false
+                                                        }
+                                                    }
                                                 }
                                                 isLoadingMore = false
                                             }
@@ -402,7 +439,7 @@ fun CommentsOverlay(
                                 ) {
                                     Text(
                                         text = "Load more comments...",
-                                        color = Color(0xFF8A2BE2), // Purple color
+                                        color = Color(0xFF8A2BE2),
                                         fontSize = 14.sp,
                                         modifier = Modifier.align(Alignment.Center)
                                     )
@@ -432,8 +469,8 @@ fun CommentsOverlay(
 // Helper function to format likes count
 private fun formatLikes(likes: Int): String {
     return when {
-        likes >= 1000000 -> "${likes / 1000000}M"
-        likes >= 1000 -> "${likes / 1000}K"
+        likes >= 1000000 -> String.format("%.1fM", likes / 1000000.0)
+        likes >= 1000 -> String.format("%.1fK", likes / 1000.0)
         else -> likes.toString()
     }
 }
@@ -675,10 +712,10 @@ fun Thumbnail(
                         )
                     }
 
-                // Comments toggle button (pencil icon) - only show when comments are not visible
+                // Comments toggle button (comments icon) - only show when comments are not visible
                 if (!showComments) {
                     Image(
-                        painter = painterResource(R.drawable.pencil),
+                        painter = painterResource(R.drawable.comments),
                         contentDescription = "Toggle comments",
                         colorFilter = ColorFilter.tint(Color.White),
                         modifier = Modifier
