@@ -13,6 +13,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -123,70 +125,83 @@ data class AuthorThumbnail(
     val height: Int
 )
 
-// Function to fetch comments from API
-suspend fun fetchComments(videoId: String): List<Comment> = withContext(Dispatchers.IO) {
+// Function to fetch multiple pages of comments
+suspend fun fetchComments(videoId: String, maxPages: Int = 3): List<Comment> = withContext(Dispatchers.IO) {
     val comments = mutableListOf<Comment>()
-    
+    var continuation: String? = null
+    var page = 0
+
     try {
-        val url = URL("https://yt.omada.cafe/api/v1/comments/$videoId")
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 10000
-        connection.readTimeout = 10000
-        
-        if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-            val reader = BufferedReader(InputStreamReader(connection.inputStream))
-            val response = StringBuilder()
-            var line: String?
-            
-            while (reader.readLine().also { line = it } != null) {
-                response.append(line)
+        do {
+            // Build URL for this page
+            val urlStr = if (continuation == null) {
+                "https://yt.omada.cafe/api/v1/comments/$videoId"
+            } else {
+                "https://yt.omada.cafe/api/v1/comments/$videoId?continuation=${URLEncoder.encode(continuation, "UTF-8")}"
             }
-            reader.close()
-            
-            val jsonResponse = JSONObject(response.toString())
-            val commentsArray = jsonResponse.optJSONArray("comments")
-            
-            if (commentsArray != null && commentsArray.length() > 0) {
-                for (i in 0 until commentsArray.length()) {
-                    val commentObj = commentsArray.getJSONObject(i)
-                    
-                    // Parse author thumbnails
-                    val thumbnailsArray = commentObj.optJSONArray("authorThumbnails")
-                    val authorThumbnails = mutableListOf<AuthorThumbnail>()
-                    
-                    if (thumbnailsArray != null) {
-                        for (j in 0 until thumbnailsArray.length()) {
-                            val thumbnailObj = thumbnailsArray.getJSONObject(j)
-                            authorThumbnails.add(
-                                AuthorThumbnail(
-                                    url = thumbnailObj.optString("url", ""),
-                                    width = thumbnailObj.optInt("width", 0),
-                                    height = thumbnailObj.optInt("height", 0)
+
+            val url = URL(urlStr)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val response = reader.use { it.readText() }
+                val jsonResponse = JSONObject(response)
+
+                val commentsArray = jsonResponse.optJSONArray("comments")
+                if (commentsArray != null && commentsArray.length() > 0) {
+                    for (i in 0 until commentsArray.length()) {
+                        val commentObj = commentsArray.getJSONObject(i)
+
+                        // Parse author thumbnails
+                        val thumbnailsArray = commentObj.optJSONArray("authorThumbnails")
+                        val authorThumbnails = mutableListOf<AuthorThumbnail>()
+                        if (thumbnailsArray != null) {
+                            for (j in 0 until thumbnailsArray.length()) {
+                                val thumbnailObj = thumbnailsArray.getJSONObject(j)
+                                authorThumbnails.add(
+                                    AuthorThumbnail(
+                                        url = thumbnailObj.optString("url", ""),
+                                        width = thumbnailObj.optInt("width", 0),
+                                        height = thumbnailObj.optInt("height", 0)
+                                    )
                                 )
-                            )
+                            }
                         }
-                    }
-                    
-                    comments.add(
-                        Comment(
-                            id = commentObj.optString("commentId", ""),
-                            author = commentObj.optString("author", "Unknown"),
-                            content = commentObj.optString("content", ""),
-                            timestamp = commentObj.optString("publishedText", ""),
-                            likes = commentObj.optInt("likeCount", 0),
-                            authorThumbnails = authorThumbnails
+
+                        comments.add(
+                            Comment(
+                                id = commentObj.optString("commentId", ""),
+                                author = commentObj.optString("author", "Unknown"),
+                                content = commentObj.optString("content", ""),
+                                timestamp = commentObj.optString("publishedText", ""),
+                                likes = commentObj.optInt("likeCount", 0),
+                                authorThumbnails = authorThumbnails
+                            )
                         )
-                    )
+                    }
                 }
+
+                // Grab continuation token for the next page
+                continuation = if (jsonResponse.has("continuation")) {
+                    jsonResponse.optString("continuation", null)
+                } else null
+
+            } else {
+                Timber.e("Failed to fetch comments: HTTP ${connection.responseCode}")
+                continuation = null
             }
-        } else {
-            Timber.e("Failed to fetch comments: HTTP ${connection.responseCode}")
-        }
+
+            page++
+        } while (!continuation.isNullOrEmpty() && page < maxPages)
+
     } catch (e: Exception) {
         Timber.e(e, "Error fetching comments")
     }
-    
+
     return@withContext comments
 }
 
@@ -305,7 +320,7 @@ fun CommentsOverlay(
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                     )
                     Text(
-                        text = "Be the first to comment!",
+                        text = "aghh song doesnt have comments lmo!",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 14.sp,
                         modifier = Modifier.padding(top = 8.dp)
