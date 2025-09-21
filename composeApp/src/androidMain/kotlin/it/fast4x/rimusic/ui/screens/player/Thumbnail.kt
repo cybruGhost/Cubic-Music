@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.compose.foundation.background
@@ -32,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -125,84 +127,84 @@ data class AuthorThumbnail(
     val height: Int
 )
 
-// Function to fetch multiple pages of comments
-suspend fun fetchComments(videoId: String, maxPages: Int = 3): List<Comment> = withContext(Dispatchers.IO) {
+// Data class for comment response with continuation
+data class CommentResponse(
+    val comments: List<Comment>,
+    val continuation: String?
+)
+
+// Function to fetch comments with pagination support
+suspend fun fetchCommentsPage(videoId: String, continuation: String? = null): CommentResponse = withContext(Dispatchers.IO) {
     val comments = mutableListOf<Comment>()
-    var continuation: String? = null
-    var page = 0
-
+    var nextContinuation: String? = null
+    
     try {
-        do {
-            // Build URL for this page
-            val urlStr = if (continuation == null) {
-                "https://yt.omada.cafe/api/v1/comments/$videoId"
-            } else {
-                "https://yt.omada.cafe/api/v1/comments/$videoId?continuation=${URLEncoder.encode(continuation, "UTF-8")}"
-            }
+        // Build URL for this page
+        val urlStr = if (continuation == null) {
+            "https://yt.omada.cafe/api/v1/comments/$videoId"
+        } else {
+            "https://yt.omada.cafe/api/v1/comments/$videoId?continuation=${URLEncoder.encode(continuation, "UTF-8")}"
+        }
 
-            val url = URL(urlStr)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
+        val url = URL(urlStr)
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
 
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                val response = reader.use { it.readText() }
-                val jsonResponse = JSONObject(response)
+        if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+            val reader = BufferedReader(InputStreamReader(connection.inputStream))
+            val response = reader.use { it.readText() }
+            val jsonResponse = JSONObject(response)
 
-                val commentsArray = jsonResponse.optJSONArray("comments")
-                if (commentsArray != null && commentsArray.length() > 0) {
-                    for (i in 0 until commentsArray.length()) {
-                        val commentObj = commentsArray.getJSONObject(i)
+            val commentsArray = jsonResponse.optJSONArray("comments")
+            if (commentsArray != null && commentsArray.length() > 0) {
+                for (i in 0 until commentsArray.length()) {
+                    val commentObj = commentsArray.getJSONObject(i)
 
-                        // Parse author thumbnails
-                        val thumbnailsArray = commentObj.optJSONArray("authorThumbnails")
-                        val authorThumbnails = mutableListOf<AuthorThumbnail>()
-                        if (thumbnailsArray != null) {
-                            for (j in 0 until thumbnailsArray.length()) {
-                                val thumbnailObj = thumbnailsArray.getJSONObject(j)
-                                authorThumbnails.add(
-                                    AuthorThumbnail(
-                                        url = thumbnailObj.optString("url", ""),
-                                        width = thumbnailObj.optInt("width", 0),
-                                        height = thumbnailObj.optInt("height", 0)
-                                    )
+                    // Parse author thumbnails
+                    val thumbnailsArray = commentObj.optJSONArray("authorThumbnails")
+                    val authorThumbnails = mutableListOf<AuthorThumbnail>()
+                    if (thumbnailsArray != null) {
+                        for (j in 0 until thumbnailsArray.length()) {
+                            val thumbnailObj = thumbnailsArray.getJSONObject(j)
+                            authorThumbnails.add(
+                                AuthorThumbnail(
+                                    url = thumbnailObj.optString("url", ""),
+                                    width = thumbnailObj.optInt("width", 0),
+                                    height = thumbnailObj.optInt("height", 0)
                                 )
-                            }
-                        }
-
-                        comments.add(
-                            Comment(
-                                id = commentObj.optString("commentId", ""),
-                                author = commentObj.optString("author", "Unknown"),
-                                content = commentObj.optString("content", ""),
-                                timestamp = commentObj.optString("publishedText", ""),
-                                likes = commentObj.optInt("likeCount", 0),
-                                authorThumbnails = authorThumbnails
                             )
-                        )
+                        }
                     }
+
+                    comments.add(
+                        Comment(
+                            id = commentObj.optString("commentId", ""),
+                            author = commentObj.optString("author", "Unknown"),
+                            content = commentObj.optString("content", ""),
+                            timestamp = commentObj.optString("publishedText", ""),
+                            likes = commentObj.optInt("likeCount", 0),
+                            authorThumbnails = authorThumbnails
+                        )
+                    )
                 }
-
-                // Grab continuation token for the next page
-                continuation = if (jsonResponse.has("continuation")) {
-                    jsonResponse.optString("continuation", null)
-                } else null
-
-            } else {
-                Timber.e("Failed to fetch comments: HTTP ${connection.responseCode}")
-                continuation = null
             }
 
-            page++
-        } while (!continuation.isNullOrEmpty() && page < maxPages)
+            // Grab continuation token for the next page
+            nextContinuation = if (jsonResponse.has("continuation")) {
+                jsonResponse.optString("continuation", null)
+            } else null
+
+        } else {
+            Timber.e("Failed to fetch comments: HTTP ${connection.responseCode}")
+        }
 
     } catch (e: Exception) {
         Timber.e(e, "Error fetching comments")
     }
 
-    return@withContext comments
+    return@withContext CommentResponse(comments, nextContinuation)
 }
 
 @Composable
@@ -219,16 +221,24 @@ fun CommentsOverlay(
     var isRotationRunning by remember { mutableStateOf(true) }
     var selectedCommentId by remember { mutableStateOf<String?>(null) }
     var expandedComments by remember { mutableStateOf<Set<String>>(setOf()) }
+    var currentContinuation by remember { mutableStateOf<String?>(null) }
+    var hasMoreComments by remember { mutableStateOf(true) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+    
+    // Pause rotation when user interacts with comments
+    val isUserInteracting = selectedCommentId != null || expandedComments.isNotEmpty()
     
     // Load comments when overlay becomes visible
     LaunchedEffect(videoId, isVisible) {
         if (isVisible && comments.isEmpty()) {
             isLoading = true
             errorMessage = null
-            val fetchedComments = fetchComments(videoId)
-            if (fetchedComments.isNotEmpty()) {
-                comments = fetchedComments
-                startRotation(comments, currentIndex, isRotationRunning) { newIndex ->
+            val response = fetchCommentsPage(videoId)
+            if (response.comments.isNotEmpty()) {
+                comments = response.comments
+                currentContinuation = response.continuation
+                hasMoreComments = response.continuation != null
+                startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
                     currentIndex = newIndex
                 }
             } else {
@@ -238,19 +248,38 @@ fun CommentsOverlay(
         }
     }
     
-    // Handle rotation when visibility changes
-    LaunchedEffect(isVisible, comments) {
+    // Handle rotation when visibility or interaction changes
+    LaunchedEffect(isVisible, comments, isUserInteracting) {
         if (isVisible && comments.isNotEmpty()) {
-            if (isRotationRunning) {
-                startRotation(comments, currentIndex, isRotationRunning) { newIndex ->
+            if (isRotationRunning && !isUserInteracting) {
+                rotationJob?.cancel()
+                startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
                     currentIndex = newIndex
                 }
+            } else if (isUserInteracting) {
+                rotationJob?.cancel()
             }
         } else {
             rotationJob?.cancel()
             isRotationRunning = true
             selectedCommentId = null
             expandedComments = setOf()
+        }
+    }
+    
+    // Function to load more comments
+    val loadMoreComments = {
+        if (hasMoreComments && !isLoadingMore && currentContinuation != null) {
+            isLoadingMore = true
+            CoroutineScope(Dispatchers.IO).launch {
+                val response = fetchCommentsPage(videoId, currentContinuation)
+                if (response.comments.isNotEmpty()) {
+                    comments = comments + response.comments
+                    currentContinuation = response.continuation
+                    hasMoreComments = response.continuation != null
+                }
+                isLoadingMore = false
+            }
         }
     }
     
@@ -336,7 +365,7 @@ fun CommentsOverlay(
                     Column(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .fillMaxWidth(0.9f)
+                            .fillMaxWidth(0.95f) // Increased width for better visibility
                             .padding(16.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
@@ -345,6 +374,15 @@ fun CommentsOverlay(
                             )
                             .clickable {
                                 selectedCommentId = if (isSelected) null else currentComment.id
+                                // Pause rotation when user selects a comment
+                                if (!isSelected) {
+                                    rotationJob?.cancel()
+                                } else {
+                                    isRotationRunning = true
+                                    startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
+                                        currentIndex = newIndex
+                                    }
+                                }
                             }
                     ) {
                         // Author info with profile picture
@@ -453,6 +491,8 @@ fun CommentsOverlay(
                                         } else {
                                             expandedComments + currentComment.id
                                         }
+                                        // Pause rotation when user interacts with comments
+                                        rotationJob?.cancel()
                                     }
                             ) {
                                 Text(
@@ -464,37 +504,107 @@ fun CommentsOverlay(
                             }
                         }
                         
-                        // Comment counter only (no play/pause controls)
-                        Row(
+                        // Navigation buttons and comment counter - FIXED VERSION
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(16.dp)
                         ) {
-                            // Progress dots
-                            for (i in comments.indices) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (i == currentIndex) Color(0xFF8A2BE2) 
-                                            else Color.White.copy(alpha = 0.3f)
+                            // Navigation row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Previous button
+                                IconButton(
+                                    onClick = {
+                                        rotationJob?.cancel()
+                                        isRotationRunning = false
+                                        if (currentIndex > 0) {
+                                            currentIndex--
+                                        }
+                                    },
+                                    enabled = currentIndex > 0
+                                ) {
+                                    Image(
+                                        painter = painterResource(R.drawable.backward),
+                                        contentDescription = "Previous comment",
+                                        colorFilter = ColorFilter.tint(
+                                            if (currentIndex > 0) Color.White else Color.White.copy(alpha = 0.3f)
                                         )
-                                        .padding(2.dp)
-                                )
-                                if (i < comments.size - 1) {
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                // Progress dots - Only show 4 dots maximum - FIXED VERSION
+                                val visibleDots = 4
+                                val startIndex = kotlin.math.max(0, kotlin.math.min(currentIndex - 1, comments.size - visibleDots))
+                                val endIndex = kotlin.math.min(startIndex + visibleDots, comments.size)
+
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    for (i in startIndex until endIndex) {
+                                        // Animated progress dot
+                                        AnimatedProgressDot(
+                                            isActive = i == currentIndex,
+                                            modifier = Modifier.size(8.dp),
+                                            activeColor = Color(0xFF8A2BE2),
+                                            inactiveColor = Color.White.copy(alpha = 0.3f)
+                                        )
+                                        if (i < endIndex - 1) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                        }
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                // Next button
+                                IconButton(
+                                    onClick = {
+                                        rotationJob?.cancel()
+                                        isRotationRunning = false
+                                        if (currentIndex < comments.size - 1) {
+                                            currentIndex++
+                                        } else if (hasMoreComments && !isLoadingMore) {
+                                            // Load more comments when reaching the end
+                                            loadMoreComments()
+                                        }
+                                    },
+                                    enabled = currentIndex < comments.size - 1 || (hasMoreComments && !isLoadingMore)
+                                ) {
+                                    if (isLoadingMore && currentIndex == comments.size - 1) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = Color(0xFF8A2BE2),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Image(
+                                            painter = painterResource(R.drawable.forward),
+                                            contentDescription = "Next comment",
+                                            colorFilter = ColorFilter.tint(
+                                                if (currentIndex < comments.size - 1 || (hasMoreComments && !isLoadingMore)) 
+                                                    Color.White 
+                                                else Color.White.copy(alpha = 0.3f)
+                                            )
+                                        )
+                                    }
                                 }
                             }
                             
-                            Spacer(modifier = Modifier.weight(1f))
-                            
-                            // Comment counter
+                            // Comment counter - NOW VISIBLE with proper spacing
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "${currentIndex + 1}/${comments.size}",
+                                text = "${currentIndex + 1}/${comments.size}" + if (hasMoreComments) "+" else "",
                                 color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 12.sp
+                                fontSize = 12.sp,
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
                             )
                         }
                     }
@@ -504,19 +614,63 @@ fun CommentsOverlay(
     }
 }
 
+// Animated progress dot component with purple color
+@Composable
+fun AnimatedProgressDot(
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+    activeColor: Color = Color(0xFF8A2BE2),
+    inactiveColor: Color = Color.White.copy(alpha = 0.3f)
+) {
+    var animationState by remember { mutableIntStateOf(0) }
+    
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            while (true) {
+                // Pulse animation for active dot
+                delay(500)
+                animationState = (animationState + 1) % 2
+            }
+        }
+    }
+    
+    val dotSize by animateFloatAsState(
+        targetValue = if (isActive && animationState == 1) 1.2f else 1f,
+        animationSpec = tween(durationMillis = 500),
+        label = "dotSize"
+    )
+    
+    val dotColor by animateFloatAsState(
+        targetValue = if (isActive) 1f else 0.3f,
+        animationSpec = tween(durationMillis = 300),
+        label = "dotColor"
+    )
+    
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = dotSize
+                scaleY = dotSize
+            }
+            .clip(CircleShape)
+            .background(if (isActive) activeColor else inactiveColor)
+    )
+}
+
 // Helper function to start comment rotation
 private fun startRotation(
     comments: List<Comment>,
     currentIndex: Int,
     isRotationRunning: Boolean,
+    isUserInteracting: Boolean,
     onIndexChange: (Int) -> Unit
 ): Job {
     return CoroutineScope(Dispatchers.Main).launch {
         var index = currentIndex
-        while (isRotationRunning) {
+        while (isRotationRunning && !isUserInteracting) {
             delay(calculateDelay(comments.getOrNull(index)?.content))
             
-            if (isRotationRunning) {
+            if (isRotationRunning && !isUserInteracting) {
                 // Move to next comment
                 index = (index + 1) % comments.size
                 onIndexChange(index)
