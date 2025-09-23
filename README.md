@@ -25,12 +25,13 @@
 
 ---
 
-## 🚀 Current Version: `v1.6.9`  
+## 🚀 Current Version: `v1.7.0`  
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
 ## ✨ Key Features
-## explict tag added
+## explict tag added added
+## comments feature
 
 - **Smart Caching** for offline listening (custom cache size)
 - **Batch Downloads** of songs & full playlists
