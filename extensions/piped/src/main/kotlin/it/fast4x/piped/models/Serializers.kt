@@ -1,7 +1,6 @@
 package it.fast4x.piped.models
 
 import io.ktor.http.Url
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -13,6 +12,7 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import java.util.UUID
+import kotlin.time.ExperimentalTime
 
 object UrlSerializer : KSerializer<Url> {
     override val descriptor = PrimitiveSerialDescriptor("Url", PrimitiveKind.STRING)
@@ -25,9 +25,11 @@ typealias UrlString = @Serializable(with = UrlSerializer::class) Url
 object SecondLocalDateTimeSerializer : KSerializer<LocalDateTime> {
     override val descriptor = PrimitiveSerialDescriptor("DateTimeSeconds", PrimitiveKind.LONG)
 
+    @OptIn(ExperimentalTime::class)
     override fun deserialize(decoder: Decoder) =
-        Instant.fromEpochSeconds(decoder.decodeLong()).toLocalDateTime(TimeZone.UTC)
+        kotlin.time.Instant.fromEpochSeconds(decoder.decodeLong()).toLocalDateTime(TimeZone.UTC)
 
+    @OptIn(ExperimentalTime::class)
     override fun serialize(encoder: Encoder, value: LocalDateTime) =
         encoder.encodeLong(value.toInstant(TimeZone.UTC).epochSeconds)
 }
