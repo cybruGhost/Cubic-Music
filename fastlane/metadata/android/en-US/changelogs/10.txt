@@ -10,10 +10,10 @@ Optimizations:
 - Improved Discord RPC handling (play, pause, kill)
 - Optimized playlist UI with search
 - Better song recommendations in **Quick Picks**:
-  - Settings > Quick Picks > local song recommendations
+  - Settings > Cubic Picks > local song recommendations
   - You can choose how many local songs to show (1–6)
   - Switching between *Most Played*, *Last Played*, and *Random* is now instant and accurate
-  - Quick Picks recommendations now refresh when switching tabs, providing more varied suggestions
+  - Cubic Picks recommendations now refresh when switching tabs, providing more varied suggestions
 - Adjusted changelog text size
 
 Bug Fixes:
@@ -22,6 +22,6 @@ Bug Fixes:
 - Fixed: Discord login for RPC (still in beta)
 - Fixed: Playlist UI glitches
 - Fixed: Stats and History now show the correct date and play time
-- Fixed: "Most Played" filter in Quick Picks
+- Fixed: "Most Played" filter in Cubic Picks
 - Fixed: No more duplicate or missing songs when switching recommendation types
 - Fixed: Textfield colors in General Settings

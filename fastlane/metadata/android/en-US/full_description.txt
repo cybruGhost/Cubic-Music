@@ -1,5 +1,5 @@
 <p>
-  Fork of <a href="https://github.com/fast4x/RiMusic">RiMusic</a>, performance is our top priority.
+  Fork of <a href="https://github.com/knighthat/Kreate</a>, with UI and UX performance in mind
 </p>
 
 <b>Features:</b>

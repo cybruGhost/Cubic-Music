@@ -1,0 +1,9 @@
+Changed:
+- Message to inform when Invalid local playlist is selected
+- Updated dependencies
+
+Bug Fixes:
+- "Pin bar" & "Fat bar" timeline swapped
+- Issue where "Ignore Silent" was not working, causing songs to fail loading
+- Discord RPC spamming invalid token, implemented a connection check
+- Discord RPC now show unknown artists or title when its missing instead of showing nothing

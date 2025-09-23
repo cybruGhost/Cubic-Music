@@ -1,0 +1,29 @@
+A FAIRE
+
+
+PLUS TARD
+
+
+OK
+adjust default value of AUDIO_SKIP_SILENCE
+add password semantic when password keyboard is detected
+prevent app from crashing when invalid playlist is imported
+fix #402 #391 - put 0 as when duration is empty
+denote @callsuper on onSet
+hide update section on non-updatable builds
+replace nullable call with static non-null call
+implement TextView
+fine-tune date values
+fix queue getting appended uncontrollably
+fix opening queue crashes the app
+extract PositionLock to separate class & fix always on Anchor
+remove unused preference keys
+merge default values to constructor
+fix error with empty path
+fix "On device" chip shows despite disabled
+remove redundant log messages
+prevent constant fail message when there's no internet connection
+fix local songs failed to play in AA
+disable checkboxes when category has changed
+add long click support to menu entry
+fix play next in queue crashes app

@@ -1,0 +1,7 @@
+Bug Fixes:
+- Smart shuffle was buggy an causing many bugs
+- Crashes in songs and local playlist screens
+- Recommendations moving around when state changes
+- Empty list during loading in local playlists
+- Shuffle state is now properly temporary (resets on app restart)
+- Consistent visual feedback (disabled color, loading spinner)
