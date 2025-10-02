@@ -82,7 +82,7 @@ fun WeatherForecastPopup(
                     text = "Hey $username! 👋",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = getTextColorForBackground(getConditionGradient(normalizedCondition, isNight)),
+                    color = Color(0xFFE0B0FF), // Glassy purple color
                     modifier = Modifier.weight(1f)
                 )
                 Row {
