@@ -18,7 +18,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.foundation.clickable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,12 +60,12 @@ fun WeatherForecastPopup(
     // Calculate accurate local time based on timezone offset
     val localTime = getAccurateLocalTime(weatherData.timezoneOffset)
     val localHour = localTime.get(Calendar.HOUR_OF_DAY)
-    val isNight = localHour >= 20 || localHour < 6
+    val isNight = localHour >= 20 || localHour < 4
     
     val normalizedCondition = normalizeCondition(weatherData.condition)
     
-    // Calculate accurate rain probability with null-safe cloud cover
-    val rainProbability = calculateAccurateRainProbability(
+    // Calculate accurate rain probability with better logic
+    val rainProbability = calculateSmartRainProbability(
         weatherData.humidity, 
         normalizedCondition,
         weatherData.cloudCover
@@ -87,10 +86,10 @@ fun WeatherForecastPopup(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Welcome, $username! 🌟",
+                    text = "🌤️ Welcome, $username!",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE0B0FF),
+                    color = Color(0xFF7B1FA2),
                     modifier = Modifier.weight(1f)
                 )
                 Row {
@@ -117,7 +116,7 @@ fun WeatherForecastPopup(
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = "Change city",
-                            tint = getTextColorForBackground(getConditionGradient(normalizedCondition, isNight))
+                            tint = getTextColorForBackground(getSmartConditionGradient(normalizedCondition, isNight))
                         )
                     }
                 }
@@ -142,34 +141,18 @@ fun WeatherForecastPopup(
                 // Rain Prediction Card (only if relevant)
                 if (shouldShowRainPrediction(rainProbability, weatherData.humidity, normalizedCondition)) {
                     item {
-                        RainPredictionCard(rainProbability, weatherData.humidity, normalizedCondition)
+                        SmartRainPredictionCard(rainProbability, normalizedCondition, weatherData.humidity)
                     }
                 }
                 
-                // Personal Care Tips
+                // Today's Forecast
                 item {
-                    PersonalCareCard(
-                        weatherData = weatherData,
-                        localHour = localHour,
-                        isNight = isNight,
-                        rainProbability = rainProbability
-                    )
+                    TodayForecastCard(weatherData, normalizedCondition, rainProbability)
                 }
                 
-                // Clothing Recommendation
+                // Fun Activities
                 item {
-                    ClothingCard(
-                        temp = weatherData.temp,
-                        condition = normalizedCondition,
-                        isNight = isNight,
-                        localHour = localHour,
-                        humidity = weatherData.humidity
-                    )
-                }
-                
-                // Activity Suggestions
-                item {
-                    ActivityCard(
+                    FunActivitiesCard(
                         weatherData = weatherData,
                         localHour = localHour,
                         isNight = isNight,
@@ -182,9 +165,9 @@ fun WeatherForecastPopup(
                     WeatherDetailsCard(weatherData, localHour)
                 }
                 
-                // Emotional Forecast
+                // Mood & Vibe
                 item {
-                    EmotionalForecastCard(
+                    MoodVibeCard(
                         weatherData = weatherData,
                         localHour = localHour,
                         isNight = isNight,
@@ -192,16 +175,9 @@ fun WeatherForecastPopup(
                     )
                 }
                 
-                // Hydration Reminder (only if appropriate)
-                if (shouldShowHydrationReminder(weatherData.temp, localHour)) {
-                    item {
-                        HydrationCard(weatherData.temp)
-                    }
-                }
-                
-                // Special Opportunity
+                // Quick Tips
                 item {
-                    SpecialTipCard(weatherData, normalizedCondition, localHour, rainProbability)
+                    QuickTipsCard(weatherData, normalizedCondition, localHour, rainProbability)
                 }
             }
         },
@@ -210,7 +186,7 @@ fun WeatherForecastPopup(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Got it! Stay amazing ✨")
+                Text("Awesome! Got it 🌟")
             }
         }
     )
@@ -235,23 +211,31 @@ private fun WeatherHeaderCard(
     normalizedCondition: String,
     rainProbability: Int
 ) {
-    val gradient = getConditionGradient(normalizedCondition, isNight)
+    val gradient = getSmartConditionGradient(normalizedCondition, isNight)
     val textColor = getTextColorForBackground(gradient)
     
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(gradient)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
+            // Location and time
+            Text(
+                text = "${weatherData.city} • ${formatFullDate(localTime)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor.copy(alpha = 0.8f),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = getWeatherEmojiForCondition(normalizedCondition),
+                    text = getDynamicWeatherEmoji(normalizedCondition, isNight),
                     style = MaterialTheme.typography.displayLarge,
-                    modifier = Modifier.padding(end = 12.dp)
+                    modifier = Modifier.padding(end = 16.dp)
                 )
                 Column {
                     Text(
@@ -261,132 +245,105 @@ private fun WeatherHeaderCard(
                         color = textColor
                     )
                     Text(
-                        text = "${normalizedCondition.replaceFirstChar { it.uppercase() }} • ${getTimeOfDayGreeting(localTime.get(Calendar.HOUR_OF_DAY))}",
+                        text = "${getWeatherDescription(normalizedCondition)} • Feels like ${weatherData.feelsLike.roundToInt()}°C",
                         style = MaterialTheme.typography.titleMedium,
                         color = textColor.copy(alpha = 0.9f)
                     )
                     Text(
-                        text = "${weatherData.city} • Feels like ${weatherData.feelsLike.roundToInt()}°C",
+                        text = "${getTimeOfDayGreeting(localTime.get(Calendar.HOUR_OF_DAY))} • Local: ${formatAccurateLocalTime(localTime)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = textColor.copy(alpha = 0.8f)
+                        color = textColor.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
             
-            // Rain probability if available and relevant
-            if (shouldShowRainProbability(normalizedCondition, rainProbability)) {
+            // Smart rain info
+            if (shouldShowRainInfo(normalizedCondition, rainProbability)) {
                 Text(
-                    text = getAccurateRainMessage(rainProbability, normalizedCondition),
-                    style = MaterialTheme.typography.labelSmall,
+                    text = getSmartRainInfo(rainProbability, normalizedCondition),
+                    style = MaterialTheme.typography.bodySmall,
                     color = textColor.copy(alpha = 0.9f),
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 12.dp)
                 )
             }
-            
-            // Accurate local time display with timezone
-            Text(
-                text = "Local time: ${formatAccurateLocalTime(localTime)} (${getTimezoneDisplay(weatherData.timezoneOffset)})",
-                style = MaterialTheme.typography.labelSmall,
-                color = textColor.copy(alpha = 0.7f),
-                modifier = Modifier.padding(top = 8.dp)
-            )
         }
     }
 }
 
 @Composable
-private fun RainPredictionCard(
+private fun SmartRainPredictionCard(
     rainProbability: Int,
-    humidity: Int,
-    condition: String
+    condition: String,
+    humidity: Int
 ) {
-    val rainMessage = getAccurateRainMessage(rainProbability, condition)
+    val rainInfo = getSmartRainInfo(rainProbability, condition)
     
-    if (shouldShowRainPrediction(rainProbability, humidity, condition)) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-            modifier = Modifier.fillMaxWidth()
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Text(
+                text = "🌧️",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
                 Text(
-                    text = "💧",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = rainMessage,
+                    text = rainInfo,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF0D47A1),
-                    modifier = Modifier.weight(1f)
+                    fontWeight = FontWeight.Medium
                 )
+                if (humidity > 80) {
+                    Text(
+                        text = "High humidity (${humidity}%) - feels muggy and damp outside",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF1565C0),
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun PersonalCareCard(
+private fun TodayForecastCard(
     weatherData: WeatherData,
-    localHour: Int,
-    isNight: Boolean,
+    condition: String,
     rainProbability: Int
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-        modifier = Modifier.fillMaxWidth()
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "💖 Personal Care Guide",
+                text = "📅 Today's Forecast",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1565C0)
+                color = Color(0xFF7B1FA2)
             )
-            Spacer(modifier = Modifier.size(4.dp))
+            Spacer(modifier = Modifier.size(8.dp))
             Text(
-                text = getPersonalCareMessage(weatherData, localHour, isNight, rainProbability),
+                text = getTodayForecast(weatherData, condition, rainProbability),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF0D47A1)
+                color = Color(0xFF6A1B9A)
             )
         }
     }
 }
 
 @Composable
-private fun ClothingCard(
-    temp: Double,
-    condition: String,
-    isNight: Boolean,
-    localHour: Int,
-    humidity: Int
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = "👗 Today's Outfit Advice",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF2E7D32)
-            )
-            Spacer(modifier = Modifier.size(4.dp))
-            Text(
-                text = getSmartClothingRecommendation(temp, condition, isNight, localHour, humidity),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF1B5E20)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ActivityCard(
+private fun FunActivitiesCard(
     weatherData: WeatherData,
     localHour: Int,
     isNight: Boolean,
@@ -394,18 +351,19 @@ private fun ActivityCard(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "🌟 Perfect Activities",
+                text = "🎯 Perfect Right Now",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFFE65100)
             )
-            Spacer(modifier = Modifier.size(4.dp))
+            Spacer(modifier = Modifier.size(8.dp))
             Text(
-                text = getActivitySuggestions(weatherData, localHour, isNight, rainProbability),
+                text = getFunActivities(weatherData, localHour, isNight, rainProbability),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFFBF360C)
             )
@@ -417,107 +375,88 @@ private fun ActivityCard(
 private fun WeatherDetailsCard(weatherData: WeatherData, localHour: Int) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "📊 Weather Details",
+                text = "📊 Weather Stats",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 12.dp)
             )
             
             val details = listOf(
-                WeatherDetail("💧 Humidity", "${weatherData.humidity}%", getHumidityTip(weatherData.humidity)),
-                WeatherDetail("💨 Wind", "${weatherData.windSpeed} m/s", getWindTip(weatherData.windSpeed)),
-                WeatherDetail("🌡 Pressure", "${weatherData.pressure} hPa", getPressureTip(weatherData.pressure)),
-                WeatherDetail("👁 Visibility", "${weatherData.visibility / 1000} km", getVisibilityTip(weatherData.visibility)),
-                WeatherDetail("📊 Min/Max", "${weatherData.minTemp.roundToInt()}°C / ${weatherData.maxTemp.roundToInt()}°C", getTempRangeTip(weatherData))
+                WeatherDetail("💧 Humidity", "${weatherData.humidity}%", getHumidityFeel(weatherData.humidity)),
+                WeatherDetail("💨 Wind", "${weatherData.windSpeed} m/s", getWindFeel(weatherData.windSpeed)),
+                WeatherDetail("🌡 Pressure", "${weatherData.pressure} hPa", getPressureFeel(weatherData.pressure)),
+                WeatherDetail("👁 Visibility", "${weatherData.visibility / 1000} km", getVisibilityFeel(weatherData.visibility)),
+                WeatherDetail("📊 Min/Max", "${weatherData.minTemp.roundToInt()}°C / ${weatherData.maxTemp.roundToInt()}°C", getTempRangeFeel(weatherData))
             )
             
             details.forEach { detail ->
                 WeatherDetailRow(detail)
+                Spacer(modifier = Modifier.size(4.dp))
             }
         }
     }
 }
 
 @Composable
-private fun EmotionalForecastCard(
+private fun MoodVibeCard(
     weatherData: WeatherData,
     localHour: Int,
     isNight: Boolean,
     rainProbability: Int
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
-        modifier = Modifier.fillMaxWidth()
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "💫 Today's Emotional Vibe",
+                text = "💫 Today's Vibe",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF7B1FA2)
+                color = Color(0xFF2E7D32)
             )
-            Spacer(modifier = Modifier.size(4.dp))
+            Spacer(modifier = Modifier.size(8.dp))
             Text(
-                text = getEmotionalForecast(weatherData, localHour, isNight, rainProbability),
+                text = getMoodVibe(weatherData, localHour, isNight, rainProbability),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF6A1B9A)
+                color = Color(0xFF1B5E20)
             )
         }
     }
 }
 
 @Composable
-private fun HydrationCard(temp: Double) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE1F5FE)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "💧",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = getHydrationMessage(temp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF01579B),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SpecialTipCard(
+private fun QuickTipsCard(
     weatherData: WeatherData,
     condition: String,
     localHour: Int,
     rainProbability: Int
 ) {
+    val isNight = localHour < 6 || localHour >= 18  // 🌙 true if before 6AM or after 6PM
+    
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
-        modifier = Modifier.fillMaxWidth()
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE1F5FE)),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "💡 Special Opportunity",
+                text = "💡 Quick Tips",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF2E7D32)
+                color = Color(0xFF01579B)
             )
-            Spacer(modifier = Modifier.size(4.dp))
+            Spacer(modifier = Modifier.size(8.dp))
             Text(
-                text = getSpecialTip(weatherData, condition, localHour, rainProbability),
+                text = getQuickTips(weatherData, condition, localHour, rainProbability, isNight),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF1B5E20)
+                color = Color(0xFF0277BD)
             )
         }
     }
@@ -545,7 +484,7 @@ private fun LiveSportsDialog(
         title = {
             Column {
                 Text(
-                    text = "⚽ Live Football Matches",
+                    text = "⚽ Live Football",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -562,10 +501,9 @@ private fun LiveSportsDialog(
                                 .weight(1f)
                                 .background(
                                     if (selectedLeague == id) Color(0xFF1976D2) else Color(0xFF757575),
-                                    shape = RoundedCornerShape(4.dp)
+                                    shape = RoundedCornerShape(8.dp)
                                 )
                                 .padding(8.dp)
-                                .clickable { onLeagueChange(id) }
                         ) {
                             Text(
                                 text = name.split(" ").first(),
@@ -587,16 +525,16 @@ private fun LiveSportsDialog(
                         .fillMaxWidth()
                         .padding(24.dp)
                 ) {
-                    Text("Loading matches...")
+                    Text("Loading matches... ⚽")
                 }
             } else if (sports.isEmpty()) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    Text("🏟️ No matches available")
+                    Text("🏟️ No matches right now")
                     Text(
-                        "Check back later for exciting games!", 
+                        "Check back later for action!", 
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF666666),
                         modifier = Modifier.padding(top = 8.dp)
@@ -618,10 +556,10 @@ private fun LiveSportsDialog(
                                     "FINISHED" -> Color(0xFFE8F5E8)
                                     else -> Color(0xFFF5F5F5)
                                 }
-                            )
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                // Status and time
+                            Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     modifier = Modifier.fillMaxWidth()
@@ -648,15 +586,13 @@ private fun LiveSportsDialog(
                                     )
                                 }
                                 
-                                // Teams
                                 Text(
                                     text = "${sport.homeTeam} vs ${sport.awayTeam}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(vertical = 4.dp)
+                                    modifier = Modifier.padding(vertical = 8.dp)
                                 )
                                 
-                                // Score for finished/live matches
                                 if (sport.score.isNotBlank() && sport.score != "0-0" && sport.status != "SCHEDULED") {
                                     Text(
                                         text = "Score: ${sport.score}",
@@ -681,32 +617,30 @@ private fun LiveSportsDialog(
 
 @Composable
 private fun WeatherDetailRow(detail: WeatherDetail) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = detail.emojiLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = detail.value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Text(
-            text = detail.tip,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.padding(top = 2.dp)
+            text = detail.emojiLabel,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = detail.value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
+    Text(
+        text = detail.tip,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        modifier = Modifier.padding(top = 2.dp)
+    )
 }
 
 // ============ DATA CLASSES ============
@@ -727,7 +661,7 @@ private suspend fun fetchLiveSportsFromAPI(leagueCode: String): List<LiveSport> 
         val apiUrl = "https://api.football-data.org/v4/competitions/$leagueCode/matches?status=LIVE,SCHEDULED,FINISHED&limit=10"
         
         val connection = URL(apiUrl).openConnection()
-        connection.setRequestProperty("X-Auth-Token", "") // Free tier doesn't need token
+        connection.setRequestProperty("X-Auth-Token", "")
         val response = connection.getInputStream().bufferedReader().use { it.readText() }
         val json = JSONObject(response)
         
@@ -741,7 +675,6 @@ private suspend fun fetchLiveSportsFromAPI(leagueCode: String): List<LiveSport> 
             val status = match.getString("status")
             val competition = match.getJSONObject("competition").getString("name")
             
-            // Get score
             val score = if (match.has("score") && !match.isNull("score")) {
                 val scoreObj = match.getJSONObject("score")
                 if (scoreObj.has("fullTime") && !scoreObj.isNull("fullTime")) {
@@ -754,7 +687,6 @@ private suspend fun fetchLiveSportsFromAPI(leagueCode: String): List<LiveSport> 
                 "0-0"
             }
             
-            // Get match time
             val matchTime = if (match.has("utcDate") && !match.isNull("utcDate")) {
                 formatAPITime(match.getString("utcDate"))
             } else {
@@ -773,9 +705,9 @@ private suspend fun fetchLiveSportsFromAPI(leagueCode: String): List<LiveSport> 
         }
         
         sports.sortedWith(compareBy(
-            { it.status != "LIVE" && it.status != "IN_PLAY" }, // LIVE games first
-            { it.status != "FINISHED" }, // Then finished games
-            { it.time } // Then scheduled games by time
+            { it.status != "LIVE" && it.status != "IN_PLAY" },
+            { it.status != "FINISHED" },
+            { it.time }
         ))
     } catch (e: Exception) {
         e.printStackTrace()
@@ -783,16 +715,15 @@ private suspend fun fetchLiveSportsFromAPI(leagueCode: String): List<LiveSport> 
     }
 }
 
-// ============ FIXED TIME FUNCTIONS ============
+// ============ ACCURATE TIME FUNCTIONS ============
 
 private fun getAccurateLocalTime(timezoneOffset: Int): Calendar {
     val calendar = Calendar.getInstance()
-    // Convert seconds to hours for timezone offset
     val offsetHours = timezoneOffset / 3600
     val timezoneId = if (offsetHours >= 0) {
-        String.format("GMT+%02d:00", offsetHours)
+        String.format("GMT+%02d", offsetHours)
     } else {
-        String.format("GMT%03d:00", offsetHours)
+        String.format("GMT%d", offsetHours)
     }
     val timezone = TimeZone.getTimeZone(timezoneId)
     calendar.timeZone = timezone
@@ -805,20 +736,17 @@ private fun formatAccurateLocalTime(calendar: Calendar): String {
     return formatter.format(calendar.time)
 }
 
-private fun getTimezoneDisplay(timezoneOffset: Int): String {
-    val offsetHours = timezoneOffset / 3600
-    return if (offsetHours >= 0) {
-        String.format("GMT+%d", offsetHours)
-    } else {
-        String.format("GMT%d", offsetHours)
-    }
+private fun formatFullDate(calendar: Calendar): String {
+    val formatter = SimpleDateFormat("EEE, d MMM yyyy | HH:mm", Locale.getDefault())
+    formatter.timeZone = calendar.timeZone
+    return formatter.format(calendar.time)
 }
 
 private fun getTimeOfDayGreeting(hour: Int): String {
     return when {
-        hour in 5..11 -> "Good Morning"
-        hour in 12..16 -> "Good Afternoon"
-        hour in 17..20 -> "Good Evening"
+        hour in 4..11 -> "Good Morning"
+        hour in 12..15 -> "Good Afternoon"
+        hour in 16..19 -> "Good Evening"
         else -> "Good Night"
     }
 }
@@ -836,285 +764,238 @@ private fun formatAPITime(utcDate: String): String {
 }
 
 private fun formatMatchTime(time: String): String {
-    return if (time.isNotBlank()) time else "TBD"
+    return if (time.isNotBlank()) time else "Coming soon"
 }
 
-// ============ FIXED WEATHER EMOJI FUNCTION ============
+// ============ SMART WEATHER FUNCTIONS ============
 
-private fun getWeatherEmojiForCondition(condition: String): String {
+private fun calculateSmartRainProbability(
+    humidity: Int, 
+    condition: String,
+    cloudCover: Int? = null
+): Int {
+    // Better rain logic
     return when (condition) {
-        "clear" -> "☀️"
-        "clouds" -> "☁️"
+        "rain", "drizzle" -> 85
+        "thunderstorm" -> 95
+        else -> {
+            val actualCloudCover = cloudCover ?: 50
+            when {
+                humidity >= 85 && actualCloudCover >= 80 -> 70
+                humidity >= 75 && actualCloudCover >= 70 -> 50
+                humidity >= 65 && actualCloudCover >= 60 -> 30
+                else -> 0
+            }
+        }
+    }
+}
+
+private fun getSmartRainInfo(rainProbability: Int, condition: String): String {
+    return when {
+        condition == "rain" || condition == "drizzle" -> "Currently raining 🌧️ - Rain expected to continue for a while"
+        condition == "thunderstorm" -> "Thunderstorm active ⛈️ - Stay indoors and avoid open areas"
+        rainProbability >= 85 -> "Heavy rain expected 🌧️ - Perfect day to stay cozy indoors with hot drinks"
+        rainProbability >= 70 -> "Rain likely, take umbrella ☔ - Showers expected throughout the day"
+        rainProbability >= 50 -> "Possible rain later 🌦️ - Might want to carry an umbrella just in case"
+        rainProbability >= 30 -> "Light rain possible 💧 - Small chance of drizzle, mostly dry"
+        else -> "No rain expected today ☀️ - Perfect dry weather for outdoor activities"
+    }
+}
+
+private fun getWeatherDescription(condition: String): String {
+    return when (condition) {
+        "clear" -> "Clear skies"
+        "clouds" -> "Mostly cloudy"
+        "rain" -> "Light rain"
+        "drizzle" -> "Drizzling"
+        "thunderstorm" -> "Thunderstorm"
+        "snow" -> "Snowing"
+        "mist" -> "Misty"
+        else -> "Clear"
+    }
+}
+
+private fun getDynamicWeatherEmoji(condition: String, isNight: Boolean): String {
+    return when (condition) {
+        "clear" -> if (isNight) "🌙" else "☀️"
+        "clouds" -> if (isNight) "☁️" else "⛅"
         "rain" -> "🌧️"
         "drizzle" -> "🌦️"
         "thunderstorm" -> "⛈️"
         "snow" -> "❄️"
         "mist" -> "🌫️"
-        else -> "🌈"
+        else -> if (isNight) "🌙" else "☀️"
     }
 }
 
-// ============ IMPROVED MESSAGE FUNCTIONS ============
+private fun getSmartConditionGradient(condition: String, isNight: Boolean): Brush {
+    return when (condition) {
+        "clear" -> if (isNight) {
+            Brush.verticalGradient(listOf(Color(0xFF2C3E50), Color(0xFF34495E)))
+        } else {
+            Brush.verticalGradient(listOf(Color(0xFF74B9FF), Color(0xFF0984E3)))
+        }
+        "rain", "drizzle" -> Brush.verticalGradient(listOf(Color(0xFF636E72), Color(0xFF2D3436)))
+        "thunderstorm" -> Brush.verticalGradient(listOf(Color(0xFF2C3E50), Color(0xFF34495E)))
+        "snow" -> Brush.verticalGradient(listOf(Color(0xFFDFE6E9), Color(0xFFB2BEC3)))
+        "clouds" -> Brush.verticalGradient(listOf(Color(0xFFB2BEC3), Color(0xFF636E72)))
+        "mist" -> Brush.verticalGradient(listOf(Color(0xFFDFE6E9), Color(0xFFB2BEC3)))
+        else -> Brush.verticalGradient(listOf(Color(0xFF74B9FF), Color(0xFF0984E3)))
+    }
+}
 
-private fun getPersonalCareMessage(
-    weatherData: WeatherData, 
-    localHour: Int, 
-    isNight: Boolean,
-    rainProbability: Int
-): String {
+// ============ FUN MESSAGE FUNCTIONS ============
+
+private fun getTodayForecast(weatherData: WeatherData, condition: String, rainProbability: Int): String {
     val temp = weatherData.temp
-    val condition = normalizeCondition(weatherData.condition)
-    val humidity = weatherData.humidity
+    val maxTemp = weatherData.maxTemp
     
-    val messages = mutableListOf<String>()
-    
-    // Time-based messages
-    when {
-        localHour in 5..11 -> messages.add("Start your day with positive energy! Perfect time for a morning routine.")
-        localHour in 12..16 -> messages.add("Midday check-in! Remember to take breaks and stay hydrated.")
-        localHour in 17..20 -> messages.add("Evening tranquility! Perfect time to unwind and reflect.")
-        else -> messages.add("Peaceful night! Ideal for relaxation and quality rest.")
+    val base = when (condition) {
+        "rain" -> "Light rain throughout the day with occasional drizzles. Perfect cozy weather for indoor activities and warm beverages! "
+        "drizzle" -> "Gentle drizzling on and off throughout the day. Great weather for staying in with a good book or movie! "
+        "thunderstorm" -> "Stormy conditions expected with possible thunder and lightning. Best to stay safe indoors and avoid unnecessary travel! "
+        "clear" -> "Beautiful clear skies all day with plenty of sunshine. Perfect weather for outdoor adventures and soaking up some vitamin D! "
+        "clouds" -> "Cloudy skies with occasional breaks of sunshine. Comfortable weather that's not too hot or too cold for various activities! "
+        "snow" -> "Snowfall expected throughout the day creating a winter wonderland! Perfect for snow activities or cozy indoor time! "
+        else -> "Lovely weather today with comfortable conditions for whatever you have planned! "
     }
     
-    // Weather-based care
-    when {
-        temp >= 30 -> messages.add("Stay cool in this heat! Hydrate frequently and seek shade when outdoors.")
-        temp >= 25 -> messages.add("Warm and pleasant! Enjoy the weather but remember sun protection.")
-        temp <= 5 -> messages.add("Chilly weather! Layer up and enjoy warm beverages to stay cozy.")
-        temp <= 0 -> messages.add("Freezing temperatures! Limit outdoor time and stay warm indoors.")
+    val tempNote = when {
+        temp >= 30 -> "It's going to be quite hot today so remember to stay hydrated and seek shade during peak hours! 🥵"
+        temp >= 25 -> "Warm and pleasant temperatures perfect for outdoor activities and light clothing! 😎"
+        temp >= 20 -> "Perfect temperature range today - not too hot, not too cold, just right for any activity! 🌤️"
+        temp >= 15 -> "Cool and comfortable weather ideal for light jackets and outdoor exploration! 🍃"
+        temp >= 10 -> "Chilly but nice weather - perfect for warm beverages and cozy layers! 🧥"
+        else -> "Cold day ahead - make sure to bundle up with warm layers and enjoy some hot drinks! ❄️"
     }
     
-    // Humidity-based care
-    when {
-        humidity > 80 -> messages.add("High humidity today - stay in ventilated areas for comfort.")
-        humidity < 30 -> messages.add("Dry conditions - great for breathing, consider moisturizing.")
-    }
-    
-    // Rain probability care
-    if (rainProbability > 50) {
-        messages.add("Rain likely today - perfect for cozy indoor activities if needed.")
-    }
-    
-    // Caring reminders
-    messages.add("Listen to your body - it knows what you need for optimal well-being.")
-    messages.add("Take moments to appreciate the present and your journey.")
-    
-    return messages.shuffled().take(2).joinToString(" ")
-}
-
-private fun getSmartClothingRecommendation(
-    temp: Double, 
-    condition: String, 
-    isNight: Boolean, 
-    localHour: Int, 
-    humidity: Int
-): String {
-    val baseRecommendation = when {
-        temp >= 30 -> "Light, breathable fabrics like cotton and linen. Shorts and t-shirts recommended."
-        temp >= 25 -> "Comfortable light clothing. T-shirts with light pants or skirts."
-        temp >= 20 -> "Perfect for light layers. T-shirt with a light jacket for flexibility."
-        temp >= 15 -> "Warmer layers needed. Sweater or hoodie would be comfortable."
-        temp >= 10 -> "Jacket weather. Warm coat with long pants recommended."
-        temp >= 0 -> "Bundle up properly. Thermal layers, winter coat, and accessories."
-        else -> "Extreme cold. Multiple thermal layers and full winter gear essential."
-    }
-    
-    val conditionAddition = when (condition) {
-        "rain", "drizzle" -> " Waterproof jacket and shoes recommended."
-        "snow" -> " Waterproof boots with grip and warm gloves essential."
-        "thunderstorm" -> " Full waterproof gear if going out, otherwise stay indoors."
-        "clear" -> if (!isNight && temp > 20) " Sun protection advised." else ""
+    val rainNote = when {
+        rainProbability >= 85 -> " Heavy rain is expected throughout the day so plan indoor activities or carry proper rain gear."
+        rainProbability >= 70 -> " Rain is likely today so it would be wise to grab an umbrella before heading out!"
+        rainProbability >= 50 -> " There might be some rain later in the day so keep an umbrella handy just in case."
         else -> ""
     }
     
-    return baseRecommendation + conditionAddition + " Choose what makes you feel comfortable and confident!"
+    return base + tempNote + rainNote
 }
 
-private fun getActivitySuggestions(
-    weatherData: WeatherData, 
-    localHour: Int, 
-    isNight: Boolean, 
-    rainProbability: Int
-): String {
-    val temp = weatherData.temp
-    val condition = normalizeCondition(weatherData.condition)
-    
+private fun getFunActivities(weatherData: WeatherData, localHour: Int, isNight: Boolean, rainProbability: Int): String {
     val activities = mutableListOf<String>()
     
     if (isNight) {
         activities.addAll(listOf(
-            "Cozy music listening 🎵",
-            "Reading with soft light 📖",
-            "Evening meditation 🧘",
-            "Movie relaxation 🍿"
+            "Netflix & chill with your favorite shows and snacks 🍿",
+            "Stargazing if the skies are clear - perfect night for it 🌟",
+            "Late night music session discovering new artists 🎵",
+            "Cozy reading with a warm blanket and good lighting 📚",
+            "Meditation session to unwind and relax after the day 🧘",
+            "Creative projects like drawing, writing, or crafting 🎨"
         ))
     } else {
         when {
-            localHour in 5..11 -> activities.addAll(listOf(
-                "Morning walk 🚶",
-                "Outdoor breakfast ☕",
-                "Gentle exercise 🏃",
-                "Sunrise appreciation 🌅"
+            localHour in 4..11 -> activities.addAll(listOf(
+                "Morning jog or walk to start your day energized 🏃",
+                "Coffee outdoors at a nice cafe or park bench ☕",
+                "Sunrise photography if you're an early riser 🌅",
+                "Breakfast in the park with fresh pastries 🥐",
+                "Yoga session to stretch and center yourself 🧘",
+                "Fresh air walk through nature trails or gardens 🌳"
             ))
-            localHour in 12..16 -> activities.addAll(listOf(
-                "Park visit 🌳",
-                "Outdoor lunch 🍽️",
-                "Reading outside 📚",
-                "Light sports ⚽"
+            localHour in 12..15 -> activities.addAll(listOf(
+                "Lunch picnic with friends or family in a nice spot 🧺",
+                "Park hangout with games and relaxation 🌿",
+                "Outdoor sports like football, basketball, or tennis ⚽",
+                "Reading outside in a comfortable shaded area 📖",
+                "City exploration discovering new neighborhoods 🏙️",
+                "Cafe hopping trying different coffee shops ☕"
             ))
-            localHour in 17..20 -> activities.addAll(listOf(
-                "Evening stroll 🌆",
-                "Sunset watching 🌇",
-                "Social gathering 👥",
-                "Outdoor relaxation 🪑"
+            localHour in 16..19 -> activities.addAll(listOf(
+                "Sunset watching at a good vantage point 🌇",
+                "Evening walk through your neighborhood or park 🚶",
+                "Rooftop drinks with friends as the day winds down 🍹",
+                "Social gathering for dinner or games with friends 👥",
+                "Photography during the golden hour for great shots 📷",
+                "Market visit for fresh ingredients or local crafts 🛍️"
             ))
         }
     }
     
-    when (condition) {
-        "rain", "drizzle" -> activities.addAll(listOf(
-            "Indoor cooking 🍳",
-            "Creative projects 🎨",
-            "Home organization 🏠",
-            "Board games 🎲"
-        ))
-        "clear" -> {
-            if (!isNight && rainProbability < 30) {
-                activities.addAll(listOf(
-                    "Outdoor activities 🏖️",
-                    "Photography 📷",
-                    "Bike riding 🚴",
-                    "Nature exploration 🌿"
-                ))
-            }
-        }
-        "snow" -> activities.addAll(listOf(
-            "Snow activities ⛄",
-            "Warm drinks ☕",
-            "Winter crafts ❄️",
-            "Cozy reading 📚"
+    // Weather adjustments
+    if (rainProbability > 60) {
+        activities.removeAll(listOf("Park hangout", "Outdoor sports", "Picnic", "Sunset watching"))
+        activities.addAll(listOf(
+            "Indoor gaming with friends or online multiplayer 🎮",
+            "Baking session trying new recipes or old favorites 🍪",
+            "Movie marathon of your favorite series or films 🎬",
+            "Puzzle solving to challenge your mind and relax 🧩",
+            "Home workout routine to stay active indoors 💪"
         ))
     }
     
-    val selectedActivities = activities.shuffled().take(3)
-    return "Consider these activities: ${selectedActivities.joinToString(", ")}"
+    val selected = activities.shuffled().take(3)
+    return selected.joinToString(" • ")
 }
 
-private fun getEmotionalForecast(
-    weatherData: WeatherData, 
-    localHour: Int, 
-    isNight: Boolean,
-    rainProbability: Int
-): String {
-    val temp = weatherData.temp
+private fun getMoodVibe(weatherData: WeatherData, localHour: Int, isNight: Boolean, rainProbability: Int): String {
     val condition = normalizeCondition(weatherData.condition)
     
-    val emotionalMessage = when (condition) {
-        "clear" -> {
-            if (isNight) "The clear night sky brings peaceful energy, perfect for reflection and dreaming."
-            else "Sunshine creates uplifting energy, ideal for positivity and taking action."
-        }
-        "clouds" -> "Cloudy skies offer gentle atmosphere, wonderful for calm reflection and presence."
-        "rain", "drizzle" -> {
-            if (isNight) "Night rain brings soothing energy, perfect for letting go and renewal."
-            else "Rainy days create cozy vibes, ideal for introspection and simple comforts."
-        }
-        "thunderstorm" -> "Storm energy brings power and clarity, reminding us of inner strength."
-        "snow" -> "Snow creates magical stillness, perfect for peace and appreciating quiet moments."
-        else -> "Today's weather offers unique energy for finding beauty in everyday experiences."
-    }
-    
-    return emotionalMessage
-}
-
-private fun getHydrationMessage(temp: Double): String {
-    return when {
-        temp > 28 -> "Stay hydrated in this heat! Drink water regularly to maintain energy."
-        temp > 22 -> "Remember to hydrate throughout the day for optimal well-being."
-        else -> "Keep up with hydration - it supports focus and overall health."
-    }
-}
-
-private fun getSpecialTip(
-    weatherData: WeatherData, 
-    condition: String, 
-    localHour: Int, 
-    rainProbability: Int
-): String {
-    val isNight = localHour >= 20 || localHour < 6
-    
     return when (condition) {
-        "rain" -> {
-            if (!isNight && rainProbability > 60) "Rainy day perfect for indoor creativity, learning, or cozy activities."
-            else "Current conditions great for reflection, planning, or organizing thoughts."
-        }
-        "clear" -> {
-            if (!isNight) "Perfect light for photography, mindfulness, or outdoor appreciation."
-            else "Great night for stargazing, reflection, or peaceful contemplation."
-        }
-        "snow" -> "Snow creates unique opportunities for cozy indoor time or gentle outdoor appreciation."
-        "clouds" -> "Soft lighting ideal for photography, video calls, or comfortable outdoor time."
-        else -> "Today's conditions offer special moments - notice what feels different and embrace it."
+        "clear" -> if (isNight) 
+            "Peaceful night vibes with clear skies perfect for reflection and dreaming big under the stars. The calm atmosphere is ideal for setting intentions and appreciating the quiet moments of the evening. ✨"
+        else 
+            "Sunshine energy filling the day with positivity and motivation! This is perfect weather for making things happen, starting new projects, or simply enjoying the bright and cheerful atmosphere around you. Great day for socializing and outdoor activities! 🌞"
+        
+        "rain" -> if (isNight)
+            "Cozy rainy night creating the perfect atmosphere for relaxation, hot drinks, and good music. The sound of rain provides a soothing background for introspection, reading, or quality time with loved ones. Perfect for slowing down and enjoying simple pleasures. 🎵"
+        else
+            "Rainy day rhythm bringing a calm and peaceful energy to your surroundings. Embrace the gentle patter of rain as an opportunity to focus on indoor hobbies, catch up on tasks, or simply enjoy the meditative quality of a rainy day. Perfect for creative work and quiet activities. 🌧️"
+        
+        "clouds" -> "Chill cloudy mood creating a comfortable and relaxed atmosphere perfect for taking it easy and going with the flow. The soft light and temperate weather are ideal for both productivity and relaxation - not too stimulating, not too dull, just perfectly balanced for whatever you need today. ☁️"
+        "thunderstorm" -> "Electric energy in the air with powerful vibes perfect for creativity, breakthroughs, and intense focus. The dramatic weather can inspire big ideas and help you tackle challenging tasks with renewed energy. Perfect for deep work, artistic projects, or solving complex problems. ⚡"
+        "snow" -> "Magical winter wonderland atmosphere creating a serene and beautiful environment perfect for cozy moments and hot chocolate. The quiet stillness of snow can be incredibly peaceful and inspiring, whether you're enjoying outdoor winter activities or snuggling up indoors with warm blankets. ❄️"
+        else -> "Good vibes only with comfortable weather that's perfect for enjoying the moment and spreading positivity! This is ideal weather for trying new things, connecting with others, or simply appreciating the simple joys of everyday life. Make the most of this pleasant day! 🌈"
     }
 }
 
-// ============ OTHER HELPER FUNCTIONS ============
-
-private fun calculateAccurateRainProbability(
-    humidity: Int, 
+private fun getQuickTips(
+    weatherData: WeatherData,
     condition: String,
-    cloudCover: Int? = null
-): Int {
-    var probability = 0
+    localHour: Int,
+    rainProbability: Int,
+    isNight: Boolean   // ✅ add this
+): String {
+    val tips = mutableListOf<String>()
     
     when (condition) {
-        "rain", "drizzle" -> probability = 80
-        "thunderstorm" -> probability = 95
-        else -> probability = 0
-    }
-    
-    if (probability == 0) {
-        val actualCloudCover = cloudCover ?: 50
-        probability = when {
-            humidity > 90 && actualCloudCover > 80 -> 70
-            humidity > 80 && actualCloudCover > 70 -> 50
-            humidity > 70 && actualCloudCover > 60 -> 30
-            humidity > 60 && actualCloudCover > 50 -> 15
-            else -> 0
-        }
+        "rain", "drizzle" -> tips.add("Carry an umbrella or waterproof jacket - better safe than sorry! ☔")
+        "clear" -> if (!isNight) tips.add("Wear sunscreen and stay hydrated in the bright sunshine 🧴")
+        "snow" -> tips.add("Wear warm layers and waterproof boots for snowy conditions ❄️")
     }
     
     when {
-        humidity > 95 -> probability = maxOf(probability, 80)
-        humidity > 85 -> probability = maxOf(probability, 60)
-        humidity > 75 -> probability = maxOf(probability, 40)
+        weatherData.temp > 28 -> tips.add("Stay hydrated with plenty of water throughout the day! 💧")
+        weatherData.temp < 10 -> tips.add("Hot drinks like tea or coffee will help keep you warm ☕")
     }
     
-    return probability.coerceIn(0, 100)
+    when {
+        rainProbability > 70 -> tips.add("Waterproof shoes are recommended if you need to go out 👟")
+        weatherData.windSpeed > 6 -> tips.add("It's quite windy today - secure any loose items outside 💨")
+    }
+    
+    if (tips.isEmpty()) {
+        tips.add("Perfect weather conditions today - enjoy your activities and have a great day! 🌟")
+    }
+    
+    return tips.shuffled().take(2).joinToString(" • ")
 }
 
-private fun getAccurateRainMessage(rainProbability: Int, condition: String): String {
-    return when {
-        condition == "rain" || condition == "drizzle" -> "🌧️ Currently raining"
-        condition == "thunderstorm" -> "⛈️ Thunderstorm active"
-        rainProbability >= 80 -> "🌧️ High chance of rain ($rainProbability%)"
-        rainProbability >= 60 -> "🌦️ Likely rain ($rainProbability%)"
-        rainProbability >= 40 -> "🌦️ Possible rain ($rainProbability%)"
-        rainProbability >= 20 -> "💧 Slight chance of rain ($rainProbability%)"
-        else -> "💧 Low rain chance ($rainProbability%)"
-    }
-}
+// ============ HELPER FUNCTIONS ============
 
 private fun shouldShowRainPrediction(rainProbability: Int, humidity: Int, condition: String): Boolean {
-    return when {
-        condition == "rain" || condition == "drizzle" || condition == "thunderstorm" -> true
-        rainProbability >= 30 -> true
-        humidity > 85 -> true
-        else -> false
-    }
+    return rainProbability > 0 || condition == "rain" || condition == "drizzle" || condition == "thunderstorm"
 }
 
-private fun shouldShowRainProbability(condition: String, rainProbability: Int): Boolean {
+private fun shouldShowRainInfo(condition: String, rainProbability: Int): Boolean {
     return rainProbability > 0 || condition == "rain" || condition == "drizzle" || condition == "thunderstorm"
 }
 
@@ -1132,74 +1013,49 @@ private fun normalizeCondition(apiCondition: String): String {
     }
 }
 
-private fun getConditionGradient(condition: String, isNight: Boolean): Brush {
-    return when (condition) {
-        "clear" -> if (isNight) {
-            Brush.verticalGradient(listOf(Color(0xFF0F0F23), Color(0xFF2D2D5A)))
-        } else {
-            Brush.verticalGradient(listOf(Color(0xFF64B5F6), Color(0xFF1976D2)))
-        }
-        "rain", "drizzle" -> Brush.verticalGradient(listOf(Color(0xFF90CAF9), Color(0xFF1565C0)))
-        "thunderstorm" -> Brush.verticalGradient(listOf(Color(0xFF424242), Color(0xFF212121)))
-        "snow" -> Brush.verticalGradient(listOf(Color(0xFFE3F2FD), Color(0xFF90CAF9)))
-        "clouds" -> Brush.verticalGradient(listOf(Color(0xFFBDBDBD), Color(0xFF757575)))
-        "mist" -> Brush.verticalGradient(listOf(Color(0xFFE0E0E0), Color(0xFF9E9E9E)))
-        else -> Brush.verticalGradient(listOf(Color(0xFF64B5F6), Color(0xFF1976D2)))
-    }
-}
-
 private fun getTextColorForBackground(gradient: Brush): Color {
     return Color.White
 }
 
-private fun shouldShowHydrationReminder(temp: Double, localHour: Int): Boolean {
+private fun getHumidityFeel(humidity: Int): String {
     return when {
-        temp > 26 -> true
-        temp in 15.0..25.0 -> Math.random() < 0.6
-        localHour < 4 || localHour > 23 -> false
-        else -> Math.random() < 0.3
+        humidity > 85 -> "Very humid and muggy"
+        humidity > 70 -> "Humid and sticky"
+        humidity < 30 -> "Dry and comfortable"
+        else -> "Comfortable humidity"
     }
 }
 
-private fun getHumidityTip(humidity: Int): String {
+private fun getWindFeel(windSpeed: Double): String {
     return when {
-        humidity > 80 -> "Very humid"
-        humidity > 60 -> "Comfortable"
-        humidity < 30 -> "Dry air"
-        else -> "Pleasant"
+        windSpeed > 8 -> "Strong and gusty wind"
+        windSpeed > 4 -> "Breezy and refreshing"
+        else -> "Calm and still"
     }
 }
 
-private fun getWindTip(windSpeed: Double): String {
+private fun getPressureFeel(pressure: Int): String {
     return when {
-        windSpeed > 8 -> "Windy"
-        windSpeed > 4 -> "Breezy"
-        else -> "Calm"
+        pressure > 1020 -> "High and stable pressure"
+        pressure < 1000 -> "Low and changing pressure"
+        else -> "Normal pressure conditions"
     }
 }
 
-private fun getPressureTip(pressure: Int): String {
+private fun getVisibilityFeel(visibility: Int): String {
     return when {
-        pressure > 1020 -> "High pressure"
-        pressure < 1000 -> "Low pressure"
-        else -> "Normal"
+        visibility > 10000 -> "Excellent visibility"
+        visibility > 5000 -> "Good clear visibility"
+        visibility > 2000 -> "Moderate visibility"
+        else -> "Poor visibility conditions"
     }
 }
 
-private fun getVisibilityTip(visibility: Int): String {
-    return when {
-        visibility > 10000 -> "Excellent"
-        visibility > 5000 -> "Good"
-        visibility > 2000 -> "Moderate"
-        else -> "Reduced"
-    }
-}
-
-private fun getTempRangeTip(weatherData: WeatherData): String {
+private fun getTempRangeFeel(weatherData: WeatherData): String {
     val range = weatherData.maxTemp - weatherData.minTemp
     return when {
-        range > 10 -> "Big swing - layer up"
-        range > 5 -> "Moderate variation"
-        else -> "Stable temperatures"
+        range > 10 -> "Big temperature swing today"
+        range > 5 -> "Moderate temperature variation"
+        else -> "Stable temperatures throughout"
     }
 }
