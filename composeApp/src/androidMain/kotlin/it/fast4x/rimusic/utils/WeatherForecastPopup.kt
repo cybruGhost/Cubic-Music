@@ -458,142 +458,153 @@ private fun LiveSportsDialog(
 ) {
     val leagues = listOf(
         "eng.1" to "Premier League",
-        "esp.1" to "La Liga", 
+        "esp.1" to "La Liga",
         "ita.1" to "Serie A",
         "ger.1" to "Bundesliga",
         "fra.1" to "Ligue 1",
         "uefa.champions" to "Champions League"
     )
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column {
-                Text(
-                    text = "⚽ Live Football",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                // League selector - FIXED: Now clickable
-                Row(
+            Text(
+                text = "⚽ Live Football",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // 🏆 League selector - fully clickable & scrollable
+                LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    leagues.forEach { (id, name) ->
+                    items(leagues) { (id, name) ->
                         Box(
                             modifier = Modifier
-                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    if (selectedLeague == id) Color(0xFF1976D2) else Color(0xFF757575),
-                                    shape = RoundedCornerShape(8.dp)
+                                    if (selectedLeague == id) Color(0xFF1976D2)
+                                    else Color(0xFF757575)
                                 )
                                 .clickable { onLeagueChange(id) }
-                                .padding(8.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = name.split(" ").first(),
+                                text = name,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White,
-                                maxLines = 1,
-                                modifier = Modifier.align(Alignment.Center)
+                                maxLines = 1
                             )
                         }
                     }
                 }
-            }
-        },
-        text = {
-            if (isLoading) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp)
-                ) {
-                    Text("Loading matches... ⚽")
-                }
-            } else if (sports.isEmpty()) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text("🏟️ No matches right now")
-                    Text(
-                        "Check back later for action!", 
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF666666),
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(sports) { sport ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = when (sport.status) {
-                                    "in" -> Color(0xFFFFF8E1) // Live
-                                    "final" -> Color(0xFFE8F5E8) // Finished
-                                    else -> Color(0xFFF5F5F5) // Scheduled
-                                }
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ⚙️ Match list / loading / empty state
+                when {
+                    isLoading -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
+                            Text("Loading matches... ⚽")
+                        }
+                    }
+
+                    sports.isEmpty() -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text("🏟️ No matches right now")
+                            Text(
+                                "Check back later for action!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF666666),
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(sports) { sport ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = when (sport.status) {
+                                            "in" -> Color(0xFFFFF8E1) // Live
+                                            "final" -> Color(0xFFE8F5E8) // Finished
+                                            else -> Color(0xFFF5F5F5) // Scheduled
+                                        }
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text(
-                                        text = sport.league,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFF666666)
-                                    )
-                                    Text(
-                                        text = when (sport.status) {
-                                            "in" -> "🔴 LIVE"
-                                            "final" -> "✅ FINAL"
-                                            else -> formatMatchTime(sport.time)
-                                        },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = when (sport.status) {
-                                            "in" -> Color(0xFFD32F2F)
-                                            "final" -> Color(0xFF2E7D32)
-                                            else -> Color(0xFF666666)
-                                        },
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                                
-                                Text(
-                                    text = "${sport.homeTeam} vs ${sport.awayTeam}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                                
-                                if (sport.score.isNotBlank() && sport.score != "0-0" && sport.status != "scheduled") {
-                                    Text(
-                                        text = "Score: ${sport.score}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF2E7D32),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                                
-                                // Show match date for past games
-                                if (sport.status == "final" && sport.time.isNotBlank()) {
-                                    Text(
-                                        text = "Played: ${sport.time}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFF666666),
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = sport.league,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Color(0xFF666666)
+                                            )
+                                            Text(
+                                                text = when (sport.status) {
+                                                    "in" -> "🔴 LIVE"
+                                                    "final" -> "✅ FINAL"
+                                                    else -> formatMatchTime(sport.time)
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = when (sport.status) {
+                                                    "in" -> Color(0xFFD32F2F)
+                                                    "final" -> Color(0xFF2E7D32)
+                                                    else -> Color(0xFF666666)
+                                                },
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "${sport.homeTeam} vs ${sport.awayTeam}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+
+                                        if (sport.score.isNotBlank() && sport.score != "0-0" && sport.status != "scheduled") {
+                                            Text(
+                                                text = "Score: ${sport.score}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF2E7D32),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+
+                                        if (sport.status == "final" && sport.time.isNotBlank()) {
+                                            Text(
+                                                text = "Played: ${sport.time}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Color(0xFF666666),
+                                                modifier = Modifier.padding(top = 4.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -608,6 +619,7 @@ private fun LiveSportsDialog(
         }
     )
 }
+
 
 @Composable
 private fun WeatherDetailRow(detail: WeatherDetail) {
@@ -877,31 +889,47 @@ private fun getAccurateWeatherDescription(condition: String, weatherData: Weathe
 private fun getSmartWeatherAnalysis(weatherData: WeatherData, condition: String, rainProbability: Int): String {
     val analysis = mutableListOf<String>()
     val smartCloudCover = getSmartCloudCover(weatherData.cloudCover, condition)
-    
-    // Temperature analysis
+    val temp = weatherData.temp.roundToInt()
+
+    // 🌡️ Temperature analysis (realistic for local comfort levels)
     when {
-        weatherData.temp <= 0 -> analysis.add("Freezing ${weatherData.temp.roundToInt()}°C - bundle up! ❄️")
-        weatherData.temp < 10 -> analysis.add("Cold ${weatherData.temp.roundToInt()}°C - warm layers needed 🧥")
-        weatherData.temp < 20 -> analysis.add("Cool ${weatherData.temp.roundToInt()}°C - light jacket weather 🍃")
-        weatherData.temp >= 30 -> analysis.add("Hot ${weatherData.temp.roundToInt()}°C - stay cool and hydrated 🥵")
+        temp <= 0 -> analysis.add("Freezing $temp°C – stay indoors if you can ❄️🧊")
+        temp in 1..5 -> analysis.add("Extremely cold $temp°C – heavy coat & gloves needed 🧥🧤")
+        temp in 6..10 -> analysis.add("Cold $temp°C – wear a thick jacket 🧣")
+        temp in 11..14 -> analysis.add("Chilly $temp°C – sweater or jacket is a must 🍂")
+        temp in 15..18 -> analysis.add("Cool $temp°C – you’ll still need a light jacket 🌤️")
+        temp in 19..22 -> analysis.add("Mild $temp°C – comfortable but not warm, long sleeves recommended 👕")
+        temp in 23..27 -> analysis.add("Warm $temp°C – nice weather for t-shirts ☀️")
+        temp in 28..32 -> analysis.add("Hot $temp°C – drink water and stay cool 🥵")
+        temp > 32 -> analysis.add("Scorching $temp°C – avoid staying too long in the sun 🔥")
     }
-    
-    // Humidity analysis
+
+    // 💧 Humidity analysis
     when {
-        weatherData.humidity >= 85 -> analysis.add("Very humid ${weatherData.humidity}% - feels muggy")
-        weatherData.humidity >= 75 -> analysis.add("Humid ${weatherData.humidity}% - sticky conditions")
-        weatherData.humidity <= 35 -> analysis.add("Dry ${weatherData.humidity}% - comfortable air")
+        weatherData.humidity >= 85 -> analysis.add("Very humid ${weatherData.humidity}% – heavy air 💦")
+        weatherData.humidity in 70..84 -> analysis.add("Humid ${weatherData.humidity}% – sticky and uncomfortable 🌫️")
+        weatherData.humidity in 40..69 -> analysis.add("Comfortable humidity ${weatherData.humidity}% 👍")
+        weatherData.humidity < 40 -> analysis.add("Dry ${weatherData.humidity}% – low moisture 💨")
     }
-    
-    // Cloud cover analysis
+
+    // ☁️ Cloud cover analysis
     when {
-        smartCloudCover >= 80 -> analysis.add("Heavy cloud cover ${smartCloudCover}%")
-        smartCloudCover >= 60 -> analysis.add("Mostly cloudy ${smartCloudCover}%")
-        smartCloudCover <= 20 -> analysis.add("Mostly clear ${smartCloudCover}% clouds")
+        smartCloudCover >= 80 -> analysis.add("Overcast (${smartCloudCover}%) ☁️")
+        smartCloudCover in 60..79 -> analysis.add("Mostly cloudy (${smartCloudCover}%) 🌥️")
+        smartCloudCover in 30..59 -> analysis.add("Partly cloudy (${smartCloudCover}%) ⛅")
+        smartCloudCover < 30 -> analysis.add("Clear skies (${smartCloudCover}%) 🌞")
     }
-    
+
+    // ☔ Rain chance
+    when {
+        rainProbability >= 70 -> analysis.add("High chance of rain (${rainProbability}%) – carry an umbrella ☔")
+        rainProbability in 40..69 -> analysis.add("Possible rain (${rainProbability}%) – maybe pack a jacket 🌦️")
+        rainProbability in 10..39 -> analysis.add("Slight chance of rain (${rainProbability}%) 🌤️")
+    }
+
     return analysis.joinToString(" • ")
 }
+
 
 private fun getSmartForecast(weatherData: WeatherData, condition: String, rainProbability: Int, localHour: Int): String {
     val temp = weatherData.temp
