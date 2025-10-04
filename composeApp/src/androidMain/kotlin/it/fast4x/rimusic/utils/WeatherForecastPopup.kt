@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -48,6 +50,12 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.roundToInt
+import org.json.JSONArray
+import java.util.*
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 
 
 @Composable
@@ -370,7 +378,7 @@ private fun SmartActivitiesCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "🎯 Smart Activities",
+                text = "🎯 Something you can do",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFFE65100)
@@ -452,6 +460,7 @@ private fun HydrationReminderCard() {
     }
 }
 
+// ===================== LIVE SPORTS DIALOG =====================
 @Composable
 private fun LiveSportsDialog(
     sports: List<LiveSport>,
@@ -482,7 +491,7 @@ private fun LiveSportsDialog(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // 🏆 League selector - fully clickable & scrollable
+                // 🏆 League selector
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -522,7 +531,9 @@ private fun LiveSportsDialog(
                                 .fillMaxWidth()
                                 .padding(24.dp)
                         ) {
-                            Text("Loading matches... ⚽")
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Fetching live matches... ⚽")
                         }
                     }
 
@@ -551,9 +562,9 @@ private fun LiveSportsDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(
                                         containerColor = when (sport.status) {
-                                            "in" -> Color(0xFFFFF8E1) // Live
-                                            "final" -> Color(0xFFE8F5E8) // Finished
-                                            else -> Color(0xFFF5F5F5) // Scheduled
+                                            "in" -> Color(0xFFFFF8E1)
+                                            "final" -> Color(0xFFE8F5E9)
+                                            else -> Color(0xFFF5F5F5)
                                         }
                                     ),
                                     shape = RoundedCornerShape(12.dp)
@@ -572,7 +583,7 @@ private fun LiveSportsDialog(
                                                 text = when (sport.status) {
                                                     "in" -> "🔴 LIVE"
                                                     "final" -> "✅ FINAL"
-                                                    else -> formatMatchTime(sport.time)
+                                                    else -> sport.time
                                                 },
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = when (sport.status) {
@@ -591,7 +602,7 @@ private fun LiveSportsDialog(
                                             modifier = Modifier.padding(vertical = 8.dp)
                                         )
 
-                                        if (sport.score.isNotBlank() && sport.score != "0-0" && sport.status != "scheduled") {
+                                        if (sport.score.isNotBlank() && sport.status != "scheduled") {
                                             Text(
                                                 text = "Score: ${sport.score}",
                                                 style = MaterialTheme.typography.bodySmall,
@@ -617,12 +628,18 @@ private fun LiveSportsDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("Close")
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1976D2)
+                )
+            ) {
+                Text("Close", color = Color.White)
             }
         }
     )
 }
+
 
 
 @Composable
@@ -654,85 +671,128 @@ private fun WeatherDetailRow(detail: WeatherDetail) {
 }
 
 // ============ REAL ESPN SPORTS API ============
+// ============ REAL ESPN SPORTS API ============
+// ✅ FIXED, CLEANED & ENHANCED ESPN SOCCER API FETCHER
 private suspend fun fetchLiveSportsFromESPN(leagueCode: String): List<LiveSport> = withContext(Dispatchers.IO) {
-    return@withContext try {
-        // Fetch data for last 7 days (past 6 days + today)
+    try {
         val calendar = Calendar.getInstance()
         val endDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(calendar.time)
-        
-        calendar.add(Calendar.DAY_OF_YEAR, -6) // Go back 6 days
+        calendar.add(Calendar.DAY_OF_YEAR, -6)
         val startDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(calendar.time)
-        
-        val apiUrl = "https://site.api.espn.com/apis/site/v2/sports/soccer/$leagueCode/scoreboard?dates=$startDate-$endDate"
-        
+
+        val apiUrl =
+            "https://site.api.espn.com/apis/site/v2/sports/soccer/$leagueCode/scoreboard?dates=$startDate-$endDate"
+
         val response = URL(apiUrl).readText()
         val json = JSONObject(response)
-        
+
+        if (!json.has("events")) return@withContext emptyList<LiveSport>()
+
         val events = json.getJSONArray("events")
         val sports = mutableListOf<LiveSport>()
-        
+
         for (i in 0 until events.length()) {
             try {
                 val event = events.getJSONObject(i)
-                val competitions = event.getJSONArray("competitions")
-                if (competitions.length() > 0) {
-                    val competition = competitions.getJSONObject(0)
-                    val league = competition.getJSONObject("league").getString("name")
-                    
-                    val competitors = competition.getJSONArray("competitors")
-                    if (competitors.length() >= 2) {
-                        val homeTeam = competitors.getJSONObject(0).getJSONObject("team").getString("name")
-                        val awayTeam = competitors.getJSONObject(1).getJSONObject("team").getString("name")
-                        
-                        val status = event.getJSONObject("status").getString("type")
-                        val statusType = when (status) {
-                            "in" -> "in"
-                            "final" -> "final"
-                            else -> "scheduled"
-                        }
-                        
-                        val score = if (competitors.getJSONObject(0).has("score") && competitors.getJSONObject(1).has("score")) {
-                            val homeScore = competitors.getJSONObject(0).getString("score")
-                            val awayScore = competitors.getJSONObject(1).getString("score")
-                            "$homeScore-$awayScore"
-                        } else {
-                            "0-0"
-                        }
-                        
-                        val matchTime = if (event.has("date")) {
-                            formatESPNTime(event.getString("date"))
-                        } else {
-                            ""
-                        }
-                        
-                        val sport = LiveSport(
-                            league = league,
-                            homeTeam = homeTeam,
-                            awayTeam = awayTeam,
-                            score = score,
-                            status = statusType,
-                            time = matchTime
-                        )
-                        sports.add(sport)
-                    }
+                val competitions = event.optJSONArray("competitions") ?: continue
+                if (competitions.length() == 0) continue
+
+                val competition = competitions.getJSONObject(0)
+                val leagueName = competition.optJSONObject("league")?.optString("name") ?: "Unknown League"
+                val venueName = competition.optJSONObject("venue")?.optString("fullName") ?: "TBD"
+                val competitors = competition.optJSONArray("competitors") ?: continue
+                if (competitors.length() < 2) continue
+
+                // 🏠 Extract Home & Away Teams safely
+                val homeObj = competitors.findJSONObject { it.optString("homeAway") == "home" } ?: competitors.getJSONObject(0)
+                val awayObj = competitors.findJSONObject { it.optString("homeAway") == "away" } ?: competitors.getJSONObject(1)
+
+                val homeTeam = homeObj.optJSONObject("team")?.optString("displayName") ?: "Home"
+                val awayTeam = awayObj.optJSONObject("team")?.optString("displayName") ?: "Away"
+
+                // ⚽ Handle Scores
+                val homeScore = homeObj.optString("score")
+                    .ifEmpty { homeObj.optJSONObject("score")?.optString("value") ?: "0" }
+                val awayScore = awayObj.optString("score")
+                    .ifEmpty { awayObj.optJSONObject("score")?.optString("value") ?: "0" }
+
+                val score = "$homeScore-$awayScore"
+
+                // 📊 Match Status
+                val statusObj = event.optJSONObject("status")
+                val typeObj = statusObj?.optJSONObject("type")
+                val rawStatus = typeObj?.optString("state")?.lowercase()
+                    ?: typeObj?.optString("name")?.lowercase()
+                    ?: "scheduled"
+
+                val status = when (rawStatus) {
+                    "in", "inprogress", "in_progress" -> "in"
+                    "post", "final" -> "final"
+                    else -> "scheduled"
                 }
-            } catch (e: Exception) {
-                // Skip individual match if there's an error
+
+                val matchId = event.optString("id", "0")
+                val date = event.optString("date", "")
+                val matchTime = if (date.isNotBlank()) formatESPNTime(date) else "TBD"
+
+                sports.add(
+                    LiveSport(
+                        id = matchId,
+                        league = leagueName,
+                        homeTeam = homeTeam,
+                        awayTeam = awayTeam,
+                        score = score,
+                        status = status,
+                        time = matchTime,
+                        venue = venueName
+                    )
+                )
+            } catch (inner: Exception) {
+                println("⚠️ Skipped event #$i: ${inner.message}")
                 continue
             }
         }
-        
-        // Sort: Live matches first, then scheduled, then finished (most recent first)
-        sports.sortedWith(compareBy(
-            { it.status != "in" }, // Live matches first
-            { it.status != "scheduled" }, // Then scheduled
-            { it.time } // Then by time
-        ))
+
+        // Sort: Live → Scheduled → Final
+        return@withContext sports.sortedWith(
+            compareBy(
+                { it.status != "in" },
+                { it.status != "scheduled" },
+                { it.time }
+            )
+        )
     } catch (e: Exception) {
-        e.printStackTrace()
+        println("❌ Fetch Error: ${e.message}")
         emptyList()
     }
 }
+
+/**
+ * ✅ Helper: Find JSONObject inside JSONArray by condition
+ */
+private fun JSONArray.findJSONObject(predicate: (JSONObject) -> Boolean): JSONObject? {
+    for (i in 0 until length()) {
+        val obj = optJSONObject(i)
+        if (obj != null && predicate(obj)) return obj
+    }
+    return null
+}
+
+fun formatESPNTime(dateString: String): String {
+    return try {
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        val utcTime = LocalDateTime.parse(dateString, formatter)
+        val kenyaZone = ZoneId.of("Africa/Nairobi")
+        val kenyaTime = utcTime.atZone(ZoneId.of("UTC")).withZoneSameInstant(kenyaZone)
+        val outputFormatter = DateTimeFormatter.ofPattern("hh:mm a")
+        kenyaTime.format(outputFormatter)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        dateString
+    }
+}
+
+
 
 // ============ SMART CLOUD COVER LOGIC ============
 private fun getSmartCloudCover(cloudCover: Int?, condition: String): Int {
@@ -781,18 +841,6 @@ private fun getTimeOfDayGreeting(hour: Int): String {
     }
 }
 
-private fun formatESPNTime(utcDate: String): String {
-    return try {
-        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
-        inputFormat.timeZone = TimeZone.getTimeZone("UTC")
-        val date = inputFormat.parse(utcDate)
-        val outputFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
-        outputFormat.timeZone = TimeZone.getTimeZone("GMT+3")
-        outputFormat.format(date)
-    } catch (e: Exception) {
-        ""
-    }
-}
 
 private fun formatMatchTime(time: String): String {
     return if (time.isNotBlank()) time else "Coming soon"
@@ -890,30 +938,32 @@ private fun getAccurateWeatherDescription(condition: String, weatherData: Weathe
     }
 }
 
+// ☔ SMART WEATHER ANALYSIS – realistic humid & drizzle logic
 private fun getSmartWeatherAnalysis(weatherData: WeatherData, condition: String, rainProbability: Int): String {
     val analysis = mutableListOf<String>()
     val smartCloudCover = getSmartCloudCover(weatherData.cloudCover, condition)
     val temp = weatherData.temp.roundToInt()
+    val humidity = weatherData.humidity
 
-    // 🌡️ Temperature analysis (realistic for local comfort levels)
+    // 🌡️ Temperature analysis (realistic comfort)
     when {
         temp <= 0 -> analysis.add("Freezing $temp°C – stay indoors if you can ❄️🧊")
         temp in 1..5 -> analysis.add("Extremely cold $temp°C – heavy coat & gloves needed 🧥🧤")
         temp in 6..10 -> analysis.add("Cold $temp°C – wear a thick jacket 🧣")
         temp in 11..14 -> analysis.add("Chilly $temp°C – sweater or jacket is a must 🍂")
-        temp in 15..18 -> analysis.add("Cool $temp°C – you’ll still need a light jacket 🌤️")
-        temp in 19..22 -> analysis.add("Mild $temp°C – comfortable but not warm, long sleeves recommended 👕")
-        temp in 23..27 -> analysis.add("Warm $temp°C – nice weather for t-shirts ☀️")
-        temp in 28..32 -> analysis.add("Hot $temp°C – drink water and stay cool 🥵")
+        temp in 15..18 -> analysis.add("Cool $temp°C – dress warm 🌤️")
+        temp in 19..22 -> analysis.add("Mild $temp°C – comfortable but not warm 👕")
+        temp in 23..27 -> analysis.add("Warm $temp°C – good weather for t-shirts ☀️")
+        temp in 28..32 -> analysis.add("Hot $temp°C – drink water & stay hydrated 🥵")
         temp > 32 -> analysis.add("Scorching $temp°C – avoid staying too long in the sun 🔥")
     }
 
-    // 💧 Humidity analysis
+    // 💧 Humidity analysis (sticky / uncomfortable logic)
     when {
-        weatherData.humidity >= 85 -> analysis.add("Very humid ${weatherData.humidity}% – heavy air 💦")
-        weatherData.humidity in 70..84 -> analysis.add("Humid ${weatherData.humidity}% – sticky and uncomfortable 🌫️")
-        weatherData.humidity in 40..69 -> analysis.add("Comfortable humidity ${weatherData.humidity}% 👍")
-        weatherData.humidity < 40 -> analysis.add("Dry ${weatherData.humidity}% – low moisture 💨")
+        humidity >= 85 -> analysis.add("Very humid ${humidity}% – sticky and heavy air 💦")
+        humidity in 70..84 -> analysis.add("Humid ${humidity}% – feels sticky & uncomfortable 🌫️")
+        humidity in 40..69 -> analysis.add("Comfortable humidity ${humidity}% 👍")
+        humidity < 40 -> analysis.add("Dry ${humidity}% – low moisture 💨")
     }
 
     // ☁️ Cloud cover analysis
@@ -921,14 +971,29 @@ private fun getSmartWeatherAnalysis(weatherData: WeatherData, condition: String,
         smartCloudCover >= 80 -> analysis.add("Overcast (${smartCloudCover}%) ☁️")
         smartCloudCover in 60..79 -> analysis.add("Mostly cloudy (${smartCloudCover}%) 🌥️")
         smartCloudCover in 30..59 -> analysis.add("Partly cloudy (${smartCloudCover}%) ⛅")
-        smartCloudCover < 30 -> analysis.add("Clear skies (${smartCloudCover}%) 🌞")
+        else -> analysis.add("Clear skies (${smartCloudCover}%) 🌞")
     }
 
-    // ☔ Rain chance
+    // ☔ Rain probability + humidity & cloud smart combo
+    val adjustedRainChance = when {
+        // High humidity & clouds but low reported rain = possible drizzle
+        humidity > 80 && smartCloudCover > 60 && rainProbability < 40 -> rainProbability + 20
+        // Very high humidity (sticky + cloudy) – air may burst into rain
+        humidity > 85 && smartCloudCover > 70 && rainProbability < 50 -> rainProbability + 30
+        else -> rainProbability
+    }
+
     when {
-        rainProbability >= 70 -> analysis.add("High chance of rain (${rainProbability}%) – carry an umbrella ☔")
-        rainProbability in 40..69 -> analysis.add("Possible rain (${rainProbability}%) – maybe pack a jacket 🌦️")
-        rainProbability in 10..39 -> analysis.add("Slight chance of rain (${rainProbability}%) 🌤️")
+        adjustedRainChance >= 70 -> analysis.add("High chance of rain (${adjustedRainChance}%) – rain or thunder likely ☔")
+        adjustedRainChance in 40..69 -> analysis.add("Possible rain (${adjustedRainChance}%) – keep a jacket nearby 🌦️")
+        adjustedRainChance in 20..39 -> analysis.add("Might drizzle (${adjustedRainChance}%) – humid air may spark light showers 🌧️")
+        else -> {
+            // If humid + sticky + overcast, suggest "sticky & might drizzle"
+            if (humidity > 80 && smartCloudCover > 50)
+                analysis.add("Sticky conditions – might drizzle later 🌫️")
+            else
+                analysis.add("No rain expected (${adjustedRainChance}%) 🌤️")
+        }
     }
 
     return analysis.joinToString(" • ")
@@ -980,68 +1045,42 @@ private fun getLogicalActivities(
     rainProbability: Int,
     normalizedCondition: String
 ): String {
-    val activities = mutableListOf<String>()
     val temp = weatherData.temp
-    
-    // NO PARK if raining - LOGICAL activities only
+    val mood = StringBuilder()
+
+    // 🌧️ When it’s raining or stormy
     if (normalizedCondition == "rain" || normalizedCondition == "thunderstorm" || rainProbability > 60) {
-        // INDOOR activities only when raining - SMART activities (not just games)
-        activities.addAll(listOf(
-            "Reading books or magazines 📚",
-            "Watching movies or series 🎬", 
-            "Taking a relaxing nap 😴",
-            "Doing work or assignments 💼",
-            "Cooking or baking 🍳",
-            "Cleaning and organizing 🧹",
-            "Meditation or yoga 🧘",
-            "Learning something new 📖"
-        ))
-        
-        // Add appropriate clothing advice for rain
+        mood.append("Seems like it’s one of those rainy or stormy moments. The kind where the world slows down a little, and you get to stay inside feeling cozy. Maybe curl up with a good book, watch something comforting, or just let yourself rest. It’s the kind of weather that makes warm tea and quiet thoughts feel perfect. ")
+
+        // Clothing tone — gentle and caring
         when {
-            temp < 15 -> activities.add("Wear waterproof jacket and warm layers 🧥")
-            else -> activities.add("Wear waterproof jacket and boots 🌧️")
+            temp < 15 -> mood.append("If you have to go out, wrap yourself in something warm and waterproof — you deserve to stay comfortable. 🧥")
+            else -> mood.append("If you’re stepping out, a waterproof jacket and boots will do just fine. Stay dry and safe out there. 🌧️")
         }
+
     } else {
-        // OUTDOOR activities when NOT raining
+        // 🌤️ When the skies are clearer — different moods for different hours
         when {
-            isNight -> activities.addAll(listOf(
-                "Evening city walk 🏙️",
-                "Stargazing if clear 🌟",
-                "Outdoor dining 🍽️",
-                "Night photography 📷"
-            ))
-            localHour in 6..11 -> activities.addAll(listOf(
-                "Morning jog or walk 🏃",
-                "Coffee at outdoor cafe ☕",
-                "Park visit 🌳",
-                "Farmer's market 🛍️"
-            ))
-            localHour in 12..17 -> activities.addAll(listOf(
-                "Outdoor lunch 🧺",
-                "Beach or pool (if warm) 🏖️",
-                "Cycling in park 🚴",
-                "Gardening 🌷"
-            ))
-            localHour in 18..23 -> activities.addAll(listOf(
-                "Sunset watching 🌇",
-                "Evening social gathering 👥",
-                "Outdoor sports ⚽",
-                "Rooftop relaxation 🏙️"
-            ))
+            isNight -> mood.append("The night feels peaceful — maybe take a slow walk through the city lights, enjoy dinner under the stars, or just sit somewhere quiet and breathe it all in. Nights like this remind you to slow down a bit. 🌙")
+            localHour in 6..11 -> mood.append("The morning looks fresh and full of energy. A walk, a quick jog, or just that first coffee outside could start your day perfectly. Let the sunlight hit your face for a moment before everything gets busy. ☀️")
+            localHour in 12..17 -> mood.append("The day’s alive — it could be a good time for a meal outdoors, a swim, a little gardening, or even just hanging out somewhere open. Let yourself enjoy the warmth if it’s nice out. 🌻")
+            localHour in 18..23 -> mood.append("The evening glow’s setting in — perfect for catching a sunset, spending time with friends, or just unwinding on a rooftop. Sometimes, all you need is a bit of calm air and good company. 🌇")
         }
-        
-        // Temperature-based clothing advice
+
+        // 👕 Clothing guidance that sounds human
         when {
-            temp < 10 -> activities.add("Wear warm layers and jacket 🧥")
-            temp < 20 -> activities.add("Light jacket recommended 🧥")
-            temp > 25 -> activities.add("Light clothing recommended 👕")
+            temp < 10 -> mood.append(" It’s cold out there — wear something that keeps you warm and wrapped up. ❄️")
+            temp < 20 -> mood.append(" The air feels cool; maybe carry a light jacket just in case. 🧥")
+            temp > 25 -> mood.append(" It’s warm enough to go light — something airy will keep you comfy. 👕")
         }
     }
-    
-    val selected = activities.shuffled().take(3)
-    return selected.joinToString(" • ")
+
+    // Final personal touch
+    mood.append(" Whatever the weather, remember — comfort first, always. You don’t have to do much; just enjoy the moment for what it is. 💫")
+
+    return mood.toString()
 }
+
 
 // ============ HELPER FUNCTIONS ============
 private fun shouldShowRainPrediction(rainProbability: Int, humidity: Int, condition: String): Boolean {
@@ -1188,12 +1227,14 @@ fun Modifier.clickable(onClick: () -> Unit): Modifier {
 
 // ============ DATA CLASSES ============
 data class LiveSport(
+    val id: String,
     val league: String,
     val homeTeam: String,
     val awayTeam: String,
     val score: String,
     val status: String,
-    val time: String = ""
+    val time: String,
+    val venue: String
 )
 
 data class WeatherDetail(val emojiLabel: String, val value: String, val tip: String)
