@@ -117,7 +117,7 @@ fun WeatherForecastPopup(
                         modifier = Modifier.size(32.dp)
                     ) {
                         if (isLoadingSports) {
-                            Text("⏳", style = MaterialTheme.typography.bodyMedium)
+                            Text("⚙️", style = MaterialTheme.typography.bodyMedium)
                         } else {
                             Text("⚽", style = MaterialTheme.typography.bodyLarge)
                         }
@@ -125,7 +125,9 @@ fun WeatherForecastPopup(
                     // City change button
                     IconButton(
                         onClick = onCityChange,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .size(width = 24.dp, height = 34.dp) // Taller vertical rectangle
+                            .background(Color(0xFF800080), shape = RoundedCornerShape(6.dp)) // 💜 Purple background with slight rounding
                     ) {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
@@ -698,10 +700,18 @@ private suspend fun fetchLiveSportsFromESPN(leagueCode: String): List<LiveSport>
                 if (competitions.length() == 0) continue
 
                 val competition = competitions.getJSONObject(0)
-                val leagueName = competition.optJSONObject("league")?.optString("name") ?: "Unknown League"
-                val venueName = competition.optJSONObject("venue")?.optString("fullName") ?: "TBD"
                 val competitors = competition.optJSONArray("competitors") ?: continue
                 if (competitors.length() < 2) continue
+
+                // 🏆 League name fix — use multiple fallbacks
+                val leagueName = competition.optJSONObject("league")?.optString("name")
+                    ?: competition.optJSONObject("category")?.optString("name")
+                    ?: competition.optJSONObject("tournament")?.optString("name")
+                    ?: event.optJSONObject("league")?.optString("name")
+                    ?: event.optJSONObject("competitions")?.optJSONObject("category")?.optString("name")
+                    ?: "League"
+
+                val venueName = competition.optJSONObject("venue")?.optString("fullName") ?: "TBD"
 
                 // 🏠 Extract Home & Away Teams safely
                 val homeObj = competitors.findJSONObject { it.optString("homeAway") == "home" } ?: competitors.getJSONObject(0)
@@ -735,6 +745,7 @@ private suspend fun fetchLiveSportsFromESPN(leagueCode: String): List<LiveSport>
                 val date = event.optString("date", "")
                 val matchTime = if (date.isNotBlank()) formatESPNTime(date) else "TBD"
 
+                // 🏟 Add match
                 sports.add(
                     LiveSport(
                         id = matchId,
@@ -778,6 +789,9 @@ private fun JSONArray.findJSONObject(predicate: (JSONObject) -> Boolean): JSONOb
     return null
 }
 
+/**
+ * 🕒 Converts ESPN UTC time → Kenya local time
+ */
 fun formatESPNTime(dateString: String): String {
     return try {
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
@@ -847,82 +861,111 @@ private fun formatMatchTime(time: String): String {
 }
 
 // ============ REAL RAIN PROBABILITY CALCULATION ============
+// ============ REALISTIC RAIN PROBABILITY CALCULATION ============
 private fun calculateRealRainProbability(
-    humidity: Int, 
+    humidity: Int,
     condition: String,
     cloudCover: Int?,
     pressure: Int
 ): Int {
-    return when (condition) {
-        "rain", "drizzle" -> {
-            // If currently raining, high probability it continues
+    val actualCloudCover = getSmartCloudCover(cloudCover, condition)
+    var probability = 0
+
+    return when {
+        condition.contains("thunderstorm", true) -> 98
+        condition.contains("rain", true) -> {
             when {
                 humidity >= 90 -> 95
                 humidity >= 80 -> 85
                 else -> 75
             }
         }
-        "thunderstorm" -> 98
+        condition.contains("drizzle", true) -> 70
         else -> {
-            val actualCloudCover = getSmartCloudCover(cloudCover, condition)
-            // Advanced rain probability based on multiple factors
-            var probability = 0
-            
-            // Humidity factor (40% weight)
+            // Humidity (45% influence)
             probability += when {
                 humidity >= 90 -> 40
-                humidity >= 85 -> 30
-                humidity >= 80 -> 20
-                humidity >= 75 -> 10
-                else -> 0
+                humidity >= 85 -> 35
+                humidity >= 80 -> 25
+                humidity >= 70 -> 15
+                else -> 5
             }
-            
-            // Cloud cover factor (40% weight)
+
+            // Cloud cover (35% influence)
             probability += when {
-                actualCloudCover >= 90 -> 40
-                actualCloudCover >= 80 -> 30
+                actualCloudCover >= 90 -> 35
+                actualCloudCover >= 80 -> 25
                 actualCloudCover >= 70 -> 20
-                actualCloudCover >= 60 -> 10
-                else -> 0
+                actualCloudCover >= 50 -> 10
+                else -> 5
             }
-            
-            // Pressure factor (20% weight) - low pressure = higher rain chance
+
+            // Pressure (20% influence)
             probability += when {
                 pressure <= 1000 -> 20
                 pressure <= 1010 -> 10
                 else -> 0
             }
-            
-            probability
+
+            // Cap to 95%
+            minOf(probability, 95)
         }
     }
 }
 
+
 private fun getRealRainAnalysis(
-    rainProbability: Int, 
+    rainProbability: Int,
     condition: String,
     humidity: Int,
     cloudCover: Int?,
     pressure: Int
 ): String {
+    val clouds = getSmartCloudCover(cloudCover, condition)
+    val lowPressure = pressure < 1005
+
     return when {
-        condition == "rain" -> {
-            when {
-                humidity >= 85 -> "Heavy rain currently falling - high humidity ${humidity}%"
-                humidity >= 75 -> "Moderate rain ongoing - humidity ${humidity}%"
-                else -> "Light rain currently falling"
-            }
+        condition.contains("thunderstorm", true) ->
+            "Thunderstorm conditions active — strong winds or lightning possible."
+
+        condition.contains("rain", true) -> when {
+            humidity >= 85 -> "Heavy rain currently falling — high humidity at ${humidity}% and dense ${clouds}% clouds."
+            humidity >= 75 -> "Moderate rain ongoing — humidity around ${humidity}%."
+            else -> "Light rainfall in progress — mild humidity ${humidity}%."
         }
-        condition == "drizzle" -> "Light drizzle currently - humidity ${humidity}%"
-        condition == "thunderstorm" -> "Thunderstorm active - stay indoors ⚡"
-        rainProbability >= 85 -> "Heavy rain expected soon - high humidity ${humidity}%"
-        rainProbability >= 70 -> "Rain likely - humidity ${humidity}%, ${getSmartCloudCover(cloudCover, condition)}% clouds"
-        rainProbability >= 50 -> "Possible rain later - ${getSmartCloudCover(cloudCover, condition)}% cloud cover"
-        rainProbability >= 30 -> "Light rain possible - keep umbrella handy"
-        humidity >= 80 -> "High humidity ${humidity}% but no rain expected"
-        else -> "No rain expected - clear conditions"
+
+        condition.contains("drizzle", true) ->
+            "Light drizzle observed — air is damp with humidity ${humidity}%."
+
+        rainProbability >= 85 ->
+            "Heavy rain expected soon — ${clouds}% clouds and high humidity ${humidity}%."
+
+        rainProbability >= 70 ->
+            "Rain likely later today — ${clouds}% cloud cover and ${if (lowPressure) "dropping pressure" else "steady pressure"} indicate incoming showers."
+
+        rainProbability >= 50 ->
+            "Possible rain in coming hours — ${clouds}% cloud cover and humidity ${humidity}%."
+
+        rainProbability >= 30 ->
+            "Light rain possible — some cloud build-up (${clouds}%) and moderate humidity ${humidity}%."
+
+        humidity >= 80 && clouds >= 60 ->
+            "Humid and mostly cloudy (${clouds}%), but no significant rainfall expected."
+
+        humidity >= 80 && clouds < 60 ->
+            "Air feels wet due to high humidity (${humidity}%), though skies remain partly clear."
+
+        clouds >= 70 ->
+            "Cloudy skies (${clouds}%) but atmosphere remains dry."
+
+        clouds in 40..69 ->
+            "Partly cloudy with comfortable humidity (${humidity}%). No rain expected."
+
+        else ->
+            "Clear and dry conditions — low humidity (${humidity}%) and minimal cloud cover (${clouds}%)."
     }
 }
+
 
 // ============ SMART WEATHER FUNCTIONS ============
 private fun getAccurateWeatherDescription(condition: String, weatherData: WeatherData): String {
@@ -961,18 +1004,38 @@ private fun getSmartWeatherAnalysis(weatherData: WeatherData, condition: String,
     // 💧 Humidity analysis (sticky / uncomfortable logic)
     when {
         humidity >= 85 -> analysis.add("Very humid ${humidity}% – sticky and heavy air 💦")
-        humidity in 70..84 -> analysis.add("Humid ${humidity}% – feels sticky & uncomfortable 🌫️")
+        humidity in 70..84 -> analysis.add("Humid ${humidity}% – feels  & uncomfortable 🌫️")
         humidity in 40..69 -> analysis.add("Comfortable humidity ${humidity}% 👍")
         humidity < 40 -> analysis.add("Dry ${humidity}% – low moisture 💨")
     }
 
-    // ☁️ Cloud cover analysis
+    // ☁️ Cloud cover intelligence
     when {
-        smartCloudCover >= 80 -> analysis.add("Overcast (${smartCloudCover}%) ☁️")
-        smartCloudCover in 60..79 -> analysis.add("Mostly cloudy (${smartCloudCover}%) 🌥️")
-        smartCloudCover in 30..59 -> analysis.add("Partly cloudy (${smartCloudCover}%) ⛅")
-        else -> analysis.add("Clear skies (${smartCloudCover}%) 🌞")
+        condition.contains("overcast", ignoreCase = true) -> 
+            analysis.add("Overcast skies (${smartCloudCover}%) ☁️")
+
+        condition.contains("broken clouds", ignoreCase = true) -> 
+            analysis.add("Broken clouds with patches of sunlight (${smartCloudCover}%) 🌥️")
+
+        condition.contains("scattered clouds", ignoreCase = true) -> 
+            analysis.add("Scattered clouds drifting across the sky (${smartCloudCover}%) ⛅")
+
+        condition.contains("few clouds", ignoreCase = true) -> 
+            analysis.add("Mostly clear with a few light clouds (${smartCloudCover}%) 🌤️")
+
+        smartCloudCover >= 86 -> 
+            analysis.add("Overcast conditions (${smartCloudCover}%) ☁️")
+
+        smartCloudCover in 70..85 -> 
+            analysis.add("Mostly cloudy (${smartCloudCover}%) 🌥️")
+
+        smartCloudCover in 40..69 -> 
+            analysis.add("Partly cloudy (${smartCloudCover}%) ⛅")
+
+        else -> 
+            analysis.add("Clear skies (${smartCloudCover}%) 🌞")
     }
+
 
     // ☔ Rain probability + humidity & cloud smart combo
     val adjustedRainChance = when {
@@ -1000,42 +1063,59 @@ private fun getSmartWeatherAnalysis(weatherData: WeatherData, condition: String,
 }
 
 
-private fun getSmartForecast(weatherData: WeatherData, condition: String, rainProbability: Int, localHour: Int): String {
+private fun getSmartForecast(
+    weatherData: WeatherData,
+    condition: String,
+    rainProbability: Int,
+    localHour: Int
+): String {
     val temp = weatherData.temp
     val humidity = weatherData.humidity
     val smartCloudCover = getSmartCloudCover(weatherData.cloudCover, condition)
-    
+
     val base = buildString {
-        // Temperature focus
+
+        // 🌡️ Temperature focus
         when {
-            temp <= 0 -> append("Freezing day with temperatures below zero. ")
-            temp < 10 -> append("Cold conditions perfect for warm activities. ")
-            temp >= 30 -> append("Very warm day ahead, perfect for summer activities. ")
-            else -> append("Comfortable temperatures for various activities. ")
+            temp <= -5 -> append("Extremely cold day with biting frost. Dress heavily to stay warm. ")
+            temp in -4.0..0.0 -> append("Freezing temperatures around zero — keep bundled up. ")
+            temp in 1.0..9.9 -> append("Cold air dominates, ideal for staying cozy indoors. ")
+            temp in 10.0..17.9 -> append("Cold and calm weather, Keep warm regardless. ")
+            temp in 18.0..27.9 -> append("Pleasant and mild temperatures — perfect balance for the day. ")
+            temp in 28.0..33.9 -> append("Warm day, stay hydrated and avoid long exposure under direct sun. ")
+            temp >= 34 -> append("Very hot conditions expected, outdoor activity should be minimal. ")
         }
-        
-        // Humidity intelligence
+
+        // 💧 Humidity intelligence
         when {
-            humidity >= 85 && condition != "rain" -> append("High humidity ${humidity}% creating muggy conditions but no rain expected. ")
-            humidity >= 75 -> append("Humid ${humidity}% making it feel warmer than actual temperature. ")
-            humidity <= 35 -> append("Dry ${humidity}% making for very comfortable conditions. ")
+            humidity >= 90 && condition != "rain" -> append("Air feels heavy and wet, though skies remain mostly dry. ")
+            humidity >= 80 && condition == "rain" -> append("Wet atmosphere with high humidity ${humidity}%, making rainfall feel heavier. ")
+            humidity in 60..79 -> append("Moderate humidity ${humidity}%, quite comfortable to be outside. ")
+            humidity in 40..59 -> append("Balanced air moisture creating pleasant and steady conditions. ")
+            humidity <= 39 -> append("Dry atmosphere ${humidity}%, leading to crisp and refreshing air. ")
         }
-        
-        // Cloud cover intelligence
+
+        // ☁️ Cloud cover intelligence
         when {
-            smartCloudCover >= 80 -> append("${smartCloudCover}% cloud cover keeping temperatures stable. ")
-            smartCloudCover <= 20 -> append("Only ${smartCloudCover}% clouds allowing plenty of sunshine. ")
+            smartCloudCover >= 90 -> append("Overcast skies (${smartCloudCover}% clouds) blocking most sunlight. ")
+            smartCloudCover in 70..89 -> append("Mostly cloudy with dim sunlight filtering through. ")
+            smartCloudCover in 40..69 -> append("Partly cloudy — intervals of sun and shade throughout the day. ")
+            smartCloudCover in 10..39 -> append("Mostly clear skies with few passing clouds. ")
+            smartCloudCover < 10 -> append("Clear blue skies with little to no cloud cover. ")
         }
-        
-        // Rain intelligence
+
+        // 🌧️ Rain intelligence
         when {
-            condition == "rain" -> append("Rain expected to continue throughout the day. ")
-            rainProbability >= 70 -> append("High chance of rain later (${rainProbability}% probability). ")
-            rainProbability >= 50 -> append("Possible showers with ${rainProbability}% chance. ")
+            condition == "rain" && rainProbability >= 80 -> append("Rainfall ongoing with strong likelihood of continuation (${rainProbability}%). ")
+            condition == "rain" && rainProbability < 80 -> append("Light rain with chances of clearing later (${rainProbability}%). ")
+            rainProbability >= 85 -> append("High chance of heavy rain later today (${rainProbability}%). ")
+            rainProbability in 60..84 -> append("Moderate chance of showers or drizzle (${rainProbability}%). ")
+            rainProbability in 40..59 -> append("Slight possibility of light rain later in the day (${rainProbability}%). ")
+            rainProbability < 40 -> append("Low rain probability — dry conditions likely. ")
         }
     }
-    
-    return base
+
+    return base.trim()
 }
 
 private fun getLogicalActivities(
@@ -1159,9 +1239,9 @@ private fun getHumidityAnalysis(humidity: Int): String {
 private fun getCloudCoverAnalysis(cloudCover: Int): String {
     return when {
         cloudCover >= 90 -> "Overcast skies"
-        cloudCover >= 70 -> "Mostly cloudy"
-        cloudCover >= 50 -> "Partly cloudy"
-        cloudCover >= 30 -> "Some clouds"
+        cloudCover >= 80 -> "Mostly cloudy"
+        cloudCover >= 60 -> "Partly cloudy"
+        cloudCover >= 40 -> "Some clouds"
         else -> "Mostly clear"
     }
 }
@@ -1213,9 +1293,9 @@ private fun getRainIntensity(humidity: Int): String {
 private fun getCloudCoverDescription(cloudCover: Int): String {
     return when {
         cloudCover >= 90 -> "Overcast"
-        cloudCover >= 70 -> "Mostly cloudy"
-        cloudCover >= 50 -> "Partly cloudy"
-        cloudCover >= 30 -> "Some clouds"
+        cloudCover >= 80 -> "Mostly cloudy"
+        cloudCover >= 60 -> "Partly cloudy"
+        cloudCover >= 40 -> "Some clouds"
         else -> "Mostly clear"
     }
 }

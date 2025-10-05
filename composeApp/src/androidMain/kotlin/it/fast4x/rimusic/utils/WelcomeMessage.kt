@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -50,9 +51,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -246,10 +249,10 @@ private fun GreetingMessage(
             // Weather display
             Spacer(modifier = Modifier.size(8.dp))
             if (isLoading) {
-                Text(
-                    text = "⚙️",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 4.dp)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = Color(0xFF4FC3F7)
                 )
             } else if (errorMessage != null) {
                 Text(
@@ -290,32 +293,38 @@ private fun GreetingMessage(
 @Composable
 fun ChangeCityDialog(
     currentCity: String,
-    condition: String, // 🌦️ Used to apply weather-based theme
+    condition: String,
     onDismiss: () -> Unit,
     onCityChanged: (String) -> Unit
 ) {
     var newCity by remember { mutableStateOf(currentCity) }
 
-    // 🌤️ Dynamic gradient and text colors based on condition
+    // Better color scheme with improved contrast
     val (bgGradient, textColor) = when (condition.lowercase()) {
-        "rain", "drizzle" -> Brush.verticalGradient(
-            listOf(Color(0xFF4A5568), Color(0xFF2C5282))
-        ) to Color(0xFFE2E8F0)
-        "clouds", "overcast" -> Brush.verticalGradient(
-            listOf(Color(0xFFCBD5E0), Color(0xFFA0AEC0))
-        ) to Color(0xFF2D3748)
-        "clear", "sunny" -> Brush.verticalGradient(
-            listOf(Color(0xFFFFF176), Color(0xFFFFB74D))
-        ) to Color(0xFF3E2723)
-        "snow" -> Brush.verticalGradient(
-            listOf(Color(0xFFE0F7FA), Color(0xFFB3E5FC))
-        ) to Color(0xFF01579B)
-        "thunderstorm" -> Brush.verticalGradient(
-            listOf(Color(0xFF2C3E50), Color(0xFF000000))
-        ) to Color(0xFFE0E0E0)
-        else -> Brush.verticalGradient(
-            listOf(Color(0xFFD1C4E9), Color(0xFF9575CD))
-        ) to Color(0xFF212121)
+        "rain", "drizzle" -> Pair(
+            Brush.verticalGradient(listOf(Color(0xFF4A6572), Color(0xFF344955))),
+            Color(0xFFE1F5FE)
+        )
+        "clouds", "overcast" -> Pair(
+            Brush.verticalGradient(listOf(Color(0xFF546E7A), Color(0xFF37474F))),
+            Color(0xFFECEFF1)
+        )
+        "clear", "sunny" -> Pair(
+            Brush.verticalGradient(listOf(Color(0xFFFFB74D), Color(0xFFF57C00))),
+            Color(0xFF212121)
+        )
+        "snow" -> Pair(
+            Brush.verticalGradient(listOf(Color(0xFFB3E5FC), Color(0xFF81D4FA))),
+            Color(0xFF01579B)
+        )
+        "thunderstorm" -> Pair(
+            Brush.verticalGradient(listOf(Color(0xFF37474F), Color(0xFF263238))),
+            Color(0xFFE0F7FA)
+        )
+        else -> Pair(
+            Brush.verticalGradient(listOf(Color(0xFF7E57C2), Color(0xFF5E35B1))),
+            Color(0xFFEDE7F6)
+        )
     }
 
     AlertDialog(
@@ -323,7 +332,10 @@ fun ChangeCityDialog(
         title = {
             Text(
                 text = "🌍 Change Weather Location",
-                style = MaterialTheme.typography.titleMedium.copy(color = textColor),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = textColor,
+                    fontWeight = FontWeight.SemiBold
+                ),
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         },
@@ -340,31 +352,55 @@ fun ChangeCityDialog(
                 ) {
                     Text(
                         text = "Enter your city name:",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = textColor,
+                            fontWeight = FontWeight.Medium
+                        ),
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
                     OutlinedTextField(
                         value = newCity,
                         onValueChange = { newCity = it },
-                        label = { Text("City name") },
-                        placeholder = { Text("e.g., London, Tokyo, Nairobi") },
+                        label = { 
+                            Text(
+                                "City name", 
+                                color = textColor.copy(alpha = 0.8f)
+                            ) 
+                        },
+                        placeholder = { 
+                            Text(
+                                "e.g., London, Tokyo, Nairobi",
+                                color = textColor.copy(alpha = 0.6f)
+                            ) 
+                        },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor,
+                            cursorColor = textColor,
+                            focusedBorderColor = textColor.copy(alpha = 0.8f),
+                            unfocusedBorderColor = textColor.copy(alpha = 0.5f),
+                            focusedLabelColor = textColor,
+                            unfocusedLabelColor = textColor.copy(alpha = 0.7f)
+                        )
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
                         text = "💡 Tip: Use 'Detect My Location' for automatic detection",
-                        style = MaterialTheme.typography.labelSmall.copy(color = textColor.copy(alpha = 0.7f)),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = textColor.copy(alpha = 0.8f)
+                        ),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
                     Text(
-                        text = "by Cyberghost @2025 Cubic Music",
+                        text = "Cyberghost @2025 Cubic Music",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = textColor.copy(alpha = 0.6f),
+                            color = textColor.copy(alpha = 0.7f),
                             fontStyle = FontStyle.Italic
                         ),
                         modifier = Modifier.align(Alignment.End)
@@ -418,64 +454,112 @@ private fun UsernameInputPage(onUsernameSubmitted: (String) -> Unit) {
         animated = true
     }
 
-    // Dimmed background
-    Surface(
+    // Beautiful gradient background
+    Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF1A237E),
+                        Color(0xFF0D47A1),
+                        Color(0xFF01579B)
+                    ),
+                    center = Offset(0.5f, 0.2f),
+                    radius = 1.0f
+                )
+            )
             .alpha(alpha)
-            .background(Color.Black.copy(alpha = 0.45f)),
-        color = Color.Transparent
     ) {
-        // Centered popup card
+        // Centered content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(32.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // App title with animation
+            AnimatedVisibility(
+                visible = animated,
+                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn()
+            ) {
+                Text(
+                    text = "Cubic Music",
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 32.sp
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Input card
             Surface(
                 modifier = Modifier
                     .scale(scale)
-                    .padding(16.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                tonalElevation = 8.dp,
-                shape = MaterialTheme.shapes.extraLarge
+                    .fillMaxWidth(0.9f),
+                color = Color.White.copy(alpha = 0.95f),
+                tonalElevation = 16.dp,
+                shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(28.dp),
+                    modifier = Modifier.padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Emoji + text header
                     Text(
-                        text = "🌤️ Welcome aboard!",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            color = MaterialTheme.colorScheme.primary
+                        text = "What should we call you?",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            color = Color(0xFF1A237E),
+                            fontWeight = FontWeight.SemiBold
                         ),
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 16.dp)
                     )
 
                     Text(
-                        text = "Let's personalize your experience ☁️",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = "Let's personalize your music experience",
+                        color = Color(0xFF546E7A),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(bottom = 24.dp)
                     )
 
                     OutlinedTextField(
                         value = usernameInput,
-                        onValueChange = { usernameInput = it },
+                        onValueChange = { 
+                            if (it.length <= 14) usernameInput = it 
+                        },
                         label = {
                             Text(
-                                "Your name",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "Your name (max 14 chars)",
+                                color = Color(0xFF546E7A)
                             )
                         },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Done
+                        ),
                         modifier = Modifier
-                            .padding(bottom = 24.dp)
-                            .fillMaxWidth(0.8f)
+                            .padding(bottom = 16.dp)
+                            .fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1A237E),
+                            unfocusedBorderColor = Color(0xFFB0BEC5),
+                            focusedLabelColor = Color(0xFF1A237E)
+                        )
+                    )
+
+                    // Character counter
+                    Text(
+                        text = "${usernameInput.length}/14",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (usernameInput.length >= 14) Color.Red else Color(0xFF757575),
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .padding(bottom = 16.dp)
                     )
 
                     Button(
@@ -484,16 +568,27 @@ private fun UsernameInputPage(onUsernameSubmitted: (String) -> Unit) {
                                 onUsernameSubmitted(usernameInput.trim())
                             }
                         },
-                        enabled = usernameInput.isNotBlank()
+                        enabled = usernameInput.isNotBlank(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Continue 🚀")
+                        Text(
+                            "Get Started 🎵",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
                     }
 
-                    Spacer(modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.size(16.dp))
+                    
                     Text(
                         text = "by Cyberghost @2025 Cubic Music",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            color = Color(0xFF757575),
+                            fontStyle = FontStyle.Italic
                         )
                     )
                 }
@@ -517,14 +612,16 @@ private fun ChangeUsernameDialog(
         title = { 
             Text(
                 "Change Your Name",
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.SemiBold
             ) 
         },
         text = {
             Column {
                 Text(
                     "Enter your new name (max $maxChars characters):",
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 OutlinedTextField(
@@ -539,14 +636,18 @@ private fun ChangeUsernameDialog(
                         ) 
                     },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
                 )
 
-                // 🧭 Show live character count
+                // Character count
                 Text(
                     text = "${newUsername.length} / $maxChars",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (newUsername.length >= maxChars) Color.Red else Color.Gray,
+                    color = if (newUsername.length >= maxChars) Color.Red else MaterialTheme.colorScheme.outline,
                     modifier = Modifier.align(Alignment.End).padding(top = 4.dp)
                 )
             }
@@ -564,7 +665,7 @@ private fun ChangeUsernameDialog(
             }
         },
         dismissButton = {
-            Button(onClick = onDismiss) {
+            TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
         }
@@ -582,7 +683,7 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
         val weather = json.getJSONArray("weather").getJSONObject(0)
         val wind = json.getJSONObject("wind")
         val sys = json.getJSONObject("sys")
-        val clouds = json.optJSONObject("clouds")  // 🌥️ Fetch cloud cover if available
+        val clouds = json.optJSONObject("clouds")
 
         WeatherData(
             temp = main.getDouble("temp"),
@@ -598,7 +699,7 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
             maxTemp = main.getDouble("temp_max"),
             sunrise = sys.getLong("sunrise"),
             sunset = sys.getLong("sunset"),
-            cloudCover = clouds?.optInt("all") // ☁️ Add cloud cover safely
+            cloudCover = clouds?.optInt("all")
         )
     } catch (e: Exception) {
         e.printStackTrace()
@@ -606,8 +707,6 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
     }
 }
 
-
-// --- keep this here ---
 private fun getLocationFromIP(): String? {
     return try {
         val response = URL("http://ip-api.com/json").readText()
