@@ -1,22 +1,38 @@
 package it.fast4x.rimusic.utils
 
+import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.draw.scale
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,28 +41,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import android.content.Context
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
-import app.kreate.android.R
-import it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
-import it.fast4x.rimusic.ytAccountName
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
-import it.fast4x.rimusic.utils.getWeatherEmoji
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import app.kreate.android.R
+import it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
+import it.fast4x.rimusic.ytAccountName
+import it.fast4x.rimusic.utils.getWeatherEmoji
+
 
 // Key constants
 private const val KEY_USERNAME = "username"
@@ -125,14 +144,15 @@ fun WelcomeMessage() {
         if (showCityDialog) {
             ChangeCityDialog(
                 currentCity = city,
+                condition = weatherData?.condition ?: "clear",
                 onDismiss = { showCityDialog = false },
                 onCityChanged = { newCity ->
-                    DataStoreUtils.saveStringBlocking(context, KEY_CITY, newCity)
                     city = newCity
                     showCityDialog = false
                 }
             )
         }
+
         
         if (showWeatherPopup && weatherData != null) {
             WeatherForecastPopup(
@@ -268,33 +288,33 @@ private fun GreetingMessage(
 }
 
 @Composable
-private fun ChangeCityDialog(
+fun ChangeCityDialog(
     currentCity: String,
-    condition: String, // 🌦️ Add this to apply weather-based theme
+    condition: String, // 🌦️ Used to apply weather-based theme
     onDismiss: () -> Unit,
     onCityChanged: (String) -> Unit
 ) {
     var newCity by remember { mutableStateOf(currentCity) }
 
-    // 🌤️ Define color themes based on condition
+    // 🌤️ Dynamic gradient and text colors based on condition
     val (bgGradient, textColor) = when (condition.lowercase()) {
         "rain", "drizzle" -> Brush.verticalGradient(
-            colors = listOf(Color(0xFF4A5568), Color(0xFF2C5282))
+            listOf(Color(0xFF4A5568), Color(0xFF2C5282))
         ) to Color(0xFFE2E8F0)
         "clouds", "overcast" -> Brush.verticalGradient(
-            colors = listOf(Color(0xFFCBD5E0), Color(0xFFA0AEC0))
+            listOf(Color(0xFFCBD5E0), Color(0xFFA0AEC0))
         ) to Color(0xFF2D3748)
         "clear", "sunny" -> Brush.verticalGradient(
-            colors = listOf(Color(0xFFFFF176), Color(0xFFFFB74D))
+            listOf(Color(0xFFFFF176), Color(0xFFFFB74D))
         ) to Color(0xFF3E2723)
         "snow" -> Brush.verticalGradient(
-            colors = listOf(Color(0xFFE0F7FA), Color(0xFFB3E5FC))
+            listOf(Color(0xFFE0F7FA), Color(0xFFB3E5FC))
         ) to Color(0xFF01579B)
         "thunderstorm" -> Brush.verticalGradient(
-            colors = listOf(Color(0xFF2C3E50), Color(0xFF000000))
+            listOf(Color(0xFF2C3E50), Color(0xFF000000))
         ) to Color(0xFFE0E0E0)
         else -> Brush.verticalGradient(
-            colors = listOf(Color(0xFFD1C4E9), Color(0xFF9575CD))
+            listOf(Color(0xFFD1C4E9), Color(0xFF9575CD))
         ) to Color(0xFF212121)
     }
 
@@ -302,7 +322,7 @@ private fun ChangeCityDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "🌍 Change Weather Location",
+                text = "🌍 Change Weather Location",
                 style = MaterialTheme.typography.titleMedium.copy(color = textColor),
                 modifier = Modifier.padding(bottom = 4.dp)
             )
@@ -314,13 +334,16 @@ private fun ChangeCityDialog(
                     .padding(16.dp)
             ) {
                 Column(
-                    modifier = Modifier.width(IntrinsicSize.Min)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
                 ) {
                     Text(
-                        "Enter your city name:",
+                        text = "Enter your city name:",
                         style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
+
                     OutlinedTextField(
                         value = newCity,
                         onValueChange = { newCity = it },
@@ -329,18 +352,22 @@ private fun ChangeCityDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Text(
-                        "Tip: Use 'Detect My Location' for automatic detection",
+                        text = "💡 Tip: Use 'Detect My Location' for automatic detection",
                         style = MaterialTheme.typography.labelSmall.copy(color = textColor.copy(alpha = 0.7f)),
-                        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 12.dp)
                     )
+
                     Text(
                         text = "by Cyberghost @2025 Cubic Music",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = textColor.copy(alpha = 0.6f),
                             fontStyle = FontStyle.Italic
                         ),
-                        modifier = Modifier.align(Alignment.Start)
+                        modifier = Modifier.align(Alignment.End)
                     )
                 }
             }
@@ -348,9 +375,7 @@ private fun ChangeCityDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (newCity.isNotBlank()) {
-                        onCityChanged(newCity.trim())
-                    }
+                    if (newCity.isNotBlank()) onCityChanged(newCity.trim())
                 },
                 enabled = newCity.isNotBlank(),
                 modifier = Modifier.height(36.dp)
@@ -372,28 +397,36 @@ private fun ChangeCityDialog(
     )
 }
 
-
 @Composable
 private fun UsernameInputPage(onUsernameSubmitted: (String) -> Unit) {
     var usernameInput by remember { mutableStateOf("") }
-    
     var animated by remember { mutableStateOf(false) }
+
     val alpha by animateFloatAsState(
         targetValue = if (animated) 1f else 0f,
-        animationSpec = tween(durationMillis = 600),
-        label = "inputPageAnimation"
+        animationSpec = tween(durationMillis = 800),
+        label = "fadeAnim"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (animated) 1f else 0.85f,
+        animationSpec = tween(durationMillis = 800),
+        label = "scaleAnim"
     )
 
     LaunchedEffect(Unit) {
+        delay(150)
         animated = true
     }
 
+    // Dimmed background
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .alpha(alpha),
-        color = MaterialTheme.colorScheme.background
+            .alpha(alpha)
+            .background(Color.Black.copy(alpha = 0.45f)),
+        color = Color.Transparent
     ) {
+        // Centered popup card
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -401,39 +434,74 @@ private fun UsernameInputPage(onUsernameSubmitted: (String) -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Welcome! Please enter your name",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-            
-            OutlinedTextField(
-                value = usernameInput,
-                onValueChange = { usernameInput = it },
-                label = { 
-                    Text(
-                        "Your name",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ) 
-                },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-            
-            Button(
-                onClick = {
-                    if (usernameInput.isNotBlank()) {
-                        onUsernameSubmitted(usernameInput.trim())
-                    }
-                },
-                enabled = usernameInput.isNotBlank()
+            Surface(
+                modifier = Modifier
+                    .scale(scale)
+                    .padding(16.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                tonalElevation = 8.dp,
+                shape = MaterialTheme.shapes.extraLarge
             ) {
-                Text("Continue")
+                Column(
+                    modifier = Modifier.padding(28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Emoji + text header
+                    Text(
+                        text = "🌤️ Welcome aboard!",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            color = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Text(
+                        text = "Let's personalize your experience ☁️",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = usernameInput,
+                        onValueChange = { usernameInput = it },
+                        label = {
+                            Text(
+                                "Your name",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        modifier = Modifier
+                            .padding(bottom = 24.dp)
+                            .fillMaxWidth(0.8f)
+                    )
+
+                    Button(
+                        onClick = {
+                            if (usernameInput.isNotBlank()) {
+                                onUsernameSubmitted(usernameInput.trim())
+                            }
+                        },
+                        enabled = usernameInput.isNotBlank()
+                    ) {
+                        Text("Continue 🚀")
+                    }
+
+                    Spacer(modifier = Modifier.size(12.dp))
+                    Text(
+                        text = "by Cyberghost @2025 Cubic Music",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    )
+                }
             }
         }
     }
 }
+
 
 @Composable
 private fun ChangeUsernameDialog(
@@ -442,7 +510,8 @@ private fun ChangeUsernameDialog(
     onUsernameChanged: (String) -> Unit
 ) {
     var newUsername by remember { mutableStateOf(currentUsername) }
-    
+    val maxChars = 14
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { 
@@ -454,12 +523,15 @@ private fun ChangeUsernameDialog(
         text = {
             Column {
                 Text(
-                    "Enter your new name:",
+                    "Enter your new name (max $maxChars characters):",
                     color = MaterialTheme.colorScheme.onBackground
                 )
+
                 OutlinedTextField(
                     value = newUsername,
-                    onValueChange = { newUsername = it },
+                    onValueChange = { 
+                        if (it.length <= maxChars) newUsername = it 
+                    },
                     label = { 
                         Text(
                             "Your name",
@@ -468,6 +540,14 @@ private fun ChangeUsernameDialog(
                     },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.padding(top = 8.dp)
+                )
+
+                // 🧭 Show live character count
+                Text(
+                    text = "${newUsername.length} / $maxChars",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (newUsername.length >= maxChars) Color.Red else Color.Gray,
+                    modifier = Modifier.align(Alignment.End).padding(top = 4.dp)
                 )
             }
         },
@@ -484,9 +564,7 @@ private fun ChangeUsernameDialog(
             }
         },
         dismissButton = {
-            Button(
-                onClick = onDismiss
-            ) {
+            Button(onClick = onDismiss) {
                 Text("Cancel")
             }
         }
