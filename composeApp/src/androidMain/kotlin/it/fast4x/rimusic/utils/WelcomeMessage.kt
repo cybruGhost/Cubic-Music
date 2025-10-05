@@ -333,7 +333,7 @@ fun ChangeCityDialog(
             Text(
                 text = "🌍 Change Weather Location",
                 style = MaterialTheme.typography.titleMedium.copy(
-                    color = textColor,
+                    color = Color.Black, // 👈 make text black
                     fontWeight = FontWeight.SemiBold
                 ),
                 modifier = Modifier.padding(bottom = 4.dp)
@@ -390,7 +390,7 @@ fun ChangeCityDialog(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "💡 Tip: Use 'Detect My Location' for automatic detection",
+                        text = "💡 Tip: Weather conditions might not be very accurate",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = textColor.copy(alpha = 0.8f)
                         ),
