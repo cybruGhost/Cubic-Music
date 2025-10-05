@@ -227,13 +227,13 @@ private fun GreetingMessage(
             Spacer(modifier = Modifier.size(8.dp))
             if (isLoading) {
                 Text(
-                    text = "⏳",
+                    text = "⚙️",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
             } else if (errorMessage != null) {
                 Text(
-                    text = "❌",
+                    text = "💤",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
                         .clickable(onClick = onCityClick)
@@ -270,37 +270,79 @@ private fun GreetingMessage(
 @Composable
 private fun ChangeCityDialog(
     currentCity: String,
+    condition: String, // 🌦️ Add this to apply weather-based theme
     onDismiss: () -> Unit,
     onCityChanged: (String) -> Unit
 ) {
     var newCity by remember { mutableStateOf(currentCity) }
-    
+
+    // 🌤️ Define color themes based on condition
+    val (bgGradient, textColor) = when (condition.lowercase()) {
+        "rain", "drizzle" -> Brush.verticalGradient(
+            colors = listOf(Color(0xFF4A5568), Color(0xFF2C5282))
+        ) to Color(0xFFE2E8F0)
+        "clouds", "overcast" -> Brush.verticalGradient(
+            colors = listOf(Color(0xFFCBD5E0), Color(0xFFA0AEC0))
+        ) to Color(0xFF2D3748)
+        "clear", "sunny" -> Brush.verticalGradient(
+            colors = listOf(Color(0xFFFFF176), Color(0xFFFFB74D))
+        ) to Color(0xFF3E2723)
+        "snow" -> Brush.verticalGradient(
+            colors = listOf(Color(0xFFE0F7FA), Color(0xFFB3E5FC))
+        ) to Color(0xFF01579B)
+        "thunderstorm" -> Brush.verticalGradient(
+            colors = listOf(Color(0xFF2C3E50), Color(0xFF000000))
+        ) to Color(0xFFE0E0E0)
+        else -> Brush.verticalGradient(
+            colors = listOf(Color(0xFFD1C4E9), Color(0xFF9575CD))
+        ) to Color(0xFF212121)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { 
-            Text("Change Weather Location", style = MaterialTheme.typography.titleMedium)
+        title = {
+            Text(
+                "🌍 Change Weather Location",
+                style = MaterialTheme.typography.titleMedium.copy(color = textColor),
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
         },
         text = {
-            Column {
-                Text(
-                    "Enter your city name:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                OutlinedTextField(
-                    value = newCity,
-                    onValueChange = { newCity = it },
-                    label = { Text("City name") },
-                    placeholder = { Text("e.g., London, Tokyo, New York") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Text(
-                    "Tip: Use 'Detect My Location' for automatic detection",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+            Box(
+                modifier = Modifier
+                    .background(bgGradient, shape = RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.width(IntrinsicSize.Min)
+                ) {
+                    Text(
+                        "Enter your city name:",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = newCity,
+                        onValueChange = { newCity = it },
+                        label = { Text("City name") },
+                        placeholder = { Text("e.g., London, Tokyo, Nairobi") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "Tip: Use 'Detect My Location' for automatic detection",
+                        style = MaterialTheme.typography.labelSmall.copy(color = textColor.copy(alpha = 0.7f)),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+                    )
+                    Text(
+                        text = "by Cyberghost @2025 Cubic Music",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = textColor.copy(alpha = 0.6f),
+                            fontStyle = FontStyle.Italic
+                        ),
+                        modifier = Modifier.align(Alignment.Start)
+                    )
+                }
             }
         },
         confirmButton = {
@@ -310,18 +352,26 @@ private fun ChangeCityDialog(
                         onCityChanged(newCity.trim())
                     }
                 },
-                enabled = newCity.isNotBlank()
+                enabled = newCity.isNotBlank(),
+                modifier = Modifier.height(36.dp)
             ) {
-                Text("Save Location")
+                Text("Save")
             }
         },
         dismissButton = {
-            Button(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.height(36.dp)
+            ) {
                 Text("Cancel")
             }
-        }
+        },
+        modifier = Modifier
+            .wrapContentHeight()
+            .wrapContentWidth()
     )
 }
+
 
 @Composable
 private fun UsernameInputPage(onUsernameSubmitted: (String) -> Unit) {
@@ -454,6 +504,7 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
         val weather = json.getJSONArray("weather").getJSONObject(0)
         val wind = json.getJSONObject("wind")
         val sys = json.getJSONObject("sys")
+        val clouds = json.optJSONObject("clouds")  // 🌥️ Fetch cloud cover if available
 
         WeatherData(
             temp = main.getDouble("temp"),
@@ -468,13 +519,15 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
             minTemp = main.getDouble("temp_min"),
             maxTemp = main.getDouble("temp_max"),
             sunrise = sys.getLong("sunrise"),
-            sunset = sys.getLong("sunset")
+            sunset = sys.getLong("sunset"),
+            cloudCover = clouds?.optInt("all") // ☁️ Add cloud cover safely
         )
     } catch (e: Exception) {
         e.printStackTrace()
         null
     }
 }
+
 
 // --- keep this here ---
 private fun getLocationFromIP(): String? {
