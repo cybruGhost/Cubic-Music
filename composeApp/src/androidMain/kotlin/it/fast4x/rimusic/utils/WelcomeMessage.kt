@@ -436,167 +436,100 @@ fun ChangeCityDialog(
 @Composable
 private fun UsernameInputPage(onUsernameSubmitted: (String) -> Unit) {
     var usernameInput by remember { mutableStateOf("") }
+    
     var animated by remember { mutableStateOf(false) }
-
     val alpha by animateFloatAsState(
         targetValue = if (animated) 1f else 0f,
         animationSpec = tween(durationMillis = 800),
-        label = "fadeAnim"
-    )
-    val scale by animateFloatAsState(
-        targetValue = if (animated) 1f else 0.85f,
-        animationSpec = tween(durationMillis = 800),
-        label = "scaleAnim"
+        label = "inputPageAnimation"
     )
 
     LaunchedEffect(Unit) {
-        delay(150)
         animated = true
     }
 
-    // Beautiful gradient background
-    Box(
+    Surface(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF1A237E),
-                        Color(0xFF0D47A1),
-                        Color(0xFF01579B)
-                    ),
-                    center = Offset(0.5f, 0.2f),
-                    radius = 1.0f
-                )
-            )
-            .alpha(alpha)
+            .alpha(alpha),
+        color = MaterialTheme.colorScheme.background
     ) {
-        // Centered content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(40.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // App title with animation
-            AnimatedVisibility(
-                visible = animated,
-                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn()
+            // Welcome icon/emoji for visual appeal
+            Text(
+                text = "👋",
+                style = MaterialTheme.typography.displayMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            Text(
+                text = "Welcome",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Text(
+                text = "Let's get started with your name",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+            
+            OutlinedTextField(
+                value = usernameInput,
+                onValueChange = { usernameInput = it },
+                label = { 
+                    Text(
+                        "Enter your name",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ) 
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (usernameInput.isNotBlank()) {
+                            onUsernameSubmitted(usernameInput.trim())
+                        }
+                    }
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            )
+            
+            Button(
+                onClick = {
+                    if (usernameInput.isNotBlank()) {
+                        onUsernameSubmitted(usernameInput.trim())
+                    }
+                },
+                enabled = usernameInput.isNotBlank(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium
             ) {
                 Text(
-                    text = "Cubic Music",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 32.sp
-                    ),
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    "Continue",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium
                 )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Input card
-            Surface(
-                modifier = Modifier
-                    .scale(scale)
-                    .fillMaxWidth(0.9f),
-                color = Color.White.copy(alpha = 0.95f),
-                tonalElevation = 16.dp,
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "What should we call you?",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            color = Color(0xFF1A237E),
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-
-                    Text(
-                        text = "Let's personalize your music experience",
-                        color = Color(0xFF546E7A),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
-
-                    OutlinedTextField(
-                        value = usernameInput,
-                        onValueChange = { 
-                            if (it.length <= 14) usernameInput = it 
-                        },
-                        label = {
-                            Text(
-                                "Your name (max 14 chars)",
-                                color = Color(0xFF546E7A)
-                            )
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Words,
-                            imeAction = ImeAction.Done
-                        ),
-                        modifier = Modifier
-                            .padding(bottom = 16.dp)
-                            .fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF1A237E),
-                            unfocusedBorderColor = Color(0xFFB0BEC5),
-                            focusedLabelColor = Color(0xFF1A237E)
-                        )
-                    )
-
-                    // Character counter
-                    Text(
-                        text = "${usernameInput.length}/14",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (usernameInput.length >= 14) Color.Red else Color(0xFF757575),
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .padding(bottom = 16.dp)
-                    )
-
-                    Button(
-                        onClick = {
-                            if (usernameInput.isNotBlank()) {
-                                onUsernameSubmitted(usernameInput.trim())
-                            }
-                        },
-                        enabled = usernameInput.isNotBlank(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            "Get Started 🎵",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.size(16.dp))
-                    
-                    Text(
-                        text = "by Cyberghost @2025 Cubic Music",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF757575),
-                            fontStyle = FontStyle.Italic
-                        )
-                    )
-                }
             }
         }
     }
 }
-
 
 @Composable
 private fun ChangeUsernameDialog(

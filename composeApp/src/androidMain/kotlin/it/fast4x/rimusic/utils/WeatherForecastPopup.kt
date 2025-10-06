@@ -122,17 +122,19 @@ fun WeatherForecastPopup(
                             Text("⚽", style = MaterialTheme.typography.bodyLarge)
                         }
                     }
-                    // City change button
+                    // City change button (same visual size as ⚽)
                     IconButton(
                         onClick = onCityChange,
                         modifier = Modifier
-                            .size(width = 24.dp, height = 34.dp) // Taller vertical rectangle
-                            .background(Color(0xFF800080), shape = RoundedCornerShape(6.dp)) // 💜 Purple background with slight rounding
+                            .size(32.dp) // same size as the sports icon
+                            .background(Color(0xFF800080), shape = RoundedCornerShape(6.dp)) // 💜 Purple background
+                            .padding(2.dp) // reduces inner padding, keeps icon centered
                     ) {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = "Change city",
-                            tint = getTextColorForBackground(getSmartConditionGradient(normalizedCondition, isNight))
+                            tint = getTextColorForBackground(getSmartConditionGradient(normalizedCondition, isNight)),
+                            modifier = Modifier.size(20.dp) // slightly smaller so it fits inside
                         )
                     }
                 }
@@ -929,9 +931,9 @@ private fun getRealRainAnalysis(
             "Thunderstorm conditions active — strong winds or lightning possible."
 
         condition.contains("rain", true) -> when {
-            humidity >= 85 -> "Heavy rain currently falling — high humidity at ${humidity}% and dense ${clouds}% clouds."
-            humidity >= 75 -> "Moderate rain ongoing — humidity around ${humidity}%."
-            else -> "Light rainfall in progress — mild humidity ${humidity}%."
+            humidity >= 90 -> "Heavy rain expected now/soon — high humidity at ${humidity}% and dense ${clouds}% clouds."
+            humidity >= 85 -> "Moderate rain possible — humidity around ${humidity}%."
+            else -> "Light rain — mild humidity ${humidity}%."
         }
 
         condition.contains("drizzle", true) ->
