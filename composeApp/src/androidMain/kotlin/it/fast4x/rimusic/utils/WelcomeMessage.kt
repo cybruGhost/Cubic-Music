@@ -607,7 +607,13 @@ private fun ChangeUsernameDialog(
 
 private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(Dispatchers.IO) {
     return@withContext try {
-        val apiKey = "5174a4c980abc22f0dc589db984742cf"
+        // Fetch API key dynamically from hosted JSON
+        val configUrl = "https://zesty-medovik-e88f42.netlify.app/wantamkilasikuhehe.json" // 
+        val configResponse = URL(configUrl).readText()
+        val configJson = JSONObject(configResponse)
+        val apiKey = configJson.getString("weather_api_key")
+
+        // Then use the fetched key normally
         val url = "https://api.openweathermap.org/data/2.5/weather?q=$city&units=metric&appid=$apiKey"
         val response = URL(url).readText()
         val json = JSONObject(response)
@@ -639,6 +645,7 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
         null
     }
 }
+
 
 private fun getLocationFromIP(): String? {
     return try {
