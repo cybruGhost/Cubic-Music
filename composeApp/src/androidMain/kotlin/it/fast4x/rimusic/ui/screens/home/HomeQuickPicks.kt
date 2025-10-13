@@ -232,81 +232,100 @@ fun HomeQuickPicks(
 
     suspend fun loadData() {
 
-        //Used to refresh chart when country change
-        if (showCharts)
-            chartsPageResult =
-                Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
+//Used to refresh chart when country change
+if (showCharts)
+    chartsPageResult =
+        Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
 
-        if (loadedData) return
+if (loadedData) return
 
-        runCatching {
-            refreshScope.launch(Dispatchers.IO) {
-                when (playEventType) {
-                    PlayEventsType.MostPlayed ->
-                        Database.eventTable
-                                .findSongsMostPlayedBetween(
-                                    from = from,
-                                    limit = localCount
+runCatching {
+    refreshScope.launch(Dispatchers.IO) {
+        when (playEventType) {
+            PlayEventsType.MostPlayed ->
+                Database.eventTable
+                        .findSongsMostPlayedBetween(
+                            from = from,
+                            limit = localCount
+                        )
+                        .distinctUntilChanged()
+                        .collect { songs ->
+                            trendingList = songs.distinctBy { it.id }.take(localCount)
+                            trending = trendingList.firstOrNull()
+                            mostPopularSong = trendingList.firstOrNull() // the first is the most popular
+                            if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
+                                relatedPageResult = Innertube.relatedPage(
+                                    NextBody(
+                                        videoId = (trending?.id ?: "HZnNt9nnEhw")
+                                    )
                                 )
-                                .distinctUntilChanged()
-                                .collect { songs ->
-                                    trendingList = songs.distinctBy { it.id }.take(localCount)
-                                    trending = trendingList.firstOrNull()
-                                    mostPopularSong = trendingList.firstOrNull() // the first is the most popular
-                                    if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
-                                        relatedPageResult = Innertube.relatedPage(
-                                            NextBody(
-                                                videoId = (trending?.id ?: "HZnNt9nnEhw")
-                                            )
+                            }
+                        }
+            PlayEventsType.LastPlayed -> {
+                Database.eventTable
+                        .findSongsLastPlayed(
+                            limit = localCount
+                        )
+                        .distinctUntilChanged()
+                        .collect { songs ->
+                            trendingList = songs.distinctBy { it.id }.take(localCount)
+                            trending = trendingList.firstOrNull()
+                            mostPopularSong = trendingList.firstOrNull() // the first is the most recent
+                            if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
+                                relatedPageResult =
+                                    Innertube.relatedPage(
+                                        NextBody(
+                                            videoId = (trending?.id ?: "HZnNt9nnEhw")
                                         )
-                                    }
-                                }
-                    PlayEventsType.LastPlayed -> {
-                        Database.eventTable
-                                .findSongsLastPlayed(
-                                    limit = localCount
-                                )
-                                .distinctUntilChanged()
-                                .collect { songs ->
-                                    trendingList = songs.distinctBy { it.id }.take(localCount)
-                                    trending = trendingList.firstOrNull()
-                                    mostPopularSong = trendingList.firstOrNull() // the first is the most recent
-                                    if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
-                                        relatedPageResult =
-                                            Innertube.relatedPage(
-                                                NextBody(
-                                                    videoId = (trending?.id ?: "HZnNt9nnEhw")
-                                                )
-                                            )
-                                    }
-                                }
-                    }
-                    PlayEventsType.CasualPlayed -> {
-                        Database.eventTable
-                                .findSongsMostPlayedBetween(
-                                    from = 0,
-                                    limit = 100
-                                )
-                                .distinctUntilChanged()
-                                .collect { songs ->
-                                    val originalList = songs.distinctBy { it.id }
-                                    mostPopularSong = originalList.firstOrNull() // Garder la vraie plus populaire
-                                    val shuffled = originalList.shuffled().take(localCount)
-                                    trendingList = shuffled
-                                    trending = shuffled.firstOrNull()
-                                    if (relatedPageResult == null || trending?.id != shuffled.firstOrNull()?.id) {
-                                        relatedPageResult =
-                                            Innertube.relatedPage(
-                                                NextBody(
-                                                    videoId = (trending?.id ?: "HZnNt9nnEhw")
-                                                )
-                                            )
-                                    }
-                                }
-                    }
-                }
+                                    )
+                            }
+                        }
             }
-
+            PlayEventsType.CasualPlayed -> {
+                // Enhanced randomization with short-term memory and larger pool
+                val playedIds = mutableSetOf<String>()
+                
+                Database.eventTable
+                        .findSongsMostPlayedBetween(
+                            from = 0,
+                            limit = 300 // Larger pool for better variety
+                        )
+                        .distinctUntilChanged()
+                        .collect { songs ->
+                            val originalList = songs.distinctBy { it.id }
+                            mostPopularSong = originalList.firstOrNull() // Keep the real most popular
+                            
+                            // Filter out recently played songs
+                            val availableSongs = originalList.filter { it.id !in playedIds }
+                            
+                            // If we've played most songs, reset the memory
+                            val finalPool = if (availableSongs.size < localCount) {
+                                playedIds.clear() // Reset when pool is exhausted
+                                originalList
+                            } else {
+                                availableSongs
+                            }
+                            
+                            // Use time-based seed for fresh randomization each time
+                            val shuffled = finalPool.shuffled().take(localCount)
+                            
+                            // Add to played memory
+                            playedIds.addAll(shuffled.map { it.id })
+                            
+                            trendingList = shuffled
+                            trending = shuffled.firstOrNull()
+                            if (relatedPageResult == null || trending?.id != shuffled.firstOrNull()?.id) {
+                                relatedPageResult =
+                                    Innertube.relatedPage(
+                                        NextBody(
+                                            videoId = (trending?.id ?: "HZnNt9nnEhw")
+                                        )
+                                    )
+                            }
+                        }
+            }
+        }
+    }
             if (showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) {
                 discoverPageResult = Innertube.discoverPage()
             }

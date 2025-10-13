@@ -1321,7 +1321,7 @@ data class LiveSport(
 
 data class WeatherDetail(val emojiLabel: String, val value: String, val tip: String)
 
-// Make sure your WeatherData class includes cloudCover property:
+// sasa this is the weatherdata
 // data class WeatherData(
 //     val city: String,
 //     val temp: Double,
