@@ -454,7 +454,7 @@ private fun HydrationReminderCard() {
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Drink water regularly throughout the day, no matter the weather",
+                    text = "Drink water regularly throughout the day, no matter the weather(Q2Fyb2w=)",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF1B5E20),
                     modifier = Modifier.padding(top = 2.dp)
@@ -1013,29 +1013,44 @@ private fun getSmartWeatherAnalysis(weatherData: WeatherData, condition: String,
 
     // ☁️ Cloud cover intelligence
     when {
-        condition.contains("overcast", ignoreCase = true) -> 
+        condition.contains("overcast", ignoreCase = true) ->
             analysis.add("Overcast skies (${smartCloudCover}%) ☁️")
 
-        condition.contains("broken clouds", ignoreCase = true) -> 
+        condition.contains("mostly cloudy", ignoreCase = true) ->
+            analysis.add("Mostly cloudy (${smartCloudCover}%) ☁️🌥️")
+
+        condition.contains("partly cloudy", ignoreCase = true) ->
+            analysis.add("Partly cloudy (${smartCloudCover}%) 🌥️☀️")
+
+        condition.contains("broken clouds", ignoreCase = true) ->
             analysis.add("Broken clouds with patches of sunlight (${smartCloudCover}%) 🌥️")
 
-        condition.contains("scattered clouds", ignoreCase = true) -> 
+        condition.contains("scattered clouds", ignoreCase = true) ->
             analysis.add("Scattered clouds drifting across the sky (${smartCloudCover}%) ⛅")
 
-        condition.contains("few clouds", ignoreCase = true) -> 
-            analysis.add("Mostly clear with a few light clouds (${smartCloudCover}%) 🌤️")
+        condition.contains("few clouds", ignoreCase = true) ->
+            analysis.add("Few clouds (${smartCloudCover}%) 🌤️")
 
-        smartCloudCover >= 86 -> 
-            analysis.add("Overcast conditions (${smartCloudCover}%) ☁️")
-
-        smartCloudCover in 70..85 -> 
-            analysis.add("Mostly cloudy (${smartCloudCover}%) 🌥️")
-
-        smartCloudCover in 40..69 -> 
-            analysis.add("Partly cloudy (${smartCloudCover}%) ⛅")
-
-        else -> 
+        smartCloudCover in 0..30 ->
             analysis.add("Clear skies (${smartCloudCover}%) 🌞")
+
+        smartCloudCover in 31..40 ->
+            analysis.add("Few clouds (${smartCloudCover}%) 🌤️")
+
+        smartCloudCover in 41..50 ->
+            analysis.add("Scattered clouds (${smartCloudCover}%) ⛅")
+
+        smartCloudCover in 51..60 ->
+            analysis.add("Broken clouds (${smartCloudCover}%) 🌥️")
+
+        smartCloudCover in 61..70 ->
+            analysis.add("Partly cloudy (${smartCloudCover}%) 🌥️☀️")
+
+        smartCloudCover in 71..85 ->
+            analysis.add("Mostly cloudy (${smartCloudCover}%) ☁️🌥️")
+
+        smartCloudCover >= 86 ->
+            analysis.add("Overcast (${smartCloudCover}%) ☁️")
     }
 
 
@@ -1099,11 +1114,13 @@ private fun getSmartForecast(
 
         // ☁️ Cloud cover intelligence
         when {
-            smartCloudCover >= 90 -> append("Overcast skies (${smartCloudCover}% clouds) blocking most sunlight. ")
-            smartCloudCover in 70..89 -> append("Mostly cloudy with dim sunlight filtering through. ")
-            smartCloudCover in 40..69 -> append("Partly cloudy — intervals of sun and shade throughout the day. ")
-            smartCloudCover in 10..39 -> append("Mostly clear skies with few passing clouds. ")
-            smartCloudCover < 10 -> append("Clear blue skies with little to no cloud cover. ")
+            smartCloudCover >= 86 -> append("Overcast skies (${smartCloudCover}% clouds) blocking most sunlight. ")
+            smartCloudCover in 71..85 -> append("Mostly cloudy with dim sunlight filtering through. ")
+            smartCloudCover in 61..70 -> append("Partly cloudy — intervals of sun and shade throughout the day. ")
+            smartCloudCover in 51..60 -> append("Broken clouds scattered across the sky. ")
+            smartCloudCover in 41..50 -> append("Scattered clouds drifting across the sky. ")
+            smartCloudCover in 31..40 -> append("Few clouds dotting the sky — mostly sunny. ")
+            smartCloudCover in 0..30 -> append("Clear blue skies with little to no cloud cover. ")
         }
 
         // 🌧️ Rain intelligence
@@ -1240,11 +1257,13 @@ private fun getHumidityAnalysis(humidity: Int): String {
 
 private fun getCloudCoverAnalysis(cloudCover: Int): String {
     return when {
-        cloudCover >= 90 -> "Overcast skies"
-        cloudCover >= 80 -> "Mostly cloudy"
-        cloudCover >= 60 -> "Partly cloudy"
-        cloudCover >= 40 -> "Some clouds"
-        else -> "Mostly clear"
+        cloudCover >= 86 -> "Overcast skies"
+        cloudCover in 71..85 -> "Mostly cloudy"
+        cloudCover in 61..70 -> "Partly cloudy"
+        cloudCover in 51..60 -> "Broken clouds"
+        cloudCover in 41..50 -> "Scattered clouds"
+        cloudCover in 31..40 -> "Few clouds"
+        else -> "Clear skies"
     }
 }
 
@@ -1294,13 +1313,16 @@ private fun getRainIntensity(humidity: Int): String {
 
 private fun getCloudCoverDescription(cloudCover: Int): String {
     return when {
-        cloudCover >= 90 -> "Overcast"
-        cloudCover >= 80 -> "Mostly cloudy"
-        cloudCover >= 60 -> "Partly cloudy"
-        cloudCover >= 40 -> "Some clouds"
-        else -> "Mostly clear"
+        cloudCover >= 86 -> "Overcast"
+        cloudCover in 71..85 -> "Mostly cloudy"
+        cloudCover in 61..70 -> "Partly cloudy"
+        cloudCover in 51..60 -> "Broken clouds"
+        cloudCover in 41..50 -> "Scattered clouds"
+        cloudCover in 31..40 -> "Few clouds"
+        else -> "Clear skies"
     }
 }
+
 
 // Add this extension function for clickable modifier
 fun Modifier.clickable(onClick: () -> Unit): Modifier {
@@ -1321,7 +1343,7 @@ data class LiveSport(
 
 data class WeatherDetail(val emojiLabel: String, val value: String, val tip: String)
 
-// sasa this is the weatherdata
+// Make sure your WeatherData class includes cloudCover property:
 // data class WeatherData(
 //     val city: String,
 //     val temp: Double,

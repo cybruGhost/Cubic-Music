@@ -608,7 +608,7 @@ private fun ChangeUsernameDialog(
 private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(Dispatchers.IO) {
     return@withContext try {
         // Fetch API key dynamically from hosted JSON
-        val configUrl = "https://zesty-medovik-e88f42.netlify.app/wantamkilasikuhehe.json" // 
+        val configUrl = "https://zesty-medovik-e88f42.netlify.app/wantamkilasikuhehe.json" // ww ruto ww kasongo ..wantam
         val configResponse = URL(configUrl).readText()
         val configJson = JSONObject(configResponse)
         val apiKey = configJson.getString("weather_api_key")
