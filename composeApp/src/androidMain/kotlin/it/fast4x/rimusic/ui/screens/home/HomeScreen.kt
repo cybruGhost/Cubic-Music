@@ -74,6 +74,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import android.webkit.WebResourceError
+import android.os.Build
 
 @ExperimentalMaterial3Api
 @ExperimentalTextApi
@@ -326,7 +328,7 @@ fun ExportifyWebViewScreen() {
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
-                        databaseEnabled = true
+                        // REMOVED: databaseEnabled = true (deprecated)
                         setSupportMultipleWindows(true)
                         loadWithOverviewMode = true
                         useWideViewPort = true
@@ -415,6 +417,19 @@ fun ExportifyWebViewScreen() {
                             }
                         }
                         
+                        // FIXED: Updated deprecated onReceivedError method
+                        override fun onReceivedError(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?
+                        ) {
+                            super.onReceivedError(view, request, error)
+                            isLoading = false
+                            hasError = true
+                        }
+                        
+                        // For older Android versions, keep the deprecated method but suppress warning
+                        @Suppress("DEPRECATION")
                         override fun onReceivedError(
                             view: WebView?, 
                             errorCode: Int, 
