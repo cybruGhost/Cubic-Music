@@ -12,13 +12,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -54,10 +54,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -88,8 +90,7 @@ import it.fast4x.rimusic.LocalPlayerServiceBinder
 import android.webkit.DownloadListener
 import android.webkit.URLUtil
 import android.webkit.WebResourceError
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.roundToInt
 
 @ExperimentalMaterial3Api
 @ExperimentalTextApi
@@ -235,19 +236,24 @@ fun HomeScreen(
             }
         }
 
-        // ENHANCED FLOATING DJ BUTTON - Left side with amazing animations
-        AmazingDJButton(
+        // DRAGGABLE DJ BUTTON - Smaller and movable
+        DraggableDJButton(
             onTap = {
                 try {
+                    // Try multiple navigation approaches
                     navController.navigate("DjVeda")
                 } catch (e: Exception) {
-                    android.util.Log.e("HomeScreen", "Navigation to DjVeda failed: ${e.message}")
+                    // If DjVeda route doesn't work, try alternative
+                    try {
+                        navController.navigate("djveda") // lowercase
+                    } catch (e2: Exception) {
+                        android.util.Log.e("HomeScreen", "DJ navigation failed: ${e.message}")
+                        // Fallback to settings for testing
+                        navController.navigate(NavRoutes.settings.name)
+                    }
                 }
             },
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 16.dp)
-                .zIndex(100f)
+            modifier = Modifier.zIndex(100f)
         )
     }
 
@@ -277,17 +283,21 @@ fun HomeScreen(
 }
 
 @Composable
-fun AmazingDJButton(
+fun DraggableDJButton(
     onTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Draggable state
+    var offsetX by remember { mutableStateOf(0f) }
+    var offsetY by remember { mutableStateOf(0f) }
+    
     // Multiple animations for amazing effects
     val infiniteTransition = rememberInfiniteTransition(label = "dj_button_animations")
     
     // Pulsing scale animation
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.1f,
+        targetValue = 1.05f, // Smaller pulse
         animationSpec = infiniteRepeatable(
             animation = tween(2000),
             repeatMode = RepeatMode.Reverse
@@ -300,7 +310,7 @@ fun AmazingDJButton(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4000),
+            animation = tween(8000), // Slower rotation
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
@@ -308,30 +318,31 @@ fun AmazingDJButton(
     
     // Glow opacity animation
     val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.8f,
+        initialValue = 0.2f,
+        targetValue = 0.6f, // Softer glow
         animationSpec = infiniteRepeatable(
             animation = tween(1500),
             repeatMode = RepeatMode.Reverse
         ),
         label = "glow_alpha"
     )
-    
-    // Bounce animation
-    val bounce by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bounce"
-    )
 
     Box(
         modifier = modifier
-            .size(60.dp)
-            .offset(y = (-bounce).dp)
+            .offset { 
+                IntOffset(
+                    x = offsetX.roundToInt(),
+                    y = offsetY.roundToInt()
+                )
+            }
+            .size(44.dp) // Smaller size
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetY += dragAmount.y
+                }
+            }
             .graphicsLayer {
                 scaleX = pulseScale
                 scaleY = pulseScale
@@ -353,11 +364,11 @@ fun AmazingDJButton(
                 val glowBrush = Brush.radialGradient(
                     colors = listOf(
                         Color(0xFFFF00FF).copy(alpha = glowAlpha),
-                        Color(0xFF00FFFF).copy(alpha = glowAlpha * 0.7f),
+                        Color(0xFF00FFFF).copy(alpha = glowAlpha * 0.5f),
                         Color.Transparent
                     ),
                     center = Offset(size.width / 2, size.height / 2),
-                    radius = size.width * 1.2f
+                    radius = size.width * 1.1f
                 )
                 
                 onDrawWithContent {
@@ -371,14 +382,14 @@ fun AmazingDJButton(
                     // Draw main button with gradient
                     drawCircle(
                         brush = gradientBrush,
-                        radius = size.width / 2 - 4.dp.toPx()
+                        radius = size.width / 2 - 3.dp.toPx()
                     )
                     
                     // Draw outer ring
                     drawCircle(
                         color = Color.White.copy(alpha = 0.3f),
                         radius = size.width / 2,
-                        style = Stroke(width = 2.dp.toPx())
+                        style = Stroke(width = 1.5.dp.toPx())
                     )
                     
                     // Draw content (icon)
@@ -386,7 +397,7 @@ fun AmazingDJButton(
                 }
             }
             .shadow(
-                elevation = 16.dp,
+                elevation = 12.dp,
                 shape = CircleShape,
                 clip = false
             )
@@ -395,7 +406,7 @@ fun AmazingDJButton(
         FloatingActionButton(
             onClick = onTap,
             modifier = Modifier
-                .size(60.dp)
+                .size(44.dp)
                 .scale(pulseScale),
             shape = CircleShape,
             containerColor = Color.Transparent, // Using custom draw instead
@@ -408,22 +419,21 @@ fun AmazingDJButton(
                 // Rotating icon with multiple effects
                 Icon(
                     painter = painterResource(id = R.drawable.medical),
-                    contentDescription = "DJ Veda",
+                    contentDescription = "DJ Veda - Drag to move, Tap to open",
                     modifier = Modifier
-                        .size(28.dp)
-                        .rotate(rotation * -0.5f) // Counter-rotate icon for stability
-                        .scale(1f + (pulseScale - 1f) * 0.5f), // Less scale on icon
+                        .size(20.dp) // Smaller icon
+                        .rotate(rotation * -0.3f), // Less counter-rotation
                     tint = Color.White
                 )
                 
-                // Pulsing dot in center
+                // Tiny pulsing dot in center
                 Box(
                     modifier = Modifier
-                        .size(4.dp)
+                        .size(2.dp)
                         .align(Alignment.Center)
                         .graphicsLayer {
-                            scaleX = 1f + (pulseScale - 1f) * 2f
-                            scaleY = 1f + (pulseScale - 1f) * 2f
+                            scaleX = 1f + (pulseScale - 1f) * 1.5f
+                            scaleY = 1f + (pulseScale - 1f) * 1.5f
                             alpha = glowAlpha
                         }
                         .drawWithCache {
@@ -440,6 +450,7 @@ fun AmazingDJButton(
     }
 }
 
+// Rest of the file remains the same (ExportifyWebViewScreen, etc.)
 class ExportifyWebInterface(private val context: android.content.Context) {
     @JavascriptInterface
     fun onDownloadRequested(url: String) {
