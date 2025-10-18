@@ -63,6 +63,17 @@ import android.webkit.DownloadListener
 import android.os.Environment
 import android.webkit.URLUtil
 import java.io.File
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 
 @ExperimentalMaterial3Api
 @ExperimentalTextApi
@@ -121,87 +132,114 @@ fun HomeScreen(
         return
     }
 
-    Skeleton(
-        navController,
-        tabIndex,
-        onTabChanged,
-        miniPlayer,
-        navBarContent = { Item ->
-            if (enableQuickPicksPage)
-                Item(0, stringResource(R.string.quick_picks), R.drawable.sparkles)
-            Item(1, stringResource(R.string.songs), R.drawable.musical_notes)
-            Item(2, stringResource(R.string.artists), R.drawable.people)
-            Item(3, stringResource(R.string.albums), R.drawable.album)
-            Item(4, stringResource(R.string.playlists), R.drawable.library)
-            Item(5, "Exportify", R.drawable.export_icon)
-        }
-    ) { currentTabIndex ->
-        saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
-            when (currentTabIndex) {
-                0 -> HomeQuickPicks(
-                    onAlbumClick = {
-                        navController.navigate(route = "${NavRoutes.album.name}/$it")
-                    },
-                    onArtistClick = {
-                        navController.navigate(route = "${NavRoutes.artist.name}/$it")
-                    },
-                    onPlaylistClick = {
-                        navController.navigate(route = "${NavRoutes.playlist.name}/$it")
-                    },
-                    onSearchClick = {
-                        navController.navigate(NavRoutes.search.name)
-                    },
-                    onMoodClick = { mood ->
-                        navController.currentBackStackEntry?.savedStateHandle?.set("mood", mood.toUiMood())
-                        navController.navigate(NavRoutes.mood.name)
-                    },
-                    onSettingsClick = {
-                        navController.navigate(NavRoutes.settings.name)
-                    },
-                    navController = navController
-                )
-
-                1 -> HomeSongsScreen(navController)
-
-                2 -> HomeArtists(
-                    onArtistClick = {
-                        navController.navigate(route = "${NavRoutes.artist.name}/${it.id}")
-                    },
-                    onSearchClick = {
-                        navController.navigate(NavRoutes.search.name)
-                    },
-                    onSettingsClick = {
-                        navController.navigate(NavRoutes.settings.name)
-                    }
-                )
-
-                3 -> HomeAlbums(
-                    navController = navController,
-                    onAlbumClick = {
-                        navController.navigate(route = "${NavRoutes.album.name}/${it.id}")
-                    },
-                    onSearchClick = {
-                        navController.navigate(NavRoutes.search.name)
-                    },
-                    onSettingsClick = {
-                        navController.navigate(NavRoutes.settings.name)
-                    }
-                )
-
-                4 -> HomeLibrary(
-                    onPlaylistClick = {
-                        navController.navigate(route = "${NavRoutes.localPlaylist.name}/${it.id}")
-                    },
-                    onSearchClick = {
-                        navController.navigate(NavRoutes.search.name)
-                    },
-                    onSettingsClick = {
-                        navController.navigate(NavRoutes.settings.name)
-                    }
-                )
-                
-                5 -> ExportifyWebViewScreen()
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Skeleton(
+            navController,
+            tabIndex,
+            onTabChanged,
+            miniPlayer,
+            navBarContent = { Item ->
+                if (enableQuickPicksPage)
+                    Item(0, stringResource(R.string.quick_picks), R.drawable.sparkles)
+                Item(1, stringResource(R.string.songs), R.drawable.musical_notes)
+                Item(2, stringResource(R.string.artists), R.drawable.people)
+                Item(3, stringResource(R.string.albums), R.drawable.album)
+                Item(4, stringResource(R.string.playlists), R.drawable.library)
+                Item(5, "Exportify", R.drawable.export_icon)
             }
+        ) { currentTabIndex ->
+            saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
+                when (currentTabIndex) {
+                    0 -> HomeQuickPicks(
+                        onAlbumClick = {
+                            navController.navigate(route = "${NavRoutes.album.name}/$it")
+                        },
+                        onArtistClick = {
+                            navController.navigate(route = "${NavRoutes.artist.name}/$it")
+                        },
+                        onPlaylistClick = {
+                            navController.navigate(route = "${NavRoutes.playlist.name}/$it")
+                        },
+                        onSearchClick = {
+                            navController.navigate(NavRoutes.search.name)
+                        },
+                        onMoodClick = { mood ->
+                            navController.currentBackStackEntry?.savedStateHandle?.set("mood", mood.toUiMood())
+                            navController.navigate(NavRoutes.mood.name)
+                        },
+                        onSettingsClick = {
+                            navController.navigate(NavRoutes.settings.name)
+                        },
+                        navController = navController
+                    )
+
+                    1 -> HomeSongsScreen(navController)
+
+                    2 -> HomeArtists(
+                        onArtistClick = {
+                            navController.navigate(route = "${NavRoutes.artist.name}/${it.id}")
+                        },
+                        onSearchClick = {
+                            navController.navigate(NavRoutes.search.name)
+                        },
+                        onSettingsClick = {
+                            navController.navigate(NavRoutes.settings.name)
+                        }
+                    )
+
+                    3 -> HomeAlbums(
+                        navController = navController,
+                        onAlbumClick = {
+                            navController.navigate(route = "${NavRoutes.album.name}/${it.id}")
+                        },
+                        onSearchClick = {
+                            navController.navigate(NavRoutes.search.name)
+                        },
+                        onSettingsClick = {
+                            navController.navigate(NavRoutes.settings.name)
+                        }
+                    )
+
+                    4 -> HomeLibrary(
+                        onPlaylistClick = {
+                            navController.navigate(route = "${NavRoutes.localPlaylist.name}/${it.id}")
+                        },
+                        onSearchClick = {
+                            navController.navigate(NavRoutes.search.name)
+                        },
+                        onSettingsClick = {
+                            navController.navigate(NavRoutes.settings.name)
+                        }
+                    )
+                    
+                    5 -> ExportifyWebViewScreen()
+                }
+            }
+        }
+
+        // FLOATING DJ BUTTON - Added here to float above all content
+        FloatingActionButton(
+            onClick = {
+                // Navigate to DJ Veda screen
+                navController.navigate("DjVeda")
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp)
+                .size(64.dp)
+                .zIndex(100f)
+                .shadow(16.dp, CircleShape),
+            shape = CircleShape,
+            containerColor = Color(0xFF6200EE),
+            contentColor = Color.White
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.medical),
+                contentDescription = "DJ Veda",
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 
