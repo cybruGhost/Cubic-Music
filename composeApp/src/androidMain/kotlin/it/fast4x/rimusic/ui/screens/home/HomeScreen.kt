@@ -12,12 +12,25 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,10 +43,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
@@ -58,24 +85,11 @@ import kotlinx.coroutines.launch
 import me.knighthat.utils.Toaster
 import kotlin.system.exitProcess
 import it.fast4x.rimusic.LocalPlayerServiceBinder
-import androidx.compose.material3.MaterialTheme
 import android.webkit.DownloadListener
-import android.os.Environment
 import android.webkit.URLUtil
-import java.io.File
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import android.webkit.WebResourceError
-import android.os.Build
+import kotlin.math.cos
+import kotlin.math.sin
 
 @ExperimentalMaterial3Api
 @ExperimentalTextApi
@@ -221,33 +235,20 @@ fun HomeScreen(
             }
         }
 
-        // FLOATING DJ BUTTON - Smaller and positioned in middle-right
-        FloatingActionButton(
-            onClick = {
-                // Safe navigation to DJ Veda screen
+        // ENHANCED FLOATING DJ BUTTON - Left side with amazing animations
+        AmazingDJButton(
+            onTap = {
                 try {
                     navController.navigate("DjVeda")
                 } catch (e: Exception) {
-                    // Log error but don't crash
                     android.util.Log.e("HomeScreen", "Navigation to DjVeda failed: ${e.message}")
                 }
             },
             modifier = Modifier
-                .align(Alignment.CenterEnd) // Middle-right position
-                .padding(end = 16.dp) // Small padding from right edge
-                .size(48.dp) // Smaller size
+                .align(Alignment.CenterStart)
+                .padding(start = 16.dp)
                 .zIndex(100f)
-                .shadow(8.dp, CircleShape),
-            shape = CircleShape,
-            containerColor = Color(0xFF6200EE).copy(alpha = 0.9f), // Slightly transparent
-            contentColor = Color.White
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.medical),
-                contentDescription = "DJ Veda",
-                modifier = Modifier.size(24.dp) // Smaller icon
-            )
-        }
+        )
     }
 
     // Exit app when user uses back
@@ -271,6 +272,170 @@ fun HomeScreen(
             val activity = context as? Activity
             activity?.finishAffinity()
             exitProcess(0)
+        }
+    }
+}
+
+@Composable
+fun AmazingDJButton(
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Multiple animations for amazing effects
+    val infiniteTransition = rememberInfiniteTransition(label = "dj_button_animations")
+    
+    // Pulsing scale animation
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+    
+    // Rotation animation
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    
+    // Glow opacity animation
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow_alpha"
+    )
+    
+    // Bounce animation
+    val bounce by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bounce"
+    )
+
+    Box(
+        modifier = modifier
+            .size(60.dp)
+            .offset(y = (-bounce).dp)
+            .graphicsLayer {
+                scaleX = pulseScale
+                scaleY = pulseScale
+                rotationZ = rotation
+            }
+            .drawWithCache {
+                // Create gradient brush for the button
+                val gradientBrush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF6200EE),
+                        Color(0xFF9C27B0),
+                        Color(0xFFE91E63)
+                    ),
+                    center = Offset(size.width / 2, size.height / 2),
+                    radius = size.width / 1.5f
+                )
+                
+                // Create glow brush
+                val glowBrush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFFF00FF).copy(alpha = glowAlpha),
+                        Color(0xFF00FFFF).copy(alpha = glowAlpha * 0.7f),
+                        Color.Transparent
+                    ),
+                    center = Offset(size.width / 2, size.height / 2),
+                    radius = size.width * 1.2f
+                )
+                
+                onDrawWithContent {
+                    // Draw glow effect
+                    drawCircle(
+                        brush = glowBrush,
+                        radius = size.width / 1.8f,
+                        blendMode = BlendMode.Plus
+                    )
+                    
+                    // Draw main button with gradient
+                    drawCircle(
+                        brush = gradientBrush,
+                        radius = size.width / 2 - 4.dp.toPx()
+                    )
+                    
+                    // Draw outer ring
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.3f),
+                        radius = size.width / 2,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+                    
+                    // Draw content (icon)
+                    drawContent()
+                }
+            }
+            .shadow(
+                elevation = 16.dp,
+                shape = CircleShape,
+                clip = false
+            )
+            .clip(CircleShape)
+    ) {
+        FloatingActionButton(
+            onClick = onTap,
+            modifier = Modifier
+                .size(60.dp)
+                .scale(pulseScale),
+            shape = CircleShape,
+            containerColor = Color.Transparent, // Using custom draw instead
+            contentColor = Color.White
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                // Rotating icon with multiple effects
+                Icon(
+                    painter = painterResource(id = R.drawable.medical),
+                    contentDescription = "DJ Veda",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .rotate(rotation * -0.5f) // Counter-rotate icon for stability
+                        .scale(1f + (pulseScale - 1f) * 0.5f), // Less scale on icon
+                    tint = Color.White
+                )
+                
+                // Pulsing dot in center
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .align(Alignment.Center)
+                        .graphicsLayer {
+                            scaleX = 1f + (pulseScale - 1f) * 2f
+                            scaleY = 1f + (pulseScale - 1f) * 2f
+                            alpha = glowAlpha
+                        }
+                        .drawWithCache {
+                            onDrawBehind {
+                                drawCircle(
+                                    color = Color.Yellow.copy(alpha = glowAlpha),
+                                    radius = size.width / 2
+                                )
+                            }
+                        }
+                )
+            }
         }
     }
 }
