@@ -221,26 +221,31 @@ fun HomeScreen(
             }
         }
 
-        // FLOATING DJ BUTTON - Added here to float above all content
+        // FLOATING DJ BUTTON - Smaller and positioned in middle-right
         FloatingActionButton(
             onClick = {
-                // Navigate to DJ Veda screen
-                navController.navigate("DjVeda")
+                // Safe navigation to DJ Veda screen
+                try {
+                    navController.navigate("DjVeda")
+                } catch (e: Exception) {
+                    // Log error but don't crash
+                    android.util.Log.e("HomeScreen", "Navigation to DjVeda failed: ${e.message}")
+                }
             },
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-                .size(64.dp)
+                .align(Alignment.CenterEnd) // Middle-right position
+                .padding(end = 16.dp) // Small padding from right edge
+                .size(48.dp) // Smaller size
                 .zIndex(100f)
-                .shadow(16.dp, CircleShape),
+                .shadow(8.dp, CircleShape),
             shape = CircleShape,
-            containerColor = Color(0xFF6200EE),
+            containerColor = Color(0xFF6200EE).copy(alpha = 0.9f), // Slightly transparent
             contentColor = Color.White
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.medical),
                 contentDescription = "DJ Veda",
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(24.dp) // Smaller icon
             )
         }
     }
@@ -328,7 +333,6 @@ fun ExportifyWebViewScreen() {
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
-                        // REMOVED: databaseEnabled = true (deprecated)
                         setSupportMultipleWindows(true)
                         loadWithOverviewMode = true
                         useWideViewPort = true
