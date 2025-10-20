@@ -10,6 +10,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebResourceError
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -288,7 +289,8 @@ fun ExportifyWebViewScreen() {
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
-                        databaseEnabled = true
+                        // REMOVED: setDatabaseEnabled is deprecated and no longer needed
+                        // Database API was deprecated in API 19 and removed in newer versions
                         setSupportMultipleWindows(true)
                         loadWithOverviewMode = true
                         useWideViewPort = true
@@ -377,13 +379,13 @@ fun ExportifyWebViewScreen() {
                             }
                         }
                         
+                        // FIXED: Only use the modern onReceivedError method
                         override fun onReceivedError(
-                            view: WebView?, 
-                            errorCode: Int, 
-                            description: String?, 
-                            failingUrl: String?
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?
                         ) {
-                            super.onReceivedError(view, errorCode, description, failingUrl)
+                            super.onReceivedError(view, request, error)
                             isLoading = false
                             hasError = true
                         }
