@@ -15,5 +15,5 @@ data class WeatherData(
     val sunrise: Long,
     val sunset: Long,
     val timezoneOffset: Int = 0, 
-    val cloudCover: Int? = null // 👈 added this field (percentage of clouds)
+    val cloudCover: Int? = null // 👈 add this field (percentage of clouds)
 )

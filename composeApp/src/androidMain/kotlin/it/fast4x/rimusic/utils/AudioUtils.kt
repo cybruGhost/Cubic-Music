@@ -27,84 +27,96 @@ import kotlin.time.Duration.Companion.seconds
 
 var volume = 0f
 
-fun audioFadeOut(player: ExoPlayer, duration: Int, context: Context) {
-    val deviceVolume = getDeviceVolume(context);
-    val handler = Handler(Looper.getMainLooper())
-    handler.postDelayed({
-        var time = duration
-        var volume = 0.0f
+private const val FADE_INTERVAL = 100L // ms between volume updates
 
-        val myFadeOutRunnable: Runnable = object : Runnable {
+fun audioFadeOut(player: ExoPlayer, duration: Int, context: Context) {
+    val deviceVolume = getDeviceVolume(context)
+    val handler = Handler(Looper.getMainLooper())
+    
+    handler.postDelayed({
+        var timeRemaining = duration
+        var currentVolume = deviceVolume
+
+        val fadeOutRunnable: Runnable = object : Runnable {
             override fun run() {
-                if (time > 0) {
-                    time -= 100
-                    volume = (deviceVolume * time) / duration
-                    player.volume = volume
-                    //println("mediaItem audioFadeOut: volume $volume $time")
-                    handler.postDelayed(this, 100)
+                if (timeRemaining > 0) {
+                    timeRemaining -= FADE_INTERVAL.toInt()
+                    currentVolume = (deviceVolume * timeRemaining) / duration
+                    player.volume = currentVolume.coerceAtLeast(0f)
+                    //println("mediaItem audioFadeOut: volume $currentVolume $timeRemaining")
+                    handler.postDelayed(this, FADE_INTERVAL)
+                } else {
+                    // Ensure volume is exactly 0 at the end
+                    player.volume = 0f
                 }
             }
         }
-        handler.postDelayed(myFadeOutRunnable, 100)
+        handler.post(fadeOutRunnable)
 
-    }, 100);
+    }, FADE_INTERVAL)
 }
 
 fun audioFadeIn(player: ExoPlayer, duration: Int, context: Context) {
-    //val deviceVolume = getDeviceVolume(context);
     val handler = Handler(Looper.getMainLooper())
+    
     handler.postDelayed({
-        var time = 0
-        var volume = 0.0f
+        var elapsedTime = 0
+        var targetVolume = 0f
 
-        val myFadeInRunnable: Runnable = object : Runnable {
+        val fadeInRunnable: Runnable = object : Runnable {
             override fun run() {
-                if (time < duration) {
-                    time += 100
-                    //volume = (deviceVolume * time) / duration
-                    //volume = (time.toFloat() / duration)
-                    volume = (time.toFloat() / duration).toBigDecimal().setScale(2, RoundingMode.UP).toFloat()
-                    //volume = ((deviceVolume * time) / duration).toBigDecimal().setScale(2, RoundingMode.UP).toFloat()
-                    //player.volume = volume
-                    if (player.volume < volume) {
-                        player.volume = volume
-                        //println("mediaItem audioFadeIn: player.volume ${player.volume} volume $volume time $time")
+                if (elapsedTime < duration) {
+                    elapsedTime += FADE_INTERVAL.toInt()
+                    targetVolume = (elapsedTime.toFloat() / duration)
+                        .toBigDecimal()
+                        .setScale(2, RoundingMode.UP)
+                        .toFloat()
+                        .coerceAtMost(1f)
+                    
+                    // Only increase volume if current volume is lower than target
+                    if (player.volume < targetVolume) {
+                        player.volume = targetVolume
+                        //println("mediaItem audioFadeIn: player.volume ${player.volume} targetVolume $targetVolume elapsedTime $elapsedTime")
                     }
 
-                    handler.postDelayed(this, 100)
+                    handler.postDelayed(this, FADE_INTERVAL)
+                } else {
+                    // Ensure volume is exactly 1 at the end
+                    player.volume = 1f
                 }
             }
         }
-        handler.postDelayed(myFadeInRunnable, 100)
+        handler.post(fadeInRunnable)
 
-    }, 100);
+    }, FADE_INTERVAL)
 }
 
 fun getDeviceVolume(context: Context): Float {
     val audioManager = context.getSystemService(AUDIO_SERVICE) as AudioManager
     val volumeLevel: Int = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
     val maxVolume: Int = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-    return volumeLevel.toFloat() / maxVolume
+    return if (maxVolume > 0) volumeLevel.toFloat() / maxVolume else 1f
 }
 
 fun setDeviceVolume(context: Context, volume: Float) {
     val audioManager = context.getSystemService(AUDIO_SERVICE) as AudioManager
-    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (volume * audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)).toInt(), 0)
+    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+    val targetVolume = (volume * maxVolume).toInt().coerceIn(0, maxVolume)
+    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0)
 }
 
 @Composable
 @OptIn(UnstableApi::class)
 fun MedleyMode(binder: PlayerServiceModern.Binder?, seconds: Int) {
-    if (seconds == 0) return
+    if (seconds <= 0) return
     if (binder != null) {
         val coroutineScope = rememberCoroutineScope()
-        LaunchedEffect(Unit) {
-            coroutineScope.launch {
-                while (isActive) {
-                    delay(1.seconds * seconds)
-                    withContext(Dispatchers.Main) {
-                        if (binder.player.isPlaying)
-                            binder.player.playNext()
+        LaunchedEffect(binder, seconds) {
+            while (isActive) {
+                delay(seconds.seconds)
+                withContext(Dispatchers.Main) {
+                    if (binder.player.isPlaying) {
+                        binder.player.playNext()
                     }
                 }
             }
@@ -113,37 +125,39 @@ fun MedleyMode(binder: PlayerServiceModern.Binder?, seconds: Int) {
 }
 
 @MainThread
-fun ExoPlayer.fadeInEffect( duration: Long ) {
-    if( isPlaying ) return
-    if( duration == 0L ) {
-        if( playbackState == Player.STATE_IDLE )
+fun ExoPlayer.fadeInEffect(duration: Long) {
+    if (isPlaying) return
+    if (duration <= 0L) {
+        if (playbackState == Player.STATE_IDLE) {
             prepare()
+        }
         play()
         return
     }
 
-    val animator = ValueAnimator.ofFloat( 0f, getGlobalVolume() )
+    val animator = ValueAnimator.ofFloat(0f, getGlobalVolume())
     animator.duration = duration
     animator.addUpdateListener {
         volume = it.animatedValue as Float
     }
     animator.doOnStart {
-        if (playbackState == Player.STATE_IDLE)
+        if (playbackState == Player.STATE_IDLE) {
             prepare()
+        }
         play()
     }
     animator.start()
 }
 
 @MainThread
-fun ExoPlayer.fadeOutEffect( duration: Long ) {
-    if( !isPlaying ) return
-    if( duration == 0L ) {
+fun ExoPlayer.fadeOutEffect(duration: Long) {
+    if (!isPlaying) return
+    if (duration <= 0L) {
         pause()
         return
     }
 
-    val animator = ValueAnimator.ofFloat( getGlobalVolume(), 0f )
+    val animator = ValueAnimator.ofFloat(getGlobalVolume(), 0f)
     animator.duration = duration
     animator.addUpdateListener {
         volume = it.animatedValue as Float
@@ -153,4 +167,13 @@ fun ExoPlayer.fadeOutEffect( duration: Long ) {
         restoreGlobalVolume()
     }
     animator.start()
+}
+
+// Helper extension functions for global volume management
+private fun ExoPlayer.getGlobalVolume(): Float {
+    return volume
+}
+
+private fun ExoPlayer.restoreGlobalVolume() {
+    volume = 1f // Restore to full volume
 }

@@ -14,33 +14,45 @@ import app.kreate.android.R
 import me.knighthat.utils.Toaster
 import timber.log.Timber
 
-
-fun textCopyToClipboard(textCopied:String, context: Context) {
+fun textCopyToClipboard(textCopied: String, context: Context) {
     val clipboardManager = context.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
     runCatching {
-        clipboardManager.setPrimaryClip(ClipData.newPlainText("", textCopied))
+        val clip = ClipData.newPlainText("", textCopied)
+        clipboardManager.setPrimaryClip(clip)
+        
+        // Only show a toast for Android 12 and lower.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            Toaster.s(R.string.value_copied)
+        }
     }.onFailure {
-        Timber.e(it.stackTraceToString())
-        Toaster.e( "Failed to copy text to clipboard, try again" )
+        Timber.e("Failed to copy text to clipboard: ${it.stackTraceToString()}")
+        Toaster.e("Failed to copy text to clipboard, try again")
     }
-    // Only show a toast for Android 12 and lower.
-    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2)
-        Toaster.s( R.string.value_copied )
 }
 
 @Composable
 fun textCopyFromClipboard(context: Context): String {
     var textCopied by remember { mutableStateOf("") }
+    
     val clipboardManager = context.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
     runCatching {
-        textCopied = clipboardManager.primaryClip?.getItemAt(0)?.coerceToText(context).toString()
+        val clipData = clipboardManager.primaryClip
+        textCopied = clipData?.let { clip ->
+            if (clip.itemCount > 0) {
+                clip.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
+            } else {
+                ""
+            }
+        } ?: ""
+        
+        // Only show a toast for Android 12 and lower.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2 && textCopied.isNotEmpty()) {
+            Toaster.i(R.string.value_copied)
+        }
     }.onFailure {
-        Timber.e(it.stackTraceToString())
-        Toaster.e( "Failed to copy text to clipboard, try again" )
+        Timber.e("Failed to get text from clipboard: ${it.stackTraceToString()}")
+        Toaster.e("Failed to get text from clipboard, try again")
     }
-    // Only show a toast for Android 12 and lower.
-    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2)
-        Toaster.i( R.string.value_copied )
-
+    
     return textCopied
 }
