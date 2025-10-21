@@ -19,8 +19,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import me.knighthat.utils.Toaster
 
-data class YouTubeRadio @OptIn(UnstableApi::class) constructor
-    (
+data class YouTubeRadio @OptIn(UnstableApi::class) constructor(
     private val videoId: String? = null,
     private var playlistId: String? = null,
     private var playlistSetVideoId: String? = null,
@@ -32,13 +31,14 @@ data class YouTubeRadio @OptIn(UnstableApi::class) constructor
 ) {
     private var nextContinuation: String? = null
 
-    @OptIn(UnstableApi::class) suspend fun process(): List<MediaItem> {
+    @OptIn(UnstableApi::class)
+    suspend fun process(): List<MediaItem> {
         var mediaItems: List<MediaItem>? = null
 
         nextContinuation = withContext(Dispatchers.IO) {
             val continuation = nextContinuation
 
-            if (continuation == null) {
+            val result = if (continuation == null) {
                 Innertube.nextPage(
                     NextBody(
                         videoId = videoId,
@@ -55,56 +55,59 @@ data class YouTubeRadio @OptIn(UnstableApi::class) constructor
                 }
             } else {
                 Innertube.nextPage(ContinuationBody(continuation = continuation))
-            }?.getOrNull()?.let { songsPage ->
+            }
+
+            result?.getOrNull()?.let { songsPage ->
                 mediaItems = songsPage.items?.map(Innertube.SongItem::asMediaItem)
                 songsPage.continuation?.takeUnless { nextContinuation == it }
             }
-
         }
-            //coroutineScope.launch(Dispatchers.Main) {
 
         fun songsInQueue(mediaId: String): String? {
             var mediaIdFound = false
             runBlocking {
                 withContext(Dispatchers.Main) {
-                    for (i in 0 until (binder?.player?.mediaItemCount ?: 0) - 1) {
-                        if (mediaId == binder?.player?.getMediaItemAt(i)?.mediaId) {
+                    val itemCount = binder?.player?.mediaItemCount ?: 0
+                    for (i in 0 until itemCount - 1) {
+                        val currentMediaId = binder?.player?.getMediaItemAt(i)?.mediaId
+                        if (mediaId == currentMediaId) {
                             mediaIdFound = true
                             return@withContext
                         }
                     }
                 }
             }
-            if(mediaIdFound){
-                return mediaId
-            }
-            return null
+            return if (mediaIdFound) mediaId else null
         }
 
+        if (isDiscoverEnabled) {
+            val filteredMediaItems = mediaItems?.filter { item ->
+                val isMapped = Database.songPlaylistMapTable.isMapped(item.mediaId).first()
+                val isLiked = Database.songTable.isLiked(item.mediaId).first()
+                val notInQueue = item.mediaId != songsInQueue(item.mediaId)
+                
+                isMapped && isLiked && notInQueue
+            } ?: emptyList()
 
-            if (isDiscoverEnabled) {
-                val listMediaItems =
-                    mediaItems?.filter {
-                        Database.songPlaylistMapTable.isMapped( it.mediaId ).first()
-                                && Database.songTable.isLiked( it.mediaId ).first()
-                                && it.mediaId != songsInQueue( it.mediaId )
-                    } ?: emptyList()
-
+            val removedCount = (mediaItems?.size ?: 0) - filteredMediaItems.size
+            if (removedCount > 0) {
                 Toaster.s(
                     messageId = R.string.discover_has_been_applied_to_radio,
-                    mediaItems?.size?.minus(listMediaItems.size) ?: 0,
+                    removedCount,
                     duration = Toast.LENGTH_SHORT
                 )
-
-                mediaItems = listMediaItems
             }
 
-        mediaItems?.distinct()
-                  ?.filter {
-                      Database.songTable.isLiked( it.mediaId ).first()
-                  }
-                  ?.also { mediaItems = it }
+            mediaItems = filteredMediaItems
+        }
 
-        return mediaItems ?: emptyList()
+        val finalMediaItems = mediaItems
+            ?.distinct()
+            ?.filter { item ->
+                Database.songTable.isLiked(item.mediaId).first()
+            }
+            ?: emptyList()
+
+        return finalMediaItems
     }
 }
