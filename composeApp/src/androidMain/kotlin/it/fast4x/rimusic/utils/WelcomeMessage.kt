@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -69,10 +70,30 @@ import it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
 import it.fast4x.rimusic.ytAccountName
 import it.fast4x.rimusic.utils.getWeatherEmoji
 
-
 // Key constants
 private const val KEY_USERNAME = "username"
 private const val KEY_CITY = "weather_city"
+private const val PREF_TEMP_UNIT = "temperature_unit"
+private const val DEFAULT_TEMP_UNIT = "celsius"
+
+// Temperature unit management
+private fun getSavedTemperatureUnit(context: Context): String {
+    return DataStoreUtils.getStringBlocking(context, PREF_TEMP_UNIT).ifEmpty { DEFAULT_TEMP_UNIT }
+}
+
+private fun saveTemperatureUnit(context: Context, unit: String) {
+    DataStoreUtils.saveStringBlocking(context, PREF_TEMP_UNIT, unit)
+}
+
+private fun celsiusToFahrenheit(celsius: Double): Double {
+    return (celsius * 9/5) + 32
+}
+
+private fun formatTemperature(temp: Double, isCelsius: Boolean): String {
+    val displayTemp = if (isCelsius) temp else celsiusToFahrenheit(temp)
+    val unit = if (isCelsius) "°C" else "°F"
+    return "${displayTemp.roundToInt()}$unit"
+}
 
 @Composable
 fun WelcomeMessage() {
@@ -86,6 +107,8 @@ fun WelcomeMessage() {
     var showWeatherPopup by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var temperatureUnit by remember { mutableStateOf(getSavedTemperatureUnit(context)) }
+    val isCelsius = temperatureUnit == "celsius"
     
     // Load username and city on composition
     LaunchedEffect(Unit) {
@@ -128,7 +151,8 @@ fun WelcomeMessage() {
                 errorMessage = errorMessage,
                 onUsernameClick = { showChangeDialog = true },
                 onWeatherClick = { showWeatherPopup = true },
-                onCityClick = { showCityDialog = true }
+                onCityClick = { showCityDialog = true },
+                isCelsius = isCelsius
             )
         }
         
@@ -152,6 +176,11 @@ fun WelcomeMessage() {
                 onCityChanged = { newCity ->
                     city = newCity
                     showCityDialog = false
+                },
+                temperatureUnit = temperatureUnit,
+                onTemperatureUnitChanged = { newUnit ->
+                    temperatureUnit = newUnit
+                    saveTemperatureUnit(context, newUnit)
                 }
             )
         }
@@ -176,7 +205,8 @@ private fun GreetingMessage(
     errorMessage: String?,
     onUsernameClick: () -> Unit,
     onWeatherClick: () -> Unit,
-    onCityClick: () -> Unit
+    onCityClick: () -> Unit,
+    isCelsius: Boolean
 ) {
     val hour = remember {
         val date = Calendar.getInstance().time
@@ -265,7 +295,7 @@ private fun GreetingMessage(
             } else {
                 weatherData?.let { weather ->
                     Text(
-                        text = "${weather.temp.toInt()}°C ${getWeatherEmoji(weather.condition)}",
+                        text = "${formatTemperature(weather.temp, isCelsius)} ${getWeatherEmoji(weather.condition)}",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color(0xFF4FC3F7),
                         modifier = Modifier
@@ -295,9 +325,12 @@ fun ChangeCityDialog(
     currentCity: String,
     condition: String,
     onDismiss: () -> Unit,
-    onCityChanged: (String) -> Unit
+    onCityChanged: (String) -> Unit,
+    temperatureUnit: String,
+    onTemperatureUnitChanged: (String) -> Unit
 ) {
     var newCity by remember { mutableStateOf(currentCity) }
+    val isCelsius = temperatureUnit == "celsius"
 
     // Better color scheme with improved contrast
     val (bgGradient, textColor) = when (condition.lowercase()) {
@@ -350,6 +383,63 @@ fun ChangeCityDialog(
                         .fillMaxWidth()
                         .wrapContentHeight()
                 ) {
+                    // Temperature unit toggle
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Temperature Unit:",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = textColor,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                        Row(
+                            modifier = Modifier
+                                .background(Color(0xFF424242), shape = RoundedCornerShape(8.dp))
+                                .padding(2.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        if (isCelsius) Color(0xFF4CAF50) else Color.Transparent,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .clickable { onTemperatureUnitChanged("celsius") }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "°C",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = if (isCelsius) Color.White else textColor.copy(alpha = 0.7f),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        if (!isCelsius) Color(0xFF4CAF50) else Color.Transparent,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .clickable { onTemperatureUnitChanged("fahrenheit") }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "°F",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = if (!isCelsius) Color.White else textColor.copy(alpha = 0.7f),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
+                        }
+                    }
+
                     Text(
                         text = "Enter your city name:",
                         style = MaterialTheme.typography.bodyMedium.copy(
