@@ -56,19 +56,30 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+// Temperature unit management functions
+private fun celsiusToFahrenheit(celsius: Double): Double {
+    return (celsius * 9/5) + 32
+}
 
+private fun formatTemperature(temp: Double, isCelsius: Boolean): String {
+    val displayTemp = if (isCelsius) temp else celsiusToFahrenheit(temp)
+    val unit = if (isCelsius) "°C" else "°F"
+    return "${displayTemp.roundToInt()}$unit"
+}
 
 @Composable
 fun WeatherForecastPopup(
     weatherData: WeatherData,
     username: String,
     onDismiss: () -> Unit,
-    onCityChange: () -> Unit
+    onCityChange: () -> Unit,
+    temperatureUnit: String = "celsius" // Add this parameter
 ) {
     var showSportsDialog by remember { mutableStateOf(false) }
     var liveSports by remember { mutableStateOf<List<LiveSport>>(emptyList()) }
     var isLoadingSports by remember { mutableStateOf(false) }
     var selectedLeague by remember { mutableStateOf("eng.1") }
+    val isCelsius = temperatureUnit == "celsius"
     
     // Calculate accurate local time based on timezone offset (GMT+3)
     val localTime = getAccurateLocalTimeGMT3(weatherData.timezoneOffset)
@@ -109,6 +120,16 @@ fun WeatherForecastPopup(
                     modifier = Modifier.weight(1f)
                 )
                 Row {
+                    // Temperature unit display
+                    Text(
+                        text = if (isCelsius) "°C" else "°F",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .align(Alignment.CenterVertically)
+                    )
                     // Sports button - ALWAYS VISIBLE with real data
                     IconButton(
                         onClick = { 
@@ -152,7 +173,8 @@ fun WeatherForecastPopup(
                         localTime = localTime,
                         isNight = isNight,
                         normalizedCondition = normalizedCondition,
-                        rainProbability = rainProbability
+                        rainProbability = rainProbability,
+                        isCelsius = isCelsius // Pass the unit
                     )
                 }
                 
@@ -187,7 +209,7 @@ fun WeatherForecastPopup(
                 
                 // Weather Details - Focus on humidity and cloud cover
                 item {
-                    WeatherDetailsCard(weatherData, localHour)
+                    WeatherDetailsCard(weatherData, localHour, isCelsius) // Pass the unit
                 }
                 
                 // Hydration Reminder - ALWAYS SHOW
@@ -226,7 +248,8 @@ private fun WeatherHeaderCard(
     localTime: Calendar,
     isNight: Boolean,
     normalizedCondition: String,
-    rainProbability: Int
+    rainProbability: Int,
+    isCelsius: Boolean // Add this parameter
 ) {
     val gradient = getSmartConditionGradient(normalizedCondition, isNight)
     val textColor = getTextColorForBackground(gradient)
@@ -256,13 +279,13 @@ private fun WeatherHeaderCard(
                 )
                 Column {
                     Text(
-                        text = "${weatherData.temp.roundToInt()}°C",
+                        text = formatTemperature(weatherData.temp, isCelsius), // Use formatTemperature
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
                         color = textColor
                     )
                     Text(
-                        text = "${getAccurateWeatherDescription(normalizedCondition, weatherData)} • Feels like ${weatherData.feelsLike.roundToInt()}°C",
+                        text = "${getAccurateWeatherDescription(normalizedCondition, weatherData)} • Feels like ${formatTemperature(weatherData.feelsLike, isCelsius)}", // Use formatTemperature
                         style = MaterialTheme.typography.titleMedium,
                         color = textColor.copy(alpha = 0.9f)
                     )
@@ -398,7 +421,7 @@ private fun SmartActivitiesCard(
 }
 
 @Composable
-private fun WeatherDetailsCard(weatherData: WeatherData, localHour: Int) {
+private fun WeatherDetailsCard(weatherData: WeatherData, localHour: Int, isCelsius: Boolean) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         modifier = Modifier.fillMaxWidth(),
@@ -418,7 +441,7 @@ private fun WeatherDetailsCard(weatherData: WeatherData, localHour: Int) {
                 WeatherDetail("💨 Wind", "${weatherData.windSpeed} m/s", getWindAnalysis(weatherData.windSpeed)),
                 WeatherDetail("🌡 Pressure", "${weatherData.pressure} hPa", getPressureAnalysis(weatherData.pressure)),
                 WeatherDetail("👁 Visibility", "${weatherData.visibility / 1000} km", getVisibilityAnalysis(weatherData.visibility)),
-                WeatherDetail("🌡 Min/Max", "${weatherData.minTemp.roundToInt()}°C / ${weatherData.maxTemp.roundToInt()}°C", getTempRangeAnalysis(weatherData))
+                WeatherDetail("🌡 Min/Max", "${formatTemperature(weatherData.minTemp, isCelsius)} / ${formatTemperature(weatherData.maxTemp, isCelsius)}", getTempRangeAnalysis(weatherData)) // Use formatTemperature
             )
             
             details.forEach { detail ->
