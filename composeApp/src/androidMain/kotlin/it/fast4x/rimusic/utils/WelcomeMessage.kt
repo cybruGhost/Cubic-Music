@@ -61,7 +61,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.net.HttpURLConnection
 import java.net.URL
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -174,6 +177,8 @@ fun WelcomeMessage() {
                 condition = weatherData?.condition ?: "clear",
                 onDismiss = { showCityDialog = false },
                 onCityChanged = { newCity ->
+                    // FIX: Save the city to DataStore persistently
+                    DataStoreUtils.saveStringBlocking(context, KEY_CITY, newCity)
                     city = newCity
                     showCityDialog = false
                 },
@@ -736,18 +741,25 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
     }
 }
 
-
-private fun getLocationFromIP(): String? {
+// FIXED: Using the new ipapi.co API with proper error handling
+private suspend fun getLocationFromIP(): String? {
     return try {
-        val response = URL("http://ip-api.com/json").readText()
-        val json = JSONObject(response)
-        if (json.getString("status") == "success") {
-            json.getString("city")
-        } else {
-            null
-        }
+        val url = URL("https://ipapi.co/json/")
+        val connection = withContext(Dispatchers.IO) { url.openConnection() as HttpURLConnection }
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+
+        val responseCode = connection.responseCode
+        if (responseCode == 200) {
+            val reader = BufferedReader(InputStreamReader(connection.inputStream))
+            val response = reader.use { it.readText() }
+            val json = JSONObject(response)
+            json.optString("city", "Nairobi")
+        } else "Nairobi"
     } catch (e: Exception) {
-        null
+        e.printStackTrace()
+        "Nairobi"
     }
 }
 
