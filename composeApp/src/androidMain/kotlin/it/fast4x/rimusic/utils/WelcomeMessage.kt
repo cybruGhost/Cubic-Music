@@ -196,7 +196,8 @@ fun WelcomeMessage() {
                 weatherData = weatherData!!,
                 username = username,
                 onDismiss = { showWeatherPopup = false },
-                onCityChange = { showCityDialog = true }
+                onCityChange = { showCityDialog = true },
+                temperatureUnit = temperatureUnit
             )
         }
     }

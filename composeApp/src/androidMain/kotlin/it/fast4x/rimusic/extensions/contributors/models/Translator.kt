@@ -38,21 +38,24 @@ import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.typography
 
 data class Translator(
-    @SerializedName( "username" ) val username: String,
-    @SerializedName( "displayName" ) val displayName: String?,
-    @SerializedName( "languages" ) val languages: String,
-    @SerializedName( "profileUrl" ) val profileUrl: String?,
-    @SerializedName( "avatarUrl" ) val avatarUrl: String?
+    @SerializedName("username") val username: String,
+    @SerializedName("displayName") val displayName: String?,
+    @SerializedName("languages") val languages: String,
+    @SerializedName("profileUrl") val profileUrl: String?,
+    @SerializedName("avatarUrl") val avatarUrl: String?,
+    // Add missing fields from your JSON
+    val bio: String? = null,
+    val role: String? = null,
+    val description: String? = null
 ) {
     private val usernameByProfile: String
-        get() = profileUrl?.split( "/" )?.last().toString()
+        get() = profileUrl?.split("/")?.last().toString()
 
     @Composable
     fun Draw() {
         val uriHandler = LocalUriHandler.current
-        val avatarPainter = ImageCacheFactory.Painter( this.avatarUrl )
+        val avatarPainter = ImageCacheFactory.Painter(this.avatarUrl ?: "")
         val backgroundColor = Color.Transparent
-
 
         Card(
             modifier = Modifier
@@ -69,7 +72,7 @@ data class Translator(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp, horizontal = 15.dp)
-                    .background(backgroundColor, RoundedCornerShape( 12.dp )),
+                    .background(backgroundColor, RoundedCornerShape(12.dp)),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
@@ -77,14 +80,27 @@ data class Translator(
                     contentDescription = null,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip( RoundedCornerShape( 25.dp ) )
-                        .border( 1.dp, Color.White, RoundedCornerShape( 25.dp ) ),
+                        .clip(RoundedCornerShape(25.dp))
+                        .border(1.dp, Color.White, RoundedCornerShape(25.dp)),
                     contentScale = ContentScale.Fit
                 )
 
-                Spacer(modifier = Modifier.width( 16.dp ) )
+                Spacer(modifier = Modifier.width(16.dp))
 
-                Column( Modifier.fillMaxWidth().padding(end = 10.dp) ) {
+                Column(Modifier.fillMaxWidth().padding(end = 10.dp)) {
+                    // Display role if available
+                    role?.let { roleText ->
+                        Text(
+                            text = roleText,
+                            style = TextStyle(
+                                color = colorPalette().textSecondary,
+                                fontSize = typography().xxs.fontSize,
+                                fontStyle = FontStyle.Italic,
+                            ),
+                            textAlign = TextAlign.Start
+                        )
+                    }
+
                     Text(
                         text = displayName ?: username,
                         style = TextStyle(
@@ -95,7 +111,7 @@ data class Translator(
                         textAlign = TextAlign.Start
                     )
 
-                    Row( Modifier.fillMaxWidth() ) {
+                    Row(Modifier.fillMaxWidth()) {
                         Text(
                             text = if (profileUrl != null) "@${usernameByProfile}" else "@${username}",
                             style = TextStyle(
@@ -112,7 +128,7 @@ data class Translator(
                                 },
                         )
 
-                        val color = colorPalette().favoritesIcon.copy( alpha = .8f )
+                        val color = colorPalette().favoritesIcon.copy(alpha = .8f)
 
                         Text(
                             text = languages,
@@ -121,16 +137,44 @@ data class Translator(
                                 fontSize = typography().xs.fontSize,
                             ),
                             textAlign = TextAlign.End,
-                            modifier = Modifier.weight( 1f )
+                            modifier = Modifier.weight(1f)
                         )
 
-                        Spacer( Modifier.width(5.dp ) )
+                        Spacer(Modifier.width(5.dp))
 
                         Icon(
-                            painter = painterResource( R.drawable.translate ),
+                            painter = painterResource(R.drawable.translate),
                             contentDescription = null,
                             tint = color,
-                            modifier = Modifier.size( typography().xs.fontSize.value.dp )
+                            modifier = Modifier.size(typography().xs.fontSize.value.dp)
+                        )
+                    }
+
+                    // Display bio if available
+                    bio?.let { bioText ->
+                        Spacer(modifier = Modifier.padding(top = 4.dp))
+                        Text(
+                            text = bioText,
+                            style = TextStyle(
+                                color = colorPalette().textSecondary,
+                                fontSize = typography().xxs.fontSize,
+                                fontStyle = FontStyle.Normal,
+                            ),
+                            textAlign = TextAlign.Start
+                        )
+                    }
+
+                    // Display description if available
+                    description?.let { descText ->
+                        Spacer(modifier = Modifier.padding(top = 2.dp))
+                        Text(
+                            text = descText,
+                            style = TextStyle(
+                                color = colorPalette().textSecondary,
+                                fontSize = typography().xxs.fontSize,
+                                fontStyle = FontStyle.Italic,
+                            ),
+                            textAlign = TextAlign.Start
                         )
                     }
                 }

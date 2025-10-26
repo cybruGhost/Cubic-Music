@@ -12,7 +12,7 @@ enum class ThumbnailRoundness(
     @field:StringRes override val textId: Int
 ): TextView {
 
-    None( RoundedCornerShape(0.dp), R.string.none ),
+    None( RoundedCornerShape(8.dp), R.string.none ),
 
     Light( RoundedCornerShape(8.dp), R.string.light ),
 

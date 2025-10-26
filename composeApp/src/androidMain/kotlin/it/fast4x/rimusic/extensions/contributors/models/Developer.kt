@@ -39,21 +39,23 @@ import it.fast4x.rimusic.ui.styling.favoritesIcon
 
 data class Developer(
     val id: Int,
-    @SerializedName( "login" ) val username: String,
-    @SerializedName( "name" ) val displayName: String?,
-    @SerializedName( "html_url" )val url: String,
-    @SerializedName( "avatar_url") val avatar: String,
-    val contributions: Int?
+    @SerializedName("login") val username: String,
+    @SerializedName("name") val displayName: String?,
+    @SerializedName("html_url") val url: String,
+    @SerializedName("avatar_url") val avatar: String,
+    val contributions: Int?,
+    // Add missing fields from your JSON
+    val about: String? = null,
+    val why_choose_us: String? = null
 ) {
     private val handle: String
-        get() = url.split( "/" ).last()
+        get() = url.split("/").last()
 
     @Composable
     fun Draw() {
         val uriHandler = LocalUriHandler.current
-        val avatarPainter = ImageCacheFactory.Painter( this.avatar )
+        val avatarPainter = ImageCacheFactory.Painter(this.avatar)
         val backgroundColor = if (id == 1484476) colorPalette().background1 else Color.Transparent
-
 
         Card(
             modifier = Modifier
@@ -70,7 +72,7 @@ data class Developer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp, horizontal = 15.dp)
-                    .background(backgroundColor, RoundedCornerShape( 12.dp )),
+                    .background(backgroundColor, RoundedCornerShape(12.dp)),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
@@ -78,14 +80,14 @@ data class Developer(
                     contentDescription = null,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip( RoundedCornerShape( 25.dp ) )
-                        .border( 1.dp, Color.White, RoundedCornerShape( 25.dp ) ),
+                        .clip(RoundedCornerShape(25.dp))
+                        .border(1.dp, Color.White, RoundedCornerShape(25.dp)),
                     contentScale = ContentScale.Fit
                 )
 
-                Spacer(modifier = Modifier.width( 16.dp ) )
+                Spacer(modifier = Modifier.width(16.dp))
 
-                Column( Modifier.fillMaxWidth().padding(end = 10.dp) ) {
+                Column(Modifier.fillMaxWidth().padding(end = 10.dp)) {
                     Text(
                         text = displayName ?: username,
                         style = TextStyle(
@@ -96,7 +98,7 @@ data class Developer(
                         textAlign = TextAlign.Start
                     )
 
-                    Row( Modifier.fillMaxWidth() ) {
+                    Row(Modifier.fillMaxWidth()) {
                         Text(
                             text = "@$handle",
                             style = TextStyle(
@@ -109,10 +111,10 @@ data class Developer(
                                 .clickable { uriHandler.openUri(url) },
                         )
 
-                        if( contributions == null )
+                        if (contributions == null)
                             return@Column
 
-                        val color = colorPalette().favoritesIcon.copy( alpha = .8f )
+                        val color = colorPalette().favoritesIcon.copy(alpha = .8f)
 
                         Text(
                             text = contributions.toString(),
@@ -121,16 +123,44 @@ data class Developer(
                                 fontSize = typography().xs.fontSize,
                             ),
                             textAlign = TextAlign.End,
-                            modifier = Modifier.weight( 1f )
+                            modifier = Modifier.weight(1f)
                         )
 
-                        Spacer( Modifier.width(5.dp ) )
+                        Spacer(Modifier.width(5.dp))
 
                         Icon(
-                            painter = painterResource( R.drawable.git_pull_request_outline ),
+                            painter = painterResource(R.drawable.git_pull_request_outline),
                             contentDescription = null,
                             tint = color,
-                            modifier = Modifier.size( typography().xs.fontSize.value.dp )
+                            modifier = Modifier.size(typography().xs.fontSize.value.dp)
+                        )
+                    }
+
+                    // Display about text if available
+                    about?.let { aboutText ->
+                        Spacer(modifier = Modifier.padding(top = 4.dp))
+                        Text(
+                            text = aboutText,
+                            style = TextStyle(
+                                color = colorPalette().textSecondary,
+                                fontSize = typography().xxs.fontSize,
+                                fontStyle = FontStyle.Normal,
+                            ),
+                            textAlign = TextAlign.Start
+                        )
+                    }
+
+                    // Display why_choose_us text if available
+                    why_choose_us?.let { whyText ->
+                        Spacer(modifier = Modifier.padding(top = 2.dp))
+                        Text(
+                            text = whyText,
+                            style = TextStyle(
+                                color = colorPalette().textSecondary,
+                                fontSize = typography().xxs.fontSize,
+                                fontStyle = FontStyle.Italic,
+                            ),
+                            textAlign = TextAlign.Start
                         )
                     }
                 }

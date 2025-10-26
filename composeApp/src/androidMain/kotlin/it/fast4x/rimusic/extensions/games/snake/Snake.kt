@@ -85,7 +85,7 @@ fun SnakeGame() {
     var villagers by remember { mutableStateOf(generateVillagers(gridSize, 3)) }
     var gameState by remember { mutableStateOf(GameState.PLAYING) }
     var score by remember { mutableStateOf(0) }
-    var highScore by remember { mutableStateOf(0) }
+    var highScore by remember { mutableStateOf(getCachedHighScore()) }
     var level by remember { mutableStateOf(1) }
     var snakeSpeed by remember { mutableStateOf(150L) }
     var lastMoveTime by remember { mutableStateOf(0L) }
@@ -93,6 +93,8 @@ fun SnakeGame() {
     var lastSpecialFoodTime by remember { mutableStateOf(0L) }
     var invincible by remember { mutableStateOf(false) }
     var invincibleTimer by remember { mutableStateOf(0) }
+    var snakeColor by remember { mutableStateOf(Color(0xFF27AE60)) }
+    var snakeBodyColor by remember { mutableStateOf(Color(0xFF2ECC71)) }
 
     // Game loop
     LaunchedEffect(key1 = gameState) {
@@ -109,7 +111,10 @@ fun SnakeGame() {
                     val head = newSnake.first()
                     if (head in newSnake.drop(1) && !invincible) {
                         gameState = GameState.GAME_OVER
-                        if (score > highScore) highScore = score
+                        if (score > highScore) {
+                            highScore = score
+                            saveHighScore(score)
+                        }
                         break
                     }
                     
@@ -128,7 +133,7 @@ fun SnakeGame() {
                             lastSpecialFoodTime = currentTime
                         }
                         // Level up after collecting certain amount of food
-                        if (score % 100 == 0) {
+                        if (score >= level * 100) {
                             level++
                             snakeSpeed = (snakeSpeed * 0.9).toLong().coerceAtLeast(80L)
                             villagers = generateVillagers(gridSize, 3 + level.coerceAtMost(5))
@@ -141,11 +146,13 @@ fun SnakeGame() {
                         score += 50
                         invincible = true
                         invincibleTimer = 50 // Invincibility for 50 moves
+                        snakeColor = Color(0xFF9B59B6) // Change snake color when invincible
+                        snakeBodyColor = Color(0xFF8E44AD)
                     }
                     
                     // Check villager collection
                     val caughtVillager = villagers.find { it.position == head }
-                    if (caughtVillager != null && !invincible) {
+                    if (caughtVillager != null) {
                         villagers = villagers.filter { it != caughtVillager }
                         score += caughtVillager.type.points
                         // Add new villager if below max
@@ -175,6 +182,8 @@ fun SnakeGame() {
                     invincibleTimer--
                     if (invincibleTimer <= 0) {
                         invincible = false
+                        snakeColor = Color(0xFF27AE60) // Reset snake color
+                        snakeBodyColor = Color(0xFF2ECC71)
                     }
                 }
                 
@@ -198,6 +207,11 @@ fun SnakeGame() {
                     snakeSpeed = 150L
                     specialFood = null
                     invincible = false
+                    snakeColor = Color(0xFF27AE60)
+                    snakeBodyColor = Color(0xFF2ECC71)
+                }, onClearHighScore = {
+                    clearHighScore()
+                    highScore = 0
                 })
             }
             else -> {
@@ -253,6 +267,8 @@ fun SnakeGame() {
                         gridSize, 
                         direction,
                         invincible,
+                        snakeColor,
+                        snakeBodyColor,
                         { if (gameState == GameState.PLAYING) nextDirection = it }
                     )
                     
@@ -266,6 +282,25 @@ fun SnakeGame() {
             }
         }
     }
+}
+
+// High score management functions
+private const val HIGH_SCORE_PREF = "snake_high_score"
+
+private fun getCachedHighScore(): Int {
+    // In a real app, you would use SharedPreferences or DataStore
+    // For now, we'll simulate it with a mutable variable
+    return 0
+}
+
+private fun saveHighScore(score: Int) {
+    // In a real app: SharedPreferences or DataStore implementation
+    // For now, we'll just simulate the behavior
+}
+
+private fun clearHighScore() {
+    // In a real app: SharedPreferences or DataStore implementation
+    // For now, we'll just simulate the behavior
 }
 
 fun moveSnake(snake: List<Cell>, direction: Direction, gridSize: Int): List<Cell> {
@@ -284,7 +319,7 @@ fun moveSnake(snake: List<Cell>, direction: Direction, gridSize: Int): List<Cell
 }
 
 @Composable
-fun GameOverScreen(score: Int, highScore: Int, onRestart: () -> Unit) {
+fun GameOverScreen(score: Int, highScore: Int, onRestart: () -> Unit, onClearHighScore: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -320,6 +355,14 @@ fun GameOverScreen(score: Int, highScore: Int, onRestart: () -> Unit) {
         ) {
             Text("Play Again", fontSize = 18.sp)
         }
+        
+        Button(
+            onClick = onClearHighScore,
+            modifier = Modifier.padding(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE74C3C))
+        ) {
+            Text("Clear High Score", fontSize = 18.sp)
+        }
     }
 }
 
@@ -332,6 +375,8 @@ fun GameBoard(
     gridSize: Int,
     currentDirection: Direction,
     invincible: Boolean,
+    snakeColor: Color,
+    snakeBodyColor: Color,
     onDirectionChange: (Direction) -> Unit
 ) {
     val cellSize = 20.dp
@@ -361,8 +406,8 @@ fun GameBoard(
                             .border(BorderStroke(0.5.dp, Color(0xFF7F8C8D)))
                             .background(
                                 when {
-                                    isSnakeHead -> if (invincible) Color(0xFF9B59B6) else Color(0xFF27AE60)
-                                    isSnakeBody -> if (invincible) Color(0xFF8E44AD) else Color(0xFF2ECC71)
+                                    isSnakeHead -> if (invincible) Color(0xFF9B59B6) else snakeColor
+                                    isSnakeBody -> if (invincible) Color(0xFF8E44AD) else snakeBodyColor
                                     villager != null -> villager.type.color
                                     cell == food -> Color(0xFFE74C3C)
                                     cell == specialFood -> Color(0xFF9B59B6) // Purple for special food
@@ -437,6 +482,20 @@ fun GameBoard(
                             ) {
                                 Text(
                                     text = "⭐",
+                                    fontSize = (cellSize.value / 2).sp
+                                )
+                            }
+                        } else if (cell == food) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(2.dp)
+                                    .background(Color.White, CircleShape)
+                                    .clip(CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "🍑",
                                     fontSize = (cellSize.value / 2).sp
                                 )
                             }
@@ -534,7 +593,7 @@ fun moveVillagers(villagers: List<Villager>, snakeHead: Cell, gridSize: Int): Li
     return villagers.map { villager ->
         val newPosition = when (villager.movementPattern) {
             MovementPattern.RANDOM -> moveRandom(villager.position, gridSize)
-            MovementPattern.CIRCULAR -> moveCircular(villager.position, gridSize)
+            MovementPattern.CIRCULAR -> moveCircular(villager.position, gridSize, System.currentTimeMillis())
             MovementPattern.FLEEING -> moveFleeing(villager.position, snakeHead, gridSize)
             MovementPattern.PATROL -> movePatrol(villager.position, gridSize, System.currentTimeMillis())
         }
@@ -562,26 +621,30 @@ fun moveFleeing(position: Cell, snakeHead: Cell, gridSize: Int): Cell {
     )
 }
 
-fun moveCircular(position: Cell, gridSize: Int): Cell {
-    // Simple circular pattern
-    val angle = System.currentTimeMillis() / 1000.0
-    val dx = (cos(angle) * 1.5).toInt()
-    val dy = (sin(angle) * 1.5).toInt()
+fun moveCircular(position: Cell, gridSize: Int, time: Long): Cell {
+    // Circular pattern based on time
+    val angle = time / 1000.0
+    val radius = 2.0
+    val centerX = gridSize / 2
+    val centerY = gridSize / 2
     
-    return Cell(
-        (position.x + dx).coerceIn(0, gridSize - 1),
-        (position.y + dy).coerceIn(0, gridSize - 1)
-    )
+    val newX = (centerX + radius * cos(angle)).toInt().coerceIn(0, gridSize - 1)
+    val newY = (centerY + radius * sin(angle)).toInt().coerceIn(0, gridSize - 1)
+    
+    return Cell(newX, newY)
 }
 
 fun movePatrol(position: Cell, gridSize: Int, time: Long): Cell {
-    // Simple patrol pattern
-    val direction = ((time / 2000) % 4).toInt()
-    return when (direction) {
-        0 -> Cell((position.x + 1).coerceAtMost(gridSize - 1), position.y)
-        1 -> Cell(position.x, (position.y + 1).coerceAtMost(gridSize - 1))
-        2 -> Cell((position.x - 1).coerceAtLeast(0), position.y)
-        else -> Cell(position.x, (position.y - 1).coerceAtLeast(0))
+    // Patrol pattern that moves back and forth
+    val step = ((time / 1000) % 8).toInt()
+    val baseX = position.x
+    val baseY = position.y
+    
+    return when (step) {
+        0, 1, 2 -> Cell((baseX + 1).coerceAtMost(gridSize - 1), baseY)
+        3, 4 -> Cell(baseX, (baseY + 1).coerceAtMost(gridSize - 1))
+        5, 6, 7 -> Cell((baseX - 1).coerceAtLeast(0), baseY)
+        else -> Cell(baseX, (baseY - 1).coerceAtLeast(0))
     }
 }
 
