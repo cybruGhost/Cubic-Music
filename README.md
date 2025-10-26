@@ -25,7 +25,7 @@
 
 ---
 
-## 🚀 Current Version: `v1.7.1`  
+## 🚀 Current Version: `v1.7.2`  
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
@@ -53,7 +53,7 @@
 - **Export:** settings, downloaded, and cached media
 - **import backups from Rimusic**
 - fixed ondevice
-
+- 🌐 Expand localization and language support  
 ---
 
 ## 🛠 To-Do
@@ -62,7 +62,7 @@
 - [ ] Optimize memory for large cache usage
 - fix ui to be more of rimusic    
 - 🎵 Add General improvements  
-- 🌐 Expand localization and language support  
+
 
 ---
 
