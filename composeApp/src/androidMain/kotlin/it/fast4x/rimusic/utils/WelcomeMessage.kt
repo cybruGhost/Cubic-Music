@@ -221,9 +221,9 @@ private fun GreetingMessage(
     }
 
     val message = when (hour) {
-        in 6..12 -> stringResource(R.string.good_morning)
-        in 13..17 -> stringResource(R.string.good_afternoon)
-        in 18..23 -> stringResource(R.string.good_evening)
+        in 4..11 -> stringResource(R.string.good_morning)
+        in 12..16 -> stringResource(R.string.good_afternoon)
+        in 17..20 -> stringResource(R.string.good_evening)
         else -> stringResource(R.string.good_night)
     }.let {
         val baseMessage = if (isYouTubeLoggedIn()) "$it, ${ytAccountName()}" else it

@@ -1,6 +1,8 @@
 package it.fast4x.rimusic.ui.components.navigation.header
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -17,6 +19,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -101,7 +105,33 @@ private fun AppLogoText( navController: NavController ) {
     )
 }
 
-// START
+@Composable
+private fun NetworkStatusIcon() {
+    val context = LocalContext.current
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    
+    val networkIcon = remember {
+        val network = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+        
+        when {
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> 
+                R.drawable.datawifi
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> 
+                R.drawable.datamobile
+            else -> R.drawable.explicit
+        }
+    }
+
+    Image(
+        painter = painterResource(id = networkIcon),
+        contentDescription = "Network status",
+        modifier = Modifier
+            .size(20.dp)
+            .padding(start = 4.dp)
+    )
+}
+
 @Composable
 fun AppTitle(
     navController: NavController,
@@ -113,6 +143,7 @@ fun AppTitle(
     ) {
         AppLogo( navController, context )
         AppLogoText( navController )
+        NetworkStatusIcon()
 
         if(Preference.parentalControl())
             Button(
@@ -138,5 +169,4 @@ fun AppTitle(
                     }
             )
     }
-// END
 }

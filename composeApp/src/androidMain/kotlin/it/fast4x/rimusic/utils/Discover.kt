@@ -36,6 +36,17 @@ fun ApplyDiscoverToQueue() {
 
     LaunchedEffect(Unit) {
         listMediaItemsIndex.clear()
+        
+        // Get most played songs - last 30 days
+        val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        val mostPlayedSongs = Database.eventTable.findSongsMostPlayedBetween(
+            from = thirtyDaysAgo,
+            limit = 100 // Get top 100 most played songs
+        ).first() // Get the first value from the Flow
+        
+        // Convert to a list of song IDs for easy lookup
+        val mostPlayedSongIds = mostPlayedSongs.map { it.id }.toSet()
+        
         windows.forEach { window ->
             if( window.firstPeriodIndex == player.currentMediaItemIndex )
                 return@forEach
@@ -43,8 +54,12 @@ fun ApplyDiscoverToQueue() {
             val mediaId = window.mediaItem.mediaId
             val isMappedToAPlaylist = Database.songPlaylistMapTable.isMapped( mediaId ).first()
             val isLiked = Database.songTable.isLiked( mediaId ).first()
+            
+            // Check if this song is in most played list
+            val isMostPlayed = mediaId in mostPlayedSongIds
 
-            if( isMappedToAPlaylist && isLiked )
+            // Remove if in playlist OR liked OR most played
+            if( isMappedToAPlaylist || isLiked || isMostPlayed )
                 listMediaItemsIndex.add(window.firstPeriodIndex)
 
         }.also {
