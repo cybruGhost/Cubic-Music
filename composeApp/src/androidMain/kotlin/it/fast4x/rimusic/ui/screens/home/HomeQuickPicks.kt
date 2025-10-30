@@ -256,7 +256,7 @@ runCatching {
                             if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
                                 relatedPageResult = Innertube.relatedPage(
                                     NextBody(
-                                        videoId = (trending?.id ?: "HZnNt9nnEhw")
+                                        videoId = (trending?.id ?: "rY2LUmLw_DQ")
                                     )
                                 )
                             }
@@ -275,7 +275,7 @@ runCatching {
                                 relatedPageResult =
                                     Innertube.relatedPage(
                                         NextBody(
-                                            videoId = (trending?.id ?: "HZnNt9nnEhw")
+                                            videoId = (trending?.id ?: "DCYmJDO2_IE")
                                         )
                                     )
                             }
@@ -318,7 +318,7 @@ runCatching {
                                 relatedPageResult =
                                     Innertube.relatedPage(
                                         NextBody(
-                                            videoId = (trending?.id ?: "HZnNt9nnEhw")
+                                            videoId = (trending?.id ?: "kudi8OtMu9s")
                                         )
                                     )
                             }
