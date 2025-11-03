@@ -141,9 +141,9 @@ suspend fun fetchCommentsPage(videoId: String, continuation: String? = null): Co
     try {
         // Build URL for this page
         val urlStr = if (continuation == null) {
-            "https://yt.omada.cafe/api/v1/comments/$videoId"
+            "https://inv.perditum.com/api/v1/comments/$videoId"
         } else {
-            "https://yt.omada.cafe/api/v1/comments/$videoId?continuation=${URLEncoder.encode(continuation, "UTF-8")}"
+            "https://inv.perditum.com/api/v1/comments/$videoId?continuation=${URLEncoder.encode(continuation, "UTF-8")}"
         }
 
         val url = URL(urlStr)
