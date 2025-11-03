@@ -1,6 +1,5 @@
 package it.fast4x.rimusic.ui.components
 
-
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.util.lerp
 import kotlin.math.abs
 import kotlin.math.absoluteValue
@@ -42,7 +42,7 @@ fun SeekBarAudioWaves(
     BoxWithConstraints(modifier) {
         val updatedWaveInteraction by rememberUpdatedState(waveInteraction)
         val numberOfWaves = remember(maxWidth) {
-            (maxWidth / 3f).value.roundToInt() //5f default
+            (maxWidth / 3f).value.roundToInt().coerceAtLeast(1) // Ensure at least 1 wave
         }
         val waveWidth = remember(maxWidth) {
             (maxWidth / numberOfWaves.toFloat()) * waveWidthPercentOfSpaceAvailable
@@ -56,7 +56,10 @@ fun SeekBarAudioWaves(
                 .pointerInput(Unit) {
                     detectTapGestures { offset ->
                         updatedWaveInteraction.onInteraction(
-                            ProgressPercentage.of(current = offset.x.toDp(), target = maxWidth),
+                            ProgressPercentage.safeOf(
+                                current = offset.x.toDp(),
+                                target = maxWidth
+                            ),
                         )
                     }
                 }
@@ -65,7 +68,7 @@ fun SeekBarAudioWaves(
                         // Do not trigger on minuscule movements
                         if (dragAmount.absoluteValue < 1f) return@detectHorizontalDragGestures
                         updatedWaveInteraction.onInteraction(
-                            ProgressPercentage.of(
+                            ProgressPercentage.safeOf(
                                 current = change.position.x.toDp(),
                                 target = maxWidth
                             ),
@@ -104,13 +107,17 @@ private fun FakeAudioWavePill(
         val wavePosition = waveIndex + 1
         val centerPoint = numberOfWaves / 2
         val distanceFromCenterPoint = abs(centerPoint - wavePosition)
-        val percentageToCenterPoint = ((centerPoint - distanceFromCenterPoint).toFloat() / centerPoint)
+        val percentageToCenterPoint = if (centerPoint > 0) {
+            ((centerPoint - distanceFromCenterPoint).toFloat() / centerPoint)
+        } else {
+            1.0f // Fallback when there's only one wave
+        }
         val maxHeightFraction = lerp(
             maxWaveHeightFractionForSideWaves,
             maxWaveHeightFraction,
-            percentageToCenterPoint,
+            percentageToCenterPoint.coerceIn(0f, 1f),
         )
-        val validMaxHeightFraction = if (maxHeightFraction.isNaN()) 0.1f else maxHeightFraction
+        val validMaxHeightFraction = if (maxHeightFraction.isNaN()) minWaveHeightFraction else maxHeightFraction
         if (validMaxHeightFraction <= minWaveHeightFraction) {
             validMaxHeightFraction
         } else {
@@ -118,7 +125,9 @@ private fun FakeAudioWavePill(
         }
     }
     val hasPlayedThisWave = remember(progressPercentage, numberOfWaves, waveIndex) {
-        progressPercentage.value * numberOfWaves > waveIndex
+        // Safe calculation to prevent NaN issues
+        val progressValue = progressPercentage.value
+        if (progressValue.isNaN()) false else (progressValue * numberOfWaves) > waveIndex
     }
     Surface(
         shape = CircleShape,
@@ -127,14 +136,14 @@ private fun FakeAudioWavePill(
     ) {}
 }
 
-
 @JvmInline
 value class ProgressPercentage(
     @FloatRange(from = 0.0, to = 1.0, fromInclusive = true, toInclusive = true)
     val value: Float,
 ) {
     init {
-        require(value in 0.0f..1.0f) {
+        // Allow NaN values but convert them to 0.0f in safeValue usage
+        require(value in 0.0f..1.0f || value.isNaN()) {
             "Progress percentage must be within 0.0f inclusive to 1.0f inclusive. Value: $value"
         }
     }
@@ -144,17 +153,35 @@ value class ProgressPercentage(
 
     companion object {
         fun safeValue(float: Float): ProgressPercentage {
-            if (float.isNaN()) return ProgressPercentage(0f)
-            return ProgressPercentage(float.coerceIn(0f, 1f))
+            return when {
+                float.isNaN() -> ProgressPercentage(0f)
+                float < 0f -> ProgressPercentage(0f)
+                float > 1f -> ProgressPercentage(1f)
+                else -> ProgressPercentage(float)
+            }
         }
 
         fun of(
             current: Dp,
             target: Dp,
         ): ProgressPercentage {
-            return ProgressPercentage(
-                (current / target).coerceIn(0f, 1f),
-            )
+            val progress = (current / target).coerceIn(0f, 1f)
+            return ProgressPercentage(progress)
+        }
+
+        fun safeOf(
+            current: Dp,
+            target: Dp,
+        ): ProgressPercentage {
+            // Prevent division by zero and NaN
+            return when {
+                target.value <= 0f -> ProgressPercentage(0f)
+                current.value.isNaN() || target.value.isNaN() -> ProgressPercentage(0f)
+                else -> {
+                    val progress = (current / target).coerceIn(0f, 1f)
+                    ProgressPercentage(if (progress.isNaN()) 0f else progress)
+                }
+            }
         }
     }
 }
@@ -166,4 +193,11 @@ fun interface WaveInteraction {
      * Ranges from 0.0f when interacted on the far left to 1.0f on the far right.
      */
     fun onInteraction(horizontalProgressPercentage: ProgressPercentage)
+}
+
+// Extension function for pixel to Dp conversion using LocalDensity
+@Composable
+private fun Float.toDp(): Dp {
+    val density = LocalDensity.current
+    return with(density) { this@toDp.toDp() }
 }
