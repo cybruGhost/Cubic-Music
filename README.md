@@ -25,11 +25,12 @@
 
 ---
 
-## 🚀 Current Version: `v1.7.2`  
+## 🚀 Current Version: `v1.7.4`  
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
 ## ✨ Key Features
+## spotify playlists support
 ## explict tag added added
 ## comments feature
 
