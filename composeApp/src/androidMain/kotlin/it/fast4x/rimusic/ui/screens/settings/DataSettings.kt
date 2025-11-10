@@ -85,7 +85,7 @@ fun DataSettings() {
     )
 
     var exoPlayerCacheLocation by rememberPreference(
-        exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System
+        exoPlayerCacheLocationKey, ExoPlayerCacheLocation.Private
     )
 
     var showExoPlayerCustomCacheDialog by remember { mutableStateOf(false) }

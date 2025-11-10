@@ -159,7 +159,7 @@ fun GeneralSettings(
     )
 
     var skipSilence by rememberPreference(skipSilenceKey, false)
-    var skipMediaOnError by rememberPreference(skipMediaOnErrorKey, false)
+    var skipMediaOnError by rememberPreference(skipMediaOnErrorKey, true)
     var volumeNormalization by rememberPreference(volumeNormalizationKey, false)
 
     var keepPlayerMinimized by rememberPreference(keepPlayerMinimizedKey,   false)

@@ -167,7 +167,7 @@ fun HomeQuickPicks(
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
     val windowInsets = LocalPlayerAwareWindowInsets.current
-    var playEventType by rememberPreference(playEventsTypeKey, PlayEventsType.MostPlayed)
+    var playEventType by rememberPreference(playEventsTypeKey, PlayEventsType.CasualPlayed)
 
     var trendingList by remember { mutableStateOf<List<Song>>(emptyList()) }
     var trending by persist<Song?>("home/trending")

@@ -109,12 +109,12 @@ fun DefaultAIRecommendationSettings() {
     showMyTopPlaylist = true
     var showStatsListeningTime by rememberPreference(showStatsListeningTimeKey, true)
     showStatsListeningTime = true
-    var maxStatisticsItems by rememberPreference(maxStatisticsItemsKey, MaxStatisticsItems.`10`)
-    maxStatisticsItems = MaxStatisticsItems.`10`
+    var maxStatisticsItems by rememberPreference(maxStatisticsItemsKey, MaxStatisticsItems.`250`)
+    maxStatisticsItems = MaxStatisticsItems.`250`
     
     // Top Playlists Settings
-    var maxTopPlaylistItems by rememberPreference(MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10`)
-    maxTopPlaylistItems = MaxTopPlaylistItems.`10`
+    var maxTopPlaylistItems by rememberPreference(MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`150`)
+    maxTopPlaylistItems = MaxTopPlaylistItems.`150`
 }
 
 @ExperimentalAnimationApi

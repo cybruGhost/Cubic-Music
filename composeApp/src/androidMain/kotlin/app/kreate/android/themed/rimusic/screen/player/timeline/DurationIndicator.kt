@@ -231,7 +231,7 @@ fun DurationIndicator(
             contentAlignment = Alignment.CenterEnd
         ) {
             val toDisplay = remember( duration ) {
-                if( duration <= 0 ) "--:--" else formatAsDuration( duration )
+                if( duration <= 0 ) "✨" else formatAsDuration( duration )
             }
             OutlinedText( toDisplay, outlineColor )
         }

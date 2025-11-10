@@ -302,8 +302,8 @@ fun DefaultUiSettings() {
     showFloatingIcon = false
     var menuStyle by rememberPreference(menuStyleKey, MenuStyle.List)
     menuStyle = MenuStyle.List
-    var transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
-    transitionEffect = TransitionEffect.Scale
+    var transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
+    transitionEffect = TransitionEffect.SlideHorizontal
 
     var showPipedPlaylists by rememberPreference(showPipedPlaylistsKey, true)
     showPipedPlaylists = true

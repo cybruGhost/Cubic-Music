@@ -231,17 +231,17 @@ fun DefaultAppearanceSettings() {
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
     showButtonPlayerDownload = true
     var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
-    showButtonPlayerLoop = true
+    showButtonPlayerLoop = false
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
     showButtonPlayerLyrics = true
     var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, true)
-    expandedplayertoggle = true
+    expandedplayertoggle = false
     var showButtonPlayerShuffle by rememberPreference(showButtonPlayerShuffleKey, true)
     showButtonPlayerShuffle = true
     var showButtonPlayerSleepTimer by rememberPreference(showButtonPlayerSleepTimerKey, false)
     showButtonPlayerSleepTimer = false
     var showButtonPlayerMenu by rememberPreference(showButtonPlayerMenuKey, false)
-    showButtonPlayerMenu = false
+    showButtonPlayerMenu = true
     var showButtonPlayerSystemEqualizer by rememberPreference(
         showButtonPlayerSystemEqualizerKey,
         false
@@ -294,7 +294,7 @@ fun DefaultAppearanceSettings() {
     playerInfoType = PlayerInfoType.Modern
     var transparentBackgroundActionBarPlayer by rememberPreference(
         transparentBackgroundPlayerActionBarKey,
-        false
+        true
     )
     transparentBackgroundActionBarPlayer = false
     var iconLikeType by rememberPreference(iconLikeTypeKey, IconLikeType.Essential)
@@ -310,7 +310,7 @@ fun DefaultAppearanceSettings() {
     )
     playerEnableLyricsPopupMessage = true
     var actionspacedevenly by rememberPreference(actionspacedevenlyKey, false)
-    actionspacedevenly = false
+    actionspacedevenly = true
     var thumbnailType by rememberPreference(thumbnailTypeKey, ThumbnailType.Modern)
     thumbnailType = ThumbnailType.Modern
     var showvisthumbnail by rememberPreference(showvisthumbnailKey, false)
@@ -665,7 +665,7 @@ fun AppearanceSettings(
                 showButtonPlayerLoop = false
                 showButtonPlayerShuffle = false
                 showButtonPlayerLyrics =  true
-                expandedplayertoggle = true
+                expandedplayertoggle = false
                 showButtonPlayerSleepTimer = false
                 visualizerEnabled = false
                 appearanceChooser = false
@@ -803,7 +803,7 @@ fun AppearanceSettings(
                 showButtonPlayerLoop = false
                 showButtonPlayerShuffle = false
                 showButtonPlayerLyrics =  true
-                expandedplayertoggle = true
+                expandedplayertoggle = false
                 showButtonPlayerSleepTimer = false
                 visualizerEnabled = false
                 appearanceChooser = false

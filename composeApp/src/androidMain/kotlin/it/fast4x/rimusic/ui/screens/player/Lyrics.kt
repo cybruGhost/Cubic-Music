@@ -359,7 +359,7 @@ fun Lyrics(
         }
         var lyricsHighlight by rememberPreference(lyricsHighlightKey, LyricsHighlight.None)
         var lyricsAlignment by rememberPreference(lyricsAlignmentKey, LyricsAlignment.Center)
-        var lyricsSizeAnimate by rememberPreference(lyricsSizeAnimateKey, false)
+        var lyricsSizeAnimate by rememberPreference(lyricsSizeAnimateKey, true)
         val mediaMetadata = mediaMetadataProvider()
         var artistName by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.artist?.toString().orEmpty()))}
         var title by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.title?.toString().orEmpty()))}
