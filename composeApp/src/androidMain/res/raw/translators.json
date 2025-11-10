@@ -12,11 +12,11 @@
   {
     "username": "CHATGPT",
     "displayName": "ChatGpt",
-    "languages": "Multiple, with real-time understanding and modifications",
+    "languages": "Multiple",
     "avatarUrl": "https://avatars.githubusercontent.com/u/14957082?s=200&v=4",
     "profileUrl": "https://openai.com/chatgpt",
-    "bio": "AI language model designed by OpenAI to assist, create, and learn with humans.",
+    "bio": "AI language model designed by OpenAI.",
     "role": "AI Assistant",
-    "description": "ChatGPT is your always-available partner for coding, writing, researching, and exploring creative ideas."
+    "description": "for debuging."
   }
 ]

@@ -289,8 +289,7 @@ class PlayerServiceModern : MediaLibraryService(),
         coroutineScope.launch {
             connectivityObserver.networkStatus.collect { isAvailable ->
                 isNetworkAvailable.value = isAvailable
-                Timber.d("PlayerServiceModern network status: $isAvailable")
-                println("PlayerServiceModern network status: $isAvailable")
+                        Timber.d("PlayerServiceModern network status: $isAvailable")
                 if (isAvailable && waitingForNetwork.value) {
                     waitingForNetwork.value = false
                     withContext( Dispatchers.Main ) {
@@ -522,9 +521,7 @@ class PlayerServiceModern : MediaLibraryService(),
 
         // Ensure that song is updated
         currentSong.debounce(1000).collect(coroutineScope) { song ->
-            println("PlayerServiceModern onCreate currentSong $song")
             updateDownloadedState()
-            println("PlayerServiceModern onCreate currentSongIsDownloaded ${currentSongStateDownload.value}")
 
             updateDefaultNotification()
             withContext(Dispatchers.Main) {
@@ -547,7 +544,6 @@ class PlayerServiceModern : MediaLibraryService(),
 
             val scheduler = Executors.newScheduledThreadPool(1)
             scheduler.scheduleWithFixedDelay({
-                println("PlayerServiceModern onCreate savePersistentQueue")
                 maybeSavePlayerQueue()
             }, 0, 30, TimeUnit.SECONDS)
 
@@ -725,15 +721,24 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        println("PlayerServiceModern onMediaItemTransition mediaItem $mediaItem reason $reason")
+
         currentMediaItem.update { mediaItem }
         maybeRecoverPlaybackError()
         maybeNormalizeVolume()
         loadFromRadio(reason)
         // Update bitmap with proper fallback handling
-        bitmapProvider.load(binder.player.currentMediaItem?.mediaMetadata?.artworkUri) {
-            updateDefaultNotification()
-            updateWidgets()
+        val artworkUri = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
+        if (artworkUri != null) {
+            bitmapProvider.load(artworkUri) {
+                updateDefaultNotification()
+                updateWidgets()
+            }
+        } else {
+            // If no artwork, force the use of the default bitmap
+            bitmapProvider.load(null) {
+                updateDefaultNotification()
+                updateWidgets()
+            }
         }
 
         /**
@@ -933,7 +938,7 @@ class PlayerServiceModern : MediaLibraryService(),
 
     private fun maybeReverb() {
         val presetType = preferences.getEnum(audioReverbPresetKey, PresetsReverb.NONE)
-        println("PlayerServiceModern maybeReverb presetType $presetType")
+
         if (presetType == PresetsReverb.NONE) {
             runCatching {
                 reverbPreset?.enabled = false
@@ -1417,7 +1422,7 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     private fun maybeSavePlayerQueue() {
-        println("PlayerServiceModern onCreate savePersistentQueue")
+
         if (!isPersistentQueueEnabled) return
         println("PlayerServiceModern onCreate savePersistentQueue is enabled")
 
@@ -1577,7 +1582,7 @@ class PlayerServiceModern : MediaLibraryService(),
             currentSongIsDownloaded.value = false
         }
         */
-        println("PlayerServiceModern updateDownloadedState downloads count ${downloads.size} currentSongIsDownloaded ${currentSong.value?.id}")
+
         updateDefaultNotification()
 
     }
@@ -1862,7 +1867,7 @@ class PlayerServiceModern : MediaLibraryService(),
         }
 
         fun toggleDownload() {
-            println("PlayerServiceModern toggleDownload currentMediaItem ${currentMediaItem.value} currentSongIsDownloaded ${currentSongStateDownload.value}")
+    
             manageDownload(
                 context = this@PlayerServiceModern,
                 mediaItem = currentMediaItem.value ?: return,

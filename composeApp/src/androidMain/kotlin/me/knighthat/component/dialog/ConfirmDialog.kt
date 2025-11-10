@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,29 +21,35 @@ interface ConfirmDialog: InteractiveDialog {
 
     @Composable
     override fun Buttons() = Row(
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
-                           .padding( horizontal = 5.dp )
     ) {
-        InteractiveDialog.CancelButton(
-            modifier = InteractiveDialog.ButtonModifier()
-                                        .weight( 1f )       // Let size be flexible
-                                        .fillMaxWidth( .98f )   // Creates some space between buttons
-                                        .border(
-                                            width = 2.dp,
-                                            color = Color( android.graphics.Color.RED ).copy( alpha = .3f ),
-                                            shape = RoundedCornerShape(20)
-                                        )
-                                        .padding( vertical = 10.dp ),
-            onCancel = ::hideDialog
-        )
-        InteractiveDialog.ConfirmButton(
-            modifier = InteractiveDialog.ButtonModifier()
-                                        .weight( 1f )       // Let size be flexible
-                                        .fillMaxWidth( .98f )       // Creates some space between buttons
-                                        .background( colorPalette().accent )
-                                        .padding( vertical = 10.dp ),
-            onConfirm = ::onConfirm
-        )
+        Button(
+            onClick = ::hideDialog,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorPalette().background2,
+                contentColor = colorPalette().text
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            InteractiveDialog.CancelButton(
+                onCancel = ::hideDialog
+            )
+        }
+        
+        Button(
+            onClick = ::onConfirm,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorPalette().accent,
+                contentColor = colorPalette().textSecondary
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            InteractiveDialog.ConfirmButton(
+                onConfirm = ::onConfirm
+            )
+        }
     }
 }

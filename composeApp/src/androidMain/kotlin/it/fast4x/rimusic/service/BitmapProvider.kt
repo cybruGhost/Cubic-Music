@@ -68,6 +68,15 @@ class BitmapProvider(
 
     fun load(uri: Uri?, onDone: (Bitmap) -> Unit) {
         Timber.d("BitmapProvider load method being called")
+        
+        // If URI is null, use the default bitmap
+        if (uri == null) {
+            lastUri = null
+            lastBitmap = null
+            onDone(bitmap)
+            return
+        }
+        
         if (lastUri == uri) {
             listener?.invoke(lastBitmap)
             return
@@ -78,7 +87,7 @@ class BitmapProvider(
 
         runCatching {
             val imageRequest = ImageRequest.Builder(appContext())
-                .data(uri?.thumbnail(bitmapSize)?.toString())
+                .data(uri.thumbnail(bitmapSize).toString())
                 .allowHardware(false)
                 .listener(
                     onError = { _, result ->

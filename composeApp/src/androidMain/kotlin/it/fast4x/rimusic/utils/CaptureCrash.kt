@@ -22,7 +22,7 @@ class CaptureCrash (private val LOG_PATH: String) : Thread.UncaughtExceptionHand
 
             val logFile = File(
                 LOG_PATH,
-                "Cubic-Music_crash_log.txt"
+                "N-Zik_crash_log.txt"
             )
             if (!logFile.exists()) {
                 logFile.createNewFile()

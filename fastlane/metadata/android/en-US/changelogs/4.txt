@@ -1,6 +1,6 @@
 New:
-- New Crowdin updates by @cybrughost in #24
-- New Crowdin updates by @cybrughost in #31
+- New Crowdin updates by @NEVARLeVrai in #24
+- New Crowdin updates by @NEVARLeVrai in #31
 
 Improvements
 - Removed all usages of ShimmerHost in favor of dedicated placeholder components for shimmer/loading effects.

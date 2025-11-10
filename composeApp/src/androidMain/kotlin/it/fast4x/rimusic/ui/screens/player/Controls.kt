@@ -149,7 +149,7 @@ fun Controls(
                 .distinctUntilChanged()
     }.collectAsState( null, Dispatchers.IO )
 
-    println("Controls currentSong: ${currentSong?.title}")
+
 
     /*
     var scrubbingPosition by remember(mediaId) {

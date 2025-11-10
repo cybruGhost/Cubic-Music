@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,24 +51,20 @@ object RestartAppDialog: ConfirmDialog {
 
     @Composable
     override fun Buttons() {
-        BasicText(
-            text = stringResource( R.string.confirm ),
-            style = typography().xs
-                                .medium
-                                .copy(
-                                    color = colorPalette().accent,
-                                    textAlign = TextAlign.Center
-                                ),
-            modifier = InteractiveDialog.ButtonModifier()
-                                        .fillMaxWidth( .98f )       // Creates some space between buttons
-                                        .border(
-                                            width = 2.dp,
-                                            color = colorPalette().accent,
-                                            shape = RoundedCornerShape(20)
-                                        )
-                                        .padding( vertical = 10.dp )
-                                        .clickable( onClick = ::onConfirm )
-        )
+        Button(
+            onClick = ::onConfirm,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorPalette().accent,
+                contentColor = colorPalette().textSecondary
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            BasicText(
+                text = stringResource( R.string.confirm ),
+                style = typography().s.medium
+            )
+        }
     }
 
     @Composable

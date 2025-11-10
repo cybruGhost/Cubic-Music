@@ -632,7 +632,7 @@ fun CenterPanelContent(
                     )
             )
             Text(
-                text = "Cubic-Music",
+                text = "N-ZIK",
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color.White,
                 modifier = Modifier

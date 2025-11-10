@@ -15,6 +15,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import coil3.compose.AsyncImage
+import coil3.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -246,7 +248,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import me.knighthat.coil.ImageCacheFactory
 import me.knighthat.component.player.BlurAdjuster
 import me.knighthat.utils.Toaster
 import kotlin.Float.Companion.POSITIVE_INFINITY
@@ -722,24 +723,24 @@ fun Player(
                 playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient ||
                 playerBackgroundColors == PlayerBackgroundColors.AnimatedGradient
 
-        println("Player url mediaitem ${mediaItem.mediaMetadata.artworkUri}")
-        println("Player url binder ${binder.player.currentWindow?.mediaItem?.mediaMetadata?.artworkUri}")
     LaunchedEffect(mediaItem.mediaId, updateBrush) {
         if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient ||
             playerBackgroundColors == PlayerBackgroundColors.CoverColor ||
+            playerBackgroundColors == PlayerBackgroundColors.ThemeColorGradient ||
             playerBackgroundColors == PlayerBackgroundColors.AnimatedGradient || updateBrush
         ) {
             try {
+                val imageUrl = mediaItem.mediaMetadata.artworkUri.thumbnail(1200).toString()
                 val bitmap = getBitmapFromUrl(
                     context,
-                    binder.player.currentWindow?.mediaItem?.mediaMetadata?.artworkUri.thumbnail(1200).toString()
+                    imageUrl
                 )
 
                 dynamicColorPalette = dynamicColorPaletteOf(
                     bitmap,
                     !lightTheme
                 ) ?: color
-                println("Player INSIDE getting dynamic color $dynamicColorPalette")
+        
 
                 val palette = Palette.from(bitmap).generate()
 
@@ -753,10 +754,9 @@ fun Player(
 
             } catch (e: Exception) {
                 dynamicColorPalette = color
-                println("Player Error getting dynamic color ${e.printStackTrace()}")
+
             }
         }
-        println("Player after getting dynamic color $dynamicColorPalette")
     }
 
     var sizeShader by remember { mutableStateOf(Size.Zero) }
@@ -1029,7 +1029,7 @@ fun Player(
                     .background(
                         Brush.verticalGradient(
                             0.5f to if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient) dynamicColorPalette.background1 else colorPalette().background1,
-                            1.0f to if (blackgradient) Color.Black else colorPalette().background2,
+                            1.0f to if (blackgradient) Color.Black else if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient) dynamicColorPalette.background2 else colorPalette().background2,
                             startY = 0.0f,
                             endY = 1500.0f
                         )
@@ -1437,8 +1437,8 @@ fun Player(
                                          .conditional(fadingedge) {horizontalFadingEdge()}
                                      ) {
 
-                                     val coverPainter = ImageCacheFactory.Painter(
-                                         binder.player.getMediaItemAt( it ).mediaMetadata.artworkUri.toString()
+                                     val coverPainter = rememberAsyncImagePainter(
+                                         model = binder.player.getMediaItemAt( it ).mediaMetadata.artworkUri.toString()
                                      )
 
                                      val coverModifier = Modifier
@@ -2007,8 +2007,8 @@ fun Player(
                                          }
                                  ){
 
-                                     val coverPainter = ImageCacheFactory.Painter(
-                                         binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString()
+                                     val coverPainter = rememberAsyncImagePainter(
+                                         model = binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString()
                                      )
 
                                      val coverModifier = Modifier

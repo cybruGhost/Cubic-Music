@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +23,7 @@ import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.utils.bold
 import it.fast4x.rimusic.utils.isLandscape
+import it.fast4x.rimusic.utils.semiBold
 
 interface Dialog {
 
@@ -102,38 +105,43 @@ interface Dialog {
             if( isLandscape ) MAX_HEIGHT_LANDSCAPE else MAX_HEIGHT_PORTRAIT
 
         androidx.compose.ui.window.Dialog( ::hideDialog ) dialogComp@ {
-            Column(
+            Card(
                 modifier = Modifier.wrapContentSize()
                                    .sizeIn(
                                        maxWidth = screenWidthDp * maxWidth,
                                        maxHeight = screenHeightDp * maxHeight
                                    )
-                                   .background(
-                                       color = colorPalette().background0,
-                                       shape = RoundedCornerShape( 8.dp )
-                                   )
-                                   .padding( vertical = VERTICAL_PADDING.dp ),
-                horizontalAlignment = Alignment.CenterHorizontally
+                                   .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorPalette().background1
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Box(
-                    Modifier.padding( bottom = 8.dp )
-                            .fillMaxWidth( .9f )
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    BasicText(
-                        text = dialogTitle,
-                        style = typography().m.bold,
-                    )
-                }
+                    Box(
+                        Modifier.padding( bottom = 8.dp )
+                                .fillMaxWidth( .9f )
+                    ) {
+                        BasicText(
+                            text = dialogTitle,
+                            style = typography().l.semiBold.copy(
+                                color = colorPalette().text
+                            ),
+                        )
+                    }
 
-                HorizontalDivider( Modifier.fillMaxWidth( .95f ) )
-
-                Spacer( Modifier.height( SPACE_BETWEEN_SECTIONS.dp ) )
-
-                DialogBody()
-
-                if( this@Dialog is InteractiveDialog ) {
                     Spacer( Modifier.height( SPACE_BETWEEN_SECTIONS.dp ) )
-                    Buttons()
+
+                    DialogBody()
+
+                    if( this@Dialog is InteractiveDialog ) {
+                        Spacer( Modifier.height( SPACE_BETWEEN_SECTIONS.dp ) )
+                        Buttons()
+                    }
                 }
             }
         }
