@@ -83,7 +83,7 @@
 
 ## 📊 Download Statistics (Live Tracking)
 
-**All downloads are automatically tracked in real-time:**
+**All downloads in real-time:**
 
 <div align="center">
 
