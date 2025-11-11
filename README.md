@@ -14,7 +14,7 @@
 - The project is maintained, and will only be updated when i fix bugs or add features as i Learn Kotlin skills!</p>
 
 </div>
-
+![Latest Version](https://img.shields.io/badge/version-v1.7.4-blue)
 ---
 ![1000528569](https://github.com/user-attachments/assets/38573f27-38ac-474a-be9f-6c0d7f1f6eeb)
 
