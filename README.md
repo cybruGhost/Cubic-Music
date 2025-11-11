@@ -8,6 +8,7 @@
 [![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
 [![Localization Progress](https://badges.crowdin.net/N-Zik/localized.svg)](https://crowdin.com/project/N-Zik)  
 [![License: GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
+[![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version&cacheSeconds=3600)](https://github.com/cybruGhost/Cubic-Music/releases/latest)
 
 <p><b>CubicMusic</b> is an evolving streaming app focused on smooth music playback and user experience.  
 - While it might not be as polished as some mature apps yet, it’s a solid,and Goodlooking, and lightweight alternative.  
@@ -82,4 +83,3 @@ All trademarks and intellectual property belong to their respective owners..
 ---
 
 <p align="center">made by a learner <a href="https://github.com/cybruGhost">cybruGhost</a></p>
-[![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version&cacheSeconds=3600)](https://github.com/cybruGhost/Cubic-Music/releases/latest)
