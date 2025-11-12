@@ -258,14 +258,14 @@ All imported playlists are standardized into this format:
 csv
 Copy code
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
-,Imported Playlist,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
+,Imported Playlist,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://yt.omada.cafe/vi/1pEe7-tWv2M/hqdefault.jpg
 Key Points:
 
 MediaId → raw YouTube video ID (no prefixes)
 
 Duration → in seconds
 
-ThumbnailUrl → Invidious format (https://inv.perditum.com/vi/<MediaId>/hqdefault.jpg)
+ThumbnailUrl → Invidious format (https://yt.omada.cafe//vi/<MediaId>/hqdefault.jpg)
 
 PlaylistName → derived from CSV or filename
 
