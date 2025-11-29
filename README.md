@@ -146,7 +146,7 @@ ThumbnailUrl
 
 🧱 2. Extended App Format (With Album Info)
 csv
-Copy code
+
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl,AlbumId,AlbumTitle,ArtistIds
 ,MyPlaylist,abc123,Song Title,Artist Name,180,https://example.com/thumb.jpg,album123,Album Name,artist123
 Required Columns:
@@ -173,7 +173,7 @@ ArtistIds
 
 🎧 3. Spotify Export Format
 c
-Copy code
+
 Track Name,Artist Name(s),Track Duration (ms),Album Name,Album Image URL,Explicit
 Blinding Lights,The Weeknd,200040,After Hours,https://i.scdn.co/image/ab67616d0000b273,false
 Dance Monkey,Tones and I,209320,The Kids Are Coming,https://i.scdn.co/image/ab67616d0000b273,false
@@ -193,7 +193,7 @@ Explicit (true/false)
 
 💽 4. Exportify Format (Enhanced Spotify Export)
 csv
-Copy code
+
 Track URI,Track Name,Artist Name(s),Album Name,Album Image URL,Track Duration (ms),Explicit,Playlist Name
 spotify:track:123,Blinding Lights,The Weeknd,After Hours,https://i.scdn.co/image/ab67616d0000b273,200040,false,My Spotify Playlist
 spotify:track:456,Dance Monkey,Tones and I,The Kids Are Coming,https://i.scdn.co/image/ab67616d0000b273,209320,false,My Spotify Playlist
@@ -217,7 +217,7 @@ Playlist Name
 
 🪶 5. Custom Format (Minimal)
 csv
-Copy code
+
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration
 ,MyPlaylist,abc123,Song Title,Artist Name,180
 ,MyPlaylist,def456,Another Song,Another Artist,240
@@ -256,7 +256,7 @@ Exportify
 All imported playlists are standardized into this format:
 
 csv
-Copy code
+
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 ,Imported Playlist,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://yt.omada.cafe/vi/1pEe7-tWv2M/hqdefault.jpg
 Key Points:
