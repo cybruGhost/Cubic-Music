@@ -1,7 +1,7 @@
 # Cubic Music 🎵 NEW RELEASE
 ---
 
-## ❤️ Support The Cube
+## ❤️ Support the project❣️
 
 If you enjoy our work and want to support development, you can buy us a coffee ☕  
 
