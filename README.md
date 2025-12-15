@@ -56,7 +56,7 @@ Every bit of support helps keep cubicmusic growing 🚀
 - **Background Playback**
 - **Listening Statistics & History**
 - **Audio Visualizer** with multiple styles
-- **Music Discovery** by mood, genre, & new albums
+
 
 ### 📝 Lyrics & Playlists
 - **Lyrics** (fetch, edit, translate, synced/unsynced)
