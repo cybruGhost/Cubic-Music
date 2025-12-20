@@ -43,7 +43,17 @@ Every bit of support helps keep cubicmusic growing 🚀
 ---
 
 ## ✨ Key Features
+## 🔁 Music Rewind (soon)
 
+**Cubic Music Rewind** is Cubic Music’s version of Spotify Wrapped — a smart recap of your listening habits.
+
+It shows:
+- 🎧 Top songs & artists  
+- ⏱️ Total listening time  
+- 🔥 Favorite genres & moods  
+- 📅 Listening streaks & highlights  
+
+Your music. Your stats. Your story — ready to relive and share.
 ### 🆕 Latest Additions
 - **Spotify Playlists Support** - Import your favorite playlists
 - **Explicit Content Tags** - Know what you're listening to  
