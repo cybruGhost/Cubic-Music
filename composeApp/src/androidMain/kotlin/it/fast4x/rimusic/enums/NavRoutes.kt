@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 enum class NavRoutes {
+    welcome, 
     home,
     album,
     artist,
@@ -23,6 +24,8 @@ enum class NavRoutes {
     settings,
     statistics,
     newAlbums,
+    rewind,
+    donate,
     moodsPage,
     podcast,
     artistAlbums;

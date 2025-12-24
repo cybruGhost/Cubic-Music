@@ -66,7 +66,7 @@ private fun none(): ContentTransform = EnterTransition.None togetherWith ExitTra
 @Composable
 fun transition(): AnimatedContentTransitionScope<Int>.() -> ContentTransform {
 
-    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
 
     return {
         when( transitionEffect ) {

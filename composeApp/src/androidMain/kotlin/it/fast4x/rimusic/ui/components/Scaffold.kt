@@ -76,7 +76,7 @@ fun Scaffold(
     modifier: Modifier = Modifier,
     content: @Composable AnimatedVisibilityScope.(Int) -> Unit
 ) {
-    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
     val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
 
     if ( NavigationBarPosition.Top.isCurrent() || NavigationBarPosition.Bottom.isCurrent() ) {

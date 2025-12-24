@@ -1,5 +1,6 @@
 package it.fast4x.rimusic.ui.components.themed
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -31,10 +32,10 @@ class DropdownMenu(
     fun components() = remember { _components }
 
     @Composable
-    fun add( item: Item) = _components.add { item.Draw() }
+    fun add(item: Item) = _components.add { item.Draw() }
 
     @Composable
-    fun add( component: @Composable () -> Unit) = _components.add( component )
+    fun add(component: @Composable () -> Unit) = _components.add(component)
 
     @Composable
     fun Draw() {
@@ -55,16 +56,16 @@ class DropdownMenu(
         val padding: Dp = Dp.Hairline,
         val colors: MenuItemColors? = null,
         val modifier: Modifier = Modifier,
+        val iconType: IconType = IconType.Vector, // New parameter to specify icon type
         val onClick: () -> Unit
     ) {
 
         companion object {
-
             @Composable
             fun colors(): MenuItemColors {
                 return MenuItemColors(
-                    leadingIconColor =  colorPalette().favoritesIcon,
-                    trailingIconColor =  colorPalette().favoritesIcon,
+                    leadingIconColor = colorPalette().favoritesIcon,
+                    trailingIconColor = colorPalette().favoritesIcon,
                     textColor = colorPalette().textSecondary,
                     disabledTextColor = colorPalette().text,
                     disabledLeadingIconColor = colorPalette().text,
@@ -76,20 +77,40 @@ class DropdownMenu(
         @Composable
         fun Draw() {
             val icon: @Composable () -> Unit = {
-                Icon(
-                    painter = painterResource( iconId ),
-                    contentDescription = null,
-                    modifier = modifier.size( 24.dp )
-                )
+                when (iconType) {
+                    IconType.Vector -> {
+                        // For vector icons (should be tinted)
+                        Icon(
+                            painter = painterResource(iconId),
+                            contentDescription = null,
+                            modifier = modifier.size(size),
+                            tint = (colors ?: colors()).leadingIconColor
+                        )
+                    }
+                    IconType.Image -> {
+                        // For WebP/PNG images (no tint - keep original colors)
+                        Image(
+                            painter = painterResource(iconId),
+                            contentDescription = null,
+                            modifier = modifier.size(size)
+                        )
+                    }
+                }
             }
 
             DropdownMenuItem(
                 enabled = true,
                 colors = colors ?: colors(),
-                text = { Text( stringResource(textId) ) },
+                text = { Text(stringResource(textId)) },
                 leadingIcon = icon,
                 onClick = onClick
             )
         }
+    }
+    
+    // Helper enum to distinguish between icon types
+    enum class IconType {
+        Vector, // Drawable vector - should be tinted
+        Image   // Bitmap image (WebP/PNG) - should NOT be tinted
     }
 }

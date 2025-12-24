@@ -55,6 +55,17 @@ import rimusic.composeapp.generated.resources.playlists_you_might_like
 import rimusic.composeapp.generated.resources.related_albums
 import rimusic.composeapp.generated.resources.similar_artists
 
+//rewind
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import com.mikepenz.hypnoticcanvas.shaderBackground
+import com.mikepenz.hypnoticcanvas.shaders.BlackCherryCosmos
+import com.mikepenz.hypnoticcanvas.shaders.GoldenMagma
+import kotlin.random.Random
+import java.time.LocalDate
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QuickPicsScreen(

@@ -47,7 +47,7 @@ fun ArtistScreenModern(
     val saveableStateHolder = rememberSaveableStateHolder()
 
     // Settings
-    val transitionEffect by rememberPreference( transitionEffectKey, TransitionEffect.Scale )
+    val transitionEffect by rememberPreference( transitionEffectKey, TransitionEffect.SlideHorizontal )
     val playerPosition by rememberPreference( playerPositionKey, PlayerPosition.Bottom )
 
 

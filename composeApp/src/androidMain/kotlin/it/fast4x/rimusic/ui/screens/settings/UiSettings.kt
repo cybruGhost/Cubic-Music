@@ -562,7 +562,7 @@ fun UiSettings(
     var showOnDevicePlaylist by rememberPreference(showOnDevicePlaylistKey, true)
     var showFloatingIcon by rememberPreference(showFloatingIconKey, false)
     var menuStyle by rememberPreference(menuStyleKey, MenuStyle.List)
-    var transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    var transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
 
     var showPipedPlaylists by rememberPreference(showPipedPlaylistsKey, true)
     var showPinnedPlaylists by rememberPreference(showPinnedPlaylistsKey, true)

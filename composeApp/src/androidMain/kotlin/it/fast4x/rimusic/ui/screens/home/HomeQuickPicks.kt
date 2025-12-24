@@ -146,6 +146,17 @@ import kotlin.time.Duration.Companion.days
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 
+//rewind
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import com.mikepenz.hypnoticcanvas.shaderBackground
+import com.mikepenz.hypnoticcanvas.shaders.BlackCherryCosmos
+import com.mikepenz.hypnoticcanvas.shaders.GoldenMagma
+import kotlin.random.Random
+import java.time.LocalDate
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalTextApi
@@ -168,6 +179,11 @@ fun HomeQuickPicks(
     val menuState = LocalMenuState.current
     val windowInsets = LocalPlayerAwareWindowInsets.current
     var playEventType by rememberPreference(playEventsTypeKey, PlayEventsType.CasualPlayed)
+// ===== ADDEED THE REWIND SECTION HERE =====
+// Check if current date is between Dec 6th and Dec 31st
+val calendar = java.util.Calendar.getInstance()
+val currentMonth = calendar.get(java.util.Calendar.MONTH) // 0-11, where 11=December
+val currentDay = calendar.get(java.util.Calendar.DAY_OF_MONTH)
 
     var trendingList by remember { mutableStateOf<List<Song>>(emptyList()) }
     var trending by persist<Song?>("home/trending")
@@ -728,6 +744,73 @@ runCatching {
                         }
                     }
                 }
+
+// Show only from December 6th (month=11, day>=6) to December 31st (month=11, day<=31)
+if (currentMonth == 11 && currentDay in 6..31) {
+    val currentYear = calendar.get(java.util.Calendar.YEAR)
+    
+    // Randomly select between BlackCherryCosmos and GoldenMagma
+    val selectedShader = remember { 
+        if (Random.nextBoolean()) BlackCherryCosmos else GoldenMagma
+    }
+    
+    Spacer(modifier = Modifier.height(16.dp))
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(80.dp) // Slightly taller for better proportions
+            .clip(RoundedCornerShape(20.dp)) // Curvy edges with 20dp radius
+            .shaderBackground(selectedShader) // Use the randomly selected shader
+            .clickable {
+                // Navigate to Rewind screen
+                navController.navigate("rewind")
+            }
+    ) {
+        // Subtle overlay for better text readability on both shaders
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    if (selectedShader == BlackCherryCosmos) 
+                        Color.Black.copy(alpha = 0.15f)  // Darker overlay for dark cosmic background
+                    else 
+                        Color.Black.copy(alpha = 0.1f)   // Lighter overlay for golden magma
+                )
+        )
+        
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            BasicText(
+                text = "REWIND",
+                style = typography().m.bold.color(Color.White),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Spacer(modifier = Modifier.height(6.dp)) // Slightly more spacing
+            
+            BasicText(
+                text = "$currentYear",
+                style = typography().s.semiBold.color(
+                    if (selectedShader == BlackCherryCosmos)
+                        Color.LightGray  // Light gray for dark background
+                    else
+                        Color.White.copy(alpha = 0.9f)  // White with transparency for golden background
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+}
+// ===== END REWIND SECTION =====
 
                 if (showRelatedAlbums)
                     relatedInit?.albums?.let { albums ->

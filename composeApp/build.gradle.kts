@@ -134,7 +134,7 @@ android {
         minSdk = 23
         targetSdk = 36
         versionCode = 108
-        versionName = "1.7.4"
+        versionName = "1.7.5"
 
         /*
                 UNIVERSAL VARIABLES
@@ -282,6 +282,8 @@ dependencies {
     implementation (libs.hypnoticcanvas)
     implementation (libs.hypnoticcanvas.shaders)
     implementation(libs.github.jeziellago.compose.markdown)
+// In your build.gradle.kts or build.gradle
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     implementation(libs.room)
     ksp(libs.room.compiler)

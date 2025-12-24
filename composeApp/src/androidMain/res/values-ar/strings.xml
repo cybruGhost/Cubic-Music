@@ -768,7 +768,7 @@
   <string name="center">Center</string>
   <string name="lyricsalignment">Lyrics Alignment</string>
   <string name="lang_azerbaijani">Azerbaijani</string>
-  <string name="translators">Translators</string>
+  <string name="translators">Designers </string>
   <string name="lang_tamil">Tamil</string>
   <string name="player_auto_load_songs_in_queue">Auto load songs in queue</string>
   <string name="player_auto_load_songs_in_queue_description">Adds songs when the queue is about to end</string>
@@ -808,7 +808,7 @@
   <string name="good_morning">Good Morning🌞</string> 
   <string name="good_night">Good Night🌘</string>
   <string name="colored_bar">Colored bar</string>
-  <string name="about_developers_designers">Developers / Designers</string>
+  <string name="about_developers_designers">App Developers</string>
   <string name="set_custom_value">Custom value</string>
   <string name="title_youtube_music">YOUTUBE MUSIC</string>
   <string name="enable_youtube_music_login">Enable YouTube Music Login</string>

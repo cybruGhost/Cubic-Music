@@ -87,7 +87,7 @@ fun ScaffoldTB(
     //val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     //var expanded by remember { mutableStateOf(false) }
-    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
     val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
 
     androidx.compose.material3.Scaffold(

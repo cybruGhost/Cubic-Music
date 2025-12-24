@@ -60,7 +60,7 @@ fun LocalPlaylistScreen(
     modifier: Modifier = Modifier,
     miniPlayer: @Composable () -> Unit = {}
 ) {
-    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
     val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
     val saveableStateHolder = rememberSaveableStateHolder()
     PersistMapCleanup(tagPrefix = "localPlaylist/$playlistId/")

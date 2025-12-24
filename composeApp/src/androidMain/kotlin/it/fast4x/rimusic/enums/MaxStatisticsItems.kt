@@ -10,7 +10,8 @@ enum class MaxStatisticsItems: TextView {
     `40`,
     `50`,
     `100`,
-    `250`;  // Add this line
+    `250`,
+    `750`;  // Added this for fun
 
     override val text: String
         @Composable

@@ -61,6 +61,8 @@ import it.fast4x.rimusic.ui.screens.newreleases.NewreleasesScreen
 import it.fast4x.rimusic.ui.screens.player.Queue
 import it.fast4x.rimusic.ui.screens.playlist.PlaylistScreen
 import it.fast4x.rimusic.ui.screens.podcast.PodcastScreen
+import it.fast4x.rimusic.ui.screens.rewind.RewindScreen
+import it.fast4x.rimusic.ui.screens.donate.DonateScreen
 import it.fast4x.rimusic.ui.screens.search.SearchScreen
 import it.fast4x.rimusic.ui.screens.searchresult.SearchResultScreen
 import it.fast4x.rimusic.ui.screens.settings.SettingsScreen
@@ -88,7 +90,7 @@ fun AppNavigation(
     miniPlayer: @Composable () -> Unit = {},
     openTabFromShortcut: Int
 ) {
-    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.Scale)
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
 
     @Composable
     fun modalBottomSheetPage(content: @Composable () -> Unit) {
@@ -110,7 +112,6 @@ fun AppNavigation(
                 Surface(
                     modifier = Modifier.padding(vertical = 0.dp),
                     color = Color.Transparent,
-                    //shape = thumbnailShape
                 ) {}
             },
             shape = thumbnailRoundness.shape
@@ -170,14 +171,12 @@ fun AppNavigation(
             modalBottomSheetPage {
                 Pacman()
             }
-
         }
 
         composable(route = NavRoutes.gameSnake.name) {
             modalBottomSheetPage {
                 SnakeGame()
             }
-
         }
 
         composable(route = NavRoutes.queue.name) {
@@ -289,8 +288,21 @@ fun AppNavigation(
             HistoryScreen(
                 navController = navController,
                 miniPlayer = miniPlayer,
+            )
+        }
 
-                )
+        // Add Rewind screen here
+        composable(route = NavRoutes.rewind.name) {
+            RewindScreen(
+                navController = navController,
+                miniPlayer = miniPlayer,
+            )
+        }
+  // Fixed Donate screen 
+        composable(route = NavRoutes.donate.name) {
+            DonateScreen(
+                onBackClick = { navController.popBackStack() }
+            )
         }
 
         composable(

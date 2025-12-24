@@ -9,6 +9,16 @@
     "role": "Founder & Lead Developer",
     "description": "Cyberghost is passionate about cybersecurity, AI, and building useful digital experiences for everyone."
   },
+    {
+    "username": "carolwaigwe24",
+    "displayName": "Blessed",
+    "languages": "English",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/204871333?v=4",
+    "profileUrl": "https://github.com/carolwaigwe24",
+    "bio": "Open-source enthusiast and UI/UX designer.",
+    "role": "Inspiration / Design Reference",
+    "description": "Assisted in designing the Rewind feature, including its UI/UX and underlying logic."
+  },
   {
     "username": "CHATGPT",
     "displayName": "ChatGpt",
@@ -17,6 +27,6 @@
     "profileUrl": "https://openai.com/chatgpt",
     "bio": "AI language model designed by OpenAI.",
     "role": "AI Assistant",
-    "description": "for debuging."
+    "description": "For debugging."
   }
 ]
