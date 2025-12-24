@@ -30,6 +30,7 @@ Every bit of support helps keep cubicmusic growing 🚀
 ---
 
 ![Cubic Music Banner](https://github.com/user-attachments/assets/38573f27-38ac-474a-be9f-6c0d7f1f6eeb)
+.\Cubic-Music-main\assets\scrrenshot.jpeg
 
 ## 🎵 About Cubic Music
 
