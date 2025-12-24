@@ -1,0 +1,8 @@
+Fixed:
+- Minor Fixes: Various adjustments to enhance overall user experience and consistency.
+- Crash Fix: Resolved a crash issue for improved stability.
+
+New:
+- New Crowdin updates by @NEVARLeVrai in #3
+- Vector Icons: Refined and optimized for improved cross-platform compatibility.
+- Visual Enhancements: Updated icon design for a more modern and polished user interface.

@@ -1,0 +1,4 @@
+Bug Fixes:
+- Fixed a crash that occurred when changing the app language due to a null locale reference in AppCompatDelegate.getApplicationLocales().
+- Added proper null checks to prevent NullPointerException when retrieving the current system locale. #33
+- Commit 7e9814b

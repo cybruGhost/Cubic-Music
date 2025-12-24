@@ -1,0 +1,27 @@
+New:
+- New Logo
+- Removed Music logo and added N-Zik name
+- New Settings UI
+- New Changelogs UI
+- New Update UI
+- New Network Settings categorization
+- You can enable BETA build check for build FUll and BETA by default, minified is excluded
+- If you have BETA build it will automatically update to the most recent BETA or FULL version
+
+Changed:
+- Updated Dependencies
+- Moved Update section to About
+- Quickpicks settings renamed to AI recommendations (now includes all AI settings)
+- Translated Easter eggs messages
+- Renamed RiMusic logs to N-Zik
+- Renamed RiMusic interface to N-Zik
+
+Improved:
+- Default purple slightly lighter for better readability on dark areas
+- Misleading UI in settings
+
+Fixed:
+- Known Bugs
+- Discord RPC not working for some users
+- Avoid division by 0 in data tabs
+- Crash logs should now be working

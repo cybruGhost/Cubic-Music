@@ -1,0 +1,6 @@
+Changed:
+- Updated dependencies
+
+Bug Fixes:
+- Fixed cache of image, it should recover even with bad connection
+- Fixed a crash once you searched some specifics songs
