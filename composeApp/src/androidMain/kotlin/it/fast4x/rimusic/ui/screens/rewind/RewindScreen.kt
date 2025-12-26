@@ -41,6 +41,7 @@ import androidx.compose.ui.layout.ContentScale
 
 // Import your slide components
 import it.fast4x.rimusic.ui.screens.rewind.slides.*
+import it.fast4x.rimusic.ui.screens.rewind.slides.AfterTopArtistsSlide
 
 
 // Professional shader backgrounds (only for loading screen)
@@ -60,7 +61,8 @@ fun RewindScreen(
     val currentYear = LocalDate.now().year
     
     // Main pager state for slides - REDUCED TO 8 SLIDES (removed daily/hourly)
-    val mainPagerState = rememberPagerState(pageCount = { 8 })
+   // Change from 8 to 9 slides
+    val mainPagerState = rememberPagerState(pageCount = { 10 })
     
     LaunchedEffect(Unit) {
         try {
@@ -144,28 +146,35 @@ fun RewindScreen(
                                 scope.launch { mainPagerState.animateScrollToPage(5) }
                             }
                         )
-                        5 -> TopAlbumsSlide(
+                        5 -> AfterTopArtistsSlide( // NEW SLIDE ADDED HERE
+                            topArtist = data?.topArtists?.firstOrNull(), // Get #1 artist
+                            onNext = { 
+                                scope.launch { mainPagerState.animateScrollToPage(6) } // Next is now 6
+                            }
+                        )
+                        6 -> TopAlbumsSlide( // Changed from 5 to 6
                             albums = data?.topAlbums ?: emptyList(),
                             onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(6) }
+                                scope.launch { mainPagerState.animateScrollToPage(7) } // Changed from 6 to 7
                             }
                         )
-                        6 -> MonthlyStatsSlide(
+                        7 -> MonthlyStatsSlide( // Changed from 6 to 7
                             monthlyStats = data?.monthlyStats ?: emptyList(),
                             onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(7) }
+                                scope.launch { mainPagerState.animateScrollToPage(8) } // Changed from 7 to 8
                             }
                         )
-                        7 -> BestOfAllSlide(  // Changed from 8 to 6
+                        8 -> BestOfAllSlide( // Changed from 7 to 8
                             data = data ?: createEmptyRewindData(currentYear),
                             onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(8) }
+                                scope.launch { mainPagerState.animateScrollToPage(9) } // Changed from 8 to 9
                             }
                         )
-                        8 -> DonateSlide(  // Changed from 9 to 7
+                        9 -> DonateSlide( // Changed from 8 to 9
                             onNext = {
                                 scope.launch { mainPagerState.animateScrollToPage(0) }
                             }
+
                         )
                     }
                 }
@@ -183,7 +192,7 @@ fun RewindScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        repeat(8) { index ->  // Changed from 10 to 8
+                        repeat(10) { index ->  // Changed from 10 to 8
                             Box(
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)

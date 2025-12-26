@@ -44,13 +44,13 @@ Every bit of support helps keep cubicmusic growing 🚀
 
 ---
 
-## 🚀 Current Version: `v1.7.4`  
+## 🚀 Current Version: `v1.7.5`  
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
 
 ## ✨ Key Features
-## 🔁 Music Rewind (soon)
+## 🔁 Music Rewind (new)
 
 **Cubic Music Rewind** is Cubic Music’s version of Spotify Wrapped — a smart recap of your listening habits.
 
