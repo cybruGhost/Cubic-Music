@@ -64,7 +64,7 @@ class ImportSongsFromCSV(
                 try {
                     val encoded = URLEncoder.encode(query, "UTF-8")
                     // Use the same API endpoint that works in your web app
-                    val url = URL("https://inv.perditum.com/api/v1/search?q=$encoded&type=video")
+                    val url = URL("https://yt.omada.cafe/api/v1/search?q=$encoded&type=video")
                     val connection = url.openConnection() as HttpURLConnection
                     connection.requestMethod = "GET"
                     connection.connectTimeout = 15000
@@ -181,7 +181,7 @@ class ImportSongsFromCSV(
                                 }
 
                                 // Create proper thumbnail URL
-                                val thumbnailUrl = "https://inv.perditum.com/vi/$videoId/hqdefault.jpg"
+                                val thumbnailUrl = "https://yt.omada.cafe/vi/$videoId/hqdefault.jpg"
 
                                 converted.add(
                                     SongCSV(

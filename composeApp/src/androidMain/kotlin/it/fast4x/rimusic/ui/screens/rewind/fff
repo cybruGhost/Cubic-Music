@@ -88,9 +88,11 @@ fun RewindScreen(
         }
     }
     
-   Box(
-    modifier = Modifier.fillMaxSize()  // NO PADDING!
-) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 70.dp)  // Add bottom padding for miniPlayer
+    ) {
         if (isLoading) {
             // Random shader for loading screen only (50/50 chance)
             val currentShader = remember { shaderOptions.random() }
@@ -134,35 +136,31 @@ fun RewindScreen(
                                 scope.launch { mainPagerState.animateScrollToPage(3) }
                             }
                         )
-                        3 -> AfterTopSongsSlide(
-                            topSong = data?.topSongs?.firstOrNull(), // Pass the #1 song
-                            onNext = { scope.launch { mainPagerState.animateScrollToPage(4) } }
-                        )
-                        4 -> TopArtistsSlide(
+                        3 -> TopArtistsSlide(
                             artists = data?.topArtists ?: emptyList(),
+                            onNext = {
+                                scope.launch { mainPagerState.animateScrollToPage(4) }
+                            }
+                        )
+                        4 -> TopAlbumsSlide(
+                            albums = data?.topAlbums ?: emptyList(),
                             onNext = {
                                 scope.launch { mainPagerState.animateScrollToPage(5) }
                             }
                         )
-                        5 -> TopAlbumsSlide(
-                            albums = data?.topAlbums ?: emptyList(),
+                        5 -> MonthlyStatsSlide(
+                            monthlyStats = data?.monthlyStats ?: emptyList(),
                             onNext = {
                                 scope.launch { mainPagerState.animateScrollToPage(6) }
                             }
                         )
-                        6 -> MonthlyStatsSlide(
-                            monthlyStats = data?.monthlyStats ?: emptyList(),
+                        6 -> BestOfAllSlide(  // Changed from 8 to 6
+                            data = data ?: createEmptyRewindData(currentYear),
                             onNext = {
                                 scope.launch { mainPagerState.animateScrollToPage(7) }
                             }
                         )
-                        7 -> BestOfAllSlide(  // Changed from 8 to 6
-                            data = data ?: createEmptyRewindData(currentYear),
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(8) }
-                            }
-                        )
-                        8 -> DonateSlide(  // Changed from 9 to 7
+                        7 -> DonateSlide(  // Changed from 9 to 7
                             onNext = {
                                 scope.launch { mainPagerState.animateScrollToPage(0) }
                             }
@@ -238,16 +236,7 @@ fun OptimizedLoadingScreen(shader: Shader) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.2f),
-                            Color.Black.copy(alpha = 0.4f),
-                            Color.Black.copy(alpha = 0.6f)
-                        ),
-                        radius = 800f
-                    )
-                )
+                .background(Color.Black.copy(alpha = 0.4f))
         )
         
         Column(
@@ -259,7 +248,7 @@ fun OptimizedLoadingScreen(shader: Shader) {
             Box(
                 modifier = Modifier
                     .size(120.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.15f))
                     .padding(20.dp),
                 contentAlignment = Alignment.Center
@@ -268,8 +257,7 @@ fun OptimizedLoadingScreen(shader: Shader) {
                     painter = painterResource(R.drawable.rewindlogo),
                     contentDescription = "Rewind Logo",
                     modifier = Modifier
-                        .size(83.dp)
-                        .clip(RoundedCornerShape(15.dp)),
+                        .size(83.dp),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -287,9 +275,7 @@ fun OptimizedLoadingScreen(shader: Shader) {
                         text = LocalDate.now().year.toString(),
                         color = Color.White,
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp,
-                        textAlign = TextAlign.Center
+                        fontWeight = FontWeight.Black
                     )
                     Text(
                         text = "MUSIC",
@@ -301,8 +287,7 @@ fun OptimizedLoadingScreen(shader: Shader) {
                         text = "REWIND",
                         color = Color.White,
                         fontSize = 28.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 3.sp
+                        fontWeight = FontWeight.Black
                     )
                 }
                 
@@ -310,7 +295,7 @@ fun OptimizedLoadingScreen(shader: Shader) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.8f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.1f))
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
@@ -332,7 +317,7 @@ fun OptimizedLoadingScreen(shader: Shader) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
+                                .clip(CircleShape),
                             color = Color.White,
                             trackColor = Color.White.copy(alpha = 0.3f)
                         )
