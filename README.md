@@ -150,7 +150,10 @@ All trademarks and intellectual property belong to their respective owners.
 
 </div>
 ## 🧩 1. Compatible App Format (Native Format)
-
+CONVERT API STATUS 
+![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
+![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
+![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
 ```csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 ,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
