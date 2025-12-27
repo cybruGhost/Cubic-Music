@@ -153,8 +153,7 @@ All trademarks and intellectual property belong to their respective owners.
 **⭐ Don't forget to star and follow for updates! 🚀**
 </div>
 ## 🧩 1. Compatible App Format (Native Format)
-```
-## csv
+``` csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 ,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
 ,Swipefy,yuPIdLtcqf0,Elastic Heart,Lauren Spencer Smith,270,https://inv.perditum.com/vi/yuPIdLtcqf0/hqdefault.jpg
