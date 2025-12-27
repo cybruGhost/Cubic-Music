@@ -141,16 +141,16 @@ This project is **not affiliated with, endorsed by, or sponsored by YouTube, Goo
 All trademarks and intellectual property belong to their respective owners.
 
 ---
+## CONVERT API STATUS 
+![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
+![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
+![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
 
 <div align="center">
 
 **Made with ❤️ by a learner** [cybruGhost](https://github.com/cybruGhost)
 
 **⭐ Don't forget to star and follow for updates! 🚀**
-CONVERT API STATUS 
-![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
-![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
-![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
 </div>
 ## 🧩 1. Compatible App Format (Native Format)
 ```
