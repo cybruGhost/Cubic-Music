@@ -147,14 +147,14 @@ All trademarks and intellectual property belong to their respective owners.
 **Made with ❤️ by a learner** [cybruGhost](https://github.com/cybruGhost)
 
 **⭐ Don't forget to star and follow for updates! 🚀**
-
-</div>
-## 🧩 1. Compatible App Format (Native Format)
 CONVERT API STATUS 
 ![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
 ![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
 ![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
-```csv
+</div>
+## 🧩 1. Compatible App Format (Native Format)
+```
+## csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 ,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
 ,Swipefy,yuPIdLtcqf0,Elastic Heart,Lauren Spencer Smith,270,https://inv.perditum.com/vi/yuPIdLtcqf0/hqdefault.jpg
