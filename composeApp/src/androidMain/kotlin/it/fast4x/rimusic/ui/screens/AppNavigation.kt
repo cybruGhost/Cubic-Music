@@ -74,6 +74,8 @@ import it.fast4x.rimusic.utils.preferences
 import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import it.fast4x.rimusic.utils.transitionEffectKey
+import it.fast4x.rimusic.ui.screens.welcome.WelcomeScreen
+
 
 @androidx.annotation.OptIn()
 @OptIn(
@@ -149,7 +151,7 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = NavRoutes.home.name,
+        startDestination = NavRoutes.welcome.name,
         enterTransition = enterTransition,
         exitTransition = exitTransition,
         popEnterTransition = enterTransition,
@@ -166,7 +168,9 @@ fun AppNavigation(
                 openTabFromShortcut = openTabFromShortcut
             )
         }
-
+        composable(route = NavRoutes.welcome.name) {
+            WelcomeScreen(navController = navController)
+        }
         composable(route = NavRoutes.gamePacman.name) {
             modalBottomSheetPage {
                 Pacman()
