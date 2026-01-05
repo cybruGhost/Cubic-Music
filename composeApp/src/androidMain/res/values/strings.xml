@@ -1058,4 +1058,16 @@
 <string name="cache_empty">Cache empty</string>
 <string name="rewind">Rewind</string>
 <string name="donate">Donate</string>
+<!-- Spotify Canvas Strings -->
+<string name="spotify_canvas">Spotify Canvas</string>
+<string name="spotify_canvas_description">Show animated canvas videos in player</string>
+<string name="spotify_not_connected">Not connected</string>
+<string name="spotify_connected">Connected</string>
+<string name="spotify_add_email">Tap to add email</string>
+<string name="spotify_debug_logs">Show debug logs</string>
+<string name="spotify_disconnect">Disconnect Spotify</string>
+<string name="spotify_email_dialog_title">Spotify Canvas Email</string>
+<string name="spotify_email_instructions">Enter the email you used to sign in to Spotify Canvas website</string>
+<string name="spotify_note">Note: You must first authenticate at:\nv0-spotify-playlist-csv.vercel.app</string>
+<string name="spotify_disconnect_confirm">Disconnect Spotify Canvas?\nThis will remove your email and disable the feature.</string>
 </resources>

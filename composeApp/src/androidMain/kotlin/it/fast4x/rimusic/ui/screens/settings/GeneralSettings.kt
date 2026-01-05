@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.ui.res.painterResource
@@ -132,7 +135,33 @@ import it.fast4x.rimusic.ui.components.themed.InputTextDialog
 
 import me.knighthat.component.dialog.RestartAppDialog
 import me.knighthat.component.tab.Search
+// ADD THESE IMPORTS FOR SPOTIFY CANVAS
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
+import it.fast4x.rimusic.ui.components.themed.DefaultDialog
+import android.content.Intent
+import android.net.Uri
 
+// Add these imports:
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 
 @ExperimentalAnimationApi
 @UnstableApi
@@ -149,6 +178,7 @@ fun GeneralSettings(
         exoPlayerMinTimeForEventKey,
         ExoPlayerMinTimeForEvent.`20s`
     )
+// If you don't see these lines, ADD THEM HERE
     var persistentQueue by rememberPreference(persistentQueueKey, false)
     var resumePlaybackOnStart by rememberPreference(resumePlaybackOnStartKey, false)
     var closebackgroundPlayer by rememberPreference(closebackgroundPlayerKey, false)
@@ -343,6 +373,259 @@ fun GeneralSettings(
          }
 
          Spacer(modifier = Modifier.height(16.dp))
+
+// ============================================================
+// SPOTIFY CANVAS SECTION - ADD THIS BETWEEN LANGUAGE & NOTIFICATIONS
+// ============================================================
+AnimatedVisibility(
+    visible = true,
+    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(650)) + androidx.compose.animation.scaleIn(
+        animationSpec = androidx.compose.animation.core.tween(650),
+        initialScale = 0.9f
+    )
+) {
+    SettingsSectionCard(
+        title = "Spotify Canvas",
+        icon = R.drawable.spotifycanvas,
+        content = {
+            val context = LocalContext.current
+            
+            // Use var for mutable preferences
+            var spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", false)
+            var showSpotifyCanvasLogs by rememberPreference("showSpotifyCanvasLogs", false)
+            
+            // Beta warning state
+            var showBetaWarning by remember { mutableStateOf(false) }
+            
+            // Reset dialog state
+            var showResetDialog by remember { mutableStateOf(false) }
+            
+            // Main toggle for Spotify Canvas
+            if (search.inputValue.isBlank() || "Spotify Canvas".contains(search.inputValue, true)) {
+                Column {
+                    // Beta badge and warning
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.Yellow.copy(alpha = 0.2f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            androidx.compose.foundation.text.BasicText(
+                                text = "BETA",
+                                style = typography().xs.semiBold.copy(
+                                    color = Color.Yellow
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        androidx.compose.foundation.text.BasicText(
+                            text = "Experimental feature",
+                            style = typography().xs.copy(color = Color.Gray)
+                        )
+                    }
+                    
+                    OtherSwitchSettingEntry(
+                        title = "Spotify Canvas",
+                        text = "Show animated canvas videos in player",
+                        isChecked = spotifyCanvasEnabled,
+                        onCheckedChange = { newValue ->
+                            if (newValue && !spotifyCanvasEnabled) {
+                                // Show beta warning when enabling for the first time
+                                showBetaWarning = true
+                            }
+                            spotifyCanvasEnabled = newValue
+                        },
+                        icon = R.drawable.spotifycanvas
+                    )
+                }
+            }
+            
+            // Additional settings (only shown when enabled)
+            if (spotifyCanvasEnabled) {
+                Column(
+                    modifier = Modifier.padding(start = 25.dp, top = 8.dp)
+                ) {
+                    // Beta disclaimer - using Box with background instead of SettingsDescription with color
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Yellow.copy(alpha = 0.1f))
+                            .border(1.dp, Color.Yellow.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        androidx.compose.foundation.text.BasicText(
+                            text = "⚠️ This is a beta feature and may be unstable, removed, or changed at any time. Use at your own risk.",
+                            style = typography().xs.copy(
+                                color = Color.Yellow.copy(alpha = 0.9f)
+                            )
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Debug logs toggle
+                    OtherSwitchSettingEntry(
+                        title = "Show debug logs",
+                        text = "Show canvas fetching information",
+                        isChecked = showSpotifyCanvasLogs,
+                        onCheckedChange = { newValue -> showSpotifyCanvasLogs = newValue },
+                        icon = R.drawable.information
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Report issues on GitHub - use existing icon if github_logo doesn't exist
+                    OtherSettingsEntry(
+                        title = "Report issues",
+                        text = "Open GitHub issues page",
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW)
+                                intent.data = Uri.parse("https://github.com/cybruGhost/Cubic-Music/issues")
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        // Use R.drawable.bug or R.drawable.information if github_logo doesn't exist
+                        icon = try {
+                            R.drawable.github_icon // Change this to whatever your actual drawable name is
+                        } catch (e: Exception) {
+                            R.drawable.alert // Fallback icon
+                        }
+                    )
+                    
+                    // Optional: Add a reset button
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Red.copy(alpha = 0.1f))
+                            .clickable { showResetDialog = true }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.refresh),
+                                contentDescription = null,
+                                tint = Color.Red,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            androidx.compose.foundation.text.BasicText(
+                                text = "Reset Settings",
+                                style = typography().s.semiBold.copy(
+                                    color = Color.Red
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            
+// Beta warning dialog (shows when first enabling)
+if (showBetaWarning) {
+    AlertDialog(
+        onDismissRequest = { showBetaWarning = false },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(R.drawable.alert_circle),
+                    contentDescription = null,
+                    tint = Color.Yellow,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Beta Feature Warning",
+                    style = typography().l.semiBold.copy(color = colorPalette().text),
+                    color = colorPalette().text // Add this line
+                )
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Spotify Canvas is currently in beta testing.",
+                    style = typography().s.copy(color = colorPalette().text),
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    color = colorPalette().text // Add this line
+                )
+                
+                Text(
+                    text = "Important notes:",
+                    style = typography().s.semiBold.copy(color = colorPalette().text),
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    color = colorPalette().text // Add this line
+                )
+                
+                Text(
+                    text = "• This feature may not work for all tracks\n" +
+                          "• It requires an active internet connection\n" +
+                          "• Performance may vary on older devices\n" +
+                          "• The feature may be removed in future updates\n" +
+                          "• Data usage may be higher when enabled",
+                    style = typography().xs.copy(color = colorPalette().text),
+                    modifier = Modifier.padding(start = 8.dp),
+                    color = colorPalette().text // Add this line
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = "By enabling this feature, you acknowledge these limitations.",
+                    style = typography().xs.copy(color = colorPalette().textSecondary),
+                    color = colorPalette().textSecondary // Add this line
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { showBetaWarning = false }
+            ) {
+                Text(
+                    text = "I Understand",
+                    color = colorPalette().accent
+                )
+            }
+        },
+        containerColor = colorPalette().background1, // Add background color
+        titleContentColor = colorPalette().text, // Add title color
+        textContentColor = colorPalette().text // Add text color
+    )
+}
+            
+            // Reset confirmation dialog
+            if (showResetDialog) {
+                ConfirmationDialog(
+                    text = "Reset Spotify Canvas settings?\nThis will clear all canvas data and preferences.",
+                    onDismiss = { showResetDialog = false },
+                    onConfirm = {
+                        spotifyCanvasEnabled = false
+                        showSpotifyCanvasLogs = false
+                        // Clear any cached canvas data if needed
+                        // clearCanvasCache()
+                        showResetDialog = false
+                    },
+                    confirmText = "Reset"
+                )
+            }
+        }
+    )
+}
+
+Spacer(modifier = Modifier.height(16.dp))
+// ============================================================
+// END OF SPOTIFY CANVAS SECTION
+// ============================================================
 
          // Notifications Section
          AnimatedVisibility(

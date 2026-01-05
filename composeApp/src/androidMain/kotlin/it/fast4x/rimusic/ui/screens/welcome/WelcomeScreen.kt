@@ -71,6 +71,7 @@ import java.io.InputStreamReader
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.ui.platform.LocalUriHandler
+import android.net.Uri
 
 // Key constants matching your WelcomeMessage.kt
 private const val KEY_USERNAME = "username"
@@ -80,7 +81,7 @@ private const val KEY_HAS_SEEN_WELCOME = "has_seen_welcome"
 // Copy the getLocationFromIP function here since it's private in utils
 private suspend fun getLocationFromIP(): String? = withContext(Dispatchers.IO) {
     return@withContext try {
-        val url = URL("https://ipapi.co/json/")
+        val url = URL("https://ipinfo.io/json/")
         val connection = withContext(Dispatchers.IO) { url.openConnection() as HttpURLConnection }
         connection.requestMethod = "GET"
         connection.connectTimeout = 3000
@@ -93,11 +94,11 @@ private suspend fun getLocationFromIP(): String? = withContext(Dispatchers.IO) {
             reader.close()
             connection.disconnect()
             val json = JSONObject(response)
-            json.optString("city", "Nairobi")
-        } else "Nairobi"
+            json.optString("city", "invalid city")
+        } else "API failed, just key in your city"
     } catch (e: Exception) {
         e.printStackTrace()
-        "Nairobi"
+        "failure happened, just key in ur city"
     }
 }
 

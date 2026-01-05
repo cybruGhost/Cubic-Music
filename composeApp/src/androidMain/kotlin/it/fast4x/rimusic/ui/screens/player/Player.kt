@@ -76,7 +76,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -87,7 +86,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -253,7 +252,49 @@ import me.knighthat.utils.Toaster
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import kotlin.math.absoluteValue
 import kotlin.math.sqrt
+// ADD THESE IMPORTS
+import it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasWorker
+import it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasState
+import androidx.compose.ui.viewinterop.AndroidView
 
+
+import androidx.media3.ui.AspectRatioFrameLayout
+
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.width
+
+// Add these imports with your other imports:
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.shadow
+
+import it.fast4x.rimusic.ui.screens.spotify.LogEntry
+import it.fast4x.rimusic.ui.screens.spotify.LogType
+import android.content.Context
+
+// --- DRAW / CACHE ---
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.Stroke
+
+
+// --- GEOMETRY ---
+
+import androidx.compose.ui.geometry.CornerRadius
+// Add these imports with your other imports:
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.media3.common.C
+// --- GRAPHICS ---
+import androidx.compose.ui.unit.Dp
+
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+import androidx.media3.common.MimeTypes
+// Add with your other imports
+import it.fast4x.rimusic.ui.screens.spotify.CanvasPlayerManager
+import androidx.compose.material3.CircularProgressIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalTextApi
@@ -321,6 +362,9 @@ fun Player(
     var swipeAnimationNoThumbnail by rememberPreference( swipeAnimationsNoThumbnailKey, SwipeAnimationNoThumbnail.Sliding )
     val expandPlayerState = rememberPreference( expandedplayerKey, false )
     var expandedplayer by expandPlayerState
+    // ADD THIS FOR SPOTIFY CANVAS
+    val spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", false)
+    val showSpotifyCanvasLogs by rememberPreference("showSpotifyCanvasLogs", false)
 
 
     if (binder.player.currentTimeline.windowCount == 0) return
@@ -430,8 +474,8 @@ fun Player(
         ): Outline {
 
             val center = Offset(
-                x = size.center.x - ((size.center.x - origin.x) * (1f - progress)),
-                y = size.center.y - ((size.center.y - origin.y) * (1f - progress)),
+                x = (size.width/2f) - (((size.width/2f) - origin.x) * (1f - progress)),
+                y = (size.height/2f) - (((size.height/2f) - origin.y) * (1f - progress)),
             )
             val radius = (sqrt(
                 size.height * size.height + size.width * size.width
@@ -1125,7 +1169,8 @@ fun Player(
     }
 
     blurAdjuster.Render()
-
+// ADD THIS LINE: Start the Spotify Canvas Worker
+SpotifyCanvasWorker()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1953,28 +1998,57 @@ fun Player(
                     )
                 }
 
-                BoxWithConstraints(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .conditional((screenWidth <= (screenHeight / 2)) && (showlyricsthumbnail || (!expandedplayer && !isShowingLyrics))) {height(screenWidth)}
-                        .conditional((screenWidth > (screenHeight / 2)) || expandedplayer || (isShowingLyrics && !showlyricsthumbnail)) {weight(1f)}
-                ) {
+BoxWithConstraints(
+    contentAlignment = Alignment.Center,
+    modifier = Modifier
+        .conditional((screenWidth <= (screenHeight / 2)) && (showlyricsthumbnail || (!expandedplayer && !isShowingLyrics))) { 
+            height(screenWidth) 
+        }
+        .conditional((screenWidth > (screenHeight / 2)) || expandedplayer || (isShowingLyrics && !showlyricsthumbnail)) { 
+            weight(1f) 
+        }
+) {
+    
+    // Get current media ID for proper comparison
+    val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
+    
+    // Check if canvas is FOR THE CURRENT SONG
+    // This is the CRITICAL fix: Only show canvas if it's for the song that's currently playing
+    val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
+    
+    // Check if we should show Spotify Canvas
+    val shouldShowCanvas = spotifyCanvasEnabled && 
+        SpotifyCanvasState.currentCanvasUrl != null && 
+        isCanvasForCurrentSong && // ONLY show if canvas is for current song
+        !isShowingLyrics && 
+        !isShowingVisualizer &&
+        showthumbnail
 
-                      if (showthumbnail) {
-                         if ((!isShowingLyrics && !isShowingVisualizer) || (isShowingVisualizer && showvisthumbnail) || (isShowingLyrics && showlyricsthumbnail)) {
-                             if (playerType == PlayerType.Modern) {
-                                 val fling = PagerDefaults.flingBehavior(state = pagerState,snapPositionalThreshold = 0.25f)
+    if (shouldShowCanvas) {
+        OptimizedSpotifyCanvasPlayer(
+            canvasUrl = SpotifyCanvasState.currentCanvasUrl!!,
+            mediaItemId = SpotifyCanvasState.currentMediaItemId,
+            isPlaying = SpotifyCanvasState.isPlaying,
+            showLogs = showSpotifyCanvasLogs,
+            maxWidth = maxWidth,
+            modifier = Modifier.fillMaxSize()
+        )
+    } else if (showthumbnail) {
+        // Fall back to original thumbnail if no canvas OR canvas is for wrong song
+        if ((!isShowingLyrics && !isShowingVisualizer) || (isShowingVisualizer && showvisthumbnail) || (isShowingLyrics && showlyricsthumbnail)) {
+            if (playerType == PlayerType.Modern) {
+                val fling = PagerDefaults.flingBehavior(state = pagerState,snapPositionalThreshold = 0.25f)
 
-                                 pagerState.LaunchedEffectScrollToPage(binder.player.currentMediaItemIndex)
+                pagerState.LaunchedEffectScrollToPage(binder.player.currentMediaItemIndex)
 
-                                 LaunchedEffect(pagerState) {
-                                     var previousPage = pagerState.settledPage
-                                     snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
-                                         if ( previousPage != it && it != binder.player.currentMediaItemIndex )
-                                             binder.player.playAtIndex(it)
-                                         previousPage = it
-                                     }
-                                 }
+                LaunchedEffect(pagerState) {
+                    var previousPage = pagerState.settledPage
+                    snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
+                        if ( previousPage != it && it != binder.player.currentMediaItemIndex )
+                            binder.player.playAtIndex(it)
+                        previousPage = it
+                    }
+                }
 
                                  val pageSpacing = (thumbnailSpacing.toInt()*0.01*(screenHeight) - if (carousel) (3*carouselSize.size.dp) else (2*playerThumbnailSize.size.dp))
                                  val animatePageSpacing by animateDpAsState(
@@ -2119,51 +2193,50 @@ fun Player(
                          }
                       }
 
-                   Box(
-                        modifier = Modifier
-                            .pointerInput(Unit) {
-                                detectHorizontalDragGestures(
-                                    onHorizontalDrag = { _, dragAmount ->
-                                        deltaX = dragAmount
-                                    },
-                                    onDragStart = {
-                                    },
-                                    onDragEnd = {
-                                        if (!disablePlayerHorizontalSwipe) {
-                                            if (deltaX > 5) {
-                                                binder.player.playPrevious()
-                                            } else if (deltaX <-5){
-                                                binder.player.playNext()
-                                            }
-
-                                        }
-
-                                    }
-
-                                )
+    Box(
+        modifier = Modifier
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { _, dragAmount ->
+                        deltaX = dragAmount
+                    },
+                    onDragStart = {
+                    },
+                    onDragEnd = {
+                        if (!disablePlayerHorizontalSwipe) {
+                            if (deltaX > 5) {
+                                binder.player.playPrevious()
+                            } else if (deltaX <-5){
+                                binder.player.playNext()
                             }
-                    ) {
-                        if (!showlyricsthumbnail)
-                            Lyrics(
-                                mediaId = mediaItem.mediaId,
-                                isDisplayed = isShowingLyrics,
-                                onDismiss = {
-                                        isShowingLyrics = false
-                                },
-                                ensureSongInserted = { Database.insertIgnore( mediaItem ) },
-                                size = 1000.dp,
-                                mediaMetadataProvider = mediaItem::mediaMetadata,
-                                durationProvider = player::getDuration,
-                                isLandscape = isLandscape,
-                                clickLyricsText = clickLyricsText,
-                            )
-                        if (!showvisthumbnail)
-                            NextVisualizer(
-                                isDisplayed = isShowingVisualizer
-                            )
-                    }
-                }
 
+                        }
+
+                    }
+
+                )
+            }
+    ) {
+        if (!showlyricsthumbnail)
+            Lyrics(
+                mediaId = mediaItem.mediaId,
+                isDisplayed = isShowingLyrics,
+                onDismiss = {
+                        isShowingLyrics = false
+                },
+                ensureSongInserted = { Database.insertIgnore( mediaItem ) },
+                size = 1000.dp,
+                mediaMetadataProvider = mediaItem::mediaMetadata,
+                durationProvider = player::getDuration,
+                isLandscape = isLandscape,
+                clickLyricsText = clickLyricsText,
+            )
+        if (!showvisthumbnail)
+            NextVisualizer(
+                isDisplayed = isShowingVisualizer
+            )
+    }
+}
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
@@ -2326,7 +2399,495 @@ fun Player(
         }
 
     }
+}
 
+@Composable
+private fun OptimizedSpotifyCanvasPlayer(
+    canvasUrl: String,
+    mediaItemId: String?,
+    isPlaying: Boolean,
+    showLogs: Boolean,
+    maxWidth: Dp,
+    modifier: Modifier = Modifier
+) {
+    val currentCanvasUrl by rememberUpdatedState(canvasUrl)
+    val currentMediaItemId by rememberUpdatedState(mediaItemId)
+    val currentIsPlaying by rememberUpdatedState(isPlaying)
+    
+    // OPTIMIZED KEY: Use hashCode for efficient comparison
+    val playerKey = remember(currentCanvasUrl, currentMediaItemId) {
+        "canvas_${currentCanvasUrl.hashCode()}_${currentMediaItemId.hashCode()}"
+    }
+    
+    // PROFESSIONAL LAYOUT: Clean, rounded, no black overlays
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF1E1E1E).copy(alpha = 0.7f),  // Dark gray, not black
+                        Color(0xFF121212).copy(alpha = 0.7f)
+                    ),
+                    center = Offset.Unspecified,
+                    radius = maxWidth.value * 0.8f  // ✅ CHANGE: Use .value
+                )
+            )
+    ) {
+        // VIDEO CONTAINER WITH DEPTH
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .shadow(
+                    elevation = 8.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    clip = true,
+                    ambientColor = Color.Black.copy(alpha = 0.3f),
+                    spotColor = Color.Black.copy(alpha = 0.2f)
+                )
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF2A2A2A),  // Subtle gradient
+                            Color(0xFF1F1F1F)
+                        )
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+        ) {
+            // INNER VIDEO WITH ROUNDED CORNERS
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(2.dp)
+                    .clip(RoundedCornerShape(18.dp))
+            ) {
+                OptimizedCanvasVideoPlayer(
+                    canvasUrl = currentCanvasUrl,
+                    mediaItemId = currentMediaItemId,
+                    isPlaying = currentIsPlaying,
+                    playerKey = playerKey,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            // SUBTLE BORDER FOR DEFINITION
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .drawBehind {
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.06f),
+                            style = Stroke(width = 1.5.dp.toPx()),  // ✅ .toPx() property
+                            cornerRadius = CornerRadius(20.dp.toPx())  // ✅ .toPx() property
+                        )
+                    }
+            )
+        }
+        
+        // Log panel (conditional) - KEEP AS IS
+        if (showLogs) {
+            OptimizedCanvasLogPanel(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 48.dp, start = 12.dp)
+                    .width(280.dp)
+            )
+        }
+        
+        // Canvas badge - KEEP AS IS
+        OptimizedCanvasBadge(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 20.dp, bottom = 20.dp)
+        )
+    }
+}
+@Composable
+@androidx.annotation.OptIn(UnstableApi::class)
+private fun OptimizedCanvasVideoPlayer(
+    canvasUrl: String,
+    mediaItemId: String?,
+    isPlaying: Boolean,
+    playerKey: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val binder = LocalPlayerServiceBinder.current
+    val isDarkTheme = isSystemInDarkTheme()
+    
+    // Get current song's media ID
+    val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
+    
+    // CRITICAL: Only show canvas if it's for the current song
+    val shouldShowCanvas = mediaItemId == currentMediaItemId
+    
+    if (!shouldShowCanvas) {
+        // Don't render canvas if it's not for the current song
+        return
+    }
+    
+    // OPTIMIZED: Use derivedStateOf to minimize recompositions
+    val shouldReleasePlayer = remember(mediaItemId) {
+        derivedStateOf {
+            !CanvasPlayerManager.isPlayingForMediaItem(mediaItemId)
+        }
+    }
+    
+    // 🧹 OPTIMIZED CLEANUP: Only release when necessary
+    DisposableEffect(playerKey) {
+        onDispose {
+            if (shouldReleasePlayer.value) {
+                CanvasPlayerManager.releasePlayer()
+            }
+        }
+    }
+    
+    // 🎮 OPTIMIZED PLAY STATE UPDATES: Debounce rapid changes
+    LaunchedEffect(isPlaying) {
+        // Small delay to prevent rapid toggling
+        if (isPlaying != CanvasPlayerManager.isActive()) {
+            delay(100) // 100ms debounce
+            CanvasPlayerManager.updatePlayState(isPlaying)
+        }
+    }
+    
+    // 📺 OPTIMIZED ANDROID VIEW: With proper lifecycle
+    AndroidView(
+        factory = { context ->
+            CanvasPlayerManager.setupPlayer(
+                context = context,
+                canvasUrl = canvasUrl,
+                isPlaying = isPlaying,
+                mediaItemId = mediaItemId
+            )
+        },
+        update = { /* Manager handles updates */ },
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .graphicsLayer {
+                scaleX = 0.98f
+                scaleY = 0.98f
+                shape = RoundedCornerShape(16.dp)
+                clip = true
+                alpha = if (isDarkTheme) 0.95f else 0.98f
+            }
+            .drawWithCache {
+                onDrawWithContent {
+                    drawContent()
+                    // Subtle shadow for depth (FIXED: .toPx() without parentheses)
+                    drawRoundRect(
+                        color = Color.Black.copy(alpha = 0.1f),
+                        style = Stroke(width = 1.dp.toPx()),
+                        cornerRadius = CornerRadius(16.dp.toPx())
+                    )
+                }
+            }
+    )
+}
+@Composable
+private fun OptimizedCanvasLogPanel(
+    modifier: Modifier = Modifier
+) {
+    // Cache log entries to avoid recomputation
+    val logs by rememberUpdatedState<List<LogEntry>>(SpotifyCanvasState.logEntries)
+    val lastLogs = remember(logs) {
+        logs.takeLast(8)
+    }
+    val logCount = logs.size
+    
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .drawBehind {
+                // Draw background (FIXED: Added color parameter)
+                drawRoundRect(
+                    color = Color.Black.copy(alpha = 0.85f),
+                    cornerRadius = CornerRadius(12.dp.toPx())
+                )
+                
+                // Draw border on top (FIXED: .toPx() without parentheses)
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.1f),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(12.dp.toPx())
+                )
+            }
+            .padding(12.dp)
+    ) {
+        // Log Header
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            BasicText(
+                text = "Canvas Logs",
+                style = typography().xs.copy(
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 12.sp
+                )
+            )
+            
+            Box(
+                modifier = Modifier
+                    .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                BasicText(
+                    text = "$logCount",
+                    style = typography().xxs.copy(
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 10.sp
+                    )
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // LazyColumn for better performance with scrolling
+        if (lastLogs.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier.height(160.dp)
+            ) {
+                items(items = lastLogs) { log ->
+                    OptimizedLogEntryItem(log = log)
+                }
+            }
+        } else {
+            BasicText(
+                text = "No logs yet",
+                style = typography().xxs.copy(
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 10.sp
+                ),
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        }
+        
+        // Simplified fade effect
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .drawBehind {
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                        )
+                    )
+                }
+        )
+    }
+}
+
+@Composable
+private fun OptimizedLogEntryItem(
+    log: LogEntry
+) {
+    val logColor = remember(log.type) {
+        when (log.type) {
+            LogType.ERROR -> Color.Red
+            LogType.SUCCESS -> Color.Green
+            LogType.LOADING -> Color.Cyan
+            LogType.WARNING -> Color.Yellow
+            LogType.INFO -> Color.White
+            else -> Color.White
+        }
+    }
+    
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(logColor.copy(alpha = 0.7f))
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            BasicText(
+                text = log.message,
+                style = typography().xxs.copy(
+                    color = logColor.copy(alpha = 0.9f),
+                    fontSize = 10.sp
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            BasicText(
+                text = formatAsTime(log.timestamp),
+                style = typography().xxs.copy(
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 8.sp
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun OptimizedCanvasBadge(
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black.copy(alpha = 0.7f))
+            .drawBehind {
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.15f),
+                    style = Stroke(width = 1.dp.toPx()),  // FIXED: .toPx() without parentheses
+                    cornerRadius = CornerRadius(8.dp.toPx())  // FIXED: .toPx() without parentheses
+                )
+            }
+            .shadow(4.dp, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        BasicText(
+            text = "CUBIC CANVAS",
+            style = typography().xxs.copy(
+                color = Color.White,
+                fontSize = 10.sp
+            )
+        )
+        BasicText(
+            text = "VISUAL EXPERIENCE",
+            style = typography().xxs.copy(
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 8.sp
+            )
+        )
+    }
+}
+
+@Composable
+private fun LogEntryItem(log: LogEntry) {
+    val logColor = when (log.type) {
+        LogType.ERROR -> Color.Red
+        LogType.SUCCESS -> Color.Green
+        LogType.LOADING -> Color.Cyan
+        LogType.WARNING -> Color.Yellow
+        LogType.INFO -> Color.White
+        else -> Color.White // Add this else branch to make when exhaustive
+    }
+    
+    val timestampColor = Color.White.copy(alpha = 0.4f)
+    
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+    ) {
+        // Timestamp indicator dot
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(logColor.copy(alpha = 0.7f))
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            BasicText(
+                text = log.message,
+                style = typography().xxs.copy(
+                    color = logColor.copy(alpha = 0.9f),
+                    fontSize = 10.sp
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            // Faded timestamp
+            BasicText(
+                text = formatAsTime(log.timestamp),
+                style = typography().xxs.copy(
+                    color = timestampColor,
+                    fontSize = 8.sp
+                )
+            )
+        }
+    }
+}
+// Helper function to format timestamp
+private fun formatAsTime(timestamp: Long): String {
+    val minutes = (timestamp / 60000) % 60
+    val seconds = (timestamp / 1000) % 60
+    return String.format("%02d:%02d", minutes, seconds)
+}
+
+private fun setupCanvasPlayer(
+    context: Context,
+    canvasUrl: String,
+    isPlaying: Boolean
+): PlayerView {
+    return PlayerView(context).apply {
+        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        useController = false
+        setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        
+        val player = ExoPlayer.Builder(context)
+            .setSeekForwardIncrementMs(15000)
+            .setSeekBackIncrementMs(5000)
+            .build().apply {
+                playWhenReady = isPlaying
+                repeatMode = Player.REPEAT_MODE_ALL
+                
+                val mediaItem = MediaItem.Builder()
+                    .setUri(canvasUrl)
+                    .setMimeType(MimeTypes.VIDEO_MP4)
+                    .build()
+                
+                setMediaItem(mediaItem)
+                prepare()
+                videoScalingMode = 2
+                
+                addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        when (playbackState) {
+                            Player.STATE_ENDED -> {
+                                seekTo(0)
+                                if (isPlaying) play()
+                            }
+                        }
+                    }
+                })
+            }
+        
+        this.player = player
+    }
+}
+
+@Composable
+fun rememberCanvasPlayerState(
+    canvasUrl: String?,
+    mediaItemId: String?
+): CanvasPlayerState {
+    return remember(canvasUrl, mediaItemId) {
+        CanvasPlayerState(canvasUrl, mediaItemId)
+    }
+}
+
+data class CanvasPlayerState(
+    val canvasUrl: String?,
+    val mediaItemId: String?
+) {
+    val key: String get() = "${canvasUrl.hashCode()}_$mediaItemId"
 }
 
 @Composable
@@ -2343,6 +2904,3 @@ fun PagerState.LaunchedEffectScrollToPage(
         }
     }
 }
-
-
-
