@@ -284,7 +284,8 @@ dependencies {
     implementation(libs.github.jeziellago.compose.markdown)
 // In your build.gradle.kts or build.gradle
     implementation("io.coil-kt:coil-compose:2.6.0")
-
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-ui:1.2.0")
     implementation(libs.room)
     ksp(libs.room.compiler)
 
