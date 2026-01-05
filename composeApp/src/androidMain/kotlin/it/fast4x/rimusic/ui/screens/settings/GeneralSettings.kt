@@ -571,7 +571,7 @@ if (showBetaWarning) {
                     text = "• This feature may not work for all tracks\n" +
                           "• It requires an active internet connection\n" +
                           "• Performance may vary on older devices\n" +
-                          "• The feature may be removed in future updates\n" +
+                          "• The feature may be removed in future updates if problematic\n" +
                           "• Data usage may be higher when enabled",
                     style = typography().xs.copy(color = colorPalette().text),
                     modifier = Modifier.padding(start = 8.dp),
