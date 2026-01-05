@@ -28,6 +28,13 @@ Every bit of support helps keep cubicmusic growing 🚀
 </div>
 
 ---
+<b>Spotify Canvas</b>
+
+What is Spotify Canvas?
+
+<p>Spotify Canvas is a short, looping visual (3–8 second video) that appears in place of static album artwork while a song is playing in the Spotify mobile app. Instead of a still image, listeners see a subtle, animated visual that enhances the mood and identity of the track.
+
+- Canvas videos are silent, vertical, and loop seamlessly, designed to complement music without distracting from it.<p>
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/38573f27-38ac-474a-be9f-6c0d7f1f6eeb" width="400" alt="Cubic Music Banner"/>
