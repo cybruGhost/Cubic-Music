@@ -38,9 +38,8 @@ What is Spotify Canvas?
 - Canvas videos are silent, vertical, and loop seamlessly, designed to complement music without distracting from it.<p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/38573f27-38ac-474a-be9f-6c0d7f1f6eeb" width="400" alt="Cubic Music Banner"/>
+  <img src="assets/screensho2.jpeg" width="280" alt="Cubic Music Screenshot"/>
 </p>
-
 <p align="center">
   <img src="assets/scrrenshot.jpeg" width="280" alt="Cubic Music Screenshot"/>
 </p>
