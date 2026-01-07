@@ -336,114 +336,161 @@ if (showCharts)
         }
     }
     // ===== END FETCH NOTIFICATION =====
-    
 if (loadedData) return
 
-runCatching {
-    refreshScope.launch(Dispatchers.IO) {
+refreshScope.launch(Dispatchers.IO) {
+    runCatching {
+
         when (playEventType) {
-            PlayEventsType.MostPlayed ->
+
+            PlayEventsType.MostPlayed -> {
                 Database.eventTable
-                        .findSongsMostPlayedBetween(
-                            from = from,
-                            limit = localCount
-                        )
-                        .distinctUntilChanged()
-                        .collect { songs ->
-                            trendingList = songs.distinctBy { it.id }.take(localCount)
-                            trending = trendingList.firstOrNull()
-                            mostPopularSong = trendingList.firstOrNull() // the first is the most popular
-                            if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
-                                relatedPageResult = Innertube.relatedPage(
-                                    NextBody(
-                                        videoId = (trending?.id ?: "rY2LUmLw_DQ")
-                                    )
-                                )
-                            }
+                    .findSongsMostPlayedBetween(
+                        from = from,
+                        limit = localCount
+                    )
+                    .distinctUntilChanged()
+                    .collect { songs ->
+                        trendingList = songs.distinctBy { it.id }.take(localCount)
+                        trending = trendingList.firstOrNull()
+                        mostPopularSong = trending
+
+                        if (relatedPageResult == null ||
+                            trending?.id != trendingList.firstOrNull()?.id
+                        ) {
+                            relatedPageResult = Innertube.relatedPage(
+                                NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
+                            )
                         }
+                    }
+            }
+
             PlayEventsType.LastPlayed -> {
                 Database.eventTable
-                        .findSongsLastPlayed(
-                            limit = localCount
-                        )
-                        .distinctUntilChanged()
-                        .collect { songs ->
-                            trendingList = songs.distinctBy { it.id }.take(localCount)
-                            trending = trendingList.firstOrNull()
-                            mostPopularSong = trendingList.firstOrNull() // the first is the most recent
-                            if (relatedPageResult == null || trending?.id != trendingList.firstOrNull()?.id) {
-                                relatedPageResult =
-                                    Innertube.relatedPage(
-                                        NextBody(
-                                            videoId = (trending?.id ?: "DCYmJDO2_IE")
-                                        )
-                                    )
-                            }
+                    .findSongsLastPlayed(limit = localCount)
+                    .distinctUntilChanged()
+                    .collect { songs ->
+                        trendingList = songs.distinctBy { it.id }.take(localCount)
+                        trending = trendingList.firstOrNull()
+                        mostPopularSong = trending
+
+                        if (relatedPageResult == null ||
+                            trending?.id != trendingList.firstOrNull()?.id
+                        ) {
+                            relatedPageResult = Innertube.relatedPage(
+                                NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
+                            )
                         }
+                    }
             }
+
             PlayEventsType.CasualPlayed -> {
-                // Enhanced randomization with short-term memory and larger pool
-                val playedIds = mutableSetOf<String>()
-                
                 Database.eventTable
-                        .findSongsMostPlayedBetween(
-                            from = 0,
-                            limit = 300 // Larger pool for better variety
-                        )
-                        .distinctUntilChanged()
-                        .collect { songs ->
-                            val originalList = songs.distinctBy { it.id }
-                            mostPopularSong = originalList.firstOrNull() // Keep the real most popular
-                            
-                            // Filter out recently played songs
-                            val availableSongs = originalList.filter { it.id !in playedIds }
-                            
-                            // If we've played most songs, reset the memory
-                            val finalPool = if (availableSongs.size < localCount) {
-                                playedIds.clear() // Reset when pool is exhausted
-                                originalList
-                            } else {
-                                availableSongs
+                    .findSongsMostPlayedBetween(
+                        from = 0,
+                        limit = 10
+                    )
+                    .distinctUntilChanged()
+                    .collect { favoriteSongs ->
+
+                        if (favoriteSongs.isNotEmpty()) {
+                            val seedSong = favoriteSongs.random()
+                            mostPopularSong = seedSong
+
+                            runCatching {
+                                val relatedResult = Innertube.relatedPage(
+                                    NextBody(videoId = seedSong.id)
+                                )
+
+                               val relatedSongs =
+                                    relatedResult
+                                        ?.getOrNull()
+                                        ?.songs
+                                        ?.map { it.asSong }
+                                        ?: emptyList()
+
+
+                                val trendingResult =
+                                    Innertube.chartsPageComplete(
+                                        countryCode = selectedCountryCode.name
+                                    )
+
+                                val trendingSongs =
+                                    trendingResult.getOrNull()?.songs
+                                        ?.map { it.asSong }
+                                        ?: emptyList()
+
+                                val mixedSongs = (
+                                    relatedSongs.take((localCount * 0.7).toInt()) +
+                                    trendingSongs.take((localCount * 0.3).toInt())
+                                )
+                                    .distinctBy { it.id }
+                                    .shuffled()
+                                    .take(localCount)
+
+                                trendingList = mixedSongs
+                                trending = mixedSongs.firstOrNull()
+                                relatedPageResult = relatedResult
+
+                            }.onFailure {
+                                val chartsResult =
+                                    Innertube.chartsPageComplete(
+                                        countryCode = selectedCountryCode.name
+                                    )
+
+                                val chartSongs =
+                                    chartsResult.getOrNull()?.songs
+                                        ?.map { it.asSong }
+                                        ?: emptyList()
+
+                                trendingList =
+                                    chartSongs.shuffled().take(localCount)
+                                trending = trendingList.firstOrNull()
                             }
-                            
-                            // Use time-based seed for fresh randomization each time
-                            val shuffled = finalPool.shuffled().take(localCount)
-                            
-                            // Add to played memory
-                            playedIds.addAll(shuffled.map { it.id })
-                            
-                            trendingList = shuffled
-                            trending = shuffled.firstOrNull()
-                            if (relatedPageResult == null || trending?.id != shuffled.firstOrNull()?.id) {
+
+                        } else {
+                            val chartsResult =
+                                Innertube.chartsPageComplete(
+                                    countryCode = selectedCountryCode.name
+                                )
+
+                            val chartSongs =
+                                chartsResult.getOrNull()?.songs
+                                    ?.map { it.asSong }
+                                    ?: emptyList()
+
+                            trendingList =
+                                chartSongs.shuffled().take(localCount)
+                            trending = trendingList.firstOrNull()
+
+                            trending?.let { song ->
                                 relatedPageResult =
                                     Innertube.relatedPage(
-                                        NextBody(
-                                            videoId = (trending?.id ?: "kudi8OtMu9s")
-                                        )
+                                        NextBody(videoId = song.id)
                                     )
                             }
                         }
+                    }
             }
         }
-    }
-            if (showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) {
-                discoverPageResult = Innertube.discoverPage()
-            }
 
-            if (isYouTubeLoggedIn())
-                homePageResult = YtMusic.getHomePage()
-
-        }.onFailure {
-            Timber.e("Failed loadData in QuickPicsModern ${it.stackTraceToString()}")
-            println("Failed loadData in QuickPicsModern ${it.stackTraceToString()}")
-            loadedData = false
-        }.onSuccess {
-            Timber.d("Success loadData in QuickPicsModern")
-            println("Success loadData in QuickPicsModern")
-            loadedData = true
+        if (showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) {
+            discoverPageResult = Innertube.discoverPage()
         }
-    }
 
+        if (isYouTubeLoggedIn()) {
+            homePageResult = YtMusic.getHomePage()
+        }
+
+    }.onFailure {
+        Timber.e("Failed loadData in QuickPicsModern ${it.stackTraceToString()}")
+        loadedData = false
+    }.onSuccess {
+        Timber.d("Success loadData in QuickPicsModern")
+        loadedData = true
+    }
+}
+    }
     LaunchedEffect(playEventType, selectedCountryCode) {
         // Reset of all states related
         loadedData = false
