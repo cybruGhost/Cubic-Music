@@ -6,3 +6,4 @@
 /.gradle
 /_conveyor.conf
 /conveyor.conf
+.env

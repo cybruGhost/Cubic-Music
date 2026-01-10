@@ -21,12 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.rememberAsyncImagePainter
-import coil.compose.rememberImagePainter
-import coil.request.ImageRequest
-import com.mikepenz.hypnoticcanvas.shaders.IceReflection
+import coil3.compose.SubcomposeAsyncImage
 import it.fast4x.rimusic.ui.screens.rewind.TopSong
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
@@ -35,7 +30,6 @@ import java.net.URL
 import java.net.URLEncoder
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.DisposableEffect
-import com.mikepenz.hypnoticcanvas.shaderBackground
 import kotlin.math.roundToInt
 
 @Composable

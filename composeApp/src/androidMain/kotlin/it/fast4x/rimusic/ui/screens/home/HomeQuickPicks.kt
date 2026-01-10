@@ -145,8 +145,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
-import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
+import coil3.compose.AsyncImage
+import coil3.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 // checkupdate
 import app.kreate.android.BuildConfig
