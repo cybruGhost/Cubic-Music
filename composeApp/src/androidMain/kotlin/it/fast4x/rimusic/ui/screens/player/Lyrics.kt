@@ -179,6 +179,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import it.fast4x.rimusic.lyrics.GeniusClient
 import app.kreate.android.BuildConfig
+import it.fast4x.genius.Genius
 
 val textFieldColors: TextFieldColors
     @Composable
@@ -579,57 +580,52 @@ fun Lyrics(
                                             }
 
                                         checkedLyricsKugou = true
+                                                kotlin.runCatching {
+                                                    Genius.lyrics(
+                                                        apiToken = BuildConfig.GENIUS_API_KEY,
+                                                        artist = mediaMetadata.artist?.toString() ?: "",
+                                                        title = cleanPrefix(mediaMetadata.title?.toString() ?: "")
+                                                    )?.onSuccess { geniusLyrics ->
+                                                        if (geniusLyrics != null && geniusLyrics.value.isNotEmpty() && playerEnableLyricsPopupMessage) {
+                                                            coroutineScope.launch {
+                                                                Toaster.s(
+                                                                    R.string.info_lyrics_found_on_s,
+                                                                    "Genius.com"
+                                                                )
+                                                            }
+                                                        }
 
-                                        kotlin.runCatching {
-                                            val geniusClient = GeniusClient(BuildConfig.GENIUS_API_KEY)
-
-                                            geniusClient.getLyrics(
-                                                artist = mediaMetadata.artist?.toString() ?: "",
-                                                title = cleanPrefix(mediaMetadata.title?.toString() ?: "")
-                                            )?.let { geniusLyrics ->
-                                                if (geniusLyrics.lyrics.isNotEmpty() && playerEnableLyricsPopupMessage) {
-                                                    coroutineScope.launch {
-                                                        Toaster.s(
-                                                            R.string.info_lyrics_found_on_s,
-                                                            "Genius.com"
-                                                        )
-                                                    }
-                                                } else {
-                                                    if (playerEnableLyricsPopupMessage) {
-                                                        coroutineScope.launch {
-                                                            Toaster.e(
-                                                                R.string.info_lyrics_not_found_on_s,
-                                                                "Genius.com",
-                                                                duration = Toast.LENGTH_LONG
-                                                            )
+                                                        if (geniusLyrics != null) {
+                                                            isError = false
+                                                            checkedLyricsGenius = true
+                                                            Database.asyncTransaction {
+                                                                lyricsTable.upsert(
+                                                                    Lyrics(
+                                                                        songId = mediaId,
+                                                                        fixed = geniusLyrics.value,
+                                                                        synced = currentLyrics?.synced
+                                                                    )
+                                                                )
+                                                            }
+                                                        } else {
+                                                            isError = true
+                                                        }
+                                                    }?.onFailure {
+                                                        isError = true
+                                                        if (playerEnableLyricsPopupMessage) {
+                                                            coroutineScope.launch {
+                                                                Toaster.e(
+                                                                    R.string.info_lyrics_not_found_on_s,
+                                                                    "Genius.com",
+                                                                    duration = Toast.LENGTH_LONG
+                                                                )
+                                                            }
                                                         }
                                                     }
-                                                }
-
-                                                isError = false
-                                                Database.asyncTransaction {
-                                                    lyricsTable.upsert(
-                                                        Lyrics(
-                                                            songId = mediaId,
-                                                            fixed = geniusLyrics.lyrics, // Genius provides unsync lyrics
-                                                            synced = currentLyrics?.synced
-                                                        )
-                                                    )
-                                                }
-                                            } ?: run {
-                                                // All sources failed
-                                                isError = true
-                                                if (playerEnableLyricsPopupMessage) {
-                                                    coroutineScope.launch {
-                                                        Toaster.e(
-                                                            R.string.info_lyrics_not_found_on_s,
-                                                            "Genius.com",
-                                                            duration = Toast.LENGTH_LONG
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }.onFailure {
+                                                }.onFailure {
+                                                    Timber.e("Lyrics Genius get error ${it.stackTraceToString()}")
+                                                    isError = true
+                                                }.onFailure {
                                             Timber.e("Lyrics Genius get error ${it.stackTraceToString()}")
                                             isError = true
                                         }
