@@ -1,6 +1,6 @@
 New:
 - New Logo
-- Removed Music logo and added N-Zik name
+- Removed Music logo and added Cubic-Music name
 - New Settings UI
 - New Changelogs UI
 - New Update UI
@@ -13,8 +13,8 @@ Changed:
 - Moved Update section to About
 - Quickpicks settings renamed to AI recommendations (now includes all AI settings)
 - Translated Easter eggs messages
-- Renamed RiMusic logs to N-Zik
-- Renamed RiMusic interface to N-Zik
+- Renamed RiMusic logs to Cubic-Music
+- Renamed RiMusic interface to Cubic-Music
 
 Improved:
 - Default purple slightly lighter for better readability on dark areas

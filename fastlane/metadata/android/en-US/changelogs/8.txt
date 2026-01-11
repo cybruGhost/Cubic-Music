@@ -4,7 +4,7 @@ Changed:
 - You can now view the changelog for the currently installed version from Settings > About.
 - Updated the app icon to a monochrome version in the player.
 - Added new translations.
-- Changed the default green to purple to match the N-Zik palette.
+- Changed the default green to purple to match the Cubic-Music palette.
 - Extension of the swipe gestures for stats screen and history screen
 - Reintroduced the old RiMusic local artist library system, now integrated with the new Artist UI.
 

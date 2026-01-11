@@ -147,6 +147,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 // checkupdate
 import app.kreate.android.BuildConfig
@@ -1640,4 +1641,3 @@ if (currentMonth == 11 && currentDay in 6..31) {
 
     }
 }
-

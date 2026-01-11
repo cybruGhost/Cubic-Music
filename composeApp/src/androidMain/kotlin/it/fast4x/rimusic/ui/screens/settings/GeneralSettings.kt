@@ -385,13 +385,13 @@ AnimatedVisibility(
     )
 ) {
     SettingsSectionCard(
-        title = "Spotify Canvas",
+        title = "Cubic Canvas",
         icon = R.drawable.spotifycanvas,
         content = {
             val context = LocalContext.current
             
             // Use var for mutable preferences
-            var spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", false)
+            var spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", true)
             var showSpotifyCanvasLogs by rememberPreference("showSpotifyCanvasLogs", false)
             
             // Beta warning state
@@ -401,7 +401,7 @@ AnimatedVisibility(
             var showResetDialog by remember { mutableStateOf(false) }
             
             // Main toggle for Spotify Canvas
-            if (search.inputValue.isBlank() || "Spotify Canvas".contains(search.inputValue, true)) {
+            if (search.inputValue.isBlank() || "Cubic Canvas".contains(search.inputValue, true)) {
                 Column {
                     // Beta badge and warning
                     Row(
@@ -429,7 +429,7 @@ AnimatedVisibility(
                     }
                     
                     OtherSwitchSettingEntry(
-                        title = "Spotify Canvas",
+                        title = "Cubic Canvas",
                         text = "Show animated canvas videos in player",
                         isChecked = spotifyCanvasEnabled,
                         onCheckedChange = { newValue ->
@@ -554,7 +554,7 @@ if (showBetaWarning) {
         text = {
             Column {
                 Text(
-                    text = "Spotify Canvas is currently in beta testing.",
+                    text = "Cubic Canvas is currently in beta testing.",    
                     style = typography().s.copy(color = colorPalette().text),
                     modifier = Modifier.padding(bottom = 8.dp),
                     color = colorPalette().text // Add this line
@@ -606,7 +606,7 @@ if (showBetaWarning) {
             // Reset confirmation dialog
             if (showResetDialog) {
                 ConfirmationDialog(
-                    text = "Reset Spotify Canvas settings?\nThis will clear all canvas data and preferences.",
+                    text = "Reset Cubic Canvas settings?\nThis will clear all canvas data and preferences.",
                     onDismiss = { showResetDialog = false },
                     onConfirm = {
                         spotifyCanvasEnabled = false
