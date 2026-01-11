@@ -28,12 +28,16 @@ repositories {
 --------------------------------------------------- */
 
 kotlin {
+<<<<<<< HEAD
     jvmToolchain(21)
+=======
+    jvmToolchain(17)
+>>>>>>> 74dcd1a2ab76c96a52052fc60b634905596a5138
 
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
+            jvmTarget.set(JvmTarget.JVM_17)
             freeCompilerArgs.add("-Xcontext-receivers")
         }
     }
@@ -76,8 +80,11 @@ kotlin {
 
                 implementation(libs.coil.mp)
                 implementation(libs.coil.network.okhttp)
+<<<<<<< HEAD
                 implementation("io.coil-kt:coil-compose:2.4.0") // latest stable Coil for Compose
 
+=======
+>>>>>>> 74dcd1a2ab76c96a52052fc60b634905596a5138
 
                 implementation(libs.translator)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
@@ -136,7 +143,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.Cubic.music"
+        applicationId = "com.cubic.music"
         minSdk = 23
         targetSdk = 36
         versionCode = 108
@@ -166,8 +173,13 @@ android {
     }
 
     compileOptions {
+<<<<<<< HEAD
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+=======
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+>>>>>>> 74dcd1a2ab76c96a52052fc60b634905596a5138
         isCoreLibraryDesugaringEnabled = true
     }
 

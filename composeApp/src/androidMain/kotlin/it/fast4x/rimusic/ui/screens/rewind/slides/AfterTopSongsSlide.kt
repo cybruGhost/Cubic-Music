@@ -21,7 +21,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+<<<<<<< HEAD
 import coil.compose.SubcomposeAsyncImage
+=======
+import coil3.compose.SubcomposeAsyncImage
+>>>>>>> 74dcd1a2ab76c96a52052fc60b634905596a5138
 import it.fast4x.rimusic.ui.screens.rewind.TopSong
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
