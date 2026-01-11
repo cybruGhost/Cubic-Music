@@ -579,7 +579,7 @@ fun Lyrics(
                                                 )
                                             }
 
-                                        checkedLyricsKugou = true
+                                                checkedLyricsKugou = true
                                                 kotlin.runCatching {
                                                     Genius.lyrics(
                                                         apiToken = BuildConfig.GENIUS_API_KEY,
