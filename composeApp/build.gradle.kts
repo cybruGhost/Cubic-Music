@@ -291,6 +291,7 @@ dependencies {
     implementation(libs.hypnoticcanvas.shaders)
     implementation(libs.github.jeziellago.compose.markdown)
 
+    implementation(projects.genius)
     implementation(projects.innertube)
     implementation(projects.oldtube)
     implementation(projects.kugou)
