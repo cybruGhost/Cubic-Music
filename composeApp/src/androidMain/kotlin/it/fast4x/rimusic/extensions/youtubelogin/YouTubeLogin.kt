@@ -38,13 +38,14 @@ import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.ytAccountThumbnailKey
 import it.fast4x.rimusic.utils.ytDataSyncIdKey
 import kotlinx.coroutines.delay
+import it.fast4x.rimusic.extensions.youtubelogin.AccountInfoFetcher
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YouTubeLogin(
-    onLogin: (String) -> Unit
+    onLogin: (YoutubeSession) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -61,13 +62,24 @@ fun YouTubeLogin(
     var hasLoggedIn by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var currentUrl by remember { mutableStateOf<String?>(null) }
+    var fetchedAccountInfo by remember { mutableStateOf(false) }
 
     // Check if we're already logged in when composable starts
     LaunchedEffect(Unit) {
         if (cookie.isNotEmpty() && cookie.contains("SAPISID") && !hasLoggedIn) {
             Timber.d("YouTubeLogin: Already have cookie with SAPISID")
+            // Try to fetch account info
+            isLoading = true
+            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
+            if (accountInfo != null) {
+                accountName = accountInfo.name.orEmpty()
+                accountEmail = accountInfo.email.orEmpty()
+                accountChannelHandle = accountInfo.channelHandle.orEmpty()
+                accountThumbnail = accountInfo.thumbnailUrl.orEmpty()
+            }
             hasLoggedIn = true
-            onLogin(cookie)
+            isLoading = false
+            onLogin(YoutubeSession(cookie, visitorData, accountName, accountEmail, accountChannelHandle))
         }
     }
 
@@ -82,7 +94,14 @@ fun YouTubeLogin(
             onClick = {
                 // Check if we have valid cookies before dismissing
                 if (cookie.contains("SAPISID")) {
-                    onLogin(cookie)
+                    val session = YoutubeSession(
+                        cookie = cookie,
+                        visitorData = visitorData,
+                        accountName = accountName,
+                        accountEmail = accountEmail,
+                        accountChannelHandle = accountChannelHandle
+                    )
+                    onLogin(session)
                 } else {
                     android.widget.Toast.makeText(context, "Please complete login first", android.widget.Toast.LENGTH_SHORT).show()
                 }
@@ -124,26 +143,23 @@ fun YouTubeLogin(
                             
                             if (combinedCookies.isNotEmpty()) {
                                 // Check for SAPISID cookie
-                                if (combinedCookies.contains("SAPISID") && !hasLoggedIn) {
+                                if (combinedCookies.contains("SAPISID") && !hasLoggedIn && !fetchedAccountInfo) {
                                     cookie = combinedCookies
                                     Timber.d("YouTubeLogin: Saved cookie with SAPISID: ${cookie.contains("SAPISID")}")
                                     
                                     // Try to get VISITOR_DATA and DATASYNC_ID from JavaScript
                                     loadUrl("javascript:(function() {" +
                                             "try {" +
-                                            "  console.log('Trying to get YouTube config...');" +
-                                            "  console.log('yt object:', window.yt);" +
-                                            "  console.log('yt.config_:', window.yt?.config_);" +
                                             "  var visitorData = window.yt?.config_?.VISITOR_DATA || window.ytcfg?.data_?.VISITOR_DATA;" +
                                             "  var dataSyncId = window.yt?.config_?.DATASYNC_ID || window.ytcfg?.data_?.DATASYNC_ID;" +
-                                            "  console.log('visitorData:', visitorData);" +
-                                            "  console.log('dataSyncId:', dataSyncId);" +
                                             "  if (visitorData) Android.onRetrieveVisitorData(visitorData);" +
                                             "  if (dataSyncId) Android.onRetrieveDataSyncId(dataSyncId);" +
                                             "} catch(e) {" +
-                                            "  console.log('Error getting YouTube config:', e);" +
                                             "}" +
                                             "})()")
+                                    
+                                    // Set flag to prevent multiple fetches
+                                    fetchedAccountInfo = true
                                     
                                     // Wait a bit and then try to fetch account info
                                     scope.launch {
@@ -151,8 +167,7 @@ fun YouTubeLogin(
                                         
                                         try {
                                             isLoading = true
-                                            val accountInfo = Innertube.accountInfo().getOrNull()
-                                            Timber.d("YouTubeLogin: Account info result: $accountInfo")
+                                            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
                                             
                                             accountInfo?.let {
                                                 accountName = it.name.orEmpty()
@@ -160,40 +175,74 @@ fun YouTubeLogin(
                                                 accountChannelHandle = it.channelHandle.orEmpty()
                                                 accountThumbnail = it.thumbnailUrl.orEmpty()
                                                 
+                                                Timber.d("YouTubeLogin: Saved account info:")
+                                                Timber.d("  Name: $accountName")
+                                                Timber.d("  Email: $accountEmail")
+                                                Timber.d("  Channel: $accountChannelHandle")
+                                                
+                                                // Create session with all data
+                                                val session = YoutubeSession(
+                                                    cookie = cookie,
+                                                    visitorData = visitorData,
+                                                    accountName = accountName,
+                                                    accountEmail = accountEmail,
+                                                    accountChannelHandle = accountChannelHandle
+                                                )
+                                                
                                                 android.widget.Toast.makeText(context, "Logged in as ${it.name}", android.widget.Toast.LENGTH_SHORT).show()
                                                 hasLoggedIn = true
                                                 isLoading = false
                                                 
-                                                // Trigger login callback
-                                                onLogin(cookie)
+                                                // Trigger login callback with complete session
+                                                onLogin(session)
                                             } ?: run {
                                                 // Even if we can't get account info, if we have SAPISID, we're logged in
                                                 if (cookie.contains("SAPISID")) {
+                                                    Timber.d("YouTubeLogin: Cookie has SAPISID but couldn't fetch account info")
+                                                    
+                                                    // Create session with basic data
+                                                    val session = YoutubeSession(
+                                                        cookie = cookie,
+                                                        visitorData = visitorData,
+                                                        accountName = accountName,
+                                                        accountEmail = accountEmail,
+                                                        accountChannelHandle = accountChannelHandle
+                                                    )
+                                                    
                                                     android.widget.Toast.makeText(context, "Logged in successfully", android.widget.Toast.LENGTH_SHORT).show()
                                                     hasLoggedIn = true
                                                     isLoading = false
-                                                    onLogin(cookie)
+                                                    onLogin(session)
                                                 }
                                             }
                                         } catch (e: Exception) {
                                             Timber.e("YouTubeLogin: Error fetching account info: ${e.message}")
                                             // Even if account info fails, if we have cookies, we're logged in
                                             if (cookie.contains("SAPISID")) {
+                                                // Create session with basic data
+                                                val session = YoutubeSession(
+                                                    cookie = cookie,
+                                                    visitorData = visitorData,
+                                                    accountName = accountName,
+                                                    accountEmail = accountEmail,
+                                                    accountChannelHandle = accountChannelHandle
+                                                )
+                                                
                                                 android.widget.Toast.makeText(context, "Logged in successfully", android.widget.Toast.LENGTH_SHORT).show()
                                                 hasLoggedIn = true
                                                 isLoading = false
-                                                onLogin(cookie)
+                                                onLogin(session)
                                             }
                                         } finally {
                                             isLoading = false
+                                            fetchedAccountInfo = false
                                         }
                                     }
                                 }
                             }
                             
                             // If we're on music.youtube.com and not logged in yet, check for cookies again
-                            if (url?.contains("music.youtube.com") == true && !hasLoggedIn) {
-                                Timber.d("YouTubeLogin: On music.youtube.com but not logged in, checking cookies...")
+                            if (url?.contains("music.youtube.com") == true && !hasLoggedIn && !fetchedAccountInfo) {
                                 loadUrl("javascript:(function() {" +
                                         "try {" +
                                         "  var visitorData = window.yt?.config_?.VISITOR_DATA || window.ytcfg?.data_?.VISITOR_DATA;" +
@@ -207,16 +256,7 @@ fun YouTubeLogin(
 
                         override fun shouldOverrideUrlLoading(view: WebView, url: String?): Boolean {
                             Timber.d("YouTubeLogin: Navigating to: $url")
-                            // Allow navigation to continue
                             return false
-                        }
-
-                        override fun onLoadResource(view: WebView?, url: String?) {
-                            super.onLoadResource(view, url)
-                            // Debug: log resource loading
-                            if (url?.contains("youtube") == true || url?.contains("google") == true) {
-                                Timber.d("YouTubeLogin: Loading resource: $url")
-                            }
                         }
                     }
                     
@@ -242,7 +282,6 @@ fun YouTubeLogin(
                     val cookieManager = CookieManager.getInstance()
                     cookieManager.setAcceptCookie(true)
                     cookieManager.setAcceptThirdPartyCookies(this, true)
-                    // Note: setAcceptFileSchemeCookies is deprecated and not needed for HTTP/HTTPS cookies
                     
                     // Add JavaScript interface
                     addJavascriptInterface(object {
@@ -280,11 +319,8 @@ fun YouTubeLogin(
                         "Upgrade-Insecure-Requests" to "1"
                     )
                     
-                    // Start with music.youtube.com directly - it will redirect to login if needed
+                    // Start with music.youtube.com directly
                     loadUrl("https://music.youtube.com", headers)
-                    
-                    // Alternative: Use the Google login URL that redirects to music.youtube.com
-                    // loadUrl("https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F%253Fcbrd%253D1&hl=en", headers)
                 }
             }
         )

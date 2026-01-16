@@ -21,6 +21,11 @@ const val pipedApiBaseUrlKey = "pipedApiBaseUrl"
 const val pipedApiTokenKey = "pipedApiToken"
 const val discordPersonalAccessTokenKey = "DiscordPersonalAccessToken"
 
+const val ytVisitorDataKey = "ytVisitorData"
+const val ytCookieKey = "ytCookie"
+const val ytAccountChannelHandleKey = "ytAccountChannelHandle"
+const val ytAccountThumbnailKey = "ytAccountThumbnail"
+
 inline fun <reified T : Enum<T>> EncryptedSharedPreferences.getEnum(
     key: String,
     defaultValue: T

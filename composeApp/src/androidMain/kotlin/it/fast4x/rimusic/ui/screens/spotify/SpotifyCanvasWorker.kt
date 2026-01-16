@@ -39,7 +39,7 @@ enum class LogType {
 
 // API Configuration
 object SpotifyApiConfig {
-    // Configuration URL  waa niko na jokes ate car😂ol 😂 hio json wacha tu ..nikubokeka tu
+    // Configuration URL
     private const val CONFIG_URL = "https://v0-spotify-playlist-csv.vercel.app/carolwillbemywife_config.json"
     
     // Default URLs tuseme fallback and quick fetching

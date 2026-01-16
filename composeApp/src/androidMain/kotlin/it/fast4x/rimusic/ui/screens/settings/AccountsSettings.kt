@@ -7,6 +7,8 @@
 package it.fast4x.rimusic.ui.screens.settings
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.SharedPreferences
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import androidx.compose.animation.AnimatedVisibility
@@ -30,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -67,8 +70,8 @@ import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.extensions.discord.DiscordLoginAndGetToken
-import it.fast4x.rimusic.extensions.discord.DiscordPresenceManager
 import it.fast4x.rimusic.extensions.youtubelogin.YouTubeLogin
+import it.fast4x.rimusic.extensions.youtubelogin.YoutubeSession
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.CustomModalBottomSheet
@@ -77,11 +80,11 @@ import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.components.themed.Menu
 import it.fast4x.rimusic.ui.components.themed.MenuEntry
 import it.fast4x.rimusic.ui.styling.Dimensions
+import it.fast4x.rimusic.extensions.youtubelogin.AccountInfoFetcher
 import it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import it.fast4x.rimusic.utils.enableYouTubeLoginKey
 import it.fast4x.rimusic.utils.enableYouTubeSyncKey
 import it.fast4x.rimusic.utils.isAtLeastAndroid7
-import it.fast4x.rimusic.utils.isAtLeastAndroid81
 import it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 import it.fast4x.rimusic.utils.isPipedCustomEnabledKey
 import it.fast4x.rimusic.utils.isPipedEnabledKey
@@ -102,26 +105,21 @@ import it.fast4x.rimusic.utils.ytAccountThumbnailKey
 import it.fast4x.rimusic.utils.ytCookieKey
 import it.fast4x.rimusic.utils.ytDataSyncIdKey
 import it.fast4x.rimusic.utils.ytVisitorDataKey
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.knighthat.coil.ImageCacheFactory
 import me.knighthat.component.dialog.RestartAppDialog
 import timber.log.Timber
-
-
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @SuppressLint("BatteryLife")
 @Composable
 fun AccountsSettings() {
-    val context = LocalContext.current
     val thumbnailRoundness by rememberPreference(
         thumbnailRoundnessKey,
         ThumbnailRoundness.Heavy
     )
 
-    var restartActivity by rememberPreference(restartActivityKey, false)
     var restartService by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -319,6 +317,7 @@ private fun YouTubeMusicAccountSection(
     onRestartService: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val thumbnailRoundness by rememberPreference(
         thumbnailRoundnessKey,
         ThumbnailRoundness.Heavy
@@ -337,21 +336,42 @@ private fun YouTubeMusicAccountSection(
         defaultValue = ""
     )
     var accountThumbnail by rememberPreference(key = ytAccountThumbnailKey, defaultValue = "")
+    var isFetchingAccountInfo by remember { mutableStateOf(false) }
     
     // Force recomposition when cookie changes
     val isLoggedIn = remember(cookie) {
-        val hasSAPISID = "SAPISID" in parseCookieString(cookie)
-        Timber.d("YouTubeMusicAccountSection: Checking login status - cookie has SAPISID: $hasSAPISID")
-        hasSAPISID
+        cookie.contains("SAPISID")
     }
     
-    // Debug log
+    // Check login status and fetch account info when section loads
+    LaunchedEffect(Unit) {
+        Timber.d("YouTubeMusicAccountSection: Initial cookie check - has SAPISID: ${cookie.contains("SAPISID")}")
+        if (cookie.contains("SAPISID") && accountName.isEmpty()) {
+            // Try to fetch account info if we have cookie but no name
+            isFetchingAccountInfo = true
+            coroutineScope.launch {
+                try {
+                    val accountInfo = AccountInfoFetcher.fetchAccountInfo()
+                    if (accountInfo != null) {
+                        accountName = accountInfo.name.orEmpty()
+                        accountEmail = accountInfo.email.orEmpty()
+                        accountChannelHandle = accountInfo.channelHandle.orEmpty()
+                        accountThumbnail = accountInfo.thumbnailUrl.orEmpty()
+                    }
+                } catch (e: Exception) {
+                    Timber.e("Failed to fetch account info: ${e.message}")
+                } finally {
+                    isFetchingAccountInfo = false
+                }
+            }
+        }
+    }
+    
+    // Debug log when cookie changes
     LaunchedEffect(cookie) {
         Timber.d("YouTubeMusicAccountSection: Cookie changed: ${cookie.take(50)}...")
         Timber.d("YouTubeMusicAccountSection: Has SAPISID: ${cookie.contains("SAPISID")}")
     }
-    
-    // ... rest of the code remains the same
 
     AnimatedVisibility(
         visible = true,
@@ -392,7 +412,26 @@ private fun YouTubeMusicAccountSection(
                             accountThumbnail = accountThumbnail,
                             accountName = accountName,
                             accountEmail = accountEmail,
-                            accountChannelHandle = accountChannelHandle
+                            accountChannelHandle = accountChannelHandle,
+                            isFetchingInfo = isFetchingAccountInfo,
+                            onRefresh = {
+                                coroutineScope.launch {
+                                    isFetchingAccountInfo = true
+                                    try {
+                                        val accountInfo = AccountInfoFetcher.fetchAccountInfo()
+                                        if (accountInfo != null) {
+                                            accountName = accountInfo.name.orEmpty()
+                                            accountEmail = accountInfo.email.orEmpty()
+                                            accountChannelHandle = accountInfo.channelHandle.orEmpty()
+                                            accountThumbnail = accountInfo.thumbnailUrl.orEmpty()
+                                        }
+                                    } catch (e: Exception) {
+                                        Timber.e("Failed to refresh account info: ${e.message}")
+                                    } finally {
+                                        isFetchingAccountInfo = false
+                                    }
+                                }
+                            }
                         )
                     }
 
@@ -434,12 +473,27 @@ private fun YouTubeMusicAccountSection(
                             loginYouTube = loginYouTube,
                             onDismiss = { loginYouTube = false },
                             thumbnailRoundness = thumbnailRoundness,
-                            onLoginSuccess = { cookieRetrieved ->
+                            onLoginSuccess = { session ->
                                 loginYouTube = false
-                                if (cookieRetrieved.contains("SAPISID")) {
-                                    android.widget.Toast.makeText(context, "YouTube login successful", android.widget.Toast.LENGTH_SHORT).show()
-                                    onRestartService(true)
+                                // Update preferences from session
+                                context.preferences.edit().apply {
+                                    putString(ytCookieKey, session.cookie)
+                                    putString(ytVisitorDataKey, session.visitorData)
+                                    putString(ytAccountNameKey, session.accountName)
+                                    putString(ytAccountEmailKey, session.accountEmail)
+                                    putString(ytAccountChannelHandleKey, session.accountChannelHandle)
+                                    apply()
                                 }
+                                
+                                // Update local state
+                                cookie = session.cookie
+                                visitorData = session.visitorData
+                                accountName = session.accountName
+                                accountEmail = session.accountEmail
+                                accountChannelHandle = session.accountChannelHandle
+                                
+                                android.widget.Toast.makeText(context, "YouTube login successful", android.widget.Toast.LENGTH_SHORT).show()
+                                onRestartService(true)
                             }
                         )
                     }
@@ -463,8 +517,13 @@ private fun AccountInfoDisplay(
     accountThumbnail: String,
     accountName: String,
     accountEmail: String,
-    accountChannelHandle: String
+    accountChannelHandle: String,
+    isFetchingInfo: Boolean = false,
+    onRefresh: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    var isRefreshing by remember { mutableStateOf(false) }
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -472,67 +531,137 @@ private fun AccountInfoDisplay(
             .background(colorPalette().background2, thumbnailShape())
             .padding(16.dp)
     ) {
-        Text(
-            text = "Account Information",
-            color = colorPalette().text,
-            fontWeight = FontWeight.Bold,
-            style = typography().m,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Account Information",
+                color = colorPalette().text,
+                fontWeight = FontWeight.Bold,
+                style = typography().m,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            IconButton(
+                onClick = {
+                    isRefreshing = true
+                    onRefresh()
+                    isRefreshing = false
+                },
+                enabled = !isRefreshing && !isFetchingInfo
+            ) {
+                if (isRefreshing || isFetchingInfo) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.refresh),
+                        contentDescription = "Refresh account info",
+                        tint = colorPalette().textSecondary
+                    )
+                }
+            }
+        }
         
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 8.dp)
         ) {
-            if (accountThumbnail.isNotEmpty()) {
-                ImageCacheFactory.AsyncImage(
-                    thumbnailUrl = accountThumbnail,
-                    contentDescription = null,
+            if (isFetchingInfo) {
+                // Show loading skeleton
+                Box(
                     modifier = Modifier
                         .size(50.dp)
                         .clip(thumbnailShape())
+                        .background(colorPalette().background3)
                 )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.person),
-                    contentDescription = null,
+                Column(
                     modifier = Modifier
-                        .size(50.dp)
-                        .clip(thumbnailShape()),
-                    tint = colorPalette().textSecondary
-                )
-            }
-            
-            Column(
-                modifier = Modifier
-                    .padding(start = 16.dp)
-                    .fillMaxWidth()
-            ) {
-                if (accountName.isNotEmpty()) {
-                    Text(
-                        text = accountName,
-                        color = colorPalette().text,
-                        fontWeight = FontWeight.Medium,
-                        style = typography().m
+                        .padding(start = 16.dp)
+                        .fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .height(20.dp)
+                            .background(colorPalette().background3)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.4f)
+                            .height(16.dp)
+                            .background(colorPalette().background3)
+                    )
+                }
+            } else {
+                if (accountThumbnail.isNotEmpty()) {
+                    ImageCacheFactory.AsyncImage(
+                        thumbnailUrl = accountThumbnail,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(thumbnailShape())
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.person),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(thumbnailShape()),
+                        tint = colorPalette().textSecondary
                     )
                 }
                 
-                if (accountChannelHandle.isNotEmpty()) {
-                    Text(
-                        text = accountChannelHandle,
-                        color = colorPalette().textSecondary,
-                        style = typography().s,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-                
-                if (accountEmail.isNotEmpty()) {
-                    Text(
-                        text = accountEmail,
-                        color = colorPalette().textSecondary,
-                        style = typography().s,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+                Column(
+                    modifier = Modifier
+                        .padding(start = 16.dp)
+                        .fillMaxWidth()
+                ) {
+                    if (accountName.isNotEmpty()) {
+                        Text(
+                            text = accountName,
+                            color = colorPalette().text,
+                            fontWeight = FontWeight.Medium,
+                            style = typography().m
+                        )
+                    } else {
+                        Text(
+                            text = "YouTube User",
+                            color = colorPalette().text,
+                            fontWeight = FontWeight.Medium,
+                            style = typography().m
+                        )
+                    }
+                    
+                    if (accountChannelHandle.isNotEmpty()) {
+                        Text(
+                            text = accountChannelHandle,
+                            color = colorPalette().textSecondary,
+                            style = typography().s,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    
+                    if (accountEmail.isNotEmpty()) {
+                        Text(
+                            text = accountEmail,
+                            color = colorPalette().textSecondary,
+                            style = typography().s,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    
+                    if (accountName.isEmpty() && accountEmail.isEmpty() && accountChannelHandle.isEmpty()) {
+                        Text(
+                            text = "Account info unavailable",
+                            color = colorPalette().textDisabled,
+                            style = typography().s,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                 }
             }
         }
@@ -544,8 +673,10 @@ private fun LoginYouTubeModal(
     loginYouTube: Boolean,
     onDismiss: () -> Unit,
     thumbnailRoundness: ThumbnailRoundness,
-    onLoginSuccess: (String) -> Unit
+    onLoginSuccess: (YoutubeSession) -> Unit
 ) {
+    val context = LocalContext.current
+    
     CustomModalBottomSheet(
         showSheet = loginYouTube,
         onDismissRequest = onDismiss,
@@ -563,10 +694,37 @@ private fun LoginYouTubeModal(
         shape = thumbnailRoundness.shape
     ) {
         YouTubeLogin(
-            onLogin = { cookieRetrieved ->
-                onLoginSuccess(cookieRetrieved)
+            onLogin = { session ->
+                onLoginSuccess(session)
             }
         )
+    }
+}
+
+private fun refreshYouTubeAccountInfo(context: Context) {
+    val cookie = context.preferences.getString(ytCookieKey, "")
+    if (cookie.isNullOrEmpty() || !cookie.contains("SAPISID")) {
+        return
+    }
+    
+    // Try to fetch fresh account info
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
+    scope.launch {
+        try {
+            val accountInfo = Innertube.accountInfo().getOrNull()
+            accountInfo?.let {
+                // Update preferences
+                context.preferences.edit().apply {
+                    putString(ytAccountNameKey, it.name.orEmpty())
+                    putString(ytAccountEmailKey, it.email.orEmpty())
+                    putString(ytAccountChannelHandleKey, it.channelHandle.orEmpty())
+                    putString(ytAccountThumbnailKey, it.thumbnailUrl.orEmpty())
+                    apply()
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e("refreshYouTubeAccountInfo: Error fetching account info: ${e.message}")
+        }
     }
 }
 
@@ -656,8 +814,6 @@ private fun PipedAccountSection() {
                                 icon = R.drawable.server,
                                 onClick = { showCustomInstanceDialog = true }
                             )
-                            
-                            // Note: You need to implement your InputTextDialog here
                         }
                     }
                     
