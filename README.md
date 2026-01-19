@@ -28,7 +28,7 @@ Every bit of support helps keep cubicmusic growing 🚀
 </div>
 
 ---
-New feature (v1.7.6 soon)
+New feature (v1.7.7 soon)
 <b>Spotify Canvas(beta)</b>
 
 What is Spotify Canvas?
@@ -51,7 +51,7 @@ What is Spotify Canvas?
 
 ---
 
-## 🚀 Current Version: `v1.7.6`  
+## 🚀 Current Version: `v1.7.7`  
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
@@ -127,8 +127,8 @@ Your music. Your stats. Your story — ready to relive and share.
 | Metric | Badge | Live Count |
 |--------|-------|------------|
 | **All-Time Downloads** | [![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads&color=blue)](https://github.com/cybruGhost/Cubic-Music/releases) | **Every download ever made** |
-| **Current Release** | [![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green)](https://github.com/cybruGhost/Cubic-Music/releases/latest) | **v1.7.6 downloads only** |
-| **Version-Specific** | [![v1.7.6 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.7.6/total?label=v1.7.6%20Downloads&color=orange)](https://github.com/cybruGhost/Cubic-Music/releases/tag/v1.7.6) | **This version only** |
+| **Current Release** | [![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green)](https://github.com/cybruGhost/Cubic-Music/releases/latest) | **v1.7.7 downloads only** |
+| **Version-Specific** | [![v1.7.7 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.7.7/total?label=v1.7.7%20Downloads&color=orange)](https://github.com/cybruGhost/Cubic-Music/releases/tag/v1.7.7) | **This version only** |
 | **All Releases** | [![All Releases](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=All%20Releases&color=success)](https://github.com/cybruGhost/Cubic-Music/releases) | **Across all versions** |
 
 </div>
