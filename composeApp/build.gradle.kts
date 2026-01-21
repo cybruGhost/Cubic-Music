@@ -102,6 +102,11 @@ kotlin {
                 implementation("com.squareup.okhttp3:okhttp:4.12.0")
                 implementation("com.google.code.gson:gson:2.10.1")
                 implementation("org.jsoup:jsoup:1.17.2")
+
+                implementation("io.github.jan-tennart.supabase:gotrue-kt:1.3.2")
+                implementation("io.github.jan-tennart.supabase:supabase-kt:1.3.2")
+                implementation("io.ktor:ktor-client-core:2.3.4")
+                implementation("io.ktor:ktor-client-okhttp:2.3.4")
             }
         }
 
@@ -133,6 +138,10 @@ android {
     namespace = "app.kreate.android"
     compileSdk = 35
 
+    val key: String = providers.gradleProperty("supabasekey").orNull ?: ""
+    val url: String = providers.gradleProperty("supabaseurl").orNull ?: ""
+
+
     defaultConfig {
         applicationId = "com.cubic.music"
         minSdk = 23
@@ -140,8 +149,15 @@ android {
         versionCode = 108
         versionName = "1.7.5"
 
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
         buildConfigField("Boolean", "IS_AUTOUPDATE", "true")
         buildConfigField("String", "APP_NAME", "\"$APP_NAME\"")
+        buildConfigField("String", "supabasekey", "\"$key\"")
+        buildConfigField("String", "supabaseurl", "\"$url\"")
 
         // Read GENIUS_API_KEY from .env file
         val envFile = rootProject.file(".env")
@@ -297,6 +313,14 @@ dependencies {
     implementation(projects.kugou)
     implementation(projects.lrclib)
     implementation(projects.piped)
+
+    implementation("io.github.jan-tennart.supabase:gotrue-kt:1.3.2")
+    implementation("io.github.jan-tennart.supabase:supabase-kt:1.3.2")
+    implementation("io.ktor:ktor-client-cio:2.3.4")
+    implementation("io.ktor:ktor-client-okhttp:2.3.4")
+
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+    implementation("androidx.compose.material3:material3:1.3.2")
 
     ksp(libs.room.compiler)
 
