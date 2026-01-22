@@ -103,10 +103,11 @@ kotlin {
                 implementation("com.google.code.gson:gson:2.10.1")
                 implementation("org.jsoup:jsoup:1.17.2")
 
-                implementation("io.github.jan-tennart.supabase:gotrue-kt:1.3.2")
-                implementation("io.github.jan-tennart.supabase:supabase-kt:1.3.2")
-                implementation("io.ktor:ktor-client-core:2.3.4")
-                implementation("io.ktor:ktor-client-okhttp:2.3.4")
+                // FIXED SUPABASE VERSIONS - Using 1.4.7 (stable and verified)
+                implementation("io.github.jan-tennart.supabase:gotrue-kt:1.4.7")
+                implementation("io.github.jan-tennart.supabase:postgrest-kt:1.4.7")
+                implementation("io.ktor:ktor-client-core:2.3.5")
+                implementation("io.ktor:ktor-client-okhttp:2.3.5")
             }
         }
 
@@ -314,10 +315,9 @@ dependencies {
     implementation(projects.lrclib)
     implementation(projects.piped)
 
-    implementation("io.github.jan-tennart.supabase:gotrue-kt:1.3.2")
-    implementation("io.github.jan-tennart.supabase:supabase-kt:1.3.2")
-    implementation("io.ktor:ktor-client-cio:2.3.4")
-    implementation("io.ktor:ktor-client-okhttp:2.3.4")
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.auth.kt)
+    implementation(libs.ktor.client.okhttp)
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.compose.material3:material3:1.3.2")

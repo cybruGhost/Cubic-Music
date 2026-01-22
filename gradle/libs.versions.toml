@@ -52,6 +52,7 @@ runner = "1.5.2"
 core = "1.5.0"
 junit = "1.3.0"
 jetbrainsKotlinJvm = "2.1.0"
+bom = "3.1.1"
 
 
 [libraries]
@@ -74,6 +75,10 @@ room = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
+
+#supabase
+auth-kt = { module = "io.github.jan-tennert.supabase:auth-kt" }
+supabase-bom = { module = "io.github.jan-tennert.supabase:bom", version.ref = "bom"}
 
 # Media
 
