@@ -1,4 +1,4 @@
-// ui/screens/welcome/WelcomeScreen.kt - REDESIGNED VERSION
+// ui/screens/welcome/WelcomeScreen.kt - TV FIXED VERSION
 package it.fast4x.rimusic.ui.screens.welcome
 
 import androidx.compose.animation.core.animateDpAsState
@@ -8,6 +8,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,12 +43,20 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -239,12 +248,18 @@ fun WelcomeScreen(navController: NavController) {
 @Composable
 fun WelcomeContent(onComplete: (String, String) -> Unit) {
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current // ← ADD THIS
+    val uriHandler = LocalUriHandler.current
     val keyboardController = LocalSoftwareKeyboardController.current
     
     var name by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
     var animated by remember { mutableStateOf(false) }
+    
+    // ADDED: TV navigation focus management
+    val (nameFocusRequester, cityFocusRequester, buttonFocusRequester) = remember {
+        FocusRequester.createRefs()
+    }
+    var focusedField by remember { mutableStateOf<Int?>(null) }
     
     val alpha by animateFloatAsState(
         targetValue = if (animated) 1f else 0f,
@@ -260,6 +275,10 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
     LaunchedEffect(Unit) {
         animated = true
         city = DataStoreUtils.getStringBlocking(context, KEY_CITY, "")
+        
+        // AUTO-FOCUS for TV: Start with name field focused
+        nameFocusRequester.requestFocus()
+        focusedField = 1
     }
     
     Column(
@@ -371,6 +390,7 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
+                // ADDED: TV navigation support for name field
                 OutlinedTextField(
                     value = name,
                     onValueChange = { 
@@ -378,7 +398,33 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                             name = it
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(nameFocusRequester)
+                        .focusable()
+                        .onFocusChanged {
+                            if (it.isFocused) {
+                                focusedField = 1
+                            }
+                        }
+                        .onKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                when (keyEvent.key) {
+                                    Key.DirectionDown, Key.Tab -> {
+                                        cityFocusRequester.requestFocus()
+                                        focusedField = 2
+                                        return@onKeyEvent true
+                                    }
+                                    Key.Enter -> {
+                                        // On TV remote, Enter should work like Tab
+                                        cityFocusRequester.requestFocus()
+                                        focusedField = 2
+                                        return@onKeyEvent true
+                                    }
+                                }
+                            }
+                            false
+                        },
                     placeholder = { 
                         Text(
                             "Enter your 👻 nickname",
@@ -416,6 +462,7 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
+                // ADDED: TV navigation support for city field
                 OutlinedTextField(
                     value = city,
                     onValueChange = { 
@@ -423,7 +470,38 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                             city = it
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(cityFocusRequester)
+                        .focusable()
+                        .onFocusChanged {
+                            if (it.isFocused) {
+                                focusedField = 2
+                            }
+                        }
+                        .onKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                when (keyEvent.key) {
+                                    Key.DirectionUp -> {
+                                        nameFocusRequester.requestFocus()
+                                        focusedField = 1
+                                        return@onKeyEvent true
+                                    }
+                                    Key.DirectionDown, Key.Tab -> {
+                                        buttonFocusRequester.requestFocus()
+                                        focusedField = 3
+                                        return@onKeyEvent true
+                                    }
+                                    Key.Enter -> {
+                                        // On TV remote, Enter should work like Tab
+                                        buttonFocusRequester.requestFocus()
+                                        focusedField = 3
+                                        return@onKeyEvent true
+                                    }
+                                }
+                            }
+                            false
+                        },
                     placeholder = { 
                         Text(
                             "e.g., Tokyo, London, New York",
@@ -477,7 +555,34 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .clip(RoundedCornerShape(20.dp)),
+                    .clip(RoundedCornerShape(20.dp))
+                    .focusRequester(buttonFocusRequester)
+                    .focusable()
+                    .onFocusChanged {
+                        if (it.isFocused) {
+                            focusedField = 3
+                        }
+                    }
+                    .onKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown) {
+                            when (keyEvent.key) {
+                                Key.DirectionUp -> {
+                                    cityFocusRequester.requestFocus()
+                                    focusedField = 2
+                                    return@onKeyEvent true
+                                }
+                                Key.Enter, Key.NumPadEnter -> {
+                                    // On TV, Enter or D-pad center should click the button
+                                    keyboardController?.hide()
+                                    if (name.isNotBlank() && name.length <= 20) {
+                                        onComplete(name.trim(), city.trim())
+                                    }
+                                    return@onKeyEvent true
+                                }
+                            }
+                        }
+                        false
+                    },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFFF6BCB),
                     contentColor = Color.White,
@@ -515,9 +620,10 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                 Box(
                     modifier = Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
                         onClick = {
-                        uriHandler.openUri("https://thecub4.vercel.app/legal")
-                    }
+                            uriHandler.openUri("https://thecub4.vercel.app/legal")
+                        }
                     )
                 ) {
                     Text(

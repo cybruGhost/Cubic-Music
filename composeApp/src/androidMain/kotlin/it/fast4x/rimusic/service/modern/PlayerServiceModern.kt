@@ -209,6 +209,8 @@ import android.os.Binder as AndroidBinder
 import androidx.compose.ui.util.fastMap
 import it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 
+import it.fast4x.rimusic.ui.screens.cubicjam.CubicJamManager
+
 const val LOCAL_KEY_PREFIX = "local:"
 
 val MediaItem.isLocal get() = mediaId.startsWith(LOCAL_KEY_PREFIX)
@@ -243,6 +245,7 @@ class PlayerServiceModern : MediaLibraryService(),
      * Discord presence
      */
     private var discordPresenceManager: DiscordPresenceManager? = null
+    private var cubicJamManager: CubicJamManager? = null
 
     var loudnessEnhancer: LoudnessEnhancer? = null
     private var binder = Binder()
@@ -561,7 +564,21 @@ class PlayerServiceModern : MediaLibraryService(),
                 )
             }
         }
-    }
+                // ✨ ADD THIS CUBIC JAM INITIALIZATION ✨
+        /**
+         * Cubic Jam presence
+         */
+        val cubicJamPrefs = getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+        val cubicJamToken = cubicJamPrefs.getString("bearer_token", null)
+        val cubicJamEnabled = cubicJamPrefs.getBoolean("is_enabled", false)
+        
+        if (cubicJamToken != null && cubicJamEnabled) {
+            cubicJamManager = CubicJamManager(
+                context = this,
+                getToken = { cubicJamToken }
+            )
+        }
+    } 
 
     override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
 
@@ -638,6 +655,9 @@ class PlayerServiceModern : MediaLibraryService(),
                 Toaster.i("[DiscordPresence] onStop: call the manager (close discord presence)")
                 discordPresenceManager?.onStop()
             }
+                        // ✨ ADD THIS CUBIC JAM CLEANUP ✨
+            cubicJamManager?.onStop()
+            cubicJamManager = null
             maybeSavePlayerQueue()
             preferences.unregisterOnSharedPreferenceChangeListener(this)
             stopService(intent<MyDownloadService>())
@@ -744,7 +764,6 @@ class PlayerServiceModern : MediaLibraryService(),
         /**
          * Discord presence
          */
-        val title = mediaItem?.mediaMetadata?.title ?: "<none>"
         val duration = player.duration
         val now = System.currentTimeMillis()
         if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
@@ -763,6 +782,36 @@ class PlayerServiceModern : MediaLibraryService(),
                     isPlayingProvider = { isPlaying }
                 )
             }
+        }
+        
+        // ✨ ADD THIS CUBIC JAM PRESENCE ✨
+        /**
+         * Cubic Jam presence
+         */
+        val cubicJamPrefs = getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+        val cubicJamToken = cubicJamPrefs.getString("bearer_token", null)
+        val cubicJamEnabled = cubicJamPrefs.getBoolean("is_enabled", false)
+        
+        if (cubicJamToken != null && cubicJamEnabled) {
+            // Ensure manager exists
+            if (cubicJamManager == null) {
+                cubicJamManager = CubicJamManager(
+                    context = this,
+                    getToken = { cubicJamToken }
+                )
+            }
+            
+            val currentPosition = player.currentPosition
+            val isPlaying = player.isPlaying
+            cubicJamManager?.onPlayingStateChanged(
+                mediaItem = mediaItem,
+                isPlaying = isPlaying,
+                position = currentPosition,
+                duration = duration,
+                now = now,
+                getCurrentPosition = { currentPosition },
+                isPlayingProvider = { isPlaying }
+            )
         }
     }
 
@@ -788,13 +837,13 @@ class PlayerServiceModern : MediaLibraryService(),
     /**
      * Discord presence
      */
-    @UnstableApi
+        @UnstableApi
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         val item = player.currentMediaItem
-        val title = item?.mediaMetadata?.title ?: "<none>"
         val duration = player.duration
         val now = System.currentTimeMillis()
         
+        // Discord presence
         if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
             val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
             if (token?.isNotEmpty() == true) {
@@ -811,6 +860,34 @@ class PlayerServiceModern : MediaLibraryService(),
                 )
             }
         }
+        
+        // ✨ ADD THIS CUBIC JAM PRESENCE ✨
+        // Cubic Jam presence
+        val cubicJamPrefs = getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+        val cubicJamToken = cubicJamPrefs.getString("bearer_token", null)
+        val cubicJamEnabled = cubicJamPrefs.getBoolean("is_enabled", false)
+        
+        if (cubicJamToken != null && cubicJamEnabled) {
+            // Ensure manager exists
+            if (cubicJamManager == null) {
+                cubicJamManager = CubicJamManager(
+                    context = this,
+                    getToken = { cubicJamToken }
+                )
+            }
+            
+            val currentPosition = player.currentPosition
+            cubicJamManager?.onPlayingStateChanged(
+                mediaItem = item,
+                isPlaying = isPlaying,
+                position = currentPosition,
+                duration = duration,
+                now = now,
+                getCurrentPosition = { currentPosition },
+                isPlayingProvider = { isPlaying }
+            )
+        }
+        
         updateWidgets()
     }
 
@@ -1396,6 +1473,7 @@ class PlayerServiceModern : MediaLibraryService(),
         println("PlayerServiceModern onPositionDiscontinuity oldPosition "+oldPosition.mediaItemIndex+" newPosition "+newPosition.mediaItemIndex+" reason "+reason)
         
         // Discord presence: update on seek/skip
+        // Discord presence: update on seek/skip
         if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SKIP) {
             if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
                 val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
@@ -1416,6 +1494,38 @@ class PlayerServiceModern : MediaLibraryService(),
                         isPlayingProvider = { isPlaying }
                     )
                 }
+            }
+            
+            // ✨ ADD THIS CUBIC JAM PRESENCE ON SEEK/SKIP ✨
+            // Cubic Jam presence: update on seek/skip
+            val cubicJamPrefs = getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+            val cubicJamToken = cubicJamPrefs.getString("bearer_token", null)
+            val cubicJamEnabled = cubicJamPrefs.getBoolean("is_enabled", false)
+            
+            if (cubicJamToken != null && cubicJamEnabled) {
+                // Ensure manager exists
+                if (cubicJamManager == null) {
+                    cubicJamManager = CubicJamManager(
+                        context = this,
+                        getToken = { cubicJamToken }
+                    )
+                }
+                
+                val currentMediaItem = player.currentMediaItem
+                val isPlaying = player.isPlaying
+                val currentPosition = player.currentPosition
+                val duration = player.duration
+                val now = System.currentTimeMillis()
+                
+                cubicJamManager?.onPlayingStateChanged(
+                    mediaItem = currentMediaItem,
+                    isPlaying = isPlaying,
+                    position = currentPosition,
+                    duration = duration,
+                    now = now,
+                    getCurrentPosition = { currentPosition },
+                    isPlayingProvider = { isPlaying }
+                )
             }
         }
         super.onPositionDiscontinuity(oldPosition, newPosition, reason)

@@ -161,6 +161,9 @@ import com.mikepenz.hypnoticcanvas.shaders.BlackCherryCosmos
 import com.mikepenz.hypnoticcanvas.shaders.GoldenMagma
 import kotlin.random.Random
 import java.time.LocalDate
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 // ===== NOTIFICATION DATA CLASS =====
 data class NotificationData(
@@ -677,48 +680,101 @@ notificationInit = notificationResult?.getOrNull()
                     )
 
                 WelcomeMessage()
-
-                if (showTips) {
-                    Title2Actions(
-                        title = stringResource(R.string.tips),
-                        onClick1 = {
-                            menuState.display {
-                                Menu {
-                                    MenuEntry(
-                                        icon = R.drawable.chevron_up,
-                                        text = stringResource(R.string.by_most_played_song),
-                                        onClick = {
-                                            playEventType = PlayEventsType.MostPlayed
-                                            menuState.hide()
-                                        }
-                                    )
-                                    MenuEntry(
-                                        icon = R.drawable.chevron_down,
-                                        text = stringResource(R.string.by_last_played_song),
-                                        onClick = {
-                                            playEventType = PlayEventsType.LastPlayed
-                                            menuState.hide()
-                                        }
-                                    )
-                                    MenuEntry(
-                                        icon = R.drawable.random,
-                                        text = stringResource(R.string.by_casual_played_song),
-                                        onClick = {
-                                            playEventType = PlayEventsType.CasualPlayed
-                                            menuState.hide()
-                                        }
-                                    )
-                                }
+if (showTips) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Tips title + dropdown button (grouped together on left)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable {
+                menuState.display {
+                    Menu {
+                        MenuEntry(
+                            icon = R.drawable.chevron_up,
+                            text = stringResource(R.string.by_most_played_song),
+                            onClick = {
+                                playEventType = PlayEventsType.MostPlayed
+                                menuState.hide()
                             }
-                        },
-                        icon2 = R.drawable.play,
-                        onClick2 = {
-                            binder?.stopRadio()
-                            trending?.let { binder?.player?.forcePlay(it.asMediaItem) }
-                            binder?.player?.addMediaItems(relatedInit?.songs?.map { it.asMediaItem }
-                                ?: emptyList())
-                        }
-                    )
+                        )
+                        MenuEntry(
+                            icon = R.drawable.chevron_down,
+                            text = stringResource(R.string.by_last_played_song),
+                            onClick = {
+                                playEventType = PlayEventsType.LastPlayed
+                                menuState.hide()
+                            }
+                        )
+                        MenuEntry(
+                            icon = R.drawable.random,
+                            text = stringResource(R.string.by_casual_played_song),
+                            onClick = {
+                                playEventType = PlayEventsType.CasualPlayed
+                                menuState.hide()
+                            }
+                        )
+                    }
+                }
+            }
+        ) {
+            BasicText(
+                text = stringResource(R.string.tips),
+                style = typography().l.semiBold
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                painter = painterResource(R.drawable.chevron_down),
+                contentDescription = "Play events type",
+                tint = colorPalette().text,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        
+        // Spacer to push icons to the right
+        Spacer(modifier = Modifier.weight(1f))
+        
+        // CubicJam + Play icons (grouped together on right)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // CubicJam icon
+            IconButton(
+                onClick = {
+                    navController.navigate(NavRoutes.cubicjam_swipe.name)
+                },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.multipage),
+                    contentDescription = "Cubic Jam",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            // Play icon
+            IconButton(
+                onClick = {
+                    binder?.stopRadio()
+                    trending?.let { binder?.player?.forcePlay(it.asMediaItem) }
+                    binder?.player?.addMediaItems(relatedInit?.songs?.map { it.asMediaItem }
+                        ?: emptyList())
+                },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.play),
+                    contentDescription = "Play",
+                    tint = colorPalette().text
+                )
+            }
+        }
+    }
 
                     BasicText(
                         text = playEventType.text,
