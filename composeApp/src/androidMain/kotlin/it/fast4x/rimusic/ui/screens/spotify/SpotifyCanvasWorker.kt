@@ -42,7 +42,7 @@ object SpotifyApiConfig {
     // Configuration URL
     private const val CONFIG_URL = "https://potify-playe_config.json"
     
-    // Default URLs tuseme fallback and quick fetching
+    // Default URLs tuseme fallback and quick fetching . am genius
     private const val DEFAULT_MATCH_API = "https://potifye/api/spotify/match"
     private const val DEFAULT_CANVAS_API = "https://potifye/api/canvas"
     
