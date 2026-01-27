@@ -238,6 +238,7 @@ val currentDay = calendar.get(java.util.Calendar.DAY_OF_MONTH)
     var trending by persist<Song?>("home/trending")
     val trendingInit by persist<Song?>(tag = "home/trending")
     var trendingPreference by rememberPreference(quickPicsTrendingSongKey, trendingInit)
+    var showNewUserMessage by remember { mutableStateOf(false) }
 
     // Variable to store the real most popular song (before shuffle)
     var mostPopularSong by remember { mutableStateOf<Song?>(null) }
@@ -387,94 +388,97 @@ refreshScope.launch(Dispatchers.IO) {
                     }
             }
 
-            PlayEventsType.CasualPlayed -> {
-                Database.eventTable
-                    .findSongsMostPlayedBetween(
-                        from = 0,
-                        limit = 10
+PlayEventsType.CasualPlayed -> {
+    Database.eventTable
+        .findSongsMostPlayedBetween(
+            from = 0,
+            limit = 10
+        )
+        .distinctUntilChanged()
+        .collect { favoriteSongs ->
+
+            if (favoriteSongs.isNotEmpty()) {
+                showNewUserMessage = false // Hide message when user has songs
+                val seedSong = favoriteSongs.random()
+                mostPopularSong = seedSong
+
+                runCatching {
+                    val relatedResult = Innertube.relatedPage(
+                        NextBody(videoId = seedSong.id)
                     )
-                    .distinctUntilChanged()
-                    .collect { favoriteSongs ->
 
-                        if (favoriteSongs.isNotEmpty()) {
-                            val seedSong = favoriteSongs.random()
-                            mostPopularSong = seedSong
+                    val relatedSongs =
+                        relatedResult
+                            ?.getOrNull()
+                            ?.songs
+                            ?.map { it.asSong }
+                            ?: emptyList()
 
-                            runCatching {
-                                val relatedResult = Innertube.relatedPage(
-                                    NextBody(videoId = seedSong.id)
-                                )
+                    val trendingResult =
+                        Innertube.chartsPageComplete(
+                            countryCode = selectedCountryCode.name
+                        )
 
-                               val relatedSongs =
-                                    relatedResult
-                                        ?.getOrNull()
-                                        ?.songs
-                                        ?.map { it.asSong }
-                                        ?: emptyList()
+                    val trendingSongs =
+                        trendingResult.getOrNull()?.songs
+                            ?.map { it.asSong }
+                            ?: emptyList()
 
+                    val mixedSongs = (
+                        relatedSongs.take((localCount * 0.7).toInt()) +
+                        trendingSongs.take((localCount * 0.3).toInt())
+                    )
+                        .distinctBy { it.id }
+                        .shuffled()
+                        .take(localCount)
 
-                                val trendingResult =
-                                    Innertube.chartsPageComplete(
-                                        countryCode = selectedCountryCode.name
-                                    )
+                    trendingList = mixedSongs
+                    trending = mixedSongs.firstOrNull()
+                    relatedPageResult = relatedResult
 
-                                val trendingSongs =
-                                    trendingResult.getOrNull()?.songs
-                                        ?.map { it.asSong }
-                                        ?: emptyList()
+                }.onFailure {
+                    val chartsResult =
+                        Innertube.chartsPageComplete(
+                            countryCode = selectedCountryCode.name
+                        )
 
-                                val mixedSongs = (
-                                    relatedSongs.take((localCount * 0.7).toInt()) +
-                                    trendingSongs.take((localCount * 0.3).toInt())
-                                )
-                                    .distinctBy { it.id }
-                                    .shuffled()
-                                    .take(localCount)
+                    val chartSongs =
+                        chartsResult.getOrNull()?.songs
+                            ?.map { it.asSong }
+                            ?: emptyList()
 
-                                trendingList = mixedSongs
-                                trending = mixedSongs.firstOrNull()
-                                relatedPageResult = relatedResult
+                    trendingList =
+                        chartSongs.shuffled().take(localCount)
+                    trending = trendingList.firstOrNull()
+                }
 
-                            }.onFailure {
-                                val chartsResult =
-                                    Innertube.chartsPageComplete(
-                                        countryCode = selectedCountryCode.name
-                                    )
+            } else {
+                // Show message for new users
+                showNewUserMessage = true
+                
+                val chartsResult =
+                    Innertube.chartsPageComplete(
+                        countryCode = selectedCountryCode.name
+                    )
 
-                                val chartSongs =
-                                    chartsResult.getOrNull()?.songs
-                                        ?.map { it.asSong }
-                                        ?: emptyList()
+                val chartSongs =
+                    chartsResult.getOrNull()?.songs
+                        ?.map { it.asSong }
+                        ?: emptyList()
 
-                                trendingList =
-                                    chartSongs.shuffled().take(localCount)
-                                trending = trendingList.firstOrNull()
-                            }
+                trendingList =
+                    chartSongs.shuffled().take(localCount)
+                trending = trendingList.firstOrNull()
 
-                        } else {
-                            val chartsResult =
-                                Innertube.chartsPageComplete(
-                                    countryCode = selectedCountryCode.name
-                                )
-
-                            val chartSongs =
-                                chartsResult.getOrNull()?.songs
-                                    ?.map { it.asSong }
-                                    ?: emptyList()
-
-                            trendingList =
-                                chartSongs.shuffled().take(localCount)
-                            trending = trendingList.firstOrNull()
-
-                            trending?.let { song ->
-                                relatedPageResult =
-                                    Innertube.relatedPage(
-                                        NextBody(videoId = song.id)
-                                    )
-                            }
-                        }
-                    }
+                trending?.let { song ->
+                    relatedPageResult =
+                        Innertube.relatedPage(
+                            NextBody(videoId = song.id)
+                        )
+                }
             }
+        }
+}
         }
 
         if (showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) {
@@ -501,6 +505,8 @@ refreshScope.launch(Dispatchers.IO) {
         relatedInit = null
         trending = null
         trendingList = emptyList()
+        // Also reset the new user message
+        showNewUserMessage = false
         // Delay to ensure the reset (optional)
         kotlinx.coroutines.delay(100)
         loadData()
@@ -680,6 +686,7 @@ notificationInit = notificationResult?.getOrNull()
                     )
 
                 WelcomeMessage()
+
 if (showTips) {
     Row(
         modifier = Modifier
@@ -870,6 +877,27 @@ if (showTips) {
 
                     if (relatedPageResult == null) Loader()
                 }
+                                // Add this message for new users
+if (showNewUserMessage && playEventType == PlayEventsType.CasualPlayed) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 8.dp, bottom = 8.dp)
+            .background(
+                color = colorPalette().background1.copy(alpha = 0.8f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        BasicText(
+            text = "First listen to some songs to get personalized recommendations",
+            style = typography().s.center.color(colorPalette().textSecondary),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 // ===== NOTIFICATION MESSAGE SECTION =====
 notificationInit?.let { notification ->
     // Get current app version
