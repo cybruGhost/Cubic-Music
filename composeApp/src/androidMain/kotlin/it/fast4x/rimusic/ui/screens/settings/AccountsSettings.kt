@@ -160,60 +160,80 @@ fun AccountsSettings() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // YouTube Music Section
-        AnimatedVisibility(
-            visible = true,
-            enter = fadeIn(animationSpec = tween(600)) + scaleIn(
-                animationSpec = tween(600),
-                initialScale = 0.9f
-            )
-        ) {
-            SettingsSectionCard(
-                title = "YOUTUBE MUSIC",
-                icon = R.drawable.ytmusic,
-                content = {
-                    // rememberEncryptedPreference only works correct with API 24 and up
-                    var isYouTubeLoginEnabled by rememberPreference(enableYouTubeLoginKey, false)
-                    var isYouTubeSyncEnabled by rememberPreference(enableYouTubeSyncKey, false)
-                    var loginYouTube by remember { mutableStateOf(false) }
-                    var visitorData by rememberPreference(key = "yt_visitor_data", defaultValue = "")
-                    var dataSyncId by rememberPreference(key = "yt_data_sync_id", defaultValue = "")
-                    var cookie by rememberPreference(key = "yt_cookie", defaultValue = "")
-                    var accountName by rememberPreference(key = "yt_account_name", defaultValue = "")
-                    var accountEmail by rememberPreference(key = "yt_account_email", defaultValue = "")
-                    var accountChannelHandle by rememberPreference(
-                        key = "yt_account_channel_handle",
-                        defaultValue = ""
-                    )
-                    var accountThumbnail by rememberPreference(key = "yt_account_thumbnail", defaultValue = "")
-                    var isRefreshingAccountInfo by remember { mutableStateOf(false) }
+// YouTube Music Section
+AnimatedVisibility(
+    visible = true,
+    enter = fadeIn(animationSpec = tween(600)) + scaleIn(
+        animationSpec = tween(600),
+        initialScale = 0.9f
+    )
+) {
+    SettingsSectionCard(
+        title = "YOUTUBE MUSIC",
+        icon = R.drawable.ytmusic,
+        content = {
+            var isYouTubeLoginEnabled by rememberPreference(enableYouTubeLoginKey, false)
+            var isYouTubeSyncEnabled by rememberPreference(enableYouTubeSyncKey, false)
+            var loginYouTube by remember { mutableStateOf(false) }
+            var cookie by rememberPreference(key = "yt_cookie", defaultValue = "")
+            var visitorData by rememberPreference(key = "yt_visitor_data", defaultValue = "")
+            var dataSyncId by rememberPreference(key = "yt_data_sync_id", defaultValue = "")
+            var isRefreshingAccountInfo by remember { mutableStateOf(false) }
+            
+            // Get account info from shared preferences
+            val accountPrefs = remember { 
+                context.getSharedPreferences("youtube_account", android.content.Context.MODE_PRIVATE)
+            }
+            
+            var accountName by remember { 
+                mutableStateOf(accountPrefs.getString("account_name", "") ?: "") 
+            }
+            var accountEmail by remember { 
+                mutableStateOf(accountPrefs.getString("account_email", "") ?: "") 
+            }
+            var accountChannelHandle by remember { 
+                mutableStateOf(accountPrefs.getString("account_channel_handle", "") ?: "") 
+            }
+            var accountThumbnail by remember { 
+                mutableStateOf(accountPrefs.getString("account_thumbnail", "") ?: "") 
+            }
+            
+            var isLoggedIn = remember(cookie) {
+                parseCookieString(cookie).containsKey("SAPISID")
+            }
 
-                   var isLoggedIn = remember(cookie) {
-                        parseCookieString(cookie).containsKey("SAPISID")
-                    }
-
-                    // Auto-fetch account info when logged in
-                    LaunchedEffect(isLoggedIn) {
-                        if (isLoggedIn && (accountName.isEmpty() || accountEmail.isEmpty())) {
-                            isRefreshingAccountInfo = true
-                            scope.launch {
-                                try {
-                                    val accountInfo = AccountInfoFetcher.fetchAccountInfo()
-                                    accountInfo?.let {
-                                        accountName = it.name.orEmpty()
-                                        accountEmail = it.email.orEmpty()
-                                        accountChannelHandle = it.channelHandle.orEmpty()
-                                        accountThumbnail = it.thumbnailUrl.orEmpty()
-                                        Timber.d("AccountsSettings: Auto-fetched account info")
-                                    }
-                                } catch (e: Exception) {
-                                    Timber.e("AccountsSettings: Error auto-fetching account info: ${e.message}")
-                                } finally {
-                                    isRefreshingAccountInfo = false
-                                }
+            // Auto-fetch account info when logged in
+            LaunchedEffect(isLoggedIn) {
+                if (isLoggedIn && (accountName.isEmpty() || accountEmail.isEmpty())) {
+                    isRefreshingAccountInfo = true
+                    scope.launch {
+                        try {
+                            val accountInfo = AccountInfoFetcher.fetchAccountInfo(cookie)
+                            accountInfo?.let {
+                                accountName = it.name.orEmpty()
+                                accountEmail = it.email.orEmpty()
+                                accountChannelHandle = it.channelHandle.orEmpty()
+                                accountThumbnail = it.thumbnailUrl.orEmpty()
+                                
+                                // Save to shared preferences
+                                accountPrefs.edit()
+                                    .putString("account_name", accountName)
+                                    .putString("account_email", accountEmail)
+                                    .putString("account_channel_handle", accountChannelHandle)
+                                    .putString("account_thumbnail", accountThumbnail)
+                                    .apply()
+                                    
+                                Timber.d("AccountsSettings: Auto-fetched account info")
                             }
+                        } catch (e: Exception) {
+                            Timber.e("AccountsSettings: Error auto-fetching account info: ${e.message}")
+                        } finally {
+                            isRefreshingAccountInfo = false
                         }
                     }
+                }
+            }
+
 
                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.enable_youtube_music_login),
@@ -969,3 +989,4 @@ fun isYouTubeLoggedIn(): Boolean {
     val isLoggedIn = cookie?.let { parseCookieString(it) }?.contains("SAPISID") == true
     return isLoggedIn
 }
+
