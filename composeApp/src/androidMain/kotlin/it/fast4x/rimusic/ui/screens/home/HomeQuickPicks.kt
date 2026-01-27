@@ -753,7 +753,7 @@ if (showTips) {
             // CubicJam icon
             IconButton(
                 onClick = {
-                    navController.navigate(NavRoutes.cubicjam_swipe.name)
+                    navController.navigate(NavRoutes.cubicjam.name)
                 },
                 modifier = Modifier.size(24.dp)
             ) {
