@@ -970,7 +970,7 @@
 <string name="appearance_changes_message">If you change Player or UI settings,\nit is strongly recommended to restart the application.</string>
 <string name="title_import_settings_migration">Import migration file.</string>
 <string name="description_import_settings_migration">For old users before conversion.\nUse old app to make a backup for migration.</string>
-<string name="log_in_to_ytm">Streaming optimized. Bugs will be fixed on release. © 2025 by CyberGhost</string>
+<string name="log_in_to_ytm">Streaming optimized. Bugs will be fixed on release. © 2026 by CyberGhost</string>
 <string name="close">Close</string>
 <string name="view_changelog">View changelog of the version %1$s</string>
 <string name="app_update_dialog_size">The file size is %1$s</string>

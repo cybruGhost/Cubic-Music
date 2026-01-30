@@ -162,14 +162,14 @@ class DiscordPresenceManager(
         if ( smallImage != null )
             smallImage
         else
-            getDiscordAssetUri( "https://raw.githubusercontent.com/NEVARLeVrai/N-Zik/main/assets/discord/fallback_app.png" )
+            getDiscordAssetUri( "https://raw.githubusercontent.com/cybruGhost/Cubic-Music/main/assets/discord/fallback_app.png" )
                 ?.also { smallImage = it }
 
     private suspend fun getLargeImageFallback(): String? =
         if ( largeImage != null )
             largeImage
         else
-            getDiscordAssetUri( "https://raw.githubusercontent.com/NEVARLeVrai/N-Zik/main/assets/discord/fallback_album.png" )
+            getDiscordAssetUri( "https://raw.githubusercontent.com/cybruGhost/Cubic-Music/main/assets/discord/fallback_album.png" )
                 ?.also { largeImage = it }
 
 
@@ -323,7 +323,7 @@ class DiscordPresenceManager(
             rpc?.setActivity(
                 activity = Activity(
                     applicationId = APPLICATION_ID,
-                    name = "N-Zik",
+                    name = "Cubic-Music",
                     details = details,
                     state = state,
                     type = TypeDiscordActivity.LISTENING.value,
@@ -337,10 +337,10 @@ class DiscordPresenceManager(
                         largeText = largeTextValue,
                         smallText = "v${getVersionName(context)}",
                     ),
-                    buttons = listOf("Get N-Zik", "Listen to YTMusic"),
+                    buttons = listOf("Get Cubic-Music", "Listen to YTMusic"),
                     metadata = com.my.kizzyrpc.model.Metadata(
                         listOf(
-                            "https://github.com/NEVARLeVrai/N-Zik/",
+                            "https://github.com/cybruGhost/Cubic-Music/",
                             "https://music.youtube.com/watch?v=${mediaItem.mediaId}",
                         )
                     )

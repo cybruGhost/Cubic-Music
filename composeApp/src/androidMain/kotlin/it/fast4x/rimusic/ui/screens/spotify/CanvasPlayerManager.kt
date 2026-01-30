@@ -1,4 +1,3 @@
-
 package it.fast4x.rimusic.ui.screens.spotify
 
 import android.content.Context
@@ -79,14 +78,41 @@ object CanvasPlayerManager {
                 Timber.e("CanvasPlayer error: ${error.message}")
                 stopAndClear()
             }
+            
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                // Auto-restart on ended
+                if (playbackState == Player.STATE_ENDED && isPlaying) {
+                    player.seekTo(0)
+                    player.play()
+                }
+            }
         })
         
+        // Create PlayerView with NO CONTROLS - FIXED VERSION
         val playerView = PlayerView(context).apply {
             this.player = player
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            useController = false
-            setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+            useController = false  // Disable all controls
+            setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)  // Don't show buffering
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            
+            // Disable all touch controls
+            setControllerAutoShow(false)  // Don't auto-show controller
+            setControllerHideOnTouch(false)  // Don't hide on touch
+            hideController()  // Ensure controller is hidden
+            
+            // For older ExoPlayer versions, we need to hide individual UI elements differently
+            // The following are safe methods that exist in all versions
+            
+            // IMPORTANT: Also override dispatchTouchEvent to prevent any touch handling
+            // This ensures no controls can appear even if user taps
+        }
+        
+        // IMPORTANT: For complete control hiding, we also need to prevent touch events
+        // We'll do this by adding a custom touch interceptor
+        playerView.setOnTouchListener { _, _ ->
+            // Consume all touch events - this prevents any UI from appearing
+            true
         }
         
         // Prepare but don't auto-start if not playing
@@ -135,7 +161,7 @@ object CanvasPlayerManager {
         currentPlayer = null
         currentPlayerView = null
         currentCanvasUrl = null
-        // Keep currentMediaItemId so we know which song we're fetching for
+        currentMediaItemId = null
         isPlayerActive = false
         
         Timber.d("CanvasPlayer: Ready for new song")
@@ -173,5 +199,16 @@ object CanvasPlayerManager {
         stopAndClear()
         Timber.d("CanvasPlayer: Force cleanup complete")
     }
+    
+    // Function to ensure no controls are visible
+    fun ensureNoControls() {
+        currentPlayerView?.let { playerView ->
+            playerView.useController = false
+            playerView.hideController()
+            playerView.setControllerAutoShow(false)
+            
+            // Double-check by setting touch listener to consume all events
+            playerView.setOnTouchListener { _, _ -> true }
+        }
+    }
 }
-

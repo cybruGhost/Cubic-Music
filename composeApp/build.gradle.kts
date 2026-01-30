@@ -6,12 +6,15 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 val APP_NAME = "Cubic-Music"
 
 plugins {
+    // Multiplatform
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.jetbrains.compose)
 
+    // Android
     alias(libs.plugins.android.application)
     alias(libs.plugins.room)
+
 
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.kotlin.serialization)
@@ -23,29 +26,18 @@ repositories {
     maven { url = uri("https://jitpack.io") }
 }
 
-/* ---------------------------------------------------
-   KOTLIN MULTIPLATFORM
---------------------------------------------------- */
-
 kotlin {
-    jvmToolchain(17)
-
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.JVM_21)
             freeCompilerArgs.add("-Xcontext-receivers")
         }
     }
 
-    // Desktop JVM (allowed to use Java 21)
-    jvm("desktop") {
-        compilations.all {
-            compilerOptions.configure {
-                jvmTarget.set(JvmTarget.JVM_21)
-            }
-        }
-    }
+    jvm("desktop")
+
+
 
     sourceSets {
         all {
@@ -54,139 +46,101 @@ kotlin {
             }
         }
 
-        val commonMain by getting {
-            dependencies {
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                implementation(compose.ui)
-                implementation(compose.components.resources)
-                implementation(compose.components.uiToolingPreview)
+        val desktopMain by getting
+        desktopMain.dependencies {
+            implementation(compose.components.resources)
+            implementation(compose.desktop.currentOs)
 
-                implementation(projects.innertube)
-                implementation(projects.piped)
-                implementation(projects.invidious)
+            implementation(libs.material.icon.desktop)
+            implementation(libs.vlcj)
 
-                implementation(libs.room)
-                implementation(libs.room.runtime)
-                implementation(libs.room.sqlite.bundled)
+            implementation(libs.coil.network.okhttp)
+            runtimeOnly(libs.kotlinx.coroutines.swing)
 
-                implementation(libs.mediaplayer.kmp)
-                implementation(libs.navigation.kmp)
-
-                implementation(libs.coil.mp)
-                implementation(libs.coil.network.okhttp)
-
-                implementation(libs.translator)
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+            /*
+            // Uncomment only for build jvm desktop version
+            // Comment before build android version
+            configurations.commonMainApi {
+                exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-android")
             }
+            */
         }
 
-        val androidMain by getting {
-            dependencies {
-                implementation(libs.compose.ui)
-                implementation(libs.compose.foundation)
-                implementation(libs.compose.runtime.livedata)
-                implementation(libs.media3.exoplayer)
-                implementation(libs.media3.session)
-                implementation(libs.media3.datasource.okhttp)
-                implementation(libs.media3.ui)
-                implementation(libs.kotlinx.coroutines.guava)
-                implementation(libs.newpipe.extractor)
-                implementation(libs.nanojson)
-                implementation(libs.androidx.webkit)
-                implementation(libs.coil.compose)
-                implementation(libs.coil.compose.core)
-                implementation(libs.coil.network.okhttp)
+        androidMain.dependencies {
+            implementation(libs.media3.session)
+            implementation(libs.kotlinx.coroutines.guava)
+            implementation(libs.newpipe.extractor)
+            implementation(libs.nanojson)
+            implementation(libs.androidx.webkit)
 
-                implementation("com.squareup.okhttp3:okhttp:4.12.0")
-                implementation("com.google.code.gson:gson:2.10.1")
-                implementation("org.jsoup:jsoup:1.17.2")
-
-//                implementation("io.github.jan-tennart.supabase:gotrue-kt:3.0.2")
-//                implementation("io.github.jan-tennart.supabase:postgrest-kt:3.0.2")
-                implementation("io.ktor:ktor-client-core:2.3.5")
-                implementation("io.ktor:ktor-client-okhttp:2.3.5")
-            }
+            // Related to built-in game, maybe removed in future?
+            implementation(libs.compose.runtime.livedata)
         }
+        commonMain.dependencies {
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(compose.ui)
+            implementation(compose.components.resources)
+            implementation(compose.components.uiToolingPreview)
 
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.components.resources)
-                implementation(compose.desktop.currentOs)
+            implementation(projects.innertube)
+            implementation(projects.piped)
+            implementation(projects.invidious)
 
-                implementation(libs.material.icon.desktop)
-                implementation(libs.vlcj)
+            implementation(libs.room)
+            implementation(libs.room.runtime)
+            implementation(libs.room.sqlite.bundled)
 
-                implementation(libs.coil.network.okhttp)
-                runtimeOnly(libs.kotlinx.coroutines.swing)
+            implementation(libs.mediaplayer.kmp)
 
-                implementation("com.squareup.okhttp3:okhttp:4.12.0")
-                implementation("com.google.code.gson:gson:2.10.1")
-                implementation("org.jsoup:jsoup:1.17.2")
-            }
+            implementation(libs.navigation.kmp)
+
+            //coil3 mp
+            implementation(libs.coil.compose.core)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.mp)
+            implementation(libs.coil.network.okhttp)
+
+            implementation(libs.translator)
+
         }
     }
 }
 
-/* ---------------------------------------------------
-   ANDROID CONFIG
---------------------------------------------------- */
-
 android {
+    dependenciesInfo {
+        // Disables dependency metadata when building APKs.
+        includeInApk = false
+        // Disables dependency metadata when building Android App Bundles.
+        includeInBundle = false
+    }
 
-    namespace = "app.kreate.android"
-    compileSdk = 35
-
-    val key: String = providers.gradleProperty("supabasekey").orNull ?: ""
-    val url: String = providers.gradleProperty("supabaseurl").orNull ?: ""
-
-
-    defaultConfig {
-        applicationId = "com.cubic.music"
-        minSdk = 23
-        targetSdk = 36
-        versionCode = 108
-        versionName = "1.7.5"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
+    androidComponents {
+        beforeVariants(selector().withBuildType("release")) {
+            it.enable = false
         }
-
-        buildConfigField("Boolean", "IS_AUTOUPDATE", "true")
-        buildConfigField("String", "APP_NAME", "\"$APP_NAME\"")
-        buildConfigField("String", "supabasekey", "\"$key\"")
-        buildConfigField("String", "supabaseurl", "\"$url\"")
-
-        // Read GENIUS_API_KEY from .env file
-        val envFile = rootProject.file(".env")
-        val geniusApiKey = if (envFile.exists()) {
-            envFile.readLines()
-                .firstOrNull { it.startsWith("GENIUS_API_KEY=") }
-                ?.substringAfter("GENIUS_API_KEY=")
-                ?.trim()
-                ?: ""
-        } else {
-            ""
-        }
-
-        buildConfigField("String", "GENIUS_API_KEY", "\"$geniusApiKey\"")
     }
 
     buildFeatures {
-        compose = true
         buildConfig = true
+        compose = true
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true
-    }
+    compileSdk = 35
 
-    androidResources {
-        generateLocaleConfig = true
+    defaultConfig {
+        applicationId = "com.Cubic.music"
+        minSdk = 23
+        targetSdk = 36
+        versionCode = 108
+        versionName = "1.7.6"
+
+        /*
+                UNIVERSAL VARIABLES
+         */
+        buildConfigField( "Boolean", "IS_AUTOUPDATE", "true" )
+        buildConfigField( "String", "APP_NAME", "\"$APP_NAME\"" )
     }
 
     splits {
@@ -196,18 +150,28 @@ android {
         }
     }
 
+    namespace = "app.kreate.android"
+
     buildTypes {
         debug {
+            manifestPlaceholders += mapOf()
             applicationIdSuffix = ".debug"
-            buildConfigField("Boolean", "IS_AUTOUPDATE", "false")
+            manifestPlaceholders["appName"] = "$APP_NAME-debug"
+
+            buildConfigField( "Boolean", "IS_AUTOUPDATE", "false" )
+            signingConfig = signingConfigs.getByName("debug")
         }
 
-        create("full") {
+        create( "full" ) {
+            // App's properties
             versionNameSuffix = "-f"
         }
 
-        create("minified") {
+        create( "minified" ) {
+            // App's properties
             versionNameSuffix = "-m"
+
+            // Package optimization
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -216,98 +180,115 @@ android {
             )
         }
 
-        create("beta") {
-            initWith(getByName("full"))
+        create( "beta" ) {
+            initWith( maybeCreate("full") )
             versionNameSuffix = "-b"
         }
 
+        /**
+         * For convenience only.
+         * "Forkers" want to change app name across builds
+         * just need to change this variable
+         */
         forEach {
-            it.manifestPlaceholders.putIfAbsent("appName", APP_NAME)
+            it.manifestPlaceholders.putIfAbsent( "appName", APP_NAME )
         }
     }
 
     applicationVariants.all {
         outputs.map { it as BaseVariantOutputImpl }
-            .forEach { output ->
-                output.outputFileName = "$APP_NAME-${buildType.name}.apk"
-            }
+               .forEach { output ->
+                   val typeName = buildType.name
+                   output.outputFileName = "$APP_NAME-$typeName.apk"
+               }
+    }
+
+    sourceSets.all {
+        kotlin.srcDir("src/$name/kotlin")
+    }
+
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    androidResources {
+        generateLocaleConfig = true
     }
 }
 
-/* ---------------------------------------------------
-   COMPOSE DESKTOP
---------------------------------------------------- */
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
 
 compose.desktop {
     application {
+
         mainClass = "MainKt"
 
-        group = "rimusic"
+        //conveyor
         version = "0.0.1"
+        group = "rimusic"
 
+        //jpackage
         nativeDistributions {
+            //conveyor
             vendor = "RiMusic.DesktopApp"
             description = "RiMusic Desktop Music Player"
 
-            targetFormats(
-                TargetFormat.Msi,
-                TargetFormat.Deb,
-                TargetFormat.Rpm
-            )
-
+            targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "RiMusic.DesktopApp"
             packageVersion = "0.0.1"
         }
     }
 }
 
-/* ---------------------------------------------------
-   ROOM
---------------------------------------------------- */
+compose.resources {
+    publicResClass = true
+    generateResClass = always
+}
 
 room {
     schemaDirectory("$projectDir/schemas")
 }
 
-/* ---------------------------------------------------
-   DEPENDENCIES (ANDROID-SPECIFIC)
---------------------------------------------------- */
-
 dependencies {
-
     implementation(libs.compose.activity)
-    implementation(libs.compose.animation)
     implementation(libs.compose.foundation)
     implementation(libs.compose.ui)
     implementation(libs.compose.shimmer)
-
     implementation(libs.androidx.palette)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.appcompat.resources)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.crypto)
-    implementation(libs.androidx.glance.widgets)
-
-    implementation(libs.material3)
-    implementation(libs.androidmaterial)
-
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.datasource.okhttp)
-    implementation(libs.androidyoutubeplayer)
-
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.appcompat.resources)
+    implementation(libs.material3)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.compose.animation)
     implementation(libs.kotlin.csv)
     implementation(libs.monetcompat)
+    implementation(libs.androidmaterial)
     implementation(libs.timber)
+    implementation(libs.androidx.crypto)
     implementation(libs.math3)
     implementation(libs.toasty)
-    implementation(libs.gson)
-
+    implementation(libs.androidyoutubeplayer)
+    implementation(libs.androidx.glance.widgets)
     implementation(libs.kizzy.rpc)
-    implementation(libs.hypnoticcanvas)
-    implementation(libs.hypnoticcanvas.shaders)
+    implementation(libs.gson)
+    implementation (libs.hypnoticcanvas)
+    implementation (libs.hypnoticcanvas.shaders)
     implementation(libs.github.jeziellago.compose.markdown)
+// In your build.gradle.kts or build.gradle
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-ui:1.2.0")
+    implementation(libs.room)
+    ksp(libs.room.compiler)
 
-    implementation(projects.genius)
     implementation(projects.innertube)
     implementation(projects.oldtube)
     implementation(projects.kugou)
@@ -325,5 +306,6 @@ dependencies {
 
     coreLibraryDesugaring(libs.desugaring.nio)
 
+    // Debug only
     debugImplementation(libs.ui.tooling.preview.android)
 }

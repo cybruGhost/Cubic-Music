@@ -21,10 +21,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,15 +45,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.password
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.compose.rememberNavController
-import app.kreate.android.R
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import io.ktor.http.Url
 import it.fast4x.compose.persist.persistList
 import it.fast4x.innertube.utils.parseCookieString
@@ -60,6 +71,7 @@ import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.extensions.discord.DiscordLoginAndGetToken
 import it.fast4x.rimusic.extensions.discord.DiscordPresenceManager
+import it.fast4x.rimusic.extensions.youtubelogin.AccountInfoFetcher
 import it.fast4x.rimusic.extensions.youtubelogin.YouTubeLogin
 import it.fast4x.rimusic.thumbnailShape
 import it.fast4x.rimusic.ui.components.CustomModalBottomSheet
@@ -68,6 +80,7 @@ import it.fast4x.rimusic.ui.components.themed.DefaultDialog
 import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.components.themed.Menu
 import it.fast4x.rimusic.ui.components.themed.MenuEntry
+
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import it.fast4x.rimusic.utils.enableYouTubeLoginKey
@@ -87,24 +100,20 @@ import it.fast4x.rimusic.utils.rememberEncryptedPreference
 import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.restartActivityKey
 import it.fast4x.rimusic.utils.thumbnailRoundnessKey
-import it.fast4x.rimusic.utils.ytAccountChannelHandleKey
-import it.fast4x.rimusic.utils.ytAccountEmailKey
-import it.fast4x.rimusic.utils.ytAccountNameKey
-import it.fast4x.rimusic.utils.ytAccountThumbnailKey
-import it.fast4x.rimusic.utils.ytCookieKey
-import it.fast4x.rimusic.utils.ytDataSyncIdKey
-import it.fast4x.rimusic.utils.ytVisitorDataKey
 import kotlinx.coroutines.launch
+import app.kreate.android.R
+import androidx.compose.material3.Card
+
+import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.IconButton
+
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+
 import me.knighthat.utils.Toaster
 import timber.log.Timber
-import androidx.compose.material3.Text
-import androidx.compose.ui.res.painterResource
 import it.fast4x.rimusic.typography
 import me.knighthat.component.dialog.RestartAppDialog
-import it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
-import it.fast4x.rimusic.utils.enablePictureInPictureKey
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.ytAccountThumbnail
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,6 +126,7 @@ fun AccountsSettings() {
         thumbnailRoundnessKey,
         ThumbnailRoundness.Heavy
     )
+    val scope = rememberCoroutineScope()
 
     var restartActivity by rememberPreference(restartActivityKey, false)
     var restartService by rememberSaveable { mutableStateOf(false) }
@@ -150,35 +160,80 @@ fun AccountsSettings() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // YouTube Music Section
-        AnimatedVisibility(
-            visible = true,
-            enter = fadeIn(animationSpec = tween(600)) + scaleIn(
-                animationSpec = tween(600),
-                initialScale = 0.9f
-            )
-        ) {
-            SettingsSectionCard(
-                title = "YOUTUBE MUSIC",
-                icon = R.drawable.ytmusic,
-                content = {
-                    // rememberEncryptedPreference only works correct with API 24 and up
-                    var isYouTubeLoginEnabled by rememberPreference(enableYouTubeLoginKey, false)
-                    var isYouTubeSyncEnabled by rememberPreference(enableYouTubeSyncKey, false)
-                    var loginYouTube by remember { mutableStateOf(false) }
-                    var visitorData by rememberPreference(key = ytVisitorDataKey, defaultValue = "")
-                    var dataSyncId by rememberPreference(key = ytDataSyncIdKey, defaultValue = "")
-                    var cookie by rememberPreference(key = ytCookieKey, defaultValue = "")
-                    var accountName by rememberPreference(key = ytAccountNameKey, defaultValue = "")
-                    var accountEmail by rememberPreference(key = ytAccountEmailKey, defaultValue = "")
-                    var accountChannelHandle by rememberPreference(
-                        key = ytAccountChannelHandleKey,
-                        defaultValue = ""
-                    )
-                    var accountThumbnail by rememberPreference(key = ytAccountThumbnailKey, defaultValue = "")
-                    var isLoggedIn = remember(cookie) {
-                        "SAPISID" in parseCookieString(cookie)
+// YouTube Music Section
+AnimatedVisibility(
+    visible = true,
+    enter = fadeIn(animationSpec = tween(600)) + scaleIn(
+        animationSpec = tween(600),
+        initialScale = 0.9f
+    )
+) {
+    SettingsSectionCard(
+        title = "YOUTUBE MUSIC",
+        icon = R.drawable.ytmusic,
+        content = {
+            var isYouTubeLoginEnabled by rememberPreference(enableYouTubeLoginKey, false)
+            var isYouTubeSyncEnabled by rememberPreference(enableYouTubeSyncKey, false)
+            var loginYouTube by remember { mutableStateOf(false) }
+            var cookie by rememberPreference(key = "yt_cookie", defaultValue = "")
+            var visitorData by rememberPreference(key = "yt_visitor_data", defaultValue = "")
+            var dataSyncId by rememberPreference(key = "yt_data_sync_id", defaultValue = "")
+            var isRefreshingAccountInfo by remember { mutableStateOf(false) }
+            
+            // Get account info from shared preferences
+            val accountPrefs = remember { 
+                context.getSharedPreferences("youtube_account", android.content.Context.MODE_PRIVATE)
+            }
+            
+            var accountName by remember { 
+                mutableStateOf(accountPrefs.getString("account_name", "") ?: "") 
+            }
+            var accountEmail by remember { 
+                mutableStateOf(accountPrefs.getString("account_email", "") ?: "") 
+            }
+            var accountChannelHandle by remember { 
+                mutableStateOf(accountPrefs.getString("account_channel_handle", "") ?: "") 
+            }
+            var accountThumbnail by remember { 
+                mutableStateOf(accountPrefs.getString("account_thumbnail", "") ?: "") 
+            }
+            
+            var isLoggedIn = remember(cookie) {
+                parseCookieString(cookie).containsKey("SAPISID")
+            }
+
+            // Auto-fetch account info when logged in
+            LaunchedEffect(isLoggedIn) {
+                if (isLoggedIn && (accountName.isEmpty() || accountEmail.isEmpty())) {
+                    isRefreshingAccountInfo = true
+                    scope.launch {
+                        try {
+                            val accountInfo = AccountInfoFetcher.fetchAccountInfo(cookie)
+                            accountInfo?.let {
+                                accountName = it.name.orEmpty()
+                                accountEmail = it.email.orEmpty()
+                                accountChannelHandle = it.channelHandle.orEmpty()
+                                accountThumbnail = it.thumbnailUrl.orEmpty()
+                                
+                                // Save to shared preferences
+                                accountPrefs.edit()
+                                    .putString("account_name", accountName)
+                                    .putString("account_email", accountEmail)
+                                    .putString("account_channel_handle", accountChannelHandle)
+                                    .putString("account_thumbnail", accountThumbnail)
+                                    .apply()
+                                    
+                                Timber.d("AccountsSettings: Auto-fetched account info")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e("AccountsSettings: Error auto-fetching account info: ${e.message}")
+                        } finally {
+                            isRefreshingAccountInfo = false
+                        }
                     }
+                }
+            }
+
 
                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.enable_youtube_music_login),
@@ -193,6 +248,7 @@ fun AccountsSettings() {
                                 accountName = ""
                                 accountChannelHandle = ""
                                 accountEmail = ""
+                                accountThumbnail = ""
                             }
                         },
                         icon = R.drawable.ytmusic
@@ -200,6 +256,175 @@ fun AccountsSettings() {
 
                     AnimatedVisibility(visible = isYouTubeLoginEnabled) {
                         Column {
+                            // Display account info card when logged in
+                            if (isLoggedIn) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = colorPalette().background1,
+                                        contentColor = colorPalette().text
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            // Profile picture
+                                            if (accountThumbnail.isNotEmpty()) {
+                                                AsyncImage(
+                                                    model = ImageRequest.Builder(context)
+                                                        .data(accountThumbnail)
+                                                        .crossfade(true)
+                                                        .build(),
+                                                    contentDescription = "Profile picture",
+                                                    modifier = Modifier
+                                                        .size(50.dp)
+                                                        .clip(thumbnailShape())
+                                                )
+                                            } else if (accountName.isNotEmpty()) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(50.dp)
+                                                        .clip(thumbnailShape())
+                                                        .background(colorPalette().accent),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = accountName.take(2).uppercase(),
+                                                        style = typography().s.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                                                        color = colorPalette().text
+                                                    )
+                                                }
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(50.dp)
+                                                        .clip(thumbnailShape())
+                                                        .background(colorPalette().accent),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.person),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(24.dp),
+                                                        tint = colorPalette().text
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.size(12.dp))
+
+                                            // Account details
+                                            Column(
+                                                modifier = Modifier.weight(1f),
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Text(
+                                                    text = accountName.ifEmpty { "YouTube Account" },
+                                                    style = typography().s.copy(fontWeight = FontWeight.Bold),
+                                                    color = colorPalette().text,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+
+                                                if (accountEmail.isNotEmpty()) {
+                                                    Text(
+                                                        text = accountEmail,
+                                                        style = typography().xs,
+                                                        color = colorPalette().textSecondary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+
+                                                if (accountChannelHandle.isNotEmpty()) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(R.drawable.ytmusic),
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(12.dp),
+                                                            tint = colorPalette().textSecondary
+                                                        )
+                                                        Spacer(modifier = Modifier.size(4.dp))
+                                                        Text(
+                                                            text = accountChannelHandle,
+                                                            style = typography().xxs,
+                                                            color = colorPalette().textSecondary
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            // Refresh button
+                                            IconButton(
+                                                onClick = {
+                                                    isRefreshingAccountInfo = true
+                                                    scope.launch {
+                                                        try {
+                                                            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
+                                                            accountInfo?.let {
+                                                                accountName = it.name.orEmpty()
+                                                                accountEmail = it.email.orEmpty()
+                                                                accountChannelHandle = it.channelHandle.orEmpty()
+                                                                accountThumbnail = it.thumbnailUrl.orEmpty()
+                                                                Timber.d("AccountsSettings: Manually refreshed account info")
+                                                                Toaster.i("Account info refreshed")
+                                                            } ?: run {
+                                                                Toaster.e("Failed to refresh account info")
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            Timber.e("AccountsSettings: Error refreshing account info: ${e.message}")
+                                                            Toaster.e("Failed to refresh account info")
+                                                        } finally {
+                                                            isRefreshingAccountInfo = false
+                                                        }
+                                                    }
+                                                },
+                                                modifier = Modifier.size(24.dp),
+                                                enabled = !isRefreshingAccountInfo
+                                            ) {
+                                                if (isRefreshingAccountInfo) {
+                                                    CircularProgressIndicator(
+                                                        strokeWidth = 2.dp,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.refresh),
+                                                        contentDescription = "Refresh",
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = colorPalette().textSecondary
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Refresh indicator
+                                        if (isRefreshingAccountInfo) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Refreshing account info...",
+                                                style = typography().xxs,
+                                                color = colorPalette().textDisabled
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Login/Logout button
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -261,7 +486,25 @@ fun AccountsSettings() {
                                         YouTubeLogin(
                                             onLogin = { cookieRetrieved ->
                                                 if (cookieRetrieved.contains("SAPISID")) {
-                                                    isLoggedIn = true
+                                                    // Try to fetch account info after login
+                                                    scope.launch {
+                                                        isRefreshingAccountInfo = true
+                                                        try {
+                                                            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
+                                                            accountInfo?.let {
+                                                                accountName = it.name.orEmpty()
+                                                                accountEmail = it.email.orEmpty()
+                                                                accountChannelHandle = it.channelHandle.orEmpty()
+                                                                accountThumbnail = it.thumbnailUrl.orEmpty()
+                                                                Timber.d("AccountsSettings: Got account info after login")
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            Timber.e("AccountsSettings: Error getting account info after login: ${e.message}")
+                                                        } finally {
+                                                            isRefreshingAccountInfo = false
+                                                        }
+                                                    }
+                                                    
                                                     loginYouTube = false
                                                     Toaster.i( context.getString(R.string.youtube_login_successful) )
                                                     restartService = true
@@ -742,7 +985,8 @@ fun isYouTubeSyncEnabled(): Boolean {
 }
 
 fun isYouTubeLoggedIn(): Boolean {
-    val cookie = appContext().preferences.getString(ytCookieKey, "")
+   val cookie = appContext().preferences.getString("yt_cookie", "")
     val isLoggedIn = cookie?.let { parseCookieString(it) }?.contains("SAPISID") == true
     return isLoggedIn
 }
+

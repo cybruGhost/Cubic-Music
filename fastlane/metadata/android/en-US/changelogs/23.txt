@@ -1,5 +1,5 @@
 New:
-- New Logo (removed music logo, added N-Zik name)
+- New Logo (removed music logo, added Cubic-Music name)
 - New Settings UI (partially complete, Player UI still missing)
 - New Changelogs UI
 - New Update UI with Ask-related improvements
@@ -11,8 +11,8 @@ Changed:
 - Updated dependencies
 - Moved Update section to About
 - Quickpicks settings renamed to AI recommendations (now includes all AI settings)
-- Renamed RiMusic logs → N-Zik logs
-- Renamed RiMusic interface → N-Zik
+- Renamed RiMusic logs → Cubic-Music logs
+- Renamed RiMusic interface → Cubic-Music
 - Translated Easter eggs messages
 
 Improved:

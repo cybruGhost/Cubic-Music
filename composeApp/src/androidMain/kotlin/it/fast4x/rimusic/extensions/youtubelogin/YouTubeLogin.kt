@@ -4,149 +4,217 @@ import android.annotation.SuppressLint
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebStorage
+import it.fast4x.rimusic.appContext
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import it.fast4x.rimusic.extensions.youtubelogin.AccountInfoFetcher 
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.navigation.NavController
 import it.fast4x.innertube.Innertube
+import it.fast4x.innertube.utils.parseCookieString
 import it.fast4x.rimusic.LocalPlayerAwareWindowInsets
 import app.kreate.android.R
-import it.fast4x.rimusic.enums.NavRoutes
-import it.fast4x.rimusic.ui.components.themed.IconButton
 import it.fast4x.rimusic.ui.components.themed.Title
-import it.fast4x.rimusic.utils.ytVisitorDataKey
-import it.fast4x.rimusic.utils.ytCookieKey
-import it.fast4x.rimusic.utils.ytAccountNameKey
-import it.fast4x.rimusic.utils.ytAccountEmailKey
-import it.fast4x.rimusic.utils.ytAccountChannelHandleKey
-import it.fast4x.rimusic.utils.rememberEncryptedPreference
 import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.ytAccountThumbnailKey
-import it.fast4x.rimusic.utils.ytDataSyncIdKey
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
-@OptIn(DelicateCoroutinesApi::class)
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YouTubeLogin(
     onLogin: (String) -> Unit
 ) {
-
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var visitorData by rememberPreference(key = ytVisitorDataKey, defaultValue = Innertube.DEFAULT_VISITOR_DATA)
-    var dataSyncId by rememberPreference(key = ytDataSyncIdKey, defaultValue = "")
-    var cookie by rememberPreference(key = ytCookieKey, defaultValue = "")
-    var accountName by rememberPreference(key = ytAccountNameKey, defaultValue = "")
-    var accountEmail by rememberPreference(key = ytAccountEmailKey, defaultValue = "")
-    var accountChannelHandle by rememberPreference(key = ytAccountChannelHandleKey, defaultValue = "")
-    var accountThumbnail by rememberPreference(key = ytAccountThumbnailKey, defaultValue = "")
+    // Persistent storage
+    var visitorData by rememberPreference("yt_visitor_data", "")
+    var dataSyncId by rememberPreference("yt_data_sync_id", "")
+    var cookie by rememberPreference("yt_cookie", "")
 
-    var webView: WebView? = null
+    var webView: WebView? by remember { mutableStateOf(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var hasLoggedIn by remember { mutableStateOf(false) }
 
-    Column (
+    // Restore cookies and data before WebView loads
+    LaunchedEffect(Unit) {
+        if (cookie.isNotEmpty()) {
+            Timber.d("Restoring saved cookies")
+            val cm = CookieManager.getInstance()
+            cookie.split(";").forEach { cm.setCookie("https://youtube.com", it.trim()) }
+            cookie.split(";").forEach { cm.setCookie("https://music.youtube.com", it.trim()) }
+            cm.flush()
+        }
+    }
+
+    Column(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
     ) {
-        //Row(modifier = Modifier.fillMaxWidth()) {
-            Title("Login to YouTube Music",
-                icon = R.drawable.chevron_down,
-                onClick = { onLogin(cookie) }
-            )
-        //}
-
-        AndroidView(
-            modifier = Modifier
-                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
-                .fillMaxSize(),
-            factory = { context ->
-                WebView(context).apply {
-                    webViewClient = object : WebViewClient() {
-                        override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
-                            if (url.startsWith("https://music.youtube.com")) {
-                                cookie = CookieManager.getInstance().getCookie(url)
-                                //onLogin(cookie)
-
-                                GlobalScope.launch {
-                                    Innertube.accountInfo().onSuccess {
-                                        println("YoutubeLogin doUpdateVisitedHistory accountInfo() $it")
-                                        accountName = it?.name.orEmpty()
-                                        accountEmail = it?.email.orEmpty()
-                                        accountChannelHandle = it?.channelHandle.orEmpty()
-                                        accountThumbnail = it?.thumbnailUrl.orEmpty()
-                                        onLogin(cookie)
-                                    }.onFailure {
-                                        Timber.e("Error YoutubeLogin: $it.stackTraceToString()")
-                                        println("Error YoutubeLogin: ${it.stackTraceToString()}")
-                                    }
-                                }
-                            }
-                        }
-
-                        override fun onPageFinished(view: WebView, url: String?) {
-                            loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
-                            loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
-                        }
-
-
-
-                    }
-                    settings.apply {
-                        javaScriptEnabled = true
-                        setSupportZoom(true)
-                        builtInZoomControls = true
-                    }
-                    addJavascriptInterface(object {
-                        @JavascriptInterface
-                        fun onRetrieveVisitorData(newVisitorData: String?) {
-                            if (newVisitorData != null) {
-                                visitorData = newVisitorData
-                            }
-                        }
-                        @JavascriptInterface
-                        fun onRetrieveDataSyncId(newDataSyncId: String?) {
-                            if (newDataSyncId != null) {
-                                dataSyncId = newDataSyncId
-                            }
-                        }
-                    }, "Android")
-                    webView = this
-                    loadUrl("https://accounts.google.com/ServiceLogin?ltmpl=music&service=youtube&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F")
+        Title(
+            title = "Login to YouTube Music",
+            icon = app.kreate.android.R.drawable.chevron_down,
+            onClick = {
+                if (cookie.contains("SAPISID")) {
+                    onLogin(cookie)
+                } else {
+                    android.widget.Toast.makeText(context, "Please complete login first", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         )
 
-        BackHandler(enabled = webView?.canGoBack() == true) {
-            webView?.goBack()
+        AndroidView(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView, url: String?) {
+                            super.onPageFinished(view, url)
+                            scope.launch {
+                                delay(1500) // Wait for cookies and JS to set
+
+                                val cm = CookieManager.getInstance()
+                                val ytCookies = cm.getCookie("https://youtube.com") ?: ""
+                                val ytmCookies = cm.getCookie("https://music.youtube.com") ?: ""
+                                val combinedCookies = listOf(ytCookies, ytmCookies)
+                                    .filter { it.isNotBlank() }
+                                    .joinToString("; ")
+                                    .replace(";;", ";")
+                                    .trim()
+                                cookie = combinedCookies
+
+                                if (combinedCookies.contains("SAPISID") && !hasLoggedIn) {
+                                    Timber.d("Auto-login detected with SAPISID!")
+
+                                    // Inject saved VISITOR_DATA & DATASYNC_ID
+                                    if (visitorData.isNotEmpty() && dataSyncId.isNotEmpty()) {
+                                        loadUrl(
+                                            "javascript:ytcfg.set('VISITOR_DATA','$visitorData');" +
+                                                    "ytcfg.set('DATASYNC_ID','$dataSyncId');"
+                                        )
+                                        delay(500)
+                                    }
+
+                                    // ✅ CRITICAL: Store cookies in SharedPreferences for Innertube to use
+                                    try {
+                                        Timber.d("Storing cookies for Innertube")
+                                        
+                                        // Parse cookies
+                                        val parsedCookies = parseCookieString(combinedCookies)
+                                        
+                                        // Log what we found
+                                        Timber.d("Found cookies: ${parsedCookies.keys}")
+                                        Timber.d("Has SAPISID: ${parsedCookies.containsKey("SAPISID")}")
+                                        Timber.d("Visitor data: ${visitorData.take(20)}...")
+                                        Timber.d("Data sync ID: ${dataSyncId.take(20)}...")
+                                        
+                                        // Innertube will read these from SharedPreferences when needed
+                                        // The sync functions should use these cookies automatically
+                                        
+                                    } catch (e: Exception) {
+                                        Timber.e("Error storing cookies: ${e.message}")
+                                    }
+
+                                    // Fetch account info
+                                    try {
+                                        isLoading = true
+                                        val accountInfo = AccountInfoFetcher.fetchAccountInfo(cookie)
+                                        accountInfo?.let {
+                                            android.widget.Toast.makeText(context, "Logged in as ${it.name}", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Timber.e("Error fetching account info: ${e.message}")
+                                    } finally {
+                                        isLoading = false
+                                        hasLoggedIn = true
+                                        
+                                        // Call onLogin AFTER everything is set up
+                                        onLogin(cookie)
+                                    }
+                                }
+
+                                // Always retrieve VISITOR_DATA & DATASYNC_ID
+                                loadUrl(
+                                    "javascript:(function() {" +
+                                            "try {" +
+                                            "  var ytcfg = window.ytcfg;" +
+                                            "  if (ytcfg && ytcfg.get) {" +
+                                            "    Android.onRetrieveVisitorData(ytcfg.get('VISITOR_DATA'));" +
+                                            "    Android.onRetrieveDataSyncId(ytcfg.get('DATASYNC_ID'));" +
+                                            "  }" +
+                                            "} catch(e) {}" +
+                                            "})()"
+                                )
+                            }
+                        }
+                    }
+
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        javaScriptCanOpenWindowsAutomatically = true
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        builtInZoomControls = true
+                        displayZoomControls = false
+                    }
+
+                    val cm = CookieManager.getInstance()
+                    cm.setAcceptCookie(true)
+                    cm.setAcceptThirdPartyCookies(this, true)
+
+                    addJavascriptInterface(object {
+                        @JavascriptInterface
+                        fun onRetrieveVisitorData(newVisitorData: String?) {
+                            newVisitorData?.let { 
+                                visitorData = it
+                                Timber.d("Got VISITOR_DATA from JS: ${it.take(20)}...")
+                            }
+                        }
+
+                        @JavascriptInterface
+                        fun onRetrieveDataSyncId(newDataSyncId: String?) {
+                            newDataSyncId?.let { 
+                                dataSyncId = it
+                                Timber.d("Got DATASYNC_ID from JS: ${it.take(20)}...")
+                            }
+                        }
+                    }, "Android")
+
+                    webView = this
+                    loadUrl("https://music.youtube.com")
+                }
+            }
+        )
+
+        BackHandler(enabled = webView?.canGoBack() == true) { webView?.goBack() }
+
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp)
+            )
         }
-
-
     }
-
-
-
 }
-

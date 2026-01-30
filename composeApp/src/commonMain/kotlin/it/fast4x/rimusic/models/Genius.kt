@@ -30,4 +30,8 @@ data class LyricsResult(
     val artist: String,
     val lyrics: String,
     val url: String
+<<<<<<< HEAD
 )
+=======
+)
+>>>>>>> 74dcd1a2ab76c96a52052fc60b634905596a5138

@@ -75,6 +75,13 @@ import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import it.fast4x.rimusic.utils.transitionEffectKey
 import it.fast4x.rimusic.ui.screens.welcome.WelcomeScreen
+import it.fast4x.rimusic.ui.screens.cubicjam.CubicJamManager
+import it.fast4x.rimusic.ui.screens.cubicjam.CubicJamScreen
+import androidx.compose.runtime.remember
+import android.content.Context
+// i should add this import at the top of your AppNavigation.kt file
+import it.fast4x.rimusic.ui.screens.cubicjam.CubicJamWebView
+import it.fast4x.rimusic.ui.screens.cubicjam.CubicJamSwipeScreen
 
 
 @androidx.annotation.OptIn()
@@ -294,6 +301,37 @@ fun AppNavigation(
                 miniPlayer = miniPlayer,
             )
         }
+
+        // In your AppNavigation.kt, add this route:
+composable(route = NavRoutes.cubicjam.name) {
+    val context = LocalContext.current
+    val cubicJamManager = remember {
+        CubicJamManager(
+            context = context,
+            getToken = {
+                context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+                    .getString("bearer_token", null)
+            }
+        )
+    }
+    
+    CubicJamScreen(
+        navController = navController,
+        cubicJamManager = cubicJamManager
+    )
+}
+
+composable(route = NavRoutes.cubicjam_swipe.name) {
+    CubicJamSwipeScreen(navController = navController)
+}
+
+ // forwebview
+composable(route = NavRoutes.cubicjam_web.name) {
+    CubicJamWebView(
+        navController = navController,
+        initialUrl = "https://swipes.lovable.app/"
+    )
+}
 
         // Add Rewind screen here
         composable(route = NavRoutes.rewind.name) {

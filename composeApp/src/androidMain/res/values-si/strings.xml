@@ -811,7 +811,7 @@
   <string name="about_developers_designers">App Developers</string>
   <string name="set_custom_value">Custom value</string>
   <string name="title_youtube_music">YOUTUBE MUSIC</string>
-  <string name="enable_youtube_music_login">Enable YouTube Music login</string>
+  <string name="enable_youtube_music_login">YouTube Music login is disabled. This app does not require it. Developers who can help fix it are welcome, but it is not important.</string>
   <string name="show_cover_thumbnail_animation">Show cover thumbnail animation</string>
   <string name="cover_thumbnail_animation_type">Cover animation type</string>
   <string name="jump_previous">Previous song maximum elapsed duration</string>
@@ -968,7 +968,7 @@
   <string name="appearance_changes_message">If you change Player or UI settings,\nit is strongly recommended to restart the application.</string>
   <string name="title_import_settings_migration">Import migration file.</string>
   <string name="description_import_settings_migration">For old users before conversion.\nUse old app to make a backup for migration.</string>
-  <string name="log_in_to_ytm">Streaming optimized. Bugs will be fixed on release. © 2025 by CyberGhost</string>
+  <string name="log_in_to_ytm">Streaming optimized. Bugs will be fixed on release. © 2026 by CyberGhost</string>
   <string name="close">Close</string>
   <string name="view_changelog">View changelog of the version %s</string>
   <string name="no_changelog_available">No changelog available</string>

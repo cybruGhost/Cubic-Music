@@ -2442,36 +2442,50 @@ private fun OptimizedSpotifyCanvasPlayer(
     val currentCanvasUrl by rememberUpdatedState(canvasUrl)
     val currentMediaItemId by rememberUpdatedState(mediaItemId)
     val currentIsPlaying by rememberUpdatedState(isPlaying)
-    
-    // OPTIMIZED KEY: Use hashCode for efficient comparison
+
+    // OPTIMIZED KEY
     val playerKey = remember(currentCanvasUrl, currentMediaItemId) {
         "canvas_${currentCanvasUrl.hashCode()}_${currentMediaItemId.hashCode()}"
     }
-    
-    // PROFESSIONAL LAYOUT: Clean, rounded, no black overlays
+
+    // ✅ ADAPTIVE EDGE PADDING (closer to edges on large screens)
+    val edgePadding = remember(maxWidth) {
+        when {
+            maxWidth < 360.dp -> 8.dp
+            maxWidth < 480.dp -> 10.dp
+            maxWidth < 600.dp -> 12.dp
+            else -> 6.dp // tablets / landscape → near edge-to-edge
+        }
+    }
+
+    // ✅ ADAPTIVE CORNER RADIUS
+    val cornerRadius = remember(maxWidth) {
+        if (maxWidth >= 600.dp) 14.dp else 18.dp
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFF1E1E1E).copy(alpha = 0.7f),  // Dark gray, not black
+                        Color(0xFF1E1E1E).copy(alpha = 0.7f),
                         Color(0xFF121212).copy(alpha = 0.7f)
                     ),
                     center = Offset.Unspecified,
-                    radius = maxWidth.value * 0.8f  // ✅ CHANGE: Use .value
+                    radius = maxWidth.value * 0.8f
                 )
             )
     ) {
-        // VIDEO CONTAINER WITH DEPTH
+        // VIDEO CONTAINER
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .padding(edgePadding) // ✅ FIXED
+                .clip(RoundedCornerShape(cornerRadius))
                 .shadow(
                     elevation = 8.dp,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(cornerRadius),
                     clip = true,
                     ambientColor = Color.Black.copy(alpha = 0.3f),
                     spotColor = Color.Black.copy(alpha = 0.2f)
@@ -2479,19 +2493,19 @@ private fun OptimizedSpotifyCanvasPlayer(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF2A2A2A),  // Subtle gradient
+                            Color(0xFF2A2A2A),
                             Color(0xFF1F1F1F)
                         )
                     ),
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(cornerRadius)
                 )
         ) {
-            // INNER VIDEO WITH ROUNDED CORNERS
+            // INNER VIDEO
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(2.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .padding(1.dp) // thinner inner gap
+                    .clip(RoundedCornerShape(cornerRadius - 2.dp))
             ) {
                 OptimizedCanvasVideoPlayer(
                     canvasUrl = currentCanvasUrl,
@@ -2501,22 +2515,22 @@ private fun OptimizedSpotifyCanvasPlayer(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            
-            // SUBTLE BORDER FOR DEFINITION
+
+            // SUBTLE BORDER
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .drawBehind {
                         drawRoundRect(
-                            color = Color.White.copy(alpha = 0.06f),
-                            style = Stroke(width = 1.5.dp.toPx()),  // ✅ .toPx() property
-                            cornerRadius = CornerRadius(20.dp.toPx())  // ✅ .toPx() property
+                            color = Color.White.copy(alpha = 0.05f),
+                            style = Stroke(width = 1.dp.toPx()),
+                            cornerRadius = CornerRadius(cornerRadius.toPx())
                         )
                     }
             )
         }
-        
-        // Log panel (conditional) - KEEP AS IS
+
+        // LOG PANEL (unchanged)
         if (showLogs) {
             OptimizedCanvasLogPanel(
                 modifier = Modifier
@@ -2525,8 +2539,8 @@ private fun OptimizedSpotifyCanvasPlayer(
                     .width(280.dp)
             )
         }
-        
-        // Canvas badge - KEEP AS IS
+
+        // CANVAS BADGE (unchanged)
         OptimizedCanvasBadge(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -2534,6 +2548,7 @@ private fun OptimizedSpotifyCanvasPlayer(
         )
     }
 }
+
 @Composable
 @androidx.annotation.OptIn(UnstableApi::class)
 private fun OptimizedCanvasVideoPlayer(

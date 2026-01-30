@@ -177,9 +177,6 @@ import timber.log.Timber
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import it.fast4x.rimusic.lyrics.GeniusClient
-import app.kreate.android.BuildConfig
-import it.fast4x.genius.Genius
 
 val textFieldColors: TextFieldColors
     @Composable
@@ -357,9 +354,6 @@ fun Lyrics(
         var checkedLyricsInnertube by remember {
             mutableStateOf(false)
         }
-        var checkedLyricsGenius by remember {
-            mutableStateOf(false)
-        }
         var checkLyrics by remember {
             mutableStateOf(false)
         }
@@ -466,89 +460,109 @@ fun Lyrics(
 
         LaunchedEffect(mediaId, isShowingSynchronizedLyrics, checkLyrics) {
             Database.lyricsTable
-                .findBySongId(mediaId)
-                .collect { currentLyrics ->
-                    if (isShowingSynchronizedLyrics && currentLyrics?.synced == null) {
-                        lyrics = null
-                        var duration = withContext(Dispatchers.Main) {
-                            durationProvider()
-                        }
-
-                        while (duration == C.TIME_UNSET) {
-                            delay(100)
-                            duration = withContext(Dispatchers.Main) {
+                    .findBySongId( mediaId )
+                    .collect { currentLyrics ->
+                        if (isShowingSynchronizedLyrics && currentLyrics?.synced == null) {
+                            lyrics = null
+                            var duration = withContext(Dispatchers.Main) {
                                 durationProvider()
                             }
-                        }
 
-                        kotlin.runCatching {
-                            // 1. Try LrcLib first
-                            LrcLib.lyrics(
-                                artist = artistName ?: "",
-                                title = title ?: "",
-                                duration = duration.milliseconds,
-                                album = mediaMetadata.albumTitle?.toString()
-                            )?.onSuccess {
-                                if ((it?.text?.isNotEmpty() == true || it?.sentences?.isNotEmpty() == true)
-                                    && playerEnableLyricsPopupMessage
-                                )
-                                    coroutineScope.launch {
-                                        Toaster.s(
-                                            R.string.info_lyrics_found_on_s,
-                                            "LrcLib.net"
+                            while (duration == C.TIME_UNSET) {
+                                delay(100)
+                                duration = withContext(Dispatchers.Main) {
+                                    durationProvider()
+                                }
+                            }
+
+                            kotlin.runCatching {
+                                LrcLib.lyrics(
+                                    artist = artistName ?: "",
+                                    title = title ?: "",
+                                    duration = duration.milliseconds,
+                                    album = mediaMetadata.albumTitle?.toString()
+                                )?.onSuccess {
+                                    if ((it?.text?.isNotEmpty() == true || it?.sentences?.isNotEmpty() == true)
+                                        && playerEnableLyricsPopupMessage
+                                    )
+                                        coroutineScope.launch {
+                                            Toaster.s(
+                                                R.string.info_lyrics_found_on_s,
+                                                "LrcLib.net"
+                                            )
+                                        }
+                                    else
+                                        if (playerEnableLyricsPopupMessage)
+                                            coroutineScope.launch {
+
+                                                Toaster.e(
+                                                    R.string.info_lyrics_not_found_on_s,
+                                                    "LrcLib.net",
+                                                    duration = Toast.LENGTH_LONG
+                                                )
+                                            }
+
+                                    isError = false
+                                    checkedLyricsLrc = true
+
+                                    Database.asyncTransaction {
+                                        lyricsTable.upsert(
+                                            Lyrics(
+                                                songId = mediaId,
+                                                fixed = currentLyrics?.fixed,
+                                                synced = it?.text.orEmpty()
+                                            )
                                         )
                                     }
-                                else
+                                }?.onFailure {
                                     if (playerEnableLyricsPopupMessage)
                                         coroutineScope.launch {
                                             Toaster.e(
-                                                R.string.info_lyrics_not_found_on_s,
-                                                "LrcLib.net",
+                                                R.string.info_lyrics_not_found_on_s_try_on_s,
+                                                "LrcLib.net", "KuGou.com",
                                                 duration = Toast.LENGTH_LONG
                                             )
                                         }
 
-                                isError = false
-                                checkedLyricsLrc = true
+                                    checkedLyricsLrc = true
 
-                                Database.asyncTransaction {
-                                    lyricsTable.upsert(
-                                        Lyrics(
-                                            songId = mediaId,
-                                            fixed = currentLyrics?.fixed,
-                                            synced = it?.text.orEmpty()
-                                        )
-                                    )
-                                }
-                            }?.onFailure {
-                                if (playerEnableLyricsPopupMessage)
-                                    coroutineScope.launch {
-                                        Toaster.e(
-                                            R.string.info_lyrics_not_found_on_s_try_on_s,
-                                            "LrcLib.net", "KuGou.com",
-                                            duration = Toast.LENGTH_LONG
-                                        )
-                                    }
+                                    kotlin.runCatching {
+                                        KuGou.lyrics(
+                                            artist = mediaMetadata.artist?.toString() ?: "",
+                                            title = cleanPrefix(mediaMetadata.title?.toString() ?: ""),
+                                            duration = duration / 1000
+                                        )?.onSuccess {
+                                            if ((it?.value?.isNotEmpty() == true || it?.sentences?.isNotEmpty() == true)
+                                                && playerEnableLyricsPopupMessage
+                                            )
+                                                coroutineScope.launch {
+                                                    Toaster.s(
+                                                        R.string.info_lyrics_found_on_s,
+                                                        "KuGou.com"
+                                                    )
+                                                }
+                                            else
+                                                if (playerEnableLyricsPopupMessage)
+                                                    coroutineScope.launch {
+                                                        Toaster.e(
+                                                            R.string.info_lyrics_not_found_on_s,
+                                                            "KuGou.com",
+                                                            duration = Toast.LENGTH_LONG
+                                                        )
+                                                    }
 
-                                checkedLyricsLrc = true
-
-                                // 2. Try KuGou second
-                                kotlin.runCatching {
-                                    KuGou.lyrics(
-                                        artist = mediaMetadata.artist?.toString() ?: "",
-                                        title = cleanPrefix(mediaMetadata.title?.toString() ?: ""),
-                                        duration = duration / 1000
-                                    )?.onSuccess {
-                                        if ((it?.value?.isNotEmpty() == true || it?.sentences?.isNotEmpty() == true)
-                                            && playerEnableLyricsPopupMessage
-                                        )
-                                            coroutineScope.launch {
-                                                Toaster.s(
-                                                    R.string.info_lyrics_found_on_s,
-                                                    "KuGou.com"
+                                            isError = false
+                                            checkedLyricsKugou = true
+                                            Database.asyncTransaction {
+                                                lyricsTable.upsert(
+                                                    Lyrics(
+                                                        songId = mediaId,
+                                                        fixed = currentLyrics?.fixed,
+                                                        synced = it?.value.orEmpty()
+                                                    )
                                                 )
                                             }
-                                        else
+                                        }?.onFailure {
                                             if (playerEnableLyricsPopupMessage)
                                                 coroutineScope.launch {
                                                     Toaster.e(
@@ -558,93 +572,42 @@ fun Lyrics(
                                                     )
                                                 }
 
-                                        isError = false
-                                        checkedLyricsKugou = true
+                                            isError = true
+                                        }
+                                    }.onFailure {
+                                        Timber.e("Lyrics Kugou get error ${it.stackTraceToString()}")
+                                    }
+                                }
+                            }.onFailure {
+                                Timber.e("Lyrics get error ${it.stackTraceToString()}")
+                            }
+
+                        } else if (!isShowingSynchronizedLyrics && currentLyrics?.fixed == null) {
+                            isError = false
+                            lyrics = null
+                            kotlin.runCatching {
+                                Innertube.lyrics(NextBody(videoId = mediaId))
+                                    ?.onSuccess { fixedLyrics ->
                                         Database.asyncTransaction {
                                             lyricsTable.upsert(
                                                 Lyrics(
                                                     songId = mediaId,
-                                                    fixed = currentLyrics?.fixed,
-                                                    synced = it?.value.orEmpty()
+                                                    fixed = fixedLyrics ?: "",
+                                                    synced = currentLyrics?.synced
                                                 )
                                             )
                                         }
                                     }?.onFailure {
-                                        if (playerEnableLyricsPopupMessage)
-                                            coroutineScope.launch {
-                                                Toaster.e(
-                                                    R.string.info_lyrics_not_found_on_s_try_on_s,
-                                                    "KuGou.com", "Genius.com",
-                                                    duration = Toast.LENGTH_LONG
-                                                )
-                                            }
-
-                                                checkedLyricsKugou = true
-                                                kotlin.runCatching {
-                                                    Genius.lyrics(
-                                                        apiToken = BuildConfig.GENIUS_API_KEY,
-                                                        artist = mediaMetadata.artist?.toString() ?: "",
-                                                        title = cleanPrefix(mediaMetadata.title?.toString() ?: "")
-                                                    )?.onSuccess { geniusLyrics ->
-                                                        if (geniusLyrics != null && geniusLyrics.value.isNotEmpty() && playerEnableLyricsPopupMessage) {
-                                                            coroutineScope.launch {
-                                                                Toaster.s(
-                                                                    R.string.info_lyrics_found_on_s,
-                                                                    "Genius.com"
-                                                                )
-                                                            }
-                                                        }
-
-                                                        if (geniusLyrics != null) {
-                                                            isError = false
-                                                            checkedLyricsGenius = true
-                                                            Database.asyncTransaction {
-                                                                lyricsTable.upsert(
-                                                                    Lyrics(
-                                                                        songId = mediaId,
-                                                                        fixed = geniusLyrics.value,
-                                                                        synced = currentLyrics?.synced
-                                                                    )
-                                                                )
-                                                            }
-                                                        } else {
-                                                            isError = true
-                                                        }
-                                                    }?.onFailure {
-                                                        isError = true
-                                                        if (playerEnableLyricsPopupMessage) {
-                                                            coroutineScope.launch {
-                                                                Toaster.e(
-                                                                    R.string.info_lyrics_not_found_on_s,
-                                                                    "Genius.com",
-                                                                    duration = Toast.LENGTH_LONG
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                }.onFailure {
-                                                    Timber.e("Lyrics Genius get error ${it.stackTraceToString()}")
-                                                    isError = true
-                                                }.onFailure {
-                                            Timber.e("Lyrics Genius get error ${it.stackTraceToString()}")
-                                            isError = true
-                                        }
-                                        // GENIUS CODE Finish
-                                    }
-                                }.onFailure {
-                                    Timber.e("Lyrics Kugou get error ${it.stackTraceToString()}")
+                                    isError = true
                                 }
+                            }.onFailure {
+                                Timber.e("Lyrics Innertube get error ${it.stackTraceToString()}")
                             }
-                        }.onFailure {
-                            Timber.e("Lyrics get error ${it.stackTraceToString()}")
+                            checkedLyricsInnertube = true
+                        } else {
+                            lyrics = currentLyrics
                         }
-
-                    } else if (!isShowingSynchronizedLyrics && currentLyrics?.fixed == null) {
-                        // ... existing code for unsynchronized lyrics ...
-                    } else {
-                        lyrics = currentLyrics
                     }
-                }
         }
 
 
