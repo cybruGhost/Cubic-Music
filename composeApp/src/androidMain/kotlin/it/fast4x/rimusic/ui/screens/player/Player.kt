@@ -242,6 +242,7 @@ import it.fast4x.rimusic.utils.thumbnailTypeKey
 import it.fast4x.rimusic.utils.timelineExpandedKey
 import it.fast4x.rimusic.utils.titleExpandedKey
 import it.fast4x.rimusic.utils.topPaddingKey
+//import it.fast4x.rimusic.utils.PresenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -295,6 +296,7 @@ import androidx.media3.common.MimeTypes
 // Add with your other imports
 import it.fast4x.rimusic.ui.screens.spotify.CanvasPlayerManager
 import androidx.compose.material3.CircularProgressIndicator
+import it.fast4x.rimusic.utils.PresenceManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalTextApi
@@ -312,7 +314,20 @@ fun Player(
     val configuration = LocalConfiguration.current
     val menuState = LocalMenuState.current
     val binder = LocalPlayerServiceBinder.current ?: return
+    val userId = remember { "current_user_id" }
+
+    LaunchedEffect(Unit) {
+        PresenceManager.initialize(context, userId)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            PresenceManager.cleanup()
+        }
+    }
     // Settings
+    val isOnline by PresenceManager.isOnline.collectAsState()
+    val currentPresence by PresenceManager.currentPresence.collectAsState()
     val disablePlayerHorizontalSwipe by rememberPreference(disablePlayerHorizontalSwipeKey, false)
     val showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
     val effectRotationEnabled by rememberPreference(effectRotationKey, true)
@@ -515,9 +530,7 @@ fun Player(
         }
     }
 
-    val
-            mediaItem = nullableMediaItem ?: return
-
+    val mediaItem = nullableMediaItem ?: return
     val pagerState = rememberPagerState(pageCount = { mediaItems.size })
     val pagerStateFS = rememberPagerState(pageCount = { mediaItems.size })
     val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
@@ -582,6 +595,22 @@ fun Player(
     var showCircularSlider by remember {
         mutableStateOf(false)
     }
+
+    // Track playback changes for presence
+    LaunchedEffect(mediaItem.mediaId, shouldBePlaying, positionAndDuration.first) {
+        val artistName = artistInfos.firstOrNull()?.name ?: ""
+
+        PresenceManager.updatePlaybackState(
+            mediaItem = mediaItem,
+            position = positionAndDuration.first,
+            duration = positionAndDuration.second,
+            isPlaying = shouldBePlaying,
+            queuePosition = binder.player.currentMediaItemIndex,
+            artistName = artistName,
+            albumId = albumId
+        )
+    }
+
     val screenWidth = configuration.screenWidthDp.dp
     val screenHeight = configuration.screenHeightDp.dp
 

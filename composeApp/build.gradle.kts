@@ -295,6 +295,15 @@ dependencies {
     implementation(projects.lrclib)
     implementation(projects.piped)
 
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.auth.kt)
+    implementation(libs.ktor.client.okhttp)
+
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+    implementation("androidx.compose.material3:material3:1.3.2")
+
+    ksp(libs.room.compiler)
+
     coreLibraryDesugaring(libs.desugaring.nio)
 
     // Debug only
