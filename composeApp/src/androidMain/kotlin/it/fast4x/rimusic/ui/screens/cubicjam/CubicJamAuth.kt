@@ -1,6 +1,7 @@
 package it.fast4x.rimusic.ui.screens.cubicjam
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -577,28 +578,52 @@ Icon(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Additional Info
+        // Additional Info
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Red Beta Badge
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = Color.Red.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color.Red.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "BETA",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Red
+                    )
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
             Text(
-                text = buildAnnotatedString {
-                    append("Cubic Jam lets you ")
-                    withStyle(style = SpanStyle(
-                        fontWeight = FontWeight.SemiBold,
-                        color = OrangeLight
-                    )) {
-                        append("share music in real-time")
-                    }
-                    append(" with friends. See what everyone's playing right now!")
-                },
+                text = "This feature is in beta. More updates coming soon!",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 13.sp,
                     lineHeight = 18.sp
                 ),
                 color = Color(0xFFB0B0B0).copy(alpha = 0.6f),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                textAlign = TextAlign.Center
             )
-            
-            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
