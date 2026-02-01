@@ -29,7 +29,7 @@ private const val SAMSUNG_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; SM-S921U
 @Composable
 fun CubicJamWebView(
     navController: NavController,
-    initialUrl: String = "https://swipes.lovable.app"
+    initialUrl: String = "https://jam-wave-connect.lovable.app/feed"
 ) {
     val scope = rememberCoroutineScope()
     var webView: WebView? = null

@@ -207,4 +207,3 @@ fun autoSyncToolbutton(messageId: Int): MenuIcon = object : MenuIcon, DynamicCol
         isFirstColor = !isFirstColor
     }
 }
-

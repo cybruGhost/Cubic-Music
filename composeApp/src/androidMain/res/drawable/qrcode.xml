@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- QR Code pattern -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M3,3 L3,8 L8,8 L8,3 Z" /> <!-- Top-left corner square -->
+    
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M16,3 L16,8 L21,8 L21,3 Z" /> <!-- Top-right corner square -->
+    
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M3,16 L3,21 L8,21 L8,16 Z" /> <!-- Bottom-left corner square -->
+    
+    <!-- Alignment pattern -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M10,10 L10,14 L14,14 L14,10 Z" /> <!-- Center square -->
+    
+    <!-- Dots pattern -->
+    <!-- Top row -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M4,4 L4,5 L5,5 L5,4 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M6,4 L6,5 L7,5 L7,4 Z" />
+    
+    <!-- Middle row -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M4,6 L4,7 L5,7 L5,6 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M6,6 L6,7 L7,7 L7,6 Z" />
+    
+    <!-- Bottom row -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M4,8 L4,9 L5,9 L5,8 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M6,8 L6,9 L7,9 L7,8 Z" />
+    
+    <!-- Right side patterns -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M18,4 L18,5 L19,5 L19,4 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M18,6 L18,7 L19,7 L19,6 Z" />
+    
+    <!-- Left side patterns -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M4,18 L4,19 L5,19 L5,18 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M6,18 L6,19 L7,19 L7,18 Z" />
+    
+    <!-- Outline (makes it look more like a QR code) -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="0.5"
+        android:fillColor="#00000000"
+        android:pathData="M2,2 L22,2 L22,22 L2,22 Z" /> <!-- Outer border -->
+</vector>

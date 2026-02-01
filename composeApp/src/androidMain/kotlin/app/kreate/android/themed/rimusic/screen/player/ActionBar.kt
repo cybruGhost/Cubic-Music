@@ -587,7 +587,7 @@ fun BoxScope.ActionBar(
                 val playerType by rememberPreference( playerTypeKey, PlayerType.Essential )
                 val showThumbnail by rememberPreference( showthumbnailKey, true )
                 if (!isLandscape || ((playerType == PlayerType.Essential) && !showThumbnail)) {
-                    val expandedPlayerToggle by rememberPreference( expandedplayertoggleKey, true )
+                    val expandedPlayerToggle by rememberPreference( expandedplayertoggleKey, false )
                     var expandedPlayer by expandPlayerState
 
                     if (expandedPlayerToggle && !showLyricsThumbnail)

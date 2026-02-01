@@ -5,6 +5,8 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import android.content.Context
+import it.fast4x.rimusic.ui.screens.home.FriendNowPlayingSection
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -278,6 +280,15 @@ val currentDay = calendar.get(java.util.Calendar.DAY_OF_MONTH)
     )
     val showTips by rememberPreference(showTipsKey, true)
     val showCharts by rememberPreference(showChartsKey, true)
+    // Add this at the top of HomeQuickPicks to debug
+
+    val isCubicJamLoggedIn = remember {
+    val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+    val token = prefs.getString("bearer_token", null)
+    val loggedIn = token != null
+    Timber.d("HomeQuickPicks - CubicJam logged in: $loggedIn")
+    loggedIn
+}
 
 // ===== NOTIFICATION MESSAGE =====
 // CHANGE THESE LINES (remove persist):
@@ -527,6 +538,8 @@ fun refresh() {
     notificationInit = null
     // ===== END CLEAR NOTIFICATION CACHE =====
     
+    // Note: FriendNowPlayingSection handles its own refresh automatically
+    
     refreshScope.launch(Dispatchers.IO) {
         refreshing = true
         loadData()
@@ -751,18 +764,19 @@ if (showTips) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             // CubicJam icon
-            IconButton(
-                onClick = {
-                    navController.navigate(NavRoutes.cubicjam.name)
-                },
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.multipage),
-                    contentDescription = "Cubic Jam",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+        // CubicJam icon with teal color
+        IconButton(
+            onClick = {
+                navController.navigate(NavRoutes.cubicjam.name)
+            },
+            modifier = Modifier.size(24.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.multipage),
+                contentDescription = "Cubic Jam",
+                tint = Color(0xFF00BFA5) // Teal color
+            )
+        }
             
             // Play icon
             IconButton(
@@ -898,6 +912,9 @@ if (showNewUserMessage && playEventType == PlayEventsType.CasualPlayed) {
         )
     }
 }
+// ===== FRIEND NOW PLAYING SECTION =====
+FriendNowPlayingSection(navController = navController)
+// ===== END FRIEND NOW PLAYING SECTION =====
 // ===== NOTIFICATION MESSAGE SECTION =====
 notificationInit?.let { notification ->
     // Get current app version

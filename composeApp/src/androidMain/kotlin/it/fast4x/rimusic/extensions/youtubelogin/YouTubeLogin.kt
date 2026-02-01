@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebStorage
-import it.fast4x.rimusic.appContext
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -117,26 +116,6 @@ fun YouTubeLogin(
                                         delay(500)
                                     }
 
-                                    // ✅ CRITICAL: Store cookies in SharedPreferences for Innertube to use
-                                    try {
-                                        Timber.d("Storing cookies for Innertube")
-                                        
-                                        // Parse cookies
-                                        val parsedCookies = parseCookieString(combinedCookies)
-                                        
-                                        // Log what we found
-                                        Timber.d("Found cookies: ${parsedCookies.keys}")
-                                        Timber.d("Has SAPISID: ${parsedCookies.containsKey("SAPISID")}")
-                                        Timber.d("Visitor data: ${visitorData.take(20)}...")
-                                        Timber.d("Data sync ID: ${dataSyncId.take(20)}...")
-                                        
-                                        // Innertube will read these from SharedPreferences when needed
-                                        // The sync functions should use these cookies automatically
-                                        
-                                    } catch (e: Exception) {
-                                        Timber.e("Error storing cookies: ${e.message}")
-                                    }
-
                                     // Fetch account info
                                     try {
                                         isLoading = true
@@ -149,8 +128,6 @@ fun YouTubeLogin(
                                     } finally {
                                         isLoading = false
                                         hasLoggedIn = true
-                                        
-                                        // Call onLogin AFTER everything is set up
                                         onLogin(cookie)
                                     }
                                 }
@@ -188,18 +165,12 @@ fun YouTubeLogin(
                     addJavascriptInterface(object {
                         @JavascriptInterface
                         fun onRetrieveVisitorData(newVisitorData: String?) {
-                            newVisitorData?.let { 
-                                visitorData = it
-                                Timber.d("Got VISITOR_DATA from JS: ${it.take(20)}...")
-                            }
+                            newVisitorData?.let { visitorData = it }
                         }
 
                         @JavascriptInterface
                         fun onRetrieveDataSyncId(newDataSyncId: String?) {
-                            newDataSyncId?.let { 
-                                dataSyncId = it
-                                Timber.d("Got DATASYNC_ID from JS: ${it.take(20)}...")
-                            }
+                            newDataSyncId?.let { dataSyncId = it }
                         }
                     }, "Android")
 

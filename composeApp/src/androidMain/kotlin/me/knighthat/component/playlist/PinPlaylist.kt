@@ -19,7 +19,7 @@ class PinPlaylist(
         operator fun invoke( playlist: Playlist ) = PinPlaylist(playlist)
     }
 
-    override val iconId: Int = R.drawable.pin_filled
+    override val iconId: Int = R.drawable.pin_good
     override val messageId: Int = R.string.info_pin_unpin_playlist
     override val menuIconTitle: String
         @Composable

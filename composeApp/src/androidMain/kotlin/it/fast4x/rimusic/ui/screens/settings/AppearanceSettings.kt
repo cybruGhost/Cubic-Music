@@ -234,7 +234,7 @@ fun DefaultAppearanceSettings() {
     showButtonPlayerLoop = false
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
     showButtonPlayerLyrics = true
-    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, true)
+    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, false)
     expandedplayertoggle = false
     var showButtonPlayerShuffle by rememberPreference(showButtonPlayerShuffleKey, true)
     showButtonPlayerShuffle = true
@@ -296,7 +296,7 @@ fun DefaultAppearanceSettings() {
         transparentBackgroundPlayerActionBarKey,
         true
     )
-    transparentBackgroundActionBarPlayer = false
+    transparentBackgroundActionBarPlayer = true
     var iconLikeType by rememberPreference(iconLikeTypeKey, IconLikeType.Essential)
     iconLikeType = IconLikeType.Essential
     var playerSwapControlsWithTimeline by rememberPreference(
@@ -420,7 +420,7 @@ fun AppearanceSettings(
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
     var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
-    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, true)
+    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, false)
     var showButtonPlayerShuffle by rememberPreference(showButtonPlayerShuffleKey, true)
     var showButtonPlayerSleepTimer by rememberPreference(showButtonPlayerSleepTimerKey, false)
     var showButtonPlayerMenu by rememberPreference(showButtonPlayerMenuKey, false)

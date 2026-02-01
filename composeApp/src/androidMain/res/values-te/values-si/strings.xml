@@ -387,7 +387,7 @@
 <string name="sort_date_liked">Date Favorited</string>
 <string name="export_playlist">Export playlist</string>
 <string name="lang_afrikaans">Afrikaans (Afrikaans)</string>
-<string name="playlist_top">Top Playlist</string>
+<string name="playlist_top">Top</string>
 <string name="my_playlist_top">My Top %s</string>
 <string name="navigation_bar_position">Navigation bar position</string>
 <string name="direction_left">Left</string>

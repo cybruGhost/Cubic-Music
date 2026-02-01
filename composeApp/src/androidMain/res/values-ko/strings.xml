@@ -387,7 +387,7 @@
   <string name="sort_date_liked">Date Favorited</string>
   <string name="export_playlist">재생목록 내보내기</string>
   <string name="lang_afrikaans">Afrikaans (Afrikaans)</string>
-  <string name="playlist_top">Top Playlist</string>
+  <string name="playlist_top">Top</string>
   <string name="my_playlist_top">나만의 랭킹 %1$s</string>
   <string name="navigation_bar_position">내비게이션 바 위치</string>
   <string name="direction_left">왼쪽</string>
@@ -811,7 +811,7 @@
   <string name="about_developers_designers">개발자 / 디자이너</string>
   <string name="set_custom_value">맞춤 값</string>
   <string name="title_youtube_music">유튜브 뮤직</string>
-  <string name="enable_youtube_music_login">YouTube Music login is disabled. This app does not require it. Developers who can help fix it are welcome, but it is not important.</string>
+  <string name="enable_youtube_music_login">Connect to YTM</string>
   <string name="show_cover_thumbnail_animation">커버 썸네일 애니메이션 표시</string>
   <string name="cover_thumbnail_animation_type">커버 애니메이션 유형</string>
   <string name="jump_previous">Previous song maximum elapsed duration</string>

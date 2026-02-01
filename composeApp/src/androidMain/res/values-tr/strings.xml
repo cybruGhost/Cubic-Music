@@ -387,7 +387,7 @@
   <string name="sort_date_liked">Date Favorited</string>
   <string name="export_playlist">Çalma listesini dışa aktar</string>
   <string name="lang_afrikaans">Afrikaans (Afrikaans)</string>
-  <string name="playlist_top">Top Playlist</string>
+  <string name="playlist_top">Top</string>
   <string name="my_playlist_top">Benim En İyi %s</string>
   <string name="navigation_bar_position">Gezinme çubuğu konumu</string>
   <string name="direction_left">Sol</string>
@@ -811,7 +811,7 @@
   <string name="about_developers_designers">Geliştiriciler / Tasarımcılar</string>
   <string name="set_custom_value">Özel değer</string>
   <string name="title_youtube_music">YOUTUBE MUSIC</string>
-  <string name="enable_youtube_music_login">YouTube Music login is disabled. This app does not require it. Developers who can help fix it are welcome, but it is not important.</string>
+  <string name="enable_youtube_music_login">Connect to YTM</string>
   <string name="show_cover_thumbnail_animation">Kapak küçük resim animasyonunu göster</string>
   <string name="cover_thumbnail_animation_type">Kapak animasyon türü</string>
   <string name="jump_previous">Previous song maximum elapsed duration</string>

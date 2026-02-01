@@ -387,7 +387,7 @@
 <string name="sort_date_liked">Date Favorited</string>
 <string name="export_playlist">Export playlist</string>
 <string name="lang_afrikaans">Afrikaans (Afrikaans)</string>
-<string name="playlist_top">Top Playlist</string>
+<string name="playlist_top">Top</string>
 <string name="my_playlist_top">My Top %s</string>
 <string name="navigation_bar_position">Navigation bar position</string>
 <string name="direction_left">Left</string>
@@ -811,7 +811,7 @@
 <string name="about_developers_designers">Developers</string>
 <string name="set_custom_value">Custom value</string>
 <string name="title_youtube_music">YOUTUBE MUSIC</string>
-<string name="enable_youtube_music_login">YouTube Music login is disabled. This app does not require it. Developers who can help fix it are welcome, but it is not important.</string>
+<string name="enable_youtube_music_login">Connect to YTM</string>
 <string name="show_cover_thumbnail_animation">Show cover thumbnail animation</string>
 <string name="cover_thumbnail_animation_type">Cover animation type</string>
 <string name="jump_previous">Previous song maximum elapsed duration</string>
@@ -1070,4 +1070,9 @@
 <string name="spotify_email_instructions">Enter the email you used to sign in to Spotify Canvas website</string>
 <string name="spotify_note">Note: You must first authenticate at:\nv0-spotify-playlist-csv.vercel.app</string>
 <string name="spotify_disconnect_confirm">Disconnect Spotify Canvas?\nThis will remove your email and disable the feature.</string>
+<string name="forcePlayFromBeginning">Play from Beginning</string>
+<string name="smart_shuffle">Smart Shuffle</string>
+<string name="loading_recommendations">Loading recommendations…</string>
+<string name="recommendations">Recommendations</string>
+
 </resources>

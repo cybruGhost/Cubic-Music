@@ -84,6 +84,8 @@ import it.fast4x.rimusic.ui.screens.cubicjam.CubicJamWebView
 import it.fast4x.rimusic.ui.screens.cubicjam.CubicJamSwipeScreen
 
 
+
+
 @androidx.annotation.OptIn()
 @OptIn(
     ExperimentalFoundationApi::class,
@@ -301,35 +303,44 @@ fun AppNavigation(
                 miniPlayer = miniPlayer,
             )
         }
-
-        // In your AppNavigation.kt, add this route:
+// Cubic Jam Main Screen
 composable(route = NavRoutes.cubicjam.name) {
     val context = LocalContext.current
     val cubicJamManager = remember {
         CubicJamManager(
             context = context,
             getToken = {
-                context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
-                    .getString("bearer_token", null)
+                context.getSharedPreferences(
+                    "cubic_jam_prefs",
+                    Context.MODE_PRIVATE
+                ).getString("bearer_token", null)
             }
         )
     }
-    
+
     CubicJamScreen(
         navController = navController,
         cubicJamManager = cubicJamManager
     )
 }
 
-composable(route = NavRoutes.cubicjam_swipe.name) {
-    CubicJamSwipeScreen(navController = navController)
-}
+// Cubic Jam WebView Screen with URL parameter
+composable(
+    route = "${NavRoutes.cubicjam_web.name}?url={url}",
+    arguments = listOf(
+        navArgument("url") {
+            type = NavType.StringType
+            defaultValue = "https://jam-wave-connect.lovable.app/feed"
+            nullable = true
+        }
+    )
+) { backStackEntry ->
+    val url = backStackEntry.arguments?.getString("url")
+        ?: "https://jam-wave-connect.lovable.app/feed"
 
- // forwebview
-composable(route = NavRoutes.cubicjam_web.name) {
     CubicJamWebView(
         navController = navController,
-        initialUrl = "https://swipes.lovable.app/"
+        initialUrl = url
     )
 }
 

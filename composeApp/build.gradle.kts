@@ -95,7 +95,7 @@ kotlin {
             implementation(libs.mediaplayer.kmp)
 
             implementation(libs.navigation.kmp)
-
+            implementation("androidx.compose.material:material-icons-extended:1.6.0")
             //coil3 mp
             implementation(libs.coil.compose.core)
             implementation(libs.coil.compose)
@@ -134,7 +134,7 @@ android {
         minSdk = 23
         targetSdk = 36
         versionCode = 108
-        versionName = "1.7.6"
+        versionName = "1.7.7"
 
         /*
                 UNIVERSAL VARIABLES

@@ -391,7 +391,7 @@ AnimatedVisibility(
             val context = LocalContext.current
             
             // Use var for mutable preferences
-            var spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", true)
+            var spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", false)
             var showSpotifyCanvasLogs by rememberPreference("showSpotifyCanvasLogs", false)
             
             // Beta warning state

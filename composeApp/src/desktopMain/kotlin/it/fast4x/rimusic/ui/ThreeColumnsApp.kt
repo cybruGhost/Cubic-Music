@@ -21,7 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Tab
 import androidx.compose.material.TabRow
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +46,7 @@ import it.fast4x.innertube.models.PlayerResponse
 import it.fast4x.innertube.models.bodies.PlayerBody
 import it.fast4x.innertube.requests.player
 import it.fast4x.rimusic.enums.PageType
+import it.fast4x.rimusic.extensions.webpotoken.PoTokenGenerator
 import it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomPadding
 import it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomSpacer
 import it.fast4x.rimusic.styling.Dimensions.layoutColumnTopPadding
@@ -88,84 +91,135 @@ fun ThreeColumnsApp() {
 
     val formatAudio =
         remember { mutableStateOf<PlayerResponse.StreamingData.AdaptiveFormat?>(null) }
+    
+    var playerError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(videoId) {
         if (videoId.isEmpty()) return@LaunchedEffect
+        
+        playerError = null
+        formatAudio.value = null
 
-        Innertube.player(
-            body = PlayerBody(videoId = videoId)
-        ).onSuccess {
-                println("videoId  ${videoId} adaptiveFormats ${it.streamingData?.adaptiveFormats}")
-                formatAudio.value =
-                    it.streamingData?.autoMaxQualityFormat
-                        .let {
-                            // Specify range to avoid YouTube's throttling
-                            it?.copy(url = "${it.url}&range=0-${it.contentLength ?: 10000000}")
-                        }
+        println("=== ATTEMPTING TO PLAY VIDEO: $videoId ===")
+        
+        try {
+            // 1. Try to generate PoToken first (REQUIRED to bypass server restrictions)
+            println("Generating PoToken...")
+            val poTokenGenerator = PoTokenGenerator()
+            val poTokenResult = poTokenGenerator.getWebClientPoToken(videoId)
+            val poToken = poTokenResult?.playerRequestPoToken
+            
+            println("PoToken generated: ${if (poToken != null) "SUCCESS" else "FAILED"}")
+            if (poToken != null) {
+                println("PoToken (first 30 chars): ${poToken.take(30)}...")
             }
-        println("videoId  ${videoId} formatAudio url inside ${formatAudio.value?.url}")
+            
+            // 2. Call player WITH PoToken (this fixes "server restrictions" error)
+            println("Calling Innertube.player with PoToken...")
+            val response = Innertube.player(
+                videoId = videoId,
+                poToken = poToken  // CRITICAL: This bypasses YouTube's restrictions
+            )
+            
+            response.onSuccess { playerResponse ->
+                println("✅ PLAYER REQUEST SUCCESSFUL WITH POTOKEN!")
+                println("Streaming data available: ${playerResponse.streamingData != null}")
+                println("Available formats: ${playerResponse.streamingData?.adaptiveFormats?.size ?: 0}")
+                
+                // Get the best audio format
+                formatAudio.value = playerResponse.streamingData?.autoMaxQualityFormat?.let { format ->
+                    // Add range parameter to avoid YouTube throttling
+                    val urlWithRange = if (format.contentLength != null) {
+                        "${format.url}&range=0-${format.contentLength}"
+                    } else {
+                        "${format.url}&range=0-10000000" // Default 10MB range
+                    }
+                    format.copy(url = urlWithRange)
+                }
+                
+                if (formatAudio.value != null) {
+                    println("✅ Audio URL obtained successfully!")
+                    println("Audio URL (first 100 chars): ${formatAudio.value?.url?.take(100)}...")
+                    println("Audio format: ${formatAudio.value?.mimeType}")
+                    println("Audio bitrate: ${formatAudio.value?.bitrate}")
+                } else {
+                    println("⚠️ No audio format found in response")
+                    playerError = "No audio format available"
+                }
+                
+            }.onFailure { error ->
+                println("❌ PLAYER REQUEST FAILED: ${error.message}")
+                playerError = error.message ?: "Unknown error"
+                
+                // Try fallback without PoToken (might still fail due to restrictions)
+                println("Trying fallback without PoToken...")
+                Innertube.player(videoId = videoId, poToken = null).onSuccess { fallbackResponse ->
+                    println("Fallback succeeded (limited quality)")
+                    formatAudio.value = fallbackResponse.streamingData?.autoMaxQualityFormat?.let { format ->
+                        val urlWithRange = if (format.contentLength != null) {
+                            "${format.url}&range=0-${format.contentLength}"
+                        } else {
+                            "${format.url}&range=0-10000000"
+                        }
+                        format.copy(url = urlWithRange)
+                    }
+                }.onFailure { fallbackError ->
+                    println("❌ Fallback also failed: ${fallbackError.message}")
+                    playerError = "Both attempts failed: ${error.message}, ${fallbackError.message}"
+                }
+            }
+            
+        } catch (e: Exception) {
+            println("❌ ERROR in player request: ${e.message}")
+            e.printStackTrace()
+            playerError = e.message ?: "Unknown exception"
+        }
 
         nowPlayingSong = db.getSong(videoId)
-        println("nowPlayingSong ${nowPlayingSong}")
+        println("Now playing song from DB: ${nowPlayingSong?.title}")
+        
+        if (playerError != null) {
+            println("=== PLAYER ERROR ===")
+            println("Video ID: $videoId")
+            println("Error: $playerError")
+            println("=== END ERROR ===")
+        }
     }
 
     coroutineScope.launch {
         db.getAllSongs().collect {
-            println("songs in db ${it.size}")
+            println("Songs in database: ${it.size}")
         }
     }
 
-    /*
-    val formatAudio = body.value?.streamingData?.adaptiveFormats
-        ?.filter { it.isAudio }
-        ?.maxByOrNull {
-            it.bitrate?.times( (if (it.mimeType.startsWith("audio/webm")) 100 else 1)
-            ) ?: -1 }
-
-     */
-
-
-    /*
-    val formatVideo = body.value?.streamingData?.adaptiveFormats
-        ?.filter { it.isVideo }
-        ?.maxByOrNull {
-            it.bitrate?.times( (if (it.mimeType.startsWith("video/mp4")) 100 else 1)
-            ) ?: -1 }
-    */
-
-
-    //val urlAudio by remember { mutableStateOf(formatAudio.value?.url ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4") }
-    //var urlVideo by remember { mutableStateOf(formatVideo?.url ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4") }
-    //var url by remember { mutableStateOf("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4") }
-    //val url by remember { mutableStateOf(formatAudio.value?.url) }
-
-    val url =
-        formatAudio.value?.url //"https://rr4---sn-hpa7znzr.googlevideo.com/videoplayback?expire=1727471735&ei=Fsz2ZoyiPO7Si9oPpreTiAI&ip=178.19.172.167&id=o-ABmCff7qCeQd05V_WN5fpAFEfxHP3kxR6G55H_QdlBsh&itag=251&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&mh=43&mm=31%2C26&mn=sn-hpa7znzr%2Csn-4g5lznez&ms=au%2Conr&mv=m&mvi=4&pl=22&gcr=it&initcwndbps=2505000&vprv=1&svpuc=1&mime=audio%2Fwebm&rqh=1&gir=yes&clen=3291443&dur=194.901&lmt=1714829870710563&mt=1727449746&fvip=4&keepalive=yes&fexp=51299152&c=ANDROID_MUSIC&txp=2318224&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cxpc%2Cgcr%2Cvprv%2Csvpuc%2Cmime%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AJfQdSswRQIhAP5IS0unA9IAhtAtkqY-63FGyG_eRi-FMMgNjWU1TWGzAiACd3c4niMxsPxXjp_55EylpIBysVBOpoD69oQ9xvF8bg%3D%3D&lsparams=mh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Cinitcwndbps&lsig=ABPmVW0wRAIgZBP07jXYZ5_4xSrp_hZ9jvIOMPsfOa-grREDshQvzSYCIC7ImmFVJCeLUMVASEkedlXa-R4je3RVC_fu2WH8XTvj"
-
-    //var url by remember { mutableStateOf(urlVideo) }
-
-    //val componentController = remember(url) { VlcjComponentController() }
+    val url = formatAudio.value?.url
+    
     val frameController = remember(url) { VlcjFrameController() }
 
     var showPageSheet by remember { mutableStateOf(false) }
     var showPageType by remember { mutableStateOf(PageType.QUICKPICS) }
 
-    //println("songs in db ${MusicDatabaseDesktop.getAllSongs()}")
-
-    //val backStackEntry by navController.currentBackStackEntryAsState()
-    //val currentScreen = backStackEntry?.destination?.route ?: "artists"
-
     Scaffold(
         containerColor = Color.Black,
         contentColor = Color.Gray,
         topBar = {
-            /*
-            DesktopTopAppBar(
-                currentScreen = currentScreen,
-                canNavigateBack = navController.previousBackStackEntry != null,
-                navigateUp = { navController.navigateUp() }
-            )
-             */
+            // Optional: Show error banner if player failed
+            if (playerError != null && videoId.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                        .border(1.dp, Color.Red)
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Playback error: $playerError",
+                        color = Color.Red,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         },
         bottomBar = {
             if (url != null) {
@@ -175,31 +229,33 @@ fun ThreeColumnsApp() {
                     song = nowPlayingSong,
                     onExpandAction = { showPageSheet = true }
                 )
+            } else if (playerError != null && videoId.isNotEmpty()) {
+                // Show error in mini player area
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                        .border(1.dp, Color.Red.copy(alpha = 0.5f))
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "❌ Cannot play: ${playerError?.take(50)}...",
+                        color = Color.Red,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
-
         }
     ) { innerPadding ->
 
         ThreeColumnsLayout(
-            /*
-            onSongClick = {
-                videoId.value = it
-            },
-            onArtistClick = {
-                artistId.value = it
-                showPageType = PageType.ARTIST
-                showPageSheet = true
-            },
-            onAlbumClick = {
-                albumId.value = it
-                showPageType = PageType.ALBUM
-                showPageSheet = true
-            },
-            onPlaylistClick = {},
-             */
             onHomeClick = { showPageType = PageType.QUICKPICS },
             onSongClick = {
-                //it's just in db, no need to insert
+                // Reset error when new song is selected
+                playerError = null
+                formatAudio.value = null
                 videoId = it.id
                 println("ThreeColumnsApp onSongClick videoId $videoId")
             },
@@ -215,6 +271,8 @@ fun ThreeColumnsApp() {
                         AlbumScreen(
                             browseId = albumId,
                             onSongClick = {
+                                playerError = null
+                                formatAudio.value = null
                                 videoId = it.id
                                 coroutineScope.launch {
                                     db.upsert(it)
@@ -232,6 +290,8 @@ fun ThreeColumnsApp() {
                         ArtistScreen(
                             browseId = artistId,
                             onSongClick = {
+                                playerError = null
+                                formatAudio.value = null
                                 videoId = it.id
                                 coroutineScope.launch {
                                     db.upsert(it)
@@ -257,6 +317,8 @@ fun ThreeColumnsApp() {
                         PlaylistScreen(
                             browseId = playlistId,
                             onSongClick = {
+                                playerError = null
+                                formatAudio.value = null
                                 videoId = it.id
                                 coroutineScope.launch {
                                     db.upsert(it)
@@ -297,6 +359,8 @@ fun ThreeColumnsApp() {
                     PageType.QUICKPICS -> {
                         QuickPicsScreen(
                             onSongClick = {
+                                playerError = null
+                                formatAudio.value = null
                                 videoId = it.id
                                 coroutineScope.launch {
                                     db.upsert(it)
@@ -330,111 +394,11 @@ fun ThreeColumnsApp() {
                 }
             }
         )
-
-        /*
-        AnimatedVisibility(
-            visible = showPageSheet,
-            enter = expandIn(animationSpec = tween(350, easing = LinearOutSlowInEasing), expandFrom = Alignment.TopStart),
-            exit =  shrinkOut(animationSpec = tween(350, easing = FastOutSlowInEasing),shrinkTowards = Alignment.TopStart)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Black)
-                    .padding(innerPadding),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                when(showPageType){
-                    PageType.ALBUM -> {
-                        AlbumScreen(
-                            browseId = albumId.value,
-                            onSongClick = {
-                                videoId.value = it
-                            },
-                            onAlbumClick = {
-                                albumId.value = it
-                                showPageType = PageType.ALBUM
-                                showPageSheet = true
-                            },
-                            onClosePage = { showPageSheet = false }
-                        )
-                    }
-                    PageType.ARTIST -> {
-                        ArtistScreen(
-                            browseId = artistId.value,
-                            onSongClick = {
-                                videoId.value = it
-                            },
-                            onPlaylistClick = {},
-                            onViewAllAlbumsClick = {},
-                            onViewAllSinglesClick = {},
-                            onAlbumClick = {
-                                albumId.value = it
-                                showPageType = PageType.ALBUM
-                                showPageSheet = true
-                            },
-                            onClosePage = { showPageSheet = false }
-                        )
-                    }
-                    PageType.PLAYLIST -> {}
-                    PageType.MOOD -> {}
-                    else -> {}
-                }
-            }
-        }
-        */
-        /*
-        CustomModalBottomSheet(
-            showSheet = showPageSheet,
-            onDismissRequest = { showPageSheet = false },
-            containerColor = Color.Black,
-            contentColor = Color.White,
-            modifier = Modifier.fillMaxWidth(),
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            dragHandle = {
-                Surface(
-                    modifier = Modifier.padding(vertical = 0.dp),
-                    color =Color.Black,
-                    shape = ThumbnailRoundness.Medium.shape()
-                ) {}
-            },
-            shape = ThumbnailRoundness.Medium.shape()
-        ) {
-            when(showPageType){
-                PageType.ALBUM -> {}
-                PageType.ARTIST -> {
-                    ArtistScreen(
-                        browseId = artistId.value,
-                        onSongClick = {
-                            videoId.value = it
-                        },
-                        onPlaylistClick = {},
-                        onViewAllAlbumsClick = {},
-                        onViewAllSinglesClick = {},
-                        onAlbumClick = {},
-                        onClosePage = { showPageSheet = false }
-                    )
-                }
-                PageType.PLAYLIST -> {}
-                PageType.MOOD -> {}
-                else -> {}
-            }
-
-        }
-         */
     }
 }
 
 @Composable
 fun ThreeColumnsLayout(
-    /*
-
-   onArtistClick: (key: String) -> Unit = {},
-   onAlbumClick: (key: String) -> Unit = {},
-   onPlaylistClick: (key: String) -> Unit = {},
-   onMoodClick: (mood: Innertube.Mood.Item) -> Unit = {},
-     */
     onHomeClick: () -> Unit = {},
     onSongClick: (Song) -> Unit = {},
     onAlbumClick: (Album) -> Unit = {},
@@ -452,15 +416,12 @@ fun ThreeColumnsLayout(
             ) {
                 FrameContainer(
                     Modifier.requiredHeight(200.dp),
-                    //.border(BorderStroke(1.dp, Color.Red)),
                     frameController.size.collectAsState(null).value?.run {
                         IntSize(first, second)
                     } ?: IntSize.Zero,
                     frameController.bytes.collectAsState(null).value
                 )
             }
-
-
         }
 
         VerticalDivider(
@@ -485,7 +446,6 @@ fun ThreeColumnsLayout(
             onSongClick = onSongClick,
             onAlbumClick = onAlbumClick
         )
-
     }
 }
 
@@ -498,9 +458,7 @@ fun LeftPanelContent(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.Start,
         modifier = Modifier
-            .fillMaxSize() // right
-           // .fillMaxHeight() //left
-           // .fillMaxWidth(0.23f) //left
+            .fillMaxSize()
             .padding(horizontal = layoutColumnsHorizontalPadding)
             .padding(top = layoutColumnTopPadding)
     ) {
@@ -516,84 +474,63 @@ fun LeftPanelContent(
             Tab(
                 currentTabIndex == 0,
                 onClick = { setCurrentTabIndex(0) },
-                text = {
-                    //Text("")
-                },
+                text = { /* Text("") */ },
                 icon = {
                     Image(
                         painter = painterResource(Res.drawable.musical_notes),
                         colorFilter = ColorFilter.tint(Color.White.copy(alpha = 0.6f)),
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(20.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-
             )
             Tab(
                 currentTabIndex == 1,
                 onClick = { setCurrentTabIndex(1) },
-                text = {
-                    //Text("")
-                },
+                text = { /* Text("") */ },
                 icon = {
                     Image(
                         painter = painterResource(Res.drawable.artists),
                         colorFilter = ColorFilter.tint(Color.White.copy(alpha = 0.6f)),
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(20.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             )
             Tab(
                 currentTabIndex == 2,
                 onClick = { setCurrentTabIndex(2) },
-                text = {
-                    //Text("")
-                },
+                text = { /* Text("") */ },
                 icon = {
                     Image(
                         painter = painterResource(Res.drawable.album),
                         colorFilter = ColorFilter.tint(Color.White.copy(alpha = 0.6f)),
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(20.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             )
             Tab(
                 currentTabIndex == 3,
                 onClick = { setCurrentTabIndex(3) },
-                text = {
-                    //Text("")
-                },
+                text = { /* Text("") */ },
                 icon = {
                     Image(
                         painter = painterResource(Res.drawable.library),
                         colorFilter = ColorFilter.tint(Color.White.copy(alpha = 0.6f)),
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(20.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             )
-
         }
 
         when (currentTabIndex) {
-            0 -> SongsPage(
-                onSongClick = onSongClick
-            )
+            0 -> SongsPage(onSongClick = onSongClick)
             1 -> {}
-            2 -> {
-                AlbumsPage(
-                    onAlbumClick = onAlbumClick
-                )
-            }
+            2 -> AlbumsPage(onAlbumClick = onAlbumClick)
             3 -> {}
         }
-
     }
 }
 
@@ -615,7 +552,6 @@ fun CenterPanelContent(
             .padding(bottom = layoutColumnBottomPadding)
             .verticalScroll(scrollState)
     ) {
-
         Row(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.Top
@@ -642,17 +578,11 @@ fun CenterPanelContent(
         }
 
         Column(Modifier.fillMaxSize().border(1.dp, color = Color.Black)) {
-
             content()
-
             Spacer(Modifier.height(layoutColumnBottomSpacer))
-
-
         }
-
     }
 }
-
 
 @Composable
 fun RightPanelContent(
@@ -664,24 +594,13 @@ fun RightPanelContent(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.Start,
         modifier = Modifier
-            //.fillMaxSize() //right
-            .fillMaxHeight() //left
-            .fillMaxWidth(0.23f) //left
+            .fillMaxHeight()
+            .fillMaxWidth(0.23f)
             .padding(horizontal = layoutColumnsHorizontalPadding)
             .padding(top = layoutColumnTopPadding)
     ) {
-        /*
-        Text(text = "Right Panel", modifier = Modifier.clickable {
-            showPlayer = !showPlayer
-            onShowPlayer(showPlayer)
-        })
-        Spacer(Modifier.size(20.dp))
-
-         */
         Spacer(Modifier.size(layoutColumnTopPadding))
-        Row(
-            //Modifier.border(1.dp, color = Color.Yellow)
-        ) {
+        Row {
             content()
         }
     }

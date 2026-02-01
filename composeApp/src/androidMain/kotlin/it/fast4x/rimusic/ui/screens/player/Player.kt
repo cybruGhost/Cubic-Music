@@ -289,6 +289,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.media3.common.C
 // --- GRAPHICS ---
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.font.FontWeight
 
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -1222,7 +1223,30 @@ SpotifyCanvasWorker()
         val player = binder.player
 
         if (isLandscape) {
-         Box{
+        Box { // ← Add canvas player at the beginning of this Box too
+        // ✅ ADD CANVAS PLAYER FOR LANDSCAPE MODE
+        val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
+        val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
+        val shouldShowCanvas = spotifyCanvasEnabled && 
+            SpotifyCanvasState.currentCanvasUrl != null && 
+            isCanvasForCurrentSong && 
+            !isShowingLyrics && 
+            !isShowingVisualizer &&
+            showthumbnail
+
+        if (shouldShowCanvas) {
+            OptimizedSpotifyCanvasPlayer(
+                canvasUrl = SpotifyCanvasState.currentCanvasUrl!!,
+                mediaItemId = SpotifyCanvasState.currentMediaItemId,
+                isPlaying = SpotifyCanvasState.isPlaying,
+                showLogs = showSpotifyCanvasLogs,
+                maxWidth = screenWidth,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(0f)
+            )
+        }
+         if (!shouldShowCanvas) {
              if (playerBackgroundColors == PlayerBackgroundColors.BlurredCoverColor && playerType == PlayerType.Modern && (!showthumbnail || albumCoverRotation)) {
                  val fling = PagerDefaults.flingBehavior(
                      state = pagerStateFS,
@@ -1344,28 +1368,53 @@ SpotifyCanvasWorker()
                  noBlur = noblur,
                  isShowingLyrics = isShowingLyrics,
                  isShowingVisualizer = isShowingVisualizer,
-                 contentScale = ContentScale.FillHeight
+                 contentScale = ContentScale.FillHeight,
+                 modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(-1f) // ← Add this
              )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = containerModifier
-                    .padding(top = if (playerType == PlayerType.Essential) 40.dp else 20.dp)
-                    .padding(top = if (extraspace) 10.dp else 0.dp)
-                    .drawBehind {
-                        if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
-                            drawRect(
-                                color = color.favoritesOverlay,
-                                topLeft = Offset.Zero,
-                                size = Size(
-                                    width = positionAndDuration.first.toFloat() /
-                                            positionAndDuration.second.absoluteValue * size.width,
-                                    height = size.maxDimension
-                                )
-                            )
-                        }
-                    }
-            ) {
+ }
+    Row(
+    verticalAlignment = Alignment.CenterVertically,
+    modifier = if (!shouldShowCanvas) {
+        containerModifier // ← Use background ONLY when NO canvas
+            .padding(top = if (playerType == PlayerType.Essential) 40.dp else 20.dp)
+            .padding(top = if (extraspace) 10.dp else 0.dp)
+            .drawBehind {
+                if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
+                    drawRect(
+                        color = color.favoritesOverlay,
+                        topLeft = Offset.Zero,
+                        size = Size(
+                            width = positionAndDuration.first.toFloat() /
+                                    positionAndDuration.second.absoluteValue * size.width,
+                            height = size.maxDimension
+                        )
+                    )
+                }
+            }
+            .zIndex(1f)
+    } else {
+        // ← NO BACKGROUND when canvas is showing!
+        Modifier
+            .padding(top = if (playerType == PlayerType.Essential) 40.dp else 20.dp)
+            .padding(top = if (extraspace) 10.dp else 0.dp)
+            .drawBehind {
+                if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
+                    drawRect(
+                        color = color.favoritesOverlay,
+                        topLeft = Offset.Zero,
+                        size = Size(
+                            width = positionAndDuration.first.toFloat() /
+                                    positionAndDuration.second.absoluteValue * size.width,
+                            height = size.maxDimension
+                        )
+                    )
+                }
+            }
+            .zIndex(1f)
+    }
+) {
                 Column (
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier
@@ -1685,7 +1734,30 @@ SpotifyCanvasWorker()
             }
          }
         } else {
-           Box {
+                    Box {
+               // ✅ ADD CANVAS PLAYER HERE - RIGHT AT THE BEGINNING OF THE BOX
+               val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
+               val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
+               val shouldShowCanvas = spotifyCanvasEnabled && 
+                   SpotifyCanvasState.currentCanvasUrl != null && 
+                   isCanvasForCurrentSong && 
+                   !isShowingLyrics && 
+                   !isShowingVisualizer &&
+                   showthumbnail
+
+               if (shouldShowCanvas) {
+                   OptimizedSpotifyCanvasPlayer(
+                       canvasUrl = SpotifyCanvasState.currentCanvasUrl!!,
+                       mediaItemId = SpotifyCanvasState.currentMediaItemId,
+                       isPlaying = SpotifyCanvasState.isPlaying,
+                       showLogs = showSpotifyCanvasLogs,
+                       maxWidth = screenWidth,
+                       modifier = Modifier
+                           .fillMaxSize()
+                           .zIndex(0f) // ✅ NOW THIS WILL WORK
+                   )
+               }
+ if (!shouldShowCanvas) {
                if (playerBackgroundColors == PlayerBackgroundColors.BlurredCoverColor && playerType == PlayerType.Modern && (!showthumbnail || albumCoverRotation)) {
                     val fling = PagerDefaults.flingBehavior(
                         state = pagerStateFS,
@@ -1713,7 +1785,12 @@ SpotifyCanvasWorker()
                         flingBehavior = fling,
                         userScrollEnabled = !(albumCoverRotation && (isShowingLyrics || showthumbnail)),
                         modifier = Modifier
-                            .background(colorPalette().background1)
+                           .background(
+                            if (shouldShowCanvas)
+                                Color.Transparent
+                            else
+                                colorPalette().background1
+                        )
                             .pointerInteropFilter {
                                 circleOffsetY = it.y
                                 false
@@ -1755,9 +1832,9 @@ SpotifyCanvasWorker()
                         }
 
                         Box(
-                            modifier = Modifier
+                              modifier = Modifier
                                 .conditional(albumCoverRotation && (isShowingLyrics || showthumbnail)) {
-                                    zIndex(if (it == pagerStateFS.currentPage) 1f else 0.9f)
+                                    zIndex(if (it == pagerStateFS.currentPage) 2f else 1.5f)
                                 }
                                 .conditional(swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Scale && isDraggedFS) {
                                     graphicsLayer {
@@ -1917,25 +1994,42 @@ SpotifyCanvasWorker()
                    isShowingVisualizer = isShowingVisualizer,
                    contentScale = ContentScale.FillHeight
                )
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = containerModifier
-                    //.padding(top = 10.dp)
-                    .drawBehind {
-                        if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
-                            drawRect(
-                                color = color.favoritesOverlay,
-                                topLeft = Offset.Zero,
-                                size = Size(
-                                    width = positionAndDuration.first.toFloat() /
-                                            positionAndDuration.second.absoluteValue * size.width,
-                                    height = size.maxDimension
-                                )
-                            )
-                        }
-                    }
-            ) {
+                } 
+Column(
+    horizontalAlignment = Alignment.CenterHorizontally,
+    modifier = if (!shouldShowCanvas) {
+        containerModifier // ← Use background ONLY when NO canvas
+            .drawBehind {
+                if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
+                    drawRect(
+                        color = color.favoritesOverlay,
+                        topLeft = Offset.Zero,
+                        size = Size(
+                            width = positionAndDuration.first.toFloat() /
+                                    positionAndDuration.second.absoluteValue * size.width,
+                            height = size.maxDimension
+                        )
+                    )
+                }
+            }
+    } else {
+        // ← NO BACKGROUND when canvas is showing!
+        Modifier
+            .drawBehind {
+                if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
+                    drawRect(
+                        color = color.favoritesOverlay,
+                        topLeft = Offset.Zero,
+                        size = Size(
+                            width = positionAndDuration.first.toFloat() /
+                                    positionAndDuration.second.absoluteValue * size.width,
+                            height = size.maxDimension
+                        )
+                    )
+                }
+            }
+    }
+) {
 
 
                 if (showTopActionsBar) {
@@ -2027,43 +2121,14 @@ SpotifyCanvasWorker()
                     )
                 }
 
-BoxWithConstraints(
-    contentAlignment = Alignment.Center,
-    modifier = Modifier
-        .conditional((screenWidth <= (screenHeight / 2)) && (showlyricsthumbnail || (!expandedplayer && !isShowingLyrics))) { 
-            height(screenWidth) 
-        }
-        .conditional((screenWidth > (screenHeight / 2)) || expandedplayer || (isShowingLyrics && !showlyricsthumbnail)) { 
-            weight(1f) 
-        }
-) {
-    
-    // Get current media ID for proper comparison
-    val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
-    
-    // Check if canvas is FOR THE CURRENT SONG
-    // This is the CRITICAL fix: Only show canvas if it's for the song that's currently playing
-    val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
-    
-    // Check if we should show Spotify Canvas
-    val shouldShowCanvas = spotifyCanvasEnabled && 
-        SpotifyCanvasState.currentCanvasUrl != null && 
-        isCanvasForCurrentSong && // ONLY show if canvas is for current song
-        !isShowingLyrics && 
-        !isShowingVisualizer &&
-        showthumbnail
+                BoxWithConstraints(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .conditional((screenWidth <= (screenHeight / 2)) && (showlyricsthumbnail || (!expandedplayer && !isShowingLyrics))) {height(screenWidth)}
+                        .conditional((screenWidth > (screenHeight / 2)) || expandedplayer || (isShowingLyrics && !showlyricsthumbnail)) {weight(1f)}
+                ) {
 
-    if (shouldShowCanvas) {
-        OptimizedSpotifyCanvasPlayer(
-            canvasUrl = SpotifyCanvasState.currentCanvasUrl!!,
-            mediaItemId = SpotifyCanvasState.currentMediaItemId,
-            isPlaying = SpotifyCanvasState.isPlaying,
-            showLogs = showSpotifyCanvasLogs,
-            maxWidth = maxWidth,
-            modifier = Modifier.fillMaxSize()
-        )
-    } else if (showthumbnail) {
-        // Fall back to original thumbnail if no canvas OR canvas is for wrong song
+                     if (showthumbnail && !shouldShowCanvas) {
         if ((!isShowingLyrics && !isShowingVisualizer) || (isShowingVisualizer && showvisthumbnail) || (isShowingLyrics && showlyricsthumbnail)) {
             if (playerType == PlayerType.Modern) {
                 val fling = PagerDefaults.flingBehavior(state = pagerState,snapPositionalThreshold = 0.25f)
@@ -2448,81 +2513,70 @@ private fun OptimizedSpotifyCanvasPlayer(
         "canvas_${currentCanvasUrl.hashCode()}_${currentMediaItemId.hashCode()}"
     }
 
-    // ✅ ADAPTIVE EDGE PADDING (closer to edges on large screens)
-    val edgePadding = remember(maxWidth) {
+    // ✅ ADAPTIVE EDGE PADDING - SEPARATE TOP AND BOTTOM
+    val topPadding = remember(maxWidth) {
         when {
-            maxWidth < 360.dp -> 8.dp
-            maxWidth < 480.dp -> 10.dp
-            maxWidth < 600.dp -> 12.dp
-            else -> 6.dp // tablets / landscape → near edge-to-edge
+            maxWidth < 360.dp -> 6.dp
+            maxWidth < 480.dp -> 8.dp
+            maxWidth < 600.dp -> 10.dp
+            else -> 12.dp
         }
     }
+    
+    val bottomPadding = topPadding * 0.3f // ⬅️ REDUCED BOTTOM PADDING (30% of top)
 
-    // ✅ ADAPTIVE CORNER RADIUS
+    // ✅ ADAPTIVE CORNER RADIUS - Smaller for cleaner look
     val cornerRadius = remember(maxWidth) {
-        if (maxWidth >= 600.dp) 14.dp else 18.dp
+        if (maxWidth >= 600.dp) 10.dp else 12.dp
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF1E1E1E).copy(alpha = 0.7f),
-                        Color(0xFF121212).copy(alpha = 0.7f)
-                    ),
-                    center = Offset.Unspecified,
-                    radius = maxWidth.value * 0.8f
-                )
-            )
+            .background(Color.Black) // Simple black background
     ) {
-        // VIDEO CONTAINER
+        // MAIN VIDEO CONTAINER - SEPARATE TOP/BOTTOM PADDING
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(edgePadding) // ✅ FIXED
+                .padding(
+                    top = topPadding,     // Normal top padding
+                    bottom = bottomPadding // Reduced bottom padding
+                )
                 .clip(RoundedCornerShape(cornerRadius))
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(cornerRadius),
-                    clip = true,
-                    ambientColor = Color.Black.copy(alpha = 0.3f),
-                    spotColor = Color.Black.copy(alpha = 0.2f)
-                )
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF2A2A2A),
-                            Color(0xFF1F1F1F)
-                        )
-                    ),
-                    shape = RoundedCornerShape(cornerRadius)
-                )
+                .background(Color.Black)
         ) {
-            // INNER VIDEO
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(1.dp) // thinner inner gap
-                    .clip(RoundedCornerShape(cornerRadius - 2.dp))
-            ) {
-                OptimizedCanvasVideoPlayer(
-                    canvasUrl = currentCanvasUrl,
-                    mediaItemId = currentMediaItemId,
-                    isPlaying = currentIsPlaying,
-                    playerKey = playerKey,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            // VIDEO PLAYER - FILLS CONTAINER
+            OptimizedCanvasVideoPlayer(
+                canvasUrl = currentCanvasUrl,
+                mediaItemId = currentMediaItemId,
+                isPlaying = currentIsPlaying,
+                playerKey = playerKey,
+                modifier = Modifier.fillMaxSize()
+            )
 
-            // SUBTLE BORDER
+            // SUBTLE TOP/BOTTOM BORDER ONLY
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .drawBehind {
+                        // Top border
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.1f),
+                            start = Offset(0f, 0f),
+                            end = Offset(size.width, 0f),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                        // Bottom border
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.1f),
+                            start = Offset(0f, size.height),
+                            end = Offset(size.width, size.height),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                        // Round corners highlight
                         drawRoundRect(
-                            color = Color.White.copy(alpha = 0.05f),
+                            color = Color.White.copy(alpha = 0.08f),
                             style = Stroke(width = 1.dp.toPx()),
                             cornerRadius = CornerRadius(cornerRadius.toPx())
                         )
@@ -2530,7 +2584,7 @@ private fun OptimizedSpotifyCanvasPlayer(
             )
         }
 
-        // LOG PANEL (unchanged)
+        // LOG PANEL (top left)
         if (showLogs) {
             OptimizedCanvasLogPanel(
                 modifier = Modifier
@@ -2540,14 +2594,15 @@ private fun OptimizedSpotifyCanvasPlayer(
             )
         }
 
-        // CANVAS BADGE (unchanged)
+        // CANVAS BADGE - TOP RIGHT SIDE (SMALLER)
         OptimizedCanvasBadge(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 20.dp)
+                .align(Alignment.TopEnd)
+                .padding(top = 32.dp, end = 12.dp) // Reduced padding
         )
     }
 }
+
 
 @Composable
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -2559,19 +2614,7 @@ private fun OptimizedCanvasVideoPlayer(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val binder = LocalPlayerServiceBinder.current
     val isDarkTheme = isSystemInDarkTheme()
-    
-    // Get current song's media ID
-    val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
-    
-    // CRITICAL: Only show canvas if it's for the current song
-    val shouldShowCanvas = mediaItemId == currentMediaItemId
-    
-    if (!shouldShowCanvas) {
-        // Don't render canvas if it's not for the current song
-        return
-    }
     
     // OPTIMIZED: Use derivedStateOf to minimize recompositions
     val shouldReleasePlayer = remember(mediaItemId) {
@@ -2631,6 +2674,8 @@ private fun OptimizedCanvasVideoPlayer(
             }
     )
 }
+
+
 @Composable
 private fun OptimizedCanvasLogPanel(
     modifier: Modifier = Modifier
@@ -2784,37 +2829,98 @@ private fun OptimizedLogEntryItem(
 private fun OptimizedCanvasBadge(
     modifier: Modifier = Modifier
 ) {
+    var currentSlide by remember { mutableStateOf(0) }
+    val slides = listOf(
+        SlideData("CANVAS", "VISUAL", "🎨"),
+        SlideData("SUPPORT", "DONATE", "❤️"),
+        SlideData("SETTINGS", "DISABLE", "⚙️"),
+    )
+    
+    val current = slides[currentSlide]
+    
+    // Auto-rotate slides every 10 seconds
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(10000)
+            currentSlide = (currentSlide + 1) % slides.size
+        }
+    }
+    
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.7f))
+            .background(Color.Black.copy(alpha = 0.85f))
             .drawBehind {
                 drawRoundRect(
                     color = Color.White.copy(alpha = 0.15f),
-                    style = Stroke(width = 1.dp.toPx()),  // FIXED: .toPx() without parentheses
-                    cornerRadius = CornerRadius(8.dp.toPx())  // FIXED: .toPx() without parentheses
+                    style = Stroke(width = 0.5.dp.toPx()),
+                    cornerRadius = CornerRadius(8.dp.toPx())
                 )
             }
-            .shadow(4.dp, RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .shadow(2.dp, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
+        // Emoji/icon
         BasicText(
-            text = "CUBIC CANVAS",
+            text = current.emoji,
+            style = typography().xxs.copy(
+                fontSize = 10.sp
+            ),
+            modifier = Modifier.padding(bottom = 2.dp)
+        )
+        
+        // Main text
+        BasicText(
+            text = current.title,
             style = typography().xxs.copy(
                 color = Color.White,
-                fontSize = 10.sp
+                fontSize = 8.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
             )
         )
+        
+        // Subtext
         BasicText(
-            text = "VISUAL EXPERIENCE",
+            text = current.subtitle,
             style = typography().xxs.copy(
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 8.sp
-            )
+                fontSize = 7.sp,
+                textAlign = TextAlign.Center
+            ),
+            modifier = Modifier.padding(top = 1.dp)
         )
+        
+        // Tiny slide indicator dots
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 4.dp)
+        ) {
+            slides.forEachIndexed { index, _ ->
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 1.dp)
+                        .size(if (index == currentSlide) 3.dp else 2.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (index == currentSlide) 
+                                Color.White 
+                            else 
+                                Color.White.copy(alpha = 0.3f)
+                        )
+                )
+            }
+        }
     }
 }
+
+private data class SlideData(
+    val title: String,
+    val subtitle: String,
+    val emoji: String = ""
+)
 
 @Composable
 private fun LogEntryItem(log: LogEntry) {

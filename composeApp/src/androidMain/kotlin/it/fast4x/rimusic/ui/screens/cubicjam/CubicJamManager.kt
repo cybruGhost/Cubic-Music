@@ -16,57 +16,8 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.serialization.Serializable
-
-@Serializable
-data class AuthResponse(
-    val success: Boolean,
-    val user: UserInfo,
-    val session: SessionInfo
-)
-
-@Serializable
-data class UserInfo(
-    val id: String,
-    val email: String,
-    val profile_id: String,
-    val username: String,
-    val display_name: String? = null,
-    val avatar_url: String? = null,
-    val friend_code: String
-)
-
-@Serializable
-data class SessionInfo(
-    val access_token: String,
-    val refresh_token: String,
-    val expires_at: Long,
-    val expires_in: Int
-)
-
-@Serializable
-data class LoginRequest(
-    val email: String,
-    val password: String
-)
-
-@Serializable
-data class SignupRequest(
-    val email: String,
-    val password: String,
-    val username: String
-)
-
-@Serializable
-data class ActivityUpdate(
-    val track_id: String,
-    val title: String,
-    val artist: String,
-    val album: String? = null,
-    val artwork_url: String? = null,
-    val duration_ms: Long,
-    val position_ms: Long,
-    val is_playing: Boolean
-)
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 class CubicJamManager(
     private val context: Context,
@@ -84,19 +35,106 @@ class CubicJamManager(
     private var lastUpdateTime = 0L
     private val UPDATE_INTERVAL = 15000L // 15 seconds
 
+    // Token refresh helper for manager
+    private suspend fun ensureValidTokenForManager(): String? {
+        val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+        val currentToken = prefs.getString("bearer_token", null)
+        val refreshToken = prefs.getString("refresh_token", null)
+        val refreshAt = prefs.getLong("refresh_at", 0L)
+        val currentTime = System.currentTimeMillis() / 1000
+
+        // Check if token needs refresh
+        if (currentToken != null && refreshToken != null && currentTime >= refreshAt) {
+            try {
+                Timber.tag("CubicJam").d("Token expired or near expiry, refreshing...")
+                val result = refreshToken(refreshToken, context)
+                
+                result.fold(
+                    onSuccess = { authResponse ->
+                        if (authResponse.success) {
+                            lastToken = authResponse.session.access_token
+                            Timber.tag("CubicJam").d("✅ Token refreshed successfully")
+                            return authResponse.session.access_token
+                        }
+                    },
+                    onFailure = { e ->
+                        Timber.tag("CubicJam").e(e, "Failed to refresh token")
+                        // Token refresh failed, user needs to re-login
+                        prefs.edit().apply {
+                            remove("bearer_token")
+                            remove("refresh_token")
+                            remove("refresh_at")
+                            apply()
+                        }
+                        return null
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.tag("CubicJam").e(e, "Error refreshing token")
+                return null
+            }
+        }
+        
+        return currentToken
+    }
+
+    // Helper to make authenticated requests with auto-retry on 401
+    private suspend fun <T> makeAuthenticatedRequest(
+        request: suspend (String) -> T
+    ): Result<T> {
+        return runCatching {
+            // First ensure we have a valid token
+            val token = ensureValidTokenForManager() ?: throw IllegalStateException("Not authenticated")
+            
+            // Try the request
+            request(token)
+        }.recoverCatching { originalError ->
+            // If request failed with 401, try to refresh token and retry once
+            if (originalError.message?.contains("401") == true || 
+                originalError.message?.contains("unauthorized", ignoreCase = true) == true) {
+                
+                Timber.tag("CubicJam").d("Got 401, attempting token refresh...")
+                val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+                val refreshToken = prefs.getString("refresh_token", null)
+                
+                if (refreshToken != null) {
+                    try {
+                        val refreshResult = refreshToken(refreshToken, context)
+                        refreshResult.fold(
+                            onSuccess = { authResponse ->
+                                if (authResponse.success) {
+                                    // Retry the original request with new token
+                                    Timber.tag("CubicJam").d("Retrying request with new token")
+                                    val newToken = authResponse.session.access_token
+                                    return@recoverCatching request(newToken)
+                                }
+                            },
+                            onFailure = { e ->
+                                Timber.tag("CubicJam").e(e, "Failed to refresh token")
+                                // Throw an exception instead of returning null
+                                throw IllegalStateException("Authentication failed: ${e.message}")
+                            }
+                        )
+                    } catch (e: Exception) {
+                        Timber.tag("CubicJam").e(e, "Token refresh failed")
+                    }
+                }
+            }
+            throw originalError // Re-throw if we couldn't recover
+        }
+    }
+
     fun onPlayingStateChanged(
         mediaItem: MediaItem?,
         isPlaying: Boolean,
         position: Long = 0L,
         duration: Long = 0L,
-        now: Long = System.currentTimeMillis(), // Added this parameter
+        now: Long = System.currentTimeMillis(),
         getCurrentPosition: (() -> Long)? = null,
         isPlayingProvider: (() -> Boolean)? = null
     ) {
         if (isStopped) return
-        val token = getToken() ?: return
-        if (token.isEmpty()) return
-
+        
         if (!isNetworkAvailable(context)) {
             Timber.tag("CubicJam").d("No network available")
             return
@@ -104,10 +142,6 @@ class CubicJamManager(
 
         refreshJob?.cancel()
         
-        if (token != lastToken) {
-            lastToken = token
-        }
-
         lastMediaItem = mediaItem
         
         if (mediaItem == null) {
@@ -125,7 +159,6 @@ class CubicJamManager(
     }
 
     private fun sendActivityUpdate(mediaItem: MediaItem, position: Long, duration: Long, isPlaying: Boolean) {
-        val token = lastToken ?: return
         val currentTime = System.currentTimeMillis()
         
         // Throttle updates
@@ -141,22 +174,29 @@ class CubicJamManager(
                 
                 Timber.tag("CubicJam").d("Sending activity: ${activityData.title} by ${activityData.artist}")
                 
-                val response = Innertube.client.post("$BASE_URL/update-activity") {
-                    header("Authorization", "Bearer $token")
-                    contentType(ContentType.Application.Json)
-                    setBody(activityData)
-                }
-
-                if (response.status.value in 200..299) {
-                    Timber.tag("CubicJam").d("✅ Activity updated successfully")
-                } else {
-                    val error = try {
-                        response.body<String>()
-                    } catch (e: Exception) {
-                        "Failed to parse error"
+                makeAuthenticatedRequest { token ->
+                    Innertube.client.post("$BASE_URL/update-activity") {
+                        header("Authorization", "Bearer $token")
+                        contentType(ContentType.Application.Json)
+                        setBody(activityData)
                     }
-                    Timber.tag("CubicJam").e("❌ Activity update failed: ${response.status}, $error")
-                }
+                }.fold(
+                    onSuccess = { response ->
+                        if (response.status.value in 200..299) {
+                            Timber.tag("CubicJam").d("✅ Activity updated successfully")
+                        } else {
+                            val error = try {
+                                response.body<String>()
+                            } catch (e: Exception) {
+                                "Failed to parse error"
+                            }
+                            Timber.tag("CubicJam").e("❌ Activity update failed: ${response.status}, $error")
+                        }
+                    },
+                    onFailure = { e ->
+                        Timber.tag("CubicJam").e(e, "❌ Failed to update activity: ${e.message}")
+                    }
+                )
             } catch (e: Exception) {
                 Timber.tag("CubicJam").e(e, "❌ Network error: ${e.message}")
             }
@@ -196,7 +236,24 @@ class CubicJamManager(
 
     private fun sendStoppedActivity() {
         externalScope.launch {
-            Timber.tag("CubicJam").d("Media stopped, not sending update")
+            Timber.tag("CubicJam").d("Media stopped, sending clear activity")
+            
+            makeAuthenticatedRequest { token ->
+                Innertube.client.post("$BASE_URL/clear-activity") {
+                    header("Authorization", "Bearer $token")
+                    contentType(ContentType.Application.Json)
+                    setBody("{}")
+                }
+            }.fold(
+                onSuccess = { response ->
+                    if (response.status.value in 200..299) {
+                        Timber.tag("CubicJam").d("✅ Activity cleared successfully")
+                    }
+                },
+                onFailure = { e ->
+                    Timber.tag("CubicJam").e(e, "Failed to clear activity")
+                }
+            )
         }
     }
 
@@ -222,10 +279,13 @@ class CubicJamManager(
     fun onStop() {
         isStopped = true
         refreshJob?.cancel()
+        externalScope.launch {
+            sendStoppedActivity()
+        }
     }
 }
 
-// Authentication functions
+// Authentication functions (keep your existing ones but fix them)
 suspend fun login(email: String, password: String, context: Context): Result<AuthResponse> {
     return runCatching {
         val response = Innertube.client.post("https://dkbvirgavjojuyaazzun.supabase.co/functions/v1/mobile-auth") {
@@ -240,16 +300,21 @@ suspend fun login(email: String, password: String, context: Context): Result<Aut
             prefs.edit().apply {
                 putString("bearer_token", authResponse.session.access_token)
                 putString("refresh_token", authResponse.session.refresh_token)
-                putString("user_id", authResponse.user.id)
-                putString("profile_id", authResponse.user.profile_id)
-                putString("username", authResponse.user.username)
-                putString("email", authResponse.user.email)
-                putString("display_name", authResponse.user.display_name)
-                putString("friend_code", authResponse.user.friend_code)
+                putLong("expires_at", authResponse.session.expires_at)
+                // Set refresh time to 5 minutes before expiry, or use server-provided refresh_at
+                val refreshTime = authResponse.session.refresh_at ?: 
+                    (authResponse.session.expires_at - 300) // 5 minutes before
+                putLong("refresh_at", refreshTime)
+                putString("user_id", authResponse.user?.id ?: "")
+                putString("profile_id", authResponse.user?.profile_id ?: "")
+                putString("username", authResponse.user?.username ?: "")
+                putString("email", authResponse.user?.email ?: "")
+                putString("display_name", authResponse.user?.display_name ?: "")
+                putString("friend_code", authResponse.user?.friend_code ?: "")
                 putBoolean("is_enabled", true)
                 apply()
             }
-            Timber.tag("CubicJam").d("✅ Login successful for ${authResponse.user.email}")
+            Timber.tag("CubicJam").d("✅ Login successful for ${authResponse.user?.email}")
         }
         
         authResponse
@@ -270,16 +335,21 @@ suspend fun signup(email: String, password: String, username: String, context: C
             prefs.edit().apply {
                 putString("bearer_token", authResponse.session.access_token)
                 putString("refresh_token", authResponse.session.refresh_token)
-                putString("user_id", authResponse.user.id)
-                putString("profile_id", authResponse.user.profile_id)
-                putString("username", authResponse.user.username)
-                putString("email", authResponse.user.email)
-                putString("display_name", authResponse.user.display_name)
-                putString("friend_code", authResponse.user.friend_code)
+                putLong("expires_at", authResponse.session.expires_at)
+                // Set refresh time to 5 minutes before expiry
+                val refreshTime = authResponse.session.refresh_at ?: 
+                    (authResponse.session.expires_at - 300) // 5 minutes before
+                putLong("refresh_at", refreshTime)
+                putString("user_id", authResponse.user?.id ?: "")
+                putString("profile_id", authResponse.user?.profile_id ?: "")
+                putString("username", authResponse.user?.username ?: "")
+                putString("email", authResponse.user?.email ?: "")
+                putString("display_name", authResponse.user?.display_name ?: "")
+                putString("friend_code", authResponse.user?.friend_code ?: "")
                 putBoolean("is_enabled", true)
                 apply()
             }
-            Timber.tag("CubicJam").d("✅ Signup successful for ${authResponse.user.email}")
+            Timber.tag("CubicJam").d("✅ Signup successful for ${authResponse.user?.email}")
         }
         
         authResponse
@@ -300,6 +370,11 @@ suspend fun refreshToken(refreshToken: String, context: Context): Result<AuthRes
             prefs.edit().apply {
                 putString("bearer_token", authResponse.session.access_token)
                 putString("refresh_token", authResponse.session.refresh_token)
+                putLong("expires_at", authResponse.session.expires_at)
+                // Use server-provided refresh_at or calculate it
+                val refreshTime = authResponse.session.refresh_at ?: 
+                    (authResponse.session.expires_at - 300) // 5 minutes before
+                putLong("refresh_at", refreshTime)
                 apply()
             }
             Timber.tag("CubicJam").d("✅ Token refreshed successfully")

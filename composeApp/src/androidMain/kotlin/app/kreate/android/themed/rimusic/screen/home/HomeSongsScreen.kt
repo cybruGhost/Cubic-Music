@@ -80,6 +80,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.utils.semiBold
+// Add these to your existing imports:
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.clip
 
 @UnstableApi
 @ExperimentalMaterial3Api
@@ -171,7 +174,7 @@ fun HomeSongsScreen(navController: NavController ) {
             )
     ) {
         Column( Modifier.fillMaxSize() ) {
-            // Sticky tab's title
+                // Sticky tab's title
             TabHeader( R.string.songs ) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -212,61 +215,82 @@ fun HomeSongsScreen(navController: NavController ) {
                 }
             }
 
-            // Sticky tab's tool bar
-            TabToolBar.Buttons( buttons )
-
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding( horizontal = 12.dp )
-                    .padding( bottom = 8.dp )
+            // ============ COMPACT FILTER SECTION (FIRST) ============
+            Column(
+                modifier = Modifier
                     .fillMaxWidth()
+                    .background(colorPalette().background0)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                Column {
-                    //<editor-fold defaultstate="collapsed" desc="Chips">
-                    val showFavoritesPlaylist by rememberPreference( showFavoritesPlaylistKey, true )
-                    val showCachedPlaylist by rememberPreference( showCachedPlaylistKey, true )
-                    val showMyTopPlaylist by rememberPreference( showMyTopPlaylistKey, true )
-                    val showDownloadedPlaylist by rememberPreference( showDownloadedPlaylistKey, true )
-                    val showOnDeviceChip by rememberPreference( showOnDevicePlaylistKey, true )
-                    val chips = remember( showFavoritesPlaylist, showCachedPlaylist, showMyTopPlaylist, showDownloadedPlaylist) {
-                        buildList {
-                            add( BuiltInPlaylist.All )
-                            if( showFavoritesPlaylist )
-                                add( BuiltInPlaylist.Favorites )
-                            if( showCachedPlaylist )
-                                add( BuiltInPlaylist.Offline )
-                            if( showDownloadedPlaylist )
-                                add( BuiltInPlaylist.Downloaded )
-                            if( showMyTopPlaylist )
-                                add( BuiltInPlaylist.Top )
-                            if( showOnDeviceChip )
-                                add( BuiltInPlaylist.OnDevice )
-                        }
-                    }
-                    //</editor-fold>
-
-                    ButtonsRow(
-                        chips = chips,
-                        currentValue = builtInPlaylist,
-                        onValueUpdate = { builtInPlaylist = it }
+                // Compact filter row with search
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Filter label (compact)
+                    BasicText(
+                        text = "Filter:",
+                        style = typography().xs.semiBold.copy(
+                            color = colorPalette().textSecondary
+                        ),
+                        maxLines = 1
                     )
-
-                    when (builtInPlaylist) {
-                        BuiltInPlaylist.Downloaded, BuiltInPlaylist.Offline -> {
-                            CacheSpaceIndicator(
-                                cacheType = when (builtInPlaylist) {
-                                    BuiltInPlaylist.Downloaded -> CacheType.DownloadedSongs
-                                    BuiltInPlaylist.Offline -> CacheType.CachedSongs
-                                    else -> CacheType.CachedSongs
-                                }
-                            )
+                    
+                    // Filter chips (compact)
+                    Box(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        val showFavoritesPlaylist by rememberPreference(showFavoritesPlaylistKey, true)
+                        val showCachedPlaylist by rememberPreference(showCachedPlaylistKey, true)
+                        val showMyTopPlaylist by rememberPreference(showMyTopPlaylistKey, true)
+                        val showDownloadedPlaylist by rememberPreference(showDownloadedPlaylistKey, true)
+                        val showOnDeviceChip by rememberPreference(showOnDevicePlaylistKey, true)
+                        
+                        val chips = remember(
+                            showFavoritesPlaylist,
+                            showCachedPlaylist,
+                            showMyTopPlaylist,
+                            showDownloadedPlaylist,
+                            showOnDeviceChip
+                        ) {
+                            buildList {
+                                add(BuiltInPlaylist.All)
+                                if (showFavoritesPlaylist) add(BuiltInPlaylist.Favorites)
+                                if (showCachedPlaylist) add(BuiltInPlaylist.Offline)
+                                if (showDownloadedPlaylist) add(BuiltInPlaylist.Downloaded)
+                                if (showMyTopPlaylist) add(BuiltInPlaylist.Top)
+                                if (showOnDeviceChip) add(BuiltInPlaylist.OnDevice)
+                            }
                         }
-                        else -> {}
+                        
+                        ButtonsRow(
+                            chips = chips,
+                            currentValue = builtInPlaylist,
+                            onValueUpdate = { builtInPlaylist = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
-
+                }
+                
+                // Cache indicator when relevant (compact)
+                when (builtInPlaylist) {
+                    BuiltInPlaylist.Downloaded, BuiltInPlaylist.Offline -> {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CacheSpaceIndicator(
+                            cacheType = when (builtInPlaylist) {
+                                BuiltInPlaylist.Downloaded -> CacheType.DownloadedSongs
+                                BuiltInPlaylist.Offline -> CacheType.CachedSongs
+                                else -> CacheType.CachedSongs
+                            }
+                        )
+                    }
+                    else -> {}
                 }
             }
+
+            // Sticky tab's tool bar (AFTER FILTER)
+            TabToolBar.Buttons( buttons )
 
             // Sticky search bar
             search.SearchBar( this )
@@ -276,7 +300,6 @@ fun HomeSongsScreen(navController: NavController ) {
                 else                     -> HomeSongs( navController, builtInPlaylist, lazyListState, itemSelector, search, buttons, itemsOnDisplayState, ::getSongs, onRecommendationCountChange = { count -> recommendationCount = count }, onRecommendationsLoadingChange = { loading -> isRecommendationsLoading = loading }, isRecommendationEnabled = isRecommendationEnabled )
             }
         }
-
         FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
 
         val showFloatingIcon by rememberPreference( showFloatingIconKey, false )
