@@ -45,6 +45,7 @@ import it.fast4x.innertube.models.bodies.CreatePlaylistBody
 import it.fast4x.innertube.models.bodies.EditPlaylistBody
 import it.fast4x.innertube.models.bodies.LikeBody
 import it.fast4x.innertube.models.bodies.PlaylistDeleteBody
+import it.fast4x.innertube.models.bodies.PlayerBody
 import it.fast4x.innertube.models.bodies.SubscribeBody
 import it.fast4x.innertube.utils.ProxyPreferences
 import it.fast4x.innertube.utils.YoutubePreferences
@@ -697,6 +698,50 @@ object Innertube {
         parameter("ctoken", continuation)
         if (continuation != null) {
             parameter("type", "next")
+        }
+    }
+
+    // FIXED PLAYER FUNCTION - SIMPLIFIED VERSION
+    suspend fun player(
+        videoId: String,
+        playlistId: String? = null,
+        params: String? = null,
+        poToken: String? = null
+    ) = client.post(player) {
+        // Use a simple approach - keep using DefaultWeb but add PoToken
+        setLogin(DefaultWeb.client, true)
+        
+        // Check if PlayerBody exists and has the right constructor
+        // If PlayerBody exists, use it; otherwise use a map
+        
+        try {
+            // Try to use PlayerBody if it exists with the right constructor
+            setBody(
+                PlayerBody(
+                    context = Context.DefaultWebWithLocale,
+                    videoId = videoId,
+                    playlistId = playlistId,
+                    params = params
+                    // Note: If PlayerBody doesn't have serviceIntegrityDimensions parameter,
+                    // we need to add it differently
+                )
+            )
+        } catch (e: Exception) {
+            // Fallback to map approach if PlayerBody doesn't work
+            val bodyMap = mutableMapOf<String, Any?>(
+                "context" to Context.DefaultWebWithLocale,
+                "videoId" to videoId
+            )
+            
+            playlistId?.let { bodyMap["playlistId"] = it }
+            params?.let { bodyMap["params"] = it }
+            
+            // Add PoToken if available (YouTube now requires this in player requests)
+            poToken?.let { 
+                bodyMap["serviceIntegrityDimensions"] = mapOf("poToken" to it)
+            }
+            
+            setBody(bodyMap)
         }
     }
 

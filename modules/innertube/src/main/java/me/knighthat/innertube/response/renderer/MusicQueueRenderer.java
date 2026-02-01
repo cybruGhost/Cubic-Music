@@ -32,6 +32,7 @@ public interface MusicQueueRenderer {
             Runs getTitle();
 
             Runs getSubtitle();
+
             @NotNull
             List<? extends Button> getButtons();
         }

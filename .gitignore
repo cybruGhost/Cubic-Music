@@ -7,7 +7,6 @@
 .idea
 .gradle
 .vscode
-.env
 
 ###      BUILDS
 **build/
