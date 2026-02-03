@@ -280,7 +280,7 @@ val currentDay = calendar.get(java.util.Calendar.DAY_OF_MONTH)
     )
     val showTips by rememberPreference(showTipsKey, true)
     val showCharts by rememberPreference(showChartsKey, true)
-    // Add this at the top of HomeQuickPicks to debug
+    
 
     val isCubicJamLoggedIn = remember {
     val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
@@ -351,21 +351,27 @@ if (showCharts)
         }
     }
     // ===== END FETCH NOTIFICATION =====
+
+if (showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) {
+    discoverPageResult = Innertube.discoverPage()
+}
+
+// Load homepage if logged in
+if (isYouTubeLoggedIn()) {
+    homePageResult = YtMusic.getHomePage()
+}
+
 if (loadedData) return
 
 refreshScope.launch(Dispatchers.IO) {
     runCatching {
-
         when (playEventType) {
-
             PlayEventsType.MostPlayed -> {
+                // Collect the first value from the Flow
                 Database.eventTable
-                    .findSongsMostPlayedBetween(
-                        from = from,
-                        limit = localCount
-                    )
+                    .findSongsMostPlayedBetween(from = from, limit = localCount)
                     .distinctUntilChanged()
-                    .collect { songs ->
+                    .collect { songs ->  // Collect the Flow
                         trendingList = songs.distinctBy { it.id }.take(localCount)
                         trending = trendingList.firstOrNull()
                         mostPopularSong = trending
@@ -377,10 +383,13 @@ refreshScope.launch(Dispatchers.IO) {
                                 NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
                             )
                         }
+                        // BREAK out of the collect after first value
+                        return@collect
                     }
             }
-
+            
             PlayEventsType.LastPlayed -> {
+                // Collect the first value from the Flow
                 Database.eventTable
                     .findSongsLastPlayed(limit = localCount)
                     .distinctUntilChanged()
@@ -396,110 +405,91 @@ refreshScope.launch(Dispatchers.IO) {
                                 NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
                             )
                         }
+                        // BREAK out of the collect after first value
+                        return@collect
                     }
             }
 
-PlayEventsType.CasualPlayed -> {
-    Database.eventTable
-        .findSongsMostPlayedBetween(
-            from = 0,
-            limit = 10
-        )
-        .distinctUntilChanged()
-        .collect { favoriteSongs ->
+            PlayEventsType.CasualPlayed -> {
+                // Collect the first value from the Flow
+                Database.eventTable
+                    .findSongsMostPlayedBetween(from = 0, limit = 10)
+                    .distinctUntilChanged()
+                    .collect { favoriteSongs ->
+                        if (favoriteSongs.isNotEmpty()) {
+                            showNewUserMessage = false
+                            val seedSong = favoriteSongs.random()
+                            mostPopularSong = seedSong
 
-            if (favoriteSongs.isNotEmpty()) {
-                showNewUserMessage = false // Hide message when user has songs
-                val seedSong = favoriteSongs.random()
-                mostPopularSong = seedSong
+                            runCatching {
+                                val relatedResult = Innertube.relatedPage(
+                                    NextBody(videoId = seedSong.id)
+                                )
 
-                runCatching {
-                    val relatedResult = Innertube.relatedPage(
-                        NextBody(videoId = seedSong.id)
-                    )
+                                val relatedSongs = relatedResult
+                                    ?.getOrNull()
+                                    ?.songs
+                                    ?.map { it.asSong }
+                                    ?: emptyList()
 
-                    val relatedSongs =
-                        relatedResult
-                            ?.getOrNull()
-                            ?.songs
-                            ?.map { it.asSong }
-                            ?: emptyList()
+                                val trendingResult = Innertube.chartsPageComplete(
+                                    countryCode = selectedCountryCode.name
+                                )
 
-                    val trendingResult =
-                        Innertube.chartsPageComplete(
-                            countryCode = selectedCountryCode.name
-                        )
+                                val trendingSongs = trendingResult.getOrNull()?.songs
+                                    ?.map { it.asSong }
+                                    ?: emptyList()
 
-                    val trendingSongs =
-                        trendingResult.getOrNull()?.songs
-                            ?.map { it.asSong }
-                            ?: emptyList()
+                                val mixedSongs = (
+                                    relatedSongs.take((localCount * 0.7).toInt()) +
+                                    trendingSongs.take((localCount * 0.3).toInt())
+                                )
+                                    .distinctBy { it.id }
+                                    .shuffled()
+                                    .take(localCount)
 
-                    val mixedSongs = (
-                        relatedSongs.take((localCount * 0.7).toInt()) +
-                        trendingSongs.take((localCount * 0.3).toInt())
-                    )
-                        .distinctBy { it.id }
-                        .shuffled()
-                        .take(localCount)
+                                trendingList = mixedSongs
+                                trending = mixedSongs.firstOrNull()
+                                relatedPageResult = relatedResult
 
-                    trendingList = mixedSongs
-                    trending = mixedSongs.firstOrNull()
-                    relatedPageResult = relatedResult
+                            }.onFailure {
+                                val chartsResult = Innertube.chartsPageComplete(
+                                    countryCode = selectedCountryCode.name
+                                )
 
-                }.onFailure {
-                    val chartsResult =
-                        Innertube.chartsPageComplete(
-                            countryCode = selectedCountryCode.name
-                        )
+                                val chartSongs = chartsResult.getOrNull()?.songs
+                                    ?.map { it.asSong }
+                                    ?: emptyList()
 
-                    val chartSongs =
-                        chartsResult.getOrNull()?.songs
-                            ?.map { it.asSong }
-                            ?: emptyList()
+                                trendingList = chartSongs.shuffled().take(localCount)
+                                trending = trendingList.firstOrNull()
+                            }
 
-                    trendingList =
-                        chartSongs.shuffled().take(localCount)
-                    trending = trendingList.firstOrNull()
-                }
+                        } else {
+                            showNewUserMessage = true
+                            
+                            val chartsResult = Innertube.chartsPageComplete(
+                                countryCode = selectedCountryCode.name
+                            )
 
-            } else {
-                // Show message for new users
-                showNewUserMessage = true
-                
-                val chartsResult =
-                    Innertube.chartsPageComplete(
-                        countryCode = selectedCountryCode.name
-                    )
+                            val chartSongs = chartsResult.getOrNull()?.songs
+                                ?.map { it.asSong }
+                                ?: emptyList()
 
-                val chartSongs =
-                    chartsResult.getOrNull()?.songs
-                        ?.map { it.asSong }
-                        ?: emptyList()
+                            trendingList = chartSongs.shuffled().take(localCount)
+                            trending = trendingList.firstOrNull()
 
-                trendingList =
-                    chartSongs.shuffled().take(localCount)
-                trending = trendingList.firstOrNull()
-
-                trending?.let { song ->
-                    relatedPageResult =
-                        Innertube.relatedPage(
-                            NextBody(videoId = song.id)
-                        )
-                }
+                            trending?.let { song ->
+                                relatedPageResult = Innertube.relatedPage(
+                                    NextBody(videoId = song.id)
+                                )
+                            }
+                        }
+                        // BREAK out of the collect after first value
+                        return@collect
+                    }
             }
         }
-}
-        }
-
-        if (showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) {
-            discoverPageResult = Innertube.discoverPage()
-        }
-
-        if (isYouTubeLoggedIn()) {
-            homePageResult = YtMusic.getHomePage()
-        }
-
     }.onFailure {
         Timber.e("Failed loadData in QuickPicsModern ${it.stackTraceToString()}")
         loadedData = false
@@ -508,45 +498,190 @@ PlayEventsType.CasualPlayed -> {
         loadedData = true
     }
 }
+}
+ LaunchedEffect(playEventType) {
+    // Only reset trending-related data
+    trendingList = emptyList()
+    trending = null
+    relatedPageResult = null
+    relatedInit = null
+    mostPopularSong = null
+    showNewUserMessage = false
+    
+    refreshScope.launch(Dispatchers.IO) {
+        runCatching {
+            when (playEventType) {
+                PlayEventsType.MostPlayed -> {
+                    Database.eventTable
+                        .findSongsMostPlayedBetween(from = from, limit = localCount)
+                        .distinctUntilChanged()
+                        .collect { songs ->
+                            trendingList = songs.distinctBy { it.id }.take(localCount)
+                            trending = trendingList.firstOrNull()
+                            mostPopularSong = trending
+
+                            if (relatedPageResult == null ||
+                                trending?.id != trendingList.firstOrNull()?.id
+                            ) {
+                                relatedPageResult = Innertube.relatedPage(
+                                    NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
+                                )
+                            }
+                            return@collect
+                        }
+                }
+                
+                PlayEventsType.LastPlayed -> {
+                    Database.eventTable
+                        .findSongsLastPlayed(limit = localCount)
+                        .distinctUntilChanged()
+                        .collect { songs ->
+                            trendingList = songs.distinctBy { it.id }.take(localCount)
+                            trending = trendingList.firstOrNull()
+                            mostPopularSong = trending
+
+                            if (relatedPageResult == null ||
+                                trending?.id != trendingList.firstOrNull()?.id
+                            ) {
+                                relatedPageResult = Innertube.relatedPage(
+                                    NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
+                                )
+                            }
+                            return@collect
+                        }
+                }
+                
+                PlayEventsType.CasualPlayed -> {
+                    Database.eventTable
+                        .findSongsMostPlayedBetween(from = 0, limit = 10)
+                        .distinctUntilChanged()
+                        .collect { favoriteSongs ->
+                            if (favoriteSongs.isNotEmpty()) {
+                                showNewUserMessage = false
+                                val seedSong = favoriteSongs.random()
+                                mostPopularSong = seedSong
+
+                                runCatching {
+                                    val relatedResult = Innertube.relatedPage(
+                                        NextBody(videoId = seedSong.id)
+                                    )
+
+                                    val relatedSongs = relatedResult
+                                        ?.getOrNull()
+                                        ?.songs
+                                        ?.map { it.asSong }
+                                        ?: emptyList()
+
+                                    val trendingResult = Innertube.chartsPageComplete(
+                                        countryCode = selectedCountryCode.name
+                                    )
+
+                                    val trendingSongs = trendingResult.getOrNull()?.songs
+                                        ?.map { it.asSong }
+                                        ?: emptyList()
+
+                                    val mixedSongs = (
+                                        relatedSongs.take((localCount * 0.7).toInt()) +
+                                        trendingSongs.take((localCount * 0.3).toInt())
+                                    )
+                                        .distinctBy { it.id }
+                                        .shuffled()
+                                        .take(localCount)
+
+                                    trendingList = mixedSongs
+                                    trending = mixedSongs.firstOrNull()
+                                    relatedPageResult = relatedResult
+
+                                }.onFailure {
+                                    val chartsResult = Innertube.chartsPageComplete(
+                                        countryCode = selectedCountryCode.name
+                                    )
+
+                                    val chartSongs = chartsResult.getOrNull()?.songs
+                                        ?.map { it.asSong }
+                                        ?: emptyList()
+
+                                    trendingList = chartSongs.shuffled().take(localCount)
+                                    trending = trendingList.firstOrNull()
+                                }
+                            } else {
+                                showNewUserMessage = true
+                                
+                                val chartsResult = Innertube.chartsPageComplete(
+                                    countryCode = selectedCountryCode.name
+                                )
+
+                                val chartSongs = chartsResult.getOrNull()?.songs
+                                    ?.map { it.asSong }
+                                    ?: emptyList()
+
+                                trendingList = chartSongs.shuffled().take(localCount)
+                                trending = trendingList.firstOrNull()
+
+                                trending?.let { song ->
+                                    relatedPageResult = Innertube.relatedPage(
+                                        NextBody(videoId = song.id)
+                                    )
+                                }
+                            }
+                            return@collect
+                        }
+                }
+            }
+        }
     }
-    LaunchedEffect(playEventType, selectedCountryCode) {
-        // Reset of all states related
-        loadedData = false
-        relatedPageResult = null
-        relatedInit = null
-        trending = null
-        trendingList = emptyList()
-        // Also reset the new user message
-        showNewUserMessage = false
-        // Delay to ensure the reset (optional)
-        kotlinx.coroutines.delay(100)
-        loadData()
+}
+    LaunchedEffect(selectedCountryCode) {
+        if (showCharts) {
+            chartsPageResult = Innertube.chartsPageComplete(
+                countryCode = selectedCountryCode.name
+            )
+        }
     }
 
     var refreshing by remember { mutableStateOf(false) }
 
-fun refresh() {
-    if (refreshing) return
-    trendingList = emptyList()
-    loadedData = false
-    relatedPageResult = null
-    relatedInit = null
-    trending = null
-    
-    // ===== CLEAR NOTIFICATION CACHE =====
-    notificationResult = null
-    notificationInit = null
-    // ===== END CLEAR NOTIFICATION CACHE =====
-    
-    // Note: FriendNowPlayingSection handles its own refresh automatically
-    
-    refreshScope.launch(Dispatchers.IO) {
-        refreshing = true
-        loadData()
-        delay(500)
-        refreshing = false
+    fun refresh() {
+        if (refreshing) return
+        
+        refreshScope.launch(Dispatchers.IO) {
+            refreshing = true
+            
+            // Clear trending data
+            trendingList = emptyList()
+            trending = null
+            relatedPageResult = null
+            relatedInit = null
+            mostPopularSong = null
+            
+            // Clear discover page (moods, albums) so it reloads
+            discoverPageResult = null
+            discoverPageInit = null
+            discoverPagePreference = null
+            
+            // Clear charts
+            chartsPageResult = null
+            chartsPageInit = null
+            
+            // Clear notification cache
+            notificationResult = null
+            notificationInit = null
+            
+            // Clear homepage
+            homePageResult = null
+            homePageInit = null
+            homePagePreference = null
+            
+            // Reset loaded flag
+            loadedData = false
+            
+            // Reload everything
+            loadData()
+            
+            delay(500)
+            refreshing = false
+        }
     }
-}
     val songThumbnailSizeDp = Dimensions.thumbnails.song
     val songThumbnailSizePx = songThumbnailSizeDp.px
     val albumThumbnailSizeDp = 108.dp
