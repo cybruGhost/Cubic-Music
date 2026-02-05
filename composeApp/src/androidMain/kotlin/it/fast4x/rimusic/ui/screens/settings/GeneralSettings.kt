@@ -178,7 +178,7 @@ fun GeneralSettings(
         exoPlayerMinTimeForEventKey,
         ExoPlayerMinTimeForEvent.`20s`
     )
-// If you don't see these lines, ADD THEM HERE
+
     var persistentQueue by rememberPreference(persistentQueueKey, false)
     var resumePlaybackOnStart by rememberPreference(resumePlaybackOnStartKey, false)
     var closebackgroundPlayer by rememberPreference(closebackgroundPlayerKey, false)
@@ -626,6 +626,43 @@ Spacer(modifier = Modifier.height(16.dp))
 // ============================================================
 // END OF SPOTIFY CANVAS SECTION
 // ============================================================
+// ============================================================
+// WAIGWE FALLBACK SECTION - SIMPLER VERSION
+// ============================================================
+AnimatedVisibility(
+    visible = true,
+    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(675)) + androidx.compose.animation.scaleIn(
+        animationSpec = androidx.compose.animation.core.tween(675),
+        initialScale = 0.9f
+    )
+) {
+    SettingsSectionCard(
+        title = "Waigwe Fallback",
+        icon = R.drawable.refresh,
+        content = {
+            var waigweFallbackEnabled by rememberPreference("waigweFallbackKey", true)
+            
+            if (search.inputValue.isBlank() || "Waigwe Fallback".contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = "Waigwe Fallback",
+                    text = "Use alternative source when YouTube fails",
+                    isChecked = waigweFallbackEnabled,
+                    onCheckedChange = { waigweFallbackEnabled = it },
+                    icon = R.drawable.refresh
+                )
+                
+                // Simple description
+                SettingsDescription(
+                    text = "When YouTube can't play a song, automatically try alternative source",
+                    modifier = Modifier.padding(start = 25.dp, top = 4.dp),
+                    textAlign = TextAlign.Start
+                )
+            }
+        }
+    )
+}
+
+Spacer(modifier = Modifier.height(16.dp))
 
          // Notifications Section
          AnimatedVisibility(
