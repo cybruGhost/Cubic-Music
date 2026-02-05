@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import me.knighthat.component.ImportFromFile
 import me.knighthat.utils.DurationUtils
 import me.knighthat.utils.Toaster
+import me.knighthat.utils.csv.CSVLocaleManager
 import me.knighthat.utils.csv.SongCSV
 import org.json.JSONArray
 import java.io.InputStream
@@ -97,10 +98,31 @@ class ImportSongsFromCSV(
 
         /** 🔹 Parse CSV and convert songs one by one with YouTube conversion */
         private suspend fun parseFromCsvFile(inputStream: InputStream, fileName: String): List<SongCSV> {
+            // 1. Read CSV normally
             val rows = csvReader { skipEmptyLine = true }.readAllWithHeader(inputStream)
             
-            // Check CSV format
-            val headers = rows.firstOrNull()?.keys.orEmpty()
+            // 2. Initialize CSVLocaleManager if not already done
+            CSVLocaleManager.initialize(appContext())
+            
+            // 3. Convert ALL rows to English headers using CSVLocaleManager
+            val translatedRows = rows.map { row ->
+                CSVLocaleManager.normalizeRow(row)
+            }
+            
+            // 4. Get ORIGINAL headers for locale detection
+            val originalHeaders = rows.firstOrNull()?.keys.orEmpty()
+            
+            // 5. Show detected language if supported (using simple mapping instead of @Composable)
+            val detectedLocale = CSVLocaleManager.detectLocale(originalHeaders)
+            detectedLocale?.let { locale ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    val localeName = getSimpleLocaleName(locale)
+                    Toaster.i("🌍 Detected: $localeName")
+                }
+            }
+            
+            // 6. Check CSV format using TRANSLATED headers (now always in English)
+            val headers = translatedRows.firstOrNull()?.keys.orEmpty()
             val hasCustomFormat = headers.containsAll(
                 setOf("PlaylistBrowseId", "PlaylistName", "MediaId", "Title", "Artists", "Duration")
             )
@@ -123,16 +145,17 @@ class ImportSongsFromCSV(
             var failCount = 0
 
             // Get playlist name from CSV - use PlaylistName from CSV if available, otherwise use filename
-            val csvPlaylistName = rows.firstOrNull()?.get("PlaylistName") ?: ""
+            val csvPlaylistName = translatedRows.firstOrNull()?.get("PlaylistName") ?: ""
             val playlistName = if (csvPlaylistName.isNotBlank()) {
                 csvPlaylistName
             } else {
                 fileName.replace(".csv", "").replace("_", " ").trim()
             }
 
-            // Process rows one by one
-            for ((index, row) in rows.withIndex()) {
+            // Process TRANSLATED rows one by one (now all in English)
+            for ((index, row) in translatedRows.withIndex()) {
                 try {
+                    // Now row ALWAYS has English keys
                     val isSpotifyFormat = row.containsKey("Track Name") && row.containsKey("Artist Name(s)")
                     val isExportifyFormat = row.containsKey("Track URI") && row.containsKey("Track Name")
                     val isYourFormat = row.containsKey("PlaylistBrowseId") && row.containsKey("PlaylistName") && 
@@ -161,7 +184,7 @@ class ImportSongsFromCSV(
                         if (query.isNotBlank() && title.isNotBlank()) {
                             // Show progress
                             CoroutineScope(Dispatchers.Main).launch {
-                                Toaster.i("Converting ${index + 1}/${rows.size}: $title")
+                                Toaster.i("Converting ${index + 1}/${translatedRows.size}: $title")
                             }
 
                             try {
@@ -298,6 +321,24 @@ class ImportSongsFromCSV(
             }
             return converted
         }
+
+     /** 🔹 Simple locale name mapping (non-@Composable) */
+    private fun getSimpleLocaleName(locale: String): String {
+        return when (locale) {
+            "de" -> "Deutsch"
+            "en" -> "English"
+            "es" -> "Español"
+            "fr" -> "Français"
+            "it" -> "Italiano"
+            "nl" -> "Nederlands"
+            "pt" -> "Português"
+            "sv" -> "Svenska"
+            "ar" -> "العربية"
+            "ja" -> "日本語"
+            "tr" -> "Türkçe"
+            else -> locale
+        }
+    }
 
         private fun processSongs(songs: List<SongCSV>): Map<Pair<String, String>, List<Song>> =
             songs.fastFilter { it.songId.isNotBlank() }
