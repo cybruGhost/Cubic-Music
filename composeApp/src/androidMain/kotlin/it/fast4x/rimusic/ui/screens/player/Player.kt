@@ -242,7 +242,6 @@ import it.fast4x.rimusic.utils.thumbnailTypeKey
 import it.fast4x.rimusic.utils.timelineExpandedKey
 import it.fast4x.rimusic.utils.titleExpandedKey
 import it.fast4x.rimusic.utils.topPaddingKey
-//import it.fast4x.rimusic.utils.PresenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -253,11 +252,13 @@ import me.knighthat.utils.Toaster
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import kotlin.math.absoluteValue
 import kotlin.math.sqrt
-// ADD THESE IMPORTS
+// spotify canvas imports
 import it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasWorker
 import it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasState
 import androidx.compose.ui.viewinterop.AndroidView
-
+// waigwe fallback api
+import it.fast4x.rimusic.utils.WaigweApi
+import it.fast4x.rimusic.utils.WaigweSearchResponse
 
 import androidx.media3.ui.AspectRatioFrameLayout
 
@@ -265,7 +266,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.width
 
-// Add these imports with your other imports:
+// --- SCROLL ---
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.shadow
@@ -297,7 +298,6 @@ import androidx.media3.common.MimeTypes
 // Add with your other imports
 import it.fast4x.rimusic.ui.screens.spotify.CanvasPlayerManager
 import androidx.compose.material3.CircularProgressIndicator
-import it.fast4x.rimusic.utils.PresenceManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalTextApi
@@ -315,20 +315,7 @@ fun Player(
     val configuration = LocalConfiguration.current
     val menuState = LocalMenuState.current
     val binder = LocalPlayerServiceBinder.current ?: return
-    val userId = remember { "current_user_id" }
-
-    LaunchedEffect(Unit) {
-        PresenceManager.initialize(context, userId)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            PresenceManager.cleanup()
-        }
-    }
     // Settings
-    val isOnline by PresenceManager.isOnline.collectAsState()
-    val currentPresence by PresenceManager.currentPresence.collectAsState()
     val disablePlayerHorizontalSwipe by rememberPreference(disablePlayerHorizontalSwipeKey, false)
     val showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
     val effectRotationEnabled by rememberPreference(effectRotationKey, true)
@@ -378,10 +365,12 @@ fun Player(
     var swipeAnimationNoThumbnail by rememberPreference( swipeAnimationsNoThumbnailKey, SwipeAnimationNoThumbnail.Sliding )
     val expandPlayerState = rememberPreference( expandedplayerKey, false )
     var expandedplayer by expandPlayerState
-    // ADD THIS FOR SPOTIFY CANVAS
+    // SPOTIFY CANVAS
     val spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", false)
     val showSpotifyCanvasLogs by rememberPreference("showSpotifyCanvasLogs", false)
-
+    
+    // WAIGWE FALLBACK
+    val waigweFallbackEnabled by rememberPreference("waigweFallbackKey", true)
 
     if (binder.player.currentTimeline.windowCount == 0) return
 
@@ -508,30 +497,123 @@ fun Player(
         }
     }
 
-    binder.player.DisposableListener {
-        object : Player.Listener {
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                nullableMediaItem = mediaItem
-            }
+binder.player.DisposableListener {
+    object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            nullableMediaItem = mediaItem
+        }
 
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                shouldBePlaying = playerError == null && binder.player.shouldBePlaying
-            }
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            shouldBePlaying = playerError == null && binder.player.shouldBePlaying
+        }
 
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                playerError = binder.player.playerError
-                shouldBePlaying = playerError == null && binder.player.shouldBePlaying
-            }
-            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-                mediaItems = timeline.mediaItems
-            }
-            override fun onPlayerError(playbackException: PlaybackException) {
-                playerError = playbackException
-            }
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            playerError = binder.player.playerError
+            shouldBePlaying = playerError == null && binder.player.shouldBePlaying
+        }
+        
+        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+            mediaItems = timeline.mediaItems
+        }
+        
+        override fun onPlayerError(playbackException: PlaybackException) {
+            playerError = playbackException
         }
     }
+}
 
+// Add this LaunchedEffect outside the Player.Listener to handle waigwe fallback
+LaunchedEffect(playerError, waigweFallbackEnabled) {
+    if (waigweFallbackEnabled && playerError != null) {
+        try {
+            val currentItem = binder.player.currentMediaItem ?: return@LaunchedEffect
+            val currentMediaId = currentItem.mediaId
+            
+            // Check if already using waigwe (prevents infinite loops)
+            if (WaigweApi.isWaigweMedia(currentMediaId)) {
+                return@LaunchedEffect
+            }
+            
+            // Check if current URL is already from waigwe
+            val currentUri = currentItem.localConfiguration?.uri?.toString()
+            if (WaigweApi.isWaigweUrl(currentUri)) {
+                return@LaunchedEffect
+            }
+            
+            // Get song info
+            val title = currentItem.mediaMetadata.title?.toString() ?: ""
+            val artist = currentItem.mediaMetadata.artist?.toString() ?: ""
+            
+            if (title.isBlank()) {
+                Toaster.n("Cannot fallback: No title")
+                return@LaunchedEffect
+            }
+            
+            val query = if (artist.isNotBlank()) "$artist - $title" else title
+            
+            try {
+                // Call waigwe API with retry mechanism
+                var result: Result<WaigweSearchResponse>? = null
+                
+                for (attempt in 0..2) { // Try up to 3 times
+                    result = WaigweApi.search(query)
+                    
+                    if (result.isSuccess) {
+                        break
+                    }
+                    
+                    if (attempt < 2) {
+                        // Exponential backoff: 1s, then 3s
+                        delay(if (attempt == 0) 1000L else 3000L)
+                    }
+                }
+                
+                if (result != null && result.isSuccess) {
+                    val response = result.getOrThrow()
+                    if (response.videos.isNotEmpty()) {
+                        val firstVideo = response.videos.first()
+                        val streamUrl = WaigweApi.getStreamUrl(firstVideo.videoId)
+                        
+                        // Save current playback state
+                        val wasPlaying = binder.player.isPlaying
+                        val currentPosition = binder.player.currentPosition
+                        
+                        // Create new MediaItem with waigwe stream
+                        val newMediaItem = currentItem.buildUpon()
+                            .setUri(streamUrl)
+                            .setMimeType(MimeTypes.AUDIO_MP4)
+                            .setMediaId("waigwe_${currentMediaId}") // Mark as waigwe
+                            .build()
+                        
+                        // Mark this media ID as using waigwe
+                        WaigweApi.markAsWaigweMedia("waigwe_${currentMediaId}")
+                        
+                        // Replace and play, preserving position
+                        binder.player.setMediaItem(newMediaItem)
+                        binder.player.prepare()
+                        binder.player.seekTo(currentPosition)
+                        
+                        if (wasPlaying) {
+                            binder.player.play()
+                        }
+                        
+                        Toaster.n("Playing via waigwe API")
+                    } else {
+                        Toaster.n("No results from waigwe")
+                    }
+                } else {
+                    Toaster.n("Waigwe API failed")
+                }
+            } catch (e: Exception) {
+                Toaster.n("Waigwe fallback failed")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}
     val mediaItem = nullableMediaItem ?: return
+
     val pagerState = rememberPagerState(pageCount = { mediaItems.size })
     val pagerStateFS = rememberPagerState(pageCount = { mediaItems.size })
     val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
@@ -596,22 +678,6 @@ fun Player(
     var showCircularSlider by remember {
         mutableStateOf(false)
     }
-
-    // Track playback changes for presence
-    LaunchedEffect(mediaItem.mediaId, shouldBePlaying, positionAndDuration.first) {
-        val artistName = artistInfos.firstOrNull()?.name ?: ""
-
-        PresenceManager.updatePlaybackState(
-            mediaItem = mediaItem,
-            position = positionAndDuration.first,
-            duration = positionAndDuration.second,
-            isPlaying = shouldBePlaying,
-            queuePosition = binder.player.currentMediaItemIndex,
-            artistName = artistName,
-            albumId = albumId
-        )
-    }
-
     val screenWidth = configuration.screenWidthDp.dp
     val screenHeight = configuration.screenHeightDp.dp
 
@@ -2495,6 +2561,7 @@ Column(
     }
 }
 
+
 @Composable
 private fun OptimizedSpotifyCanvasPlayer(
     canvasUrl: String,
@@ -3054,3 +3121,5 @@ fun PagerState.LaunchedEffectScrollToPage(
         }
     }
 }
+
+
