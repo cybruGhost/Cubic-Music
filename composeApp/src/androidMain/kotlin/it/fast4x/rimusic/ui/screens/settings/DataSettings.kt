@@ -60,6 +60,29 @@ import me.knighthat.component.import.ImportMigration
 import me.knighthat.component.import.ImportSettings
 import me.knighthat.utils.Toaster
 import me.knighthat.coil.ImageCacheFactory
+// First, make sure you have these imports at the top of your DataSettings.kt file:
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.*
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Card
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
+import it.fast4x.rimusic.typography
+
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.window.Dialog
+
+
 
 @SuppressLint("SuspiciousIndentation")
 @OptIn(ExperimentalCoilApi::class)
@@ -97,7 +120,7 @@ fun DataSettings() {
     var coilCustomDiskCache by rememberPreference(
         coilCustomDiskCacheKey,32
     )
-    
+    var showKreateDisclaimer by remember { mutableStateOf(false) }
     var pauseSearchHistory by rememberPreference(pauseSearchHistoryKey, false)
     var pauseListenHistory by rememberPreference(pauseListenHistoryKey, false)
 
@@ -421,6 +444,280 @@ fun DataSettings() {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+// Kreate Backup Warning - Simple & Clear Version
+AnimatedVisibility(
+    visible = true,
+    enter = fadeIn(animationSpec = tween(750)) + scaleIn(
+        animationSpec = tween(750),
+        initialScale = 0.9f
+    )
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp)
+            .clickable { showKreateDisclaimer = true },
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFF9800)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp, horizontal = 20.dp)
+        ) {
+            // Header row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.alert),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                BasicText(
+                    text = "⚠️ IMPORTANT NOTICE",
+                    style = typography().m.copy(color = Color.White)
+                )
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                // Click indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BasicText(
+                        text = "Tap",
+                        style = typography().xs.copy(color = Color.White.copy(alpha = 0.8f))
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        painter = painterResource(R.drawable.information),
+                        contentDescription = "Show details",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Warning message
+            BasicText(
+                text = "🚨Attention Kreate Users Experiencing Import Issues",
+                style = typography().s.copy(color = Color.White),
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Click instruction
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.moon),
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.size(14.dp)
+                )
+                
+                Spacer(modifier = Modifier.width(6.dp))
+                
+                BasicText(
+                    text = "Tap this card for detailed information and workarounds",
+                    style = typography().xs.copy(color = Color.White.copy(alpha = 0.9f))
+                )
+            }
+        }
+    }
+}
+
+// Kreate Disclaimer Dialog (Popup)
+if (showKreateDisclaimer) {
+    Dialog(
+        onDismissRequest = { showKreateDisclaimer = false }
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = colorPalette().background1
+            ),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp)
+            ) {
+                // Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.alert),
+                        contentDescription = null,
+                        tint = colorPalette().accent,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    BasicText(
+                        text = "🚨 Kreate Backup Import Issue",
+                        style = typography().m.copy(color = colorPalette().accent)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Important Notice
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0x1AFF9800) // 10% opacity orange
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BasicText(
+                            text = "⚠️ DISCLAIMER: This is a Kreate app issue (fix not soon)",
+                            style = typography().s.copy(color = colorPalette().text)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Content
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    BasicText(
+                        text = "The inability to import Kreate backups is NOT exclusive to Cubic Music. Even RiPlay & RiMusic (the app Kreate was forked from) cannot import Kreate's database format successfully.",
+                        style = typography().xs.copy(color = colorPalette().text)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    BasicText(
+                        text = "Why This Happens:",
+                        style = typography().xs.copy(color = colorPalette().accent)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    BasicText(
+                        text = "🔴 Kreate's export system has inherent bugs in its CSV generation\n" +
+                              "🔴 The backup files contain malformed data that breaks standard CSV parsing\n" +
+                              "🔴 Even the original app (RiPlay) fails when trying to read Kreate exports",
+                        style = typography().xxs.copy(color = colorPalette().text)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    BasicText(
+                        text = "What This Means:",
+                        style = typography().xs.copy(color = colorPalette().accent)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    BasicText(
+                        text = "✅ Cubic Music is working correctly with standard CSV imports\n" +
+                              "✅ The problem originates in Kreate's export logic\n" +
+                              "✅ No music app can reliably import Kreate backups until Kreate fixes its export system",
+                        style = typography().xxs.copy(color = colorPalette().text)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    BasicText(
+                        text = "Current Status: Work in Progress 🔧",
+                        style = typography().xs.copy(color = colorPalette().accent)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    BasicText(
+                        text = "We're investigating Kreate's export format and building a compatibility layer that will:\n\n" +
+                              "🧹 Detect and fix Kreate's malformed CSV entries\n" +
+                              "🛠️ Clean corrupted data before import\n" +
+                              "📊 Provide error reports showing what couldn't be imported",
+                        style = typography().xxs.copy(color = colorPalette().text)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Bottom line in emphasized card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = colorPalette().background4
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BasicText(
+                                text = "Bottom Line: This isn't about Cubic Music vs. Kreate—it's about Kreate generating broken backup files that no app can read properly.",
+                                style = typography().xxs.copy(color = colorPalette().text),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Close button
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showKreateDisclaimer = false },
+                    colors = CardDefaults.cardColors(
+                        containerColor = colorPalette().accent
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BasicText(
+                            text = "Close",
+                            style = typography().s.copy(color = Color.White)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+Spacer(modifier = Modifier.height(16.dp))
 
         // Backup and Restore Section
         AnimatedVisibility(
