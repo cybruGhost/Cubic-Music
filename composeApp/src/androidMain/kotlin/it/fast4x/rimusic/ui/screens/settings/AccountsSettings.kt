@@ -103,6 +103,7 @@ import it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import kotlinx.coroutines.launch
 import app.kreate.android.R
 import androidx.compose.material3.Card
+import androidx.compose.ui.graphics.Color
 
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.IconButton
@@ -171,7 +172,18 @@ AnimatedVisibility(
     SettingsSectionCard(
         title = "YOUTUBE MUSIC",
         icon = R.drawable.ytmusic,
-        content = {
+         content = {
+        // ⚠️ Warning message
+        Text(
+            text = "⚠️ This feature is unstable. Logging in may cause data loss. Use at your own risk I advice not to use it till a fix is found.",
+            color = Color.Red,
+            fontSize = 12.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            textAlign = TextAlign.Center
+        )
+
             var isYouTubeLoginEnabled by rememberPreference(enableYouTubeLoginKey, false)
             var isYouTubeSyncEnabled by rememberPreference(enableYouTubeSyncKey, false)
             var loginYouTube by remember { mutableStateOf(false) }

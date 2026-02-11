@@ -1089,4 +1089,7 @@
 <string name="apk_download_channel_description">Notifications for app update downloads</string>
 <string name="tap_to_install">Tap to install the update</string>
 
+<string name="add_all_to_favorites">Add all to favorites</string>
+<string name="add_all_songs_to_favorites_confirm">Add all %d songs to favorites?</string>
+
 </resources>

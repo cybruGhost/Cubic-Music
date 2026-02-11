@@ -1,4 +1,4 @@
-// ui/screens/welcome/WelcomeScreen.kt - TV FIXED VERSION
+// ui/screens/welcome/WelcomeScreen.kt -
 package it.fast4x.rimusic.ui.screens.welcome
 
 import androidx.compose.animation.core.animateDpAsState
@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,8 +21,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -255,6 +259,9 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
     var city by remember { mutableStateOf("") }
     var animated by remember { mutableStateOf(false) }
     
+    // ADDED: Auto-scroll state
+    val scrollState = rememberScrollState()
+    
     // ADDED: TV navigation focus management
     val (nameFocusRequester, cityFocusRequester, buttonFocusRequester) = remember {
         FocusRequester.createRefs()
@@ -272,6 +279,28 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
         animationSpec = tween(durationMillis = 1000)
     )
     
+    // ADDED: Auto-scroll when keyboard appears
+    LaunchedEffect(focusedField) {
+        // When a field gets focus (keyboard likely appears), scroll to show it
+        when (focusedField) {
+            1 -> { // Name field focused
+                // Scroll to show name field better
+                delay(100) // Small delay for keyboard animation
+                scrollState.animateScrollTo(0)
+            }
+            2 -> { // City field focused
+                // Scroll down a bit to show city field better
+                delay(100)
+                scrollState.animateScrollTo(150)
+            }
+            3 -> { // Button focused
+                // Scroll to bottom to show button
+                delay(100)
+                scrollState.animateScrollTo(scrollState.maxValue)
+            }
+        }
+    }
+    
     LaunchedEffect(Unit) {
         animated = true
         city = DataStoreUtils.getStringBlocking(context, KEY_CITY, "")
@@ -281,26 +310,28 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
         focusedField = 1
     }
     
+    // ADDED: Main scrollable column
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState) // ADDED: Enable vertical scrolling
             .padding(horizontal = 24.dp)
             .alpha(alpha),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top spacer for keyboard avoidance
-        Spacer(modifier = Modifier.height(40.dp))
+        // Top spacer for keyboard avoidance - reduced height for small screens
+        Spacer(modifier = Modifier.height(20.dp))
         
         // Logo/Icon section
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(top = 20.dp)
+            modifier = Modifier.padding(top = 10.dp)
         ) {
-            // Animated gradient orb
+            // Animated gradient orb - reduced size for small screens
             Box(
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(100.dp) // Reduced from 120dp
                     .clip(CircleShape)
                     .background(
                         Brush.radialGradient(
@@ -330,46 +361,49 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                     painter = painterResource(id = R.drawable.cubic),
                     contentDescription = "Cubic Logo",
                     tint = Color.White,
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(48.dp) // Reduced from 56dp
                 )
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp)) // Reduced from 24dp
             
             // Title section
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(horizontal = 20.dp)
+                modifier = Modifier.padding(horizontal = 16.dp) // Reduced padding
             ) {
                 Text(
                     text = "CUBIC MUSIC",
                     color = Color.White,
-                    fontSize = 20.sp,
+                    fontSize = 18.sp, // Reduced from 20sp
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
+                    letterSpacing = 1.sp,
+                    textAlign = TextAlign.Center
                 )
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp)) // Reduced from 8dp
                 
                 Text(
                     text = "Let's personalize your experience",
                     color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 16.sp,
+                    fontSize = 14.sp, // Reduced from 16sp
                     fontWeight = FontWeight.Normal,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
                 )
             }
         }
         
-        // Input Card
+        // Input Card - Added more flexible sizing
         ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(vertical = 8.dp) // Added vertical padding
                 .graphicsLayer {
                     translationY = cardElevation.value * -0.3f
                     shadowElevation = cardElevation.value
                 },
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(24.dp), // Reduced from 28dp
             colors = androidx.compose.material3.CardDefaults.cardColors(
                 containerColor = Color(0x1AFFFFFF),
                 contentColor = Color.White
@@ -379,15 +413,16 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
             )
         ) {
             Column(
-                modifier = Modifier.padding(24.dp)
+                modifier = Modifier.padding(20.dp) // Reduced from 24dp
             ) {
                 // Name Input - Updated text
                 Text(
                     text = "What should I call you😍?",
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp, // Reduced from 18sp
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 10.dp), // Reduced
+                    lineHeight = 20.sp
                 )
                 
                 // ADDED: TV navigation support for name field
@@ -428,7 +463,8 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                     placeholder = { 
                         Text(
                             "Enter your 👻 nickname",
-                            color = Color.White.copy(alpha = 0.5f)
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 14.sp // Added font size
                         ) 
                     },
                     singleLine = true,
@@ -440,26 +476,28 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                         unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
                         errorBorderColor = Color(0xFFFF5252)
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(14.dp), // Reduced from 16dp
                     supportingText = {
                         Text(
                             text = "${name.length}/20",
                             color = if (name.length > 20) Color(0xFFFF5252) else Color.White.copy(alpha = 0.5f),
-                            fontSize = 12.sp
+                            fontSize = 11.sp // Reduced
                         )
                     },
-                    isError = name.length > 20
+                    isError = name.length > 20,
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp) // Added text style
                 )
                 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp)) // Reduced from 20dp
                 
                 // City Input - Clearer purpose
                 Text(
                     text = "Your City",
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp, // Reduced from 18sp
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 10.dp), // Reduced
+                    lineHeight = 20.sp
                 )
                 
                 // ADDED: TV navigation support for city field
@@ -505,7 +543,8 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                     placeholder = { 
                         Text(
                             "e.g., Tokyo, London, New York",
-                            color = Color.White.copy(alpha = 0.5f)
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 14.sp // Added font size
                         ) 
                     },
                     singleLine = true,
@@ -516,24 +555,26 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                         focusedBorderColor = Color(0xFF9C27B0),
                         unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(14.dp), // Reduced from 16dp
                     supportingText = {
                         Text(
                             text = "Used only for weather updates",
                             color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 12.sp
+                            fontSize = 11.sp // Reduced
                         )
-                    }
+                    },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp) // Added text style
                 )
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp)) // Reduced from 8dp
                 
                 // Helper text
                 Text(
                     text = "📍All features work without retaining user data.",
                     color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 13.sp,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    fontSize = 12.sp, // Reduced from 13sp
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    lineHeight = 16.sp
                 )
             }
         }
@@ -541,7 +582,7 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
         // Bottom section
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(bottom = 40.dp)
+            modifier = Modifier.padding(bottom = 30.dp, top = 8.dp) // Reduced bottom padding, added top
         ) {
             // Continue Button
             Button(
@@ -554,8 +595,8 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                 enabled = name.isNotBlank() && name.length <= 20,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .height(52.dp) // Reduced from 56dp
+                    .clip(RoundedCornerShape(18.dp)) // Reduced from 20dp
                     .focusRequester(buttonFocusRequester)
                     .focusable()
                     .onFocusChanged {
@@ -599,12 +640,13 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                     "Let's Start Listening",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    letterSpacing = 0.5.sp
+                    fontSize = 16.sp, // Reduced from 17sp
+                    letterSpacing = 0.3.sp, // Reduced
+                    textAlign = TextAlign.Center
                 )
             }
             
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp)) // Reduced from 20dp
             
             // Terms and Privacy
             Column(
@@ -613,8 +655,9 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                 Text(
                     text = "By continuing, you agree to our",
                     color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
+                    fontSize = 11.sp, // Reduced from 12sp
+                    textAlign = TextAlign.Center,
+                    lineHeight = 14.sp
                 )
                 
                 Box(
@@ -629,32 +672,37 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
                     Text(
                         text = "Terms of Service • Privacy Policy",
                         color = Color(0xFFFF6BCB),
-                        fontSize = 12.sp,
+                        fontSize = 11.sp, // Reduced from 12sp
                         fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        lineHeight = 14.sp
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp)) // Reduced from 16dp
                 
                 // Mandatory notice
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(8.dp)) // Reduced from 10dp
                         .background(
                             Color(0xFF9C27B0).copy(alpha = 0.15f),
-                            RoundedCornerShape(10.dp)
+                            RoundedCornerShape(8.dp)
                         )
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(horizontal = 12.dp, vertical = 8.dp) // Reduced padding
                 ) {
                     Text(
                         text = "✨ Almost there",
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 11.sp
+                        fontSize = 10.sp, // Reduced from 11sp
+                        textAlign = TextAlign.Center
                     )
                 }
             }
         }
+        
+        // ADDED: Extra spacer at the bottom for better scrolling
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 

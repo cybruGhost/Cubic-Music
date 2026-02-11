@@ -335,12 +335,12 @@ fun CubicJamScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+               .padding(end = 24.dp, bottom = 80.dp), // more bottom padding to raise FABs
             contentAlignment = Alignment.BottomEnd
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically // align row contents to center
             ) {
                 // Refresh button
                 FloatingActionButton(
