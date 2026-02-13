@@ -964,7 +964,7 @@ Volume BAS : titre précédent</string>
   <string name="update_changelogs">%s journaux des modifications</string>
   <string name="rotating_cover_title">Pochette d\'album rotative</string>
   <string name="title_playback_speed">Vitesse de lecture</string>
-  <string name="error_no_inet">No internet connection</string>
+  <string name="error_no_inet">Aucune connexion internet</string>
   <string name="description_playback_speed">Ajuster la vitesse / la lenteur du titre</string>
   <string name="opens_link_in_web_browser">Ouvre le lien dans le navigateur web</string>
   <string name="title_appearance_changes">Changement d\'apparence</string>
@@ -1059,7 +1059,7 @@ Volume BAS : titre précédent</string>
   <string name="cache_working">Fonctionnement du cache</string>
   <string name="cache_empty">Cache vide</string>
   <string name="rewind">Rewind</string>
-  <string name="donate">Donate</string>
+  <string name="donate">Faire un don</string>
   <!-- Spotify Canvas Strings -->
   <string name="spotify_canvas">Spotify Canvas</string>
   <string name="spotify_canvas_description">Show animated canvas videos in player</string>
