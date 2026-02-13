@@ -652,11 +652,6 @@
   <string name="info_debug_mode_enabled">Debug Mode Enabled</string>
   <string name="info_debug_mode_is_enabled">Debug mode is enabled, remember to disable it in settings</string>
   <string name="tapqueue">Tap to open Queue</string>
-  <string name="past_day">Past day</string>
-  <string name="past_week">Past week</string>
-  <string name="past_month">Past month</string>
-  <string name="past_year">Past year</string>
-  <string name="all_time">All time</string>
   <string name="header_view_top_of">View top %s of …</string>
   <string name="podcast_episodes">Episodes</string>
   <string name="podcasts">Podcasts</string>
@@ -755,7 +750,7 @@
   <string name="titleartist">Title and Artists</string>
   <string name="miniqueue">Mini Queue</string>
   <string name="controls">Controls</string>
-  <string name="add_to_favorites">Add to favorites</string>
+  <string name="add_to_favorites">Add All to favorites</string>
   <string name="import_favorites">Import favorites</string>
   <string name="skip_media_on_error">Autoskip on error</string>
   <string name="skip_media_on_error_description">If an error occurs, the media is changed</string>
@@ -1087,6 +1082,4 @@
   <string name="update_failed_message">Could not fetch update information. Please try downloading manually.</string>
   <string name="apk_download_channel_description">Notifications for app update downloads</string>
   <string name="tap_to_install">Tap to install the update</string>
-  <string name="add_all_to_favorites">Add all to favorites</string>
-  <string name="add_all_songs_to_favorites_confirm">Add all %d songs to favorites?</string>
 </resources>
