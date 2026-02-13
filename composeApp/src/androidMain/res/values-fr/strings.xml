@@ -805,9 +805,9 @@ Volume BAS : titre précédent</string>
   <string name="music_animations_crazy_points">Points Fous</string>
   <string name="music_animations_bubbles">Bulles</string>
   <string name="now_playing_indicator">Indicateur de lecture en cours</string>
-  <string name="good_morning">Bonjour</string>
   <string name="good_afternoon">Bonjour</string>
   <string name="good_evening">Bonsoir</string>
+  <string name="good_morning">Bonjour</string>
   <string name="good_night">Bonsoir</string>
   <string name="colored_bar">Barre colorée</string>
   <string name="about_developers_designers">Développeurs / Concepteurs</string>
@@ -964,6 +964,7 @@ Volume BAS : titre précédent</string>
   <string name="update_changelogs">%s journaux des modifications</string>
   <string name="rotating_cover_title">Pochette d\'album rotative</string>
   <string name="title_playback_speed">Vitesse de lecture</string>
+  <string name="error_no_inet">No internet connection</string>
   <string name="description_playback_speed">Ajuster la vitesse / la lenteur du titre</string>
   <string name="opens_link_in_web_browser">Ouvre le lien dans le navigateur web</string>
   <string name="title_appearance_changes">Changement d\'apparence</string>
@@ -1057,4 +1058,37 @@ Volume BAS : titre précédent</string>
   <string name="cache_status">Statut de la cache</string>
   <string name="cache_working">Fonctionnement du cache</string>
   <string name="cache_empty">Cache vide</string>
+  <string name="rewind">Rewind</string>
+  <string name="donate">Donate</string>
+  <!-- Spotify Canvas Strings -->
+  <string name="spotify_canvas">Spotify Canvas</string>
+  <string name="spotify_canvas_description">Show animated canvas videos in player</string>
+  <string name="spotify_not_connected">Not connected</string>
+  <string name="spotify_connected">Connected</string>
+  <string name="spotify_add_email">Tap to add email</string>
+  <string name="spotify_debug_logs">Show debug logs</string>
+  <string name="spotify_disconnect">Disconnect Spotify</string>
+  <string name="spotify_email_dialog_title">Spotify Canvas Email</string>
+  <string name="spotify_email_instructions">Enter the email you used to sign in to Spotify Canvas website</string>
+  <string name="spotify_note">Note: You must first authenticate at:\nv0-spotify-playlist-csv.vercel.app</string>
+  <string name="spotify_disconnect_confirm">Disconnect Spotify Canvas?\nThis will remove your email and disable the feature.</string>
+  <string name="forcePlayFromBeginning">Play from Beginning</string>
+  <string name="smart_shuffle">Smart Shuffle</string>
+  <string name="loading_recommendations">Loading recommendations…</string>
+  <string name="recommendations">Recommendations</string>
+  <!-- Auto-install strings -->
+  <string name="downloading_update">Downloading update…</string>
+  <string name="download_progress_hint">The app will install automatically when download completes. Ensure a stable internet connection.</string>
+  <string name="download_complete">Download Complete</string>
+  <string name="apk_download_channel_name">App Updates</string>
+  <string name="installing_update">Installing Update…</string>
+  <string name="update_downloaded">Update Downloaded</string>
+  <string name="ready_to_install">Ready to install</string>
+  <string name="download_and_install">Download and Install</string>
+  <string name="update_failed_title">Update Check Failed</string>
+  <string name="update_failed_message">Could not fetch update information. Please try downloading manually.</string>
+  <string name="apk_download_channel_description">Notifications for app update downloads</string>
+  <string name="tap_to_install">Tap to install the update</string>
+  <string name="add_all_to_favorites">Add all to favorites</string>
+  <string name="add_all_songs_to_favorites_confirm">Add all %d songs to favorites?</string>
 </resources>
