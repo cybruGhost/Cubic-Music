@@ -1,7 +1,7 @@
 # Cubic Music 🎵 NEW RELEASE
 ---
 
-## 💖 𝐒𝐔𝐏𝐏𝐎𝐑𝐓 𝐓𝐇𝐄 𝐕𝐈𝐁𝐄 💖
+## 💖 𝐒𝐔𝐏𝐏𝐎𝐑𝐓 𝐓𝐇𝐄 DEVELOPMENT 💖
 
 > If you enjoy our work and want to support development, you can buy us a coffee ☕
 
@@ -12,6 +12,7 @@
 **Every bit of support helps keep cubicmusic growing 🚀**
 
 </div>
+
 ---
 
 <div align="center">
@@ -166,7 +167,7 @@ Your music. Your stats. Your story — ready to relive and share.
 
 <div align="center">
 
-**𝐌𝐚𝐝𝐞 𝐰𝐢𝐭𝐡 ❤️ 𝐛𝐲 𝐚 𝐥𝐞𝐚𝐫𝐧𝐞𝐫** [𝐜𝐲𝐛𝐫𝐮𝐆𝐡𝐨𝐬𝐭](https://github.com/cybruGhost)
+**𝐌𝐚𝐝𝐞 𝐰𝐢𝐭𝐡 ❤️ ** [𝐜𝐲𝐛𝐫𝐮𝐆𝐡𝐨𝐬𝐭](https://github.com/cybruGhost)
 
 # ⭐ 𝐃𝐨𝐧'𝐭 𝐟𝐨𝐫𝐠𝐞𝐭 𝐭𝐨 𝐬𝐭𝐚𝐫 𝐚𝐧𝐝 𝐟𝐨𝐥𝐥𝐨𝐰 𝐟𝐨𝐫 𝐮𝐩𝐝𝐚𝐭𝐞𝐬! 🚀
 
