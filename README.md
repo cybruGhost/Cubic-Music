@@ -1,14 +1,17 @@
 # Cubic Music 🎵 NEW RELEASE
 ---
 
-## ❤️ Support the project❣️💓
+## 💖 𝐒𝐔𝐏𝐏𝐎𝐑𝐓 𝐓𝐇𝐄 𝐕𝐈𝐁𝐄 💖
 
-If you enjoy our work and want to support development, you can buy us a coffee ☕  
+> If you enjoy our work and want to support development, you can buy us a coffee ☕
 
-👉 **[ko-fi.com/anonghost40418](https://ko-fi.com/anonghost40418)**
+<div align="center">
 
-Every bit of support helps keep cubicmusic growing 🚀  
+👉 **[𝐤𝐨-𝐟𝐢.𝐜𝐨𝐦/𝐚𝐧𝐨𝐧𝐠𝐡𝐨𝐬𝐭𝟒𝟎𝟒𝟏𝟖](https://ko-fi.com/anonghost40418)** 👈
 
+**Every bit of support helps keep cubicmusic growing 🚀**
+
+</div>
 ---
 
 <div align="center">
@@ -16,7 +19,7 @@ Every bit of support helps keep cubicmusic growing 🚀
 [![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
 [![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases)  
 [![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
-[![Crowdin](https://img.shields.io/badge/Crowdin-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
+[![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
 [![License: GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
 
 <p><b>Cubic Music</b> is an evolving streaming app focused on smooth music playback and user experience.  
@@ -135,36 +138,47 @@ Your music. Your stats. Your story — ready to relive and share.
 
 ---
 
-## ⚖️ Legal Notice
+# ⚖️ 𝐋𝐄𝐆𝐀𝐋 𝐍𝐎𝐓𝐈𝐂𝐄 ⚖️
 
-Cubic Music respects music copyrights and **does not enable illegal downloads**.  
-All content is streamed via licensed APIs or legitimate external sources only.
+> Cubic Music respects music copyrights and **does not enable illegal downloads**.  
+> All content is streamed via licensed APIs or legitimate external sources only.
+
+---
+
+# ⚠️ 𝐃𝐈𝐒𝐂𝐋𝐀𝐈𝐌𝐄𝐑 ⚠️
+
+> This project is **not affiliated with, endorsed by, or sponsored by YouTube, Google LLC, or their affiliates**.  
+> All trademarks and intellectual property belong to their respective owners.
 
 ---
 
-## ⚠️ Disclaimer
-
-This project is **not affiliated with, endorsed by, or sponsored by YouTube, Google LLC, or their affiliates**.  
-All trademarks and intellectual property belong to their respective owners.
-
----
-## CONVERT API STATUS 
-![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
-![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
-![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
+# 🔌 𝐂𝐎𝐍𝐕𝐄𝐑𝐓 𝐀𝐏𝐈 𝐒𝐓𝐀𝐓𝐔𝐒 🔌
 
 <div align="center">
 
-**Made with ❤️ by a learner** [cybruGhost](https://github.com/cybruGhost)
+| | | |
+|:---:|:---:|:---:|
+| ![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen) | ![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test) | ![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test) |
 
-**⭐ Don't forget to star and follow for updates! 🚀**
 </div>
 
 ---
 
-## 📋 **Supported Playlist Formats**
+<div align="center">
 
-### 🧩 **1. Compatible App Format (Native Format)**
+**𝐌𝐚𝐝𝐞 𝐰𝐢𝐭𝐡 ❤️ 𝐛𝐲 𝐚 𝐥𝐞𝐚𝐫𝐧𝐞𝐫** [𝐜𝐲𝐛𝐫𝐮𝐆𝐡𝐨𝐬𝐭](https://github.com/cybruGhost)
+
+# ⭐ 𝐃𝐨𝐧'𝐭 𝐟𝐨𝐫𝐠𝐞𝐭 𝐭𝐨 𝐬𝐭𝐚𝐫 𝐚𝐧𝐝 𝐟𝐨𝐥𝐥𝐨𝐰 𝐟𝐨𝐫 𝐮𝐩𝐝𝐚𝐭𝐞𝐬! 🚀
+
+</div>
+
+---
+
+# 📋 𝐒𝐔𝐏𝐏𝐎𝐑𝐓𝐄𝐃 𝐏𝐋𝐀𝐘𝐋𝐈𝐒𝐓 𝐅𝐎𝐑𝐌𝐀𝐓𝐒 📋
+
+---
+
+## 🧩 **𝟏. 𝐂𝐨𝐦𝐩𝐚𝐭𝐢𝐛𝐥𝐞 𝐀𝐩𝐩 𝐅𝐨𝐫𝐦𝐚𝐭 (𝐍𝐚𝐭𝐢𝐯𝐞 𝐅𝐨𝐫𝐦𝐚𝐭)**
 ```csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 ,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
