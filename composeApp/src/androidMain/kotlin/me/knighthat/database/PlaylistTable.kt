@@ -95,7 +95,8 @@ interface PlaylistTable {
     fun allMonthlySongs( limit: Int = Int.MAX_VALUE ): Flow<List<Song>>
 
     /**
-     * @return all playlists from this table with number of songs they carry
+     * @return all playlists from this table with number of songs they carry,
+     * sorted by ROWID (date added)
      */
     @Query("""
         SELECT DISTINCT 
@@ -110,6 +111,24 @@ interface PlaylistTable {
         LIMIT :limit
     """)
     fun allAsPreview( limit: Int = Int.MAX_VALUE ): Flow<List<PlaylistPreview>>
+
+    /**
+     * @return all playlists from this table with number of songs they carry,
+     * sorted case-insensitively by name (A-Z) with stable ordering
+     */
+    @Query("""
+        SELECT DISTINCT 
+            *,
+            (
+                SELECT COUNT(songId)
+                FROM SongPlaylistMap
+                WHERE playlistId = id
+            ) as songCount
+        FROM Playlist
+        ORDER BY name COLLATE NOCASE, name
+        LIMIT :limit
+    """)
+    fun allAsPreviewSortedByName( limit: Int = Int.MAX_VALUE ): Flow<List<PlaylistPreview>>
 
     /**
      * @param browseId of playlist to look for
@@ -222,11 +241,12 @@ interface PlaylistTable {
 
     /**
      * @return whether a playlist with name [playlistName] exists in the database
+     * Case-insensitive check to prevent duplicate names with different cases
      */
     @Query("""
         SELECT COUNT(*) > 0
         FROM Playlist
-        WHERE name = :playlistName
+        WHERE trim(name) COLLATE NOCASE = trim(:playlistName) COLLATE NOCASE
     """)
     fun exists( playlistName: String ): Flow<Boolean>
 
@@ -264,10 +284,12 @@ interface PlaylistTable {
     """)
     fun sortPreviewsByMostPlayed( limit: Int = Int.MAX_VALUE ): Flow<List<PlaylistPreview>>
 
+    /**
+     * Sort playlists by name (case-insensitive A-Z) with stable ordering
+     * Uses SQLite COLLATE NOCASE for optimal performance and correct sorting
+     */
     fun sortPreviewsByName( limit: Int = Int.MAX_VALUE ): Flow<List<PlaylistPreview>> =
-        allAsPreview( limit ).map { list ->
-            list.sortedBy { it.playlist.cleanName() }
-        }
+        allAsPreviewSortedByName( limit )
 
     fun sortPreviewsBySongCount( limit: Int = Int.MAX_VALUE ): Flow<List<PlaylistPreview>> =
         allAsPreview( limit ).map { list ->

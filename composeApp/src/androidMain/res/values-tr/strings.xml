@@ -657,7 +657,7 @@
   <string name="past_month">This month</string>
   <string name="past_year">This year</string>
   <string name="all_time">Tüm zamanlar</string>
-  <string name="header_view_top_of">Top %s of …</string>
+<string name="header_view_top_of">Top %s of …</string>
   <string name="podcast_episodes">Bölümler</string>
   <string name="podcasts">Podcast\'ler</string>
   <string name="playlistindicator">Playlist indicator</string>

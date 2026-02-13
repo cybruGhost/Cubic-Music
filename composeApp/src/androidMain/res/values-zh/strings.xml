@@ -657,7 +657,7 @@
   <string name="past_month">本月</string>
   <string name="past_year">今年：</string>
   <string name="all_time">All time</string>
-  <string name="header_view_top_of">Top %s of …</string>
+<string name="header_view_top_of">Top %s of …</string>
   <string name="podcast_episodes">Episodes</string>
   <string name="podcasts">Podcasts</string>
   <string name="playlistindicator">播放列表指示器</string>

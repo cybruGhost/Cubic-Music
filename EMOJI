@@ -674,11 +674,6 @@
 <string name="info_debug_mode_enabled">Debug mode enabled</string>
 <string name="info_debug_mode_is_enabled">Debug mode is enabled, remember to disable it in settings</string>
 <string name="tapqueue">Tap to open queue</string>
-<string name="past_day">This day</string>
-<string name="past_week">This week</string>
-<string name="past_month">This month</string>
-<string name="past_year">This year</string>
-<string name="all_time">All time</string>
 <string name="header_view_top_of">Top %s of …</string>
 <string name="podcast_episodes">Episodes</string>
 <string name="podcasts">Podcasts</string>
