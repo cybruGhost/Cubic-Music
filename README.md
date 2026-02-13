@@ -1,17 +1,13 @@
 # Cubic Music 🎵 NEW RELEASE
 ---
 
-## 💖 𝐒𝐔𝐏𝐏𝐎𝐑𝐓 𝐓𝐇𝐄 DEVELOPMENT 💖
+## ❤️ Support the project❣️💓
 
-> If you enjoy our work and want to support development, you can buy us a coffee ☕
+If you enjoy our work and want to support development, you can buy us a coffee ☕  
 
-<div align="center">
+👉 **[ko-fi.com/anonghost40418](https://ko-fi.com/anonghost40418)**
 
-👉 **[𝐤𝐨-𝐟𝐢.𝐜𝐨𝐦/𝐚𝐧𝐨𝐧𝐠𝐡𝐨𝐬𝐭𝟒𝟎𝟒𝟏𝟖](https://ko-fi.com/anonghost40418)** 👈
-
-**Every bit of support helps keep cubicmusic growing 🚀**
-
-</div>
+Every bit of support helps keep cubicmusic growing 🚀  
 
 ---
 
@@ -139,47 +135,36 @@ Your music. Your stats. Your story — ready to relive and share.
 
 ---
 
-# ⚖️ 𝐋𝐄𝐆𝐀𝐋 𝐍𝐎𝐓𝐈𝐂𝐄 ⚖️
+## ⚖️ Legal Notice
 
-> Cubic Music respects music copyrights and **does not enable illegal downloads**.  
-> All content is streamed via licensed APIs or legitimate external sources only.
-
----
-
-# ⚠️ 𝐃𝐈𝐒𝐂𝐋𝐀𝐈𝐌𝐄𝐑 ⚠️
-
-> This project is **not affiliated with, endorsed by, or sponsored by YouTube, Google LLC, or their affiliates**.  
-> All trademarks and intellectual property belong to their respective owners.
+Cubic Music respects music copyrights and **does not enable illegal downloads**.  
+All content is streamed via licensed APIs or legitimate external sources only.
 
 ---
 
-# 🔌 𝐂𝐎𝐍𝐕𝐄𝐑𝐓 𝐀𝐏𝐈 𝐒𝐓𝐀𝐓𝐔𝐒 🔌
+## ⚠️ Disclaimer
+
+This project is **not affiliated with, endorsed by, or sponsored by YouTube, Google LLC, or their affiliates**.  
+All trademarks and intellectual property belong to their respective owners.
+
+---
+## CONVERT API STATUS 
+![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
+![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
+![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
 
 <div align="center">
 
-| | | |
-|:---:|:---:|:---:|
-| ![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen) | ![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test) | ![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test) |
+**Made with ❤️ by a learner** [cybruGhost](https://github.com/cybruGhost)
 
+**⭐ Don't forget to star and follow for updates! 🚀**
 </div>
 
 ---
 
-<div align="center">
+## 📋 **Supported Playlist Formats**
 
-**𝐌𝐚𝐝𝐞 𝐰𝐢𝐭𝐡 ❤️ ** [𝐜𝐲𝐛𝐫𝐮𝐆𝐡𝐨𝐬𝐭](https://github.com/cybruGhost)
-
-# ⭐ 𝐃𝐨𝐧'𝐭 𝐟𝐨𝐫𝐠𝐞𝐭 𝐭𝐨 𝐬𝐭𝐚𝐫 𝐚𝐧𝐝 𝐟𝐨𝐥𝐥𝐨𝐰 𝐟𝐨𝐫 𝐮𝐩𝐝𝐚𝐭𝐞𝐬! 🚀
-
-</div>
-
----
-
-# 📋 𝐒𝐔𝐏𝐏𝐎𝐑𝐓𝐄𝐃 𝐏𝐋𝐀𝐘𝐋𝐈𝐒𝐓 𝐅𝐎𝐑𝐌𝐀𝐓𝐒 📋
-
----
-
-## 🧩 **𝟏. 𝐂𝐨𝐦𝐩𝐚𝐭𝐢𝐛𝐥𝐞 𝐀𝐩𝐩 𝐅𝐨𝐫𝐦𝐚𝐭 (𝐍𝐚𝐭𝐢𝐯𝐞 𝐅𝐨𝐫𝐦𝐚𝐭)**
+### 🧩 **1. Compatible App Format (Native Format)**
 ```csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 ,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
