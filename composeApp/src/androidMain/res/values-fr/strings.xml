@@ -652,11 +652,6 @@
   <string name="info_debug_mode_enabled">Mode débogage activé</string>
   <string name="info_debug_mode_is_enabled">Le mode débogage est activé, n\'oubliez pas de le désactiver dans les paramètres</string>
   <string name="tapqueue">Appuyer pour ouvrir la file d\'attente</string>
-  <string name="past_day">Jour précédent</string>
-  <string name="past_week">La semaine dernière</string>
-  <string name="past_month">Le mois dernier</string>
-  <string name="past_year">L\'année passée</string>
-  <string name="all_time">Tout le temps</string>
   <string name="header_view_top_of">Voir le top %s de …</string>
   <string name="podcast_episodes">Épisodes</string>
   <string name="podcasts">Podcasts</string>
@@ -756,7 +751,7 @@ Volume BAS : titre précédent</string>
   <string name="titleartist">Titre et Artistes</string>
   <string name="miniqueue">Petite file d\'attente</string>
   <string name="controls">Commandes</string>
-  <string name="add_to_favorites">Ajouter aux favoris</string>
+  <string name="add_to_favorites">Add All to favorites</string>
   <string name="import_favorites">Importer les favoris</string>
   <string name="skip_media_on_error">Ignorer automatiquement en cas d\'erreur</string>
   <string name="skip_media_on_error_description">Si une erreur survient, le média est changé</string>
@@ -1088,6 +1083,4 @@ Volume BAS : titre précédent</string>
   <string name="update_failed_message">Impossible de récupérer les informations de mise à jour. Veuillez essayer de les télécharger manuellement.</string>
   <string name="apk_download_channel_description">Notifications pour les téléchargements de mises à jour d\'applications</string>
   <string name="tap_to_install">Appuyez pour installer la mise à jour.</string>
-  <string name="add_all_to_favorites">Ajouter tout aux Favoris</string>
-  <string name="add_all_songs_to_favorites_confirm">Ajouter les %d titres aux Favoris ?</string>
 </resources>
