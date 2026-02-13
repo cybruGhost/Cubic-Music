@@ -652,11 +652,6 @@
   <string name="info_debug_mode_enabled">Modalità debug attivata</string>
   <string name="info_debug_mode_is_enabled">La modalità debug è abilitata, ricorda di disabilitarla nelle impostazioni</string>
   <string name="tapqueue">Tocca per aprire la coda</string>
-  <string name="past_day">Questo giorno</string>
-  <string name="past_week">Questa settimana</string>
-  <string name="past_month">Questo mese</string>
-  <string name="past_year">Quest\'anno</string>
-  <string name="all_time">Da sempre</string>
   <string name="header_view_top_of">Top %s di …</string>
   <string name="podcast_episodes">Episodi</string>
   <string name="podcasts">Podcast</string>
@@ -755,7 +750,7 @@
   <string name="titleartist">Titolo e Artisti</string>
   <string name="miniqueue">Prossima coda del brano</string>
   <string name="controls">Controlli</string>
-  <string name="add_to_favorites">Aggiungi ai preferiti</string>
+  <string name="add_to_favorites">Add All to favorites</string>
   <string name="import_favorites">Importa preferiti</string>
   <string name="skip_media_on_error">Salta il brano all\'errore</string>
   <string name="skip_media_on_error_description">Se si verifica un errore, passa al brano successivo</string>
@@ -1087,6 +1082,4 @@
   <string name="update_failed_message">Could not fetch update information. Please try downloading manually.</string>
   <string name="apk_download_channel_description">Notifications for app update downloads</string>
   <string name="tap_to_install">Tap to install the update</string>
-  <string name="add_all_to_favorites">Add all to favorites</string>
-  <string name="add_all_songs_to_favorites_confirm">Add all %d songs to favorites?</string>
 </resources>
