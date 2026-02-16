@@ -2,6 +2,7 @@ package it.fast4x.rimusic.ui.screens.search
 
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -29,12 +30,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.kreate.android.R
-import coil.compose.AsyncImage
 import it.fast4x.innertube.Innertube
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.ThumbnailRoundness
@@ -72,10 +73,10 @@ fun SearchMoodsGrid(
             contentPadding = PaddingValues(horizontal = 8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(360.dp)
+                .height(360.dp) // Compact height for 3 rows
         ) {
             items(
-                items = moods.take(6),
+                items = moods.take(6), // Show only first 6 moods
                 key = { it.endpoint.params ?: it.title }
             ) { mood ->
                 SearchMoodCard(
@@ -103,6 +104,7 @@ fun SearchMoodCard(
 
     val moodColor by remember { derivedStateOf { Color(mood.stripeColor) } }
 
+    // Get drawable resource for this mood
     val imageResource = remember(mood.title) {
         MoodImages.getImageResource(mood.title)
     }
@@ -110,13 +112,13 @@ fun SearchMoodCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(1.5f) // Rectangular card like Spotify
+            .aspectRatio(1.5f)
             .clip(thumbnailRoundness.shape)
             .background(moodColor)
             .clickable { onClick() }
     ) {
-        AsyncImage(
-            model = imageResource,
+        Image(
+            painter = painterResource(id = imageResource),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -124,7 +126,7 @@ fun SearchMoodCard(
                 .align(Alignment.BottomEnd)
                 .padding(end = 8.dp, bottom = 8.dp)
                 .graphicsLayer {
-                    rotationZ = -15f
+                    rotationZ = -15f // Tilt the image slightly
                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
                 }
         )
