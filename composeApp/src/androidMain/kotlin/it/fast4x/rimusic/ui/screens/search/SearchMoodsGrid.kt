@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -71,10 +72,10 @@ fun SearchMoodsGrid(
             contentPadding = PaddingValues(horizontal = 8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(360.dp) // Compact height for 3 rows
+                .height(360.dp)
         ) {
             items(
-                items = moods.take(6), // Show only first 6 moods
+                items = moods.take(6),
                 key = { it.endpoint.params ?: it.title }
             ) { mood ->
                 SearchMoodCard(
@@ -102,9 +103,8 @@ fun SearchMoodCard(
 
     val moodColor by remember { derivedStateOf { Color(mood.stripeColor) } }
 
-    // Generate image URL based on mood title
-    val imageUrl = remember(mood.title) {
-        getMoodImageUrl(mood.title)
+    val imageResource = remember(mood.title) {
+        MoodImages.getImageResource(mood.title)
     }
 
     Box(
@@ -115,70 +115,33 @@ fun SearchMoodCard(
             .background(moodColor)
             .clickable { onClick() }
     ) {
-        // Background image
         AsyncImage(
-            model = imageUrl,
+            model = imageResource,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .fillMaxSize()
+                .size(80.dp)
                 .align(Alignment.BottomEnd)
-                .padding(start = 80.dp) // Image on right side
+                .padding(end = 8.dp, bottom = 8.dp)
+                .graphicsLayer {
+                    rotationZ = -15f
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
+                }
         )
 
-        // Mood title with background overlay
-        Box(
+        BasicText(
+            text = mood.title,
+            style = TextStyle(
+                color = Color.White,
+                fontStyle = typography().s.semiBold.fontStyle,
+                fontWeight = typography().s.semiBold.fontWeight,
+                fontSize = typography().s.fontSize
+            ),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .fillMaxSize()
-                .background(moodColor.copy(alpha = 0.7f))
-        ) {
-            BasicText(
-                text = mood.title,
-                style = TextStyle(
-                    color = Color.White,
-                    fontStyle = typography().s.semiBold.fontStyle,
-                    fontWeight = typography().s.semiBold.fontWeight,
-                    fontSize = typography().s.fontSize
-                ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(12.dp)
-            )
-        }
+                .align(Alignment.TopStart)
+                .padding(12.dp)
+        )
     }
-}
-
-private fun getMoodImageUrl(moodTitle: String): String {
-    val keyword = when {
-        moodTitle.contains("Rock", ignoreCase = true) -> "rock-music-concert"
-        moodTitle.contains("Pop", ignoreCase = true) -> "pop-music-concert"
-        moodTitle.contains("Hip Hop", ignoreCase = true) || moodTitle.contains("Rap", ignoreCase = true) -> "hip-hop-concert"
-        moodTitle.contains("Jazz", ignoreCase = true) -> "jazz-saxophone"
-        moodTitle.contains("Classical", ignoreCase = true) -> "orchestra-classical"
-        moodTitle.contains("Electronic", ignoreCase = true) || moodTitle.contains("EDM", ignoreCase = true) -> "edm-dj-concert"
-        moodTitle.contains("Country", ignoreCase = true) -> "country-guitar"
-        moodTitle.contains("R&B", ignoreCase = true) || moodTitle.contains("Soul", ignoreCase = true) -> "rnb-singer"
-        moodTitle.contains("Metal", ignoreCase = true) -> "metal-concert"
-        moodTitle.contains("Reggae", ignoreCase = true) -> "reggae-jamaica"
-        moodTitle.contains("Blues", ignoreCase = true) -> "blues-guitar"
-        moodTitle.contains("Folk", ignoreCase = true) -> "folk-acoustic-guitar"
-        moodTitle.contains("Latin", ignoreCase = true) -> "latin-dance"
-        moodTitle.contains("Indie", ignoreCase = true) -> "indie-band"
-        moodTitle.contains("Workout", ignoreCase = true) || moodTitle.contains("Gym", ignoreCase = true) -> "workout-fitness"
-        moodTitle.contains("Chill", ignoreCase = true) || moodTitle.contains("Relax", ignoreCase = true) -> "chill-relax"
-        moodTitle.contains("Party", ignoreCase = true) -> "party-celebration"
-        moodTitle.contains("Sleep", ignoreCase = true) -> "sleep-peaceful"
-        moodTitle.contains("Focus", ignoreCase = true) || moodTitle.contains("Study", ignoreCase = true) -> "focus-study"
-        moodTitle.contains("Happy", ignoreCase = true) || moodTitle.contains("Feel Good", ignoreCase = true) -> "happy-smile"
-        moodTitle.contains("Sad", ignoreCase = true) -> "sad-rain"
-        moodTitle.contains("Romance", ignoreCase = true) || moodTitle.contains("Love", ignoreCase = true) -> "romance-love"
-        moodTitle.contains("Travel", ignoreCase = true) -> "travel-journey"
-        moodTitle.contains("K-Pop", ignoreCase = true) -> "kpop-concert"
-        moodTitle.contains("Afrobeats", ignoreCase = true) -> "afrobeats-dance"
-        else -> "music-concert"
-    }
-
-    return "https://source.unsplash.com/400x300/?$keyword"
 }
