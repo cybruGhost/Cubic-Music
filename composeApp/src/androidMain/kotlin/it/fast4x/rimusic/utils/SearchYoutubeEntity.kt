@@ -115,6 +115,7 @@ fun SearchYoutubeEntity (
                             thumbnailWidthDp = thumbnailWidthDp,
                             thumbnailHeightDp = thumbnailHeightDp,
                             modifier = Modifier
+                                .background(colorPalette().background0)
                                 .combinedClickable(
                                     onLongClick = {
                                         menuState.display {

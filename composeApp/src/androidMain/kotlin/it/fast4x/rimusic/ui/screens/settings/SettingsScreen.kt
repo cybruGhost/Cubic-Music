@@ -872,6 +872,75 @@ fun OtherSettingsEntry(
 
 
 @Composable
+fun OtherInfoSettingsEntry(
+    title: String,
+    text: String,
+    icon: Int,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(8.dp)),
+        color = Color.Transparent
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            color = colorPalette().accent.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(icon),
+                        tint = colorPalette().accent,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Content
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    BasicText(
+                        text = title,
+                        style = typography().s.semiBold.copy(
+                            color = colorPalette().text
+                        )
+                    )
+                    if (text.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        BasicText(
+                            text = text,
+                            style = typography().xs.copy(
+                                color = colorPalette().textSecondary
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
 fun CacheSettingsEntry(
     title: String,
     text: String,

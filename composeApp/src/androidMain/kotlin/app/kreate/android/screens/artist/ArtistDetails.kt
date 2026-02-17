@@ -3,6 +3,7 @@ package app.kreate.android.screens.artist
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -326,6 +327,7 @@ fun ArtistDetails(
                                 itemSelector = itemSelector,
                                 navController = navController,
                                 showThumbnail = true,
+                               modifier = Modifier.background(colorPalette().background0),
                                 onClick = {
                                     binder?.stopRadio()
                                     binder?.player?.forcePlayAtIndex(

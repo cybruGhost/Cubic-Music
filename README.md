@@ -155,7 +155,7 @@ All trademarks and intellectual property belong to their respective owners.
 
 <div align="center">
 
-**Made with ❤️ by a learner** [cybruGhost](https://github.com/cybruGhost)
+**Made with ❤️ by ** [cybruGhost](https://github.com/cybruGhost)
 
 **⭐ Don't forget to star and follow for updates! 🚀**
 </div>

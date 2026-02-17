@@ -238,7 +238,7 @@ fun Podcast(
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box(
             modifier = Modifier
-                .background(colorPalette().background0)
+                 .background(colorPalette().background0)
                 //.fillMaxSize()
                 .fillMaxHeight()
                 .fillMaxWidth(

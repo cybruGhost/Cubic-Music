@@ -162,6 +162,16 @@ import it.fast4x.rimusic.utils.visualizerEnabledKey
 import it.fast4x.rimusic.utils.wallpaperTypeKey
 import me.knighthat.component.tab.Search
 import me.knighthat.utils.Toaster
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+
+
 
 @Composable
 fun DefaultAppearanceSettings() {
@@ -858,50 +868,82 @@ fun AppearanceSettings(
             )
         }
 
-        if (!isLandscape) {
+if (!isLandscape) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = colorPalette().background1,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .clickable(onClick = { appearanceChooser = true })
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column {
                 BasicText(
                     text = stringResource(R.string.appearancepresets),
-                    style = typography().m.semiBold.copy(color = colorPalette().text),
-                    modifier = Modifier
-                        .padding(all = 12.dp)
-                        .clickable(onClick = { appearanceChooser = true })
+                    style = typography().m.semiBold.copy(color = colorPalette().text)
                 )
                 BasicText(
                     text = stringResource(R.string.appearancepresetssecondary),
-                    style = typography().xs.semiBold.copy(color = colorPalette().textSecondary),
-                    modifier = Modifier
-                        .padding(start = 12.dp)
-                        .padding(bottom = 10.dp)
+                    style = typography().xs.semiBold.copy(color = colorPalette().textSecondary)
                 )
             }
-
-            if (search.inputValue.isBlank() || stringResource(R.string.show_player_top_actions_bar).contains(
-                    search.inputValue,
-                    true
-                )
-            )
-                SwitchSettingEntry(
-                    title = stringResource(R.string.show_player_top_actions_bar),
-                    text = "",
-                    isChecked = showTopActionsBar,
-                    onCheckedChange = { showTopActionsBar = it }
-                )
-
-            if (!showTopActionsBar) {
-                if (search.inputValue.isBlank() || stringResource(R.string.blankspace).contains(
-                        search.inputValue,
-                        true
+            
+            // More noticeable arrow with background
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = colorPalette().accent.copy(alpha = 0.2f),
+                        shape = CircleShape
                     )
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.arrow_forward),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = colorPalette().accent
                 )
-                    SwitchSettingEntry(
-                        title = stringResource(R.string.blankspace),
-                        text = "",
-                        isChecked = topPadding,
-                        onCheckedChange = { topPadding = it }
-                    )
             }
         }
+    }
+    
+    Spacer(modifier = Modifier.height(8.dp))
+
+    if (search.inputValue.isBlank() || stringResource(R.string.show_player_top_actions_bar).contains(
+            search.inputValue,
+            true
+        )
+    )
+        SwitchSettingEntry(
+            title = stringResource(R.string.show_player_top_actions_bar),
+            text = "",
+            isChecked = showTopActionsBar,
+            onCheckedChange = { showTopActionsBar = it }
+        )
+
+    if (!showTopActionsBar) {
+        if (search.inputValue.isBlank() || stringResource(R.string.blankspace).contains(
+                search.inputValue,
+                true
+            )
+        )
+            SwitchSettingEntry(
+                title = stringResource(R.string.blankspace),
+                text = "",
+                isChecked = topPadding,
+                onCheckedChange = { topPadding = it }
+            )
+    }
+}
         if (search.inputValue.isBlank() || stringResource(R.string.playertype).contains(
                 search.inputValue,
                 true

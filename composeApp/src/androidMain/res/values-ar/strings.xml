@@ -652,6 +652,11 @@
   <string name="info_debug_mode_enabled">Debug Mode Enabled</string>
   <string name="info_debug_mode_is_enabled">Debug mode is enabled, remember to disable it in settings</string>
   <string name="tapqueue">Tap to open Queue</string>
+  <string name="past_day">Past day</string>
+  <string name="past_week">Past week</string>
+  <string name="past_month">Past month</string>
+  <string name="past_year">Past year</string>
+  <string name="all_time">All time</string>
   <string name="header_view_top_of">View top %s of …</string>
   <string name="podcast_episodes">Episodes</string>
   <string name="podcasts">Podcasts</string>
@@ -750,7 +755,7 @@
   <string name="titleartist">Title and Artists</string>
   <string name="miniqueue">Mini Queue</string>
   <string name="controls">Controls</string>
-  <string name="add_to_favorites">Add All to favorites</string>
+  <string name="add_to_favorites">Add to favorites</string>
   <string name="import_favorites">Import favorites</string>
   <string name="skip_media_on_error">Autoskip on error</string>
   <string name="skip_media_on_error_description">If an error occurs, the media is changed</string>
@@ -800,7 +805,7 @@
   <string name="now_playing_indicator">Now Playing Indicator</string>
   <string name="good_afternoon">Good Afternoon☀️</string>
   <string name="good_evening">Good Evening🌤</string>
-  <string name="good_morning">Good Morning🌞</string>
+  <string name="good_morning">Good Morning🌞</string> 
   <string name="good_night">Good Night🌘</string>
   <string name="colored_bar">Colored bar</string>
   <string name="about_developers_designers">App Developers</string>
@@ -957,7 +962,6 @@
   <string name="update_changelogs">%s changelogs</string>
   <string name="rotating_cover_title">Rotating album cover</string>
   <string name="title_playback_speed">Playback speed</string>
-  <string name="error_no_inet">No internet connection</string>
   <string name="description_playback_speed">Adjust how slow/fast the song goes</string>
   <string name="opens_link_in_web_browser">فتح الرابط في متصفح الويب</string>
   <string name="title_appearance_changes">تغيير المظهر</string>
@@ -1051,35 +1055,4 @@
   <string name="cache_status">حالة ذاكرة التخزين المؤقت</string>
   <string name="cache_working">عمل المخبئ</string>
   <string name="cache_empty">ذاكرة التخزين المؤقت فارغة</string>
-  <string name="rewind">Rewind</string>
-  <string name="donate">Donate</string>
-  <!-- Spotify Canvas Strings -->
-  <string name="spotify_canvas">Spotify Canvas</string>
-  <string name="spotify_canvas_description">Show animated canvas videos in player</string>
-  <string name="spotify_not_connected">Not connected</string>
-  <string name="spotify_connected">Connected</string>
-  <string name="spotify_add_email">Tap to add email</string>
-  <string name="spotify_debug_logs">Show debug logs</string>
-  <string name="spotify_disconnect">Disconnect Spotify</string>
-  <string name="spotify_email_dialog_title">Spotify Canvas Email</string>
-  <string name="spotify_email_instructions">Enter the email you used to sign in to Spotify Canvas website</string>
-  <string name="spotify_note">Note: You must first authenticate at:\nv0-spotify-playlist-csv.vercel.app</string>
-  <string name="spotify_disconnect_confirm">Disconnect Spotify Canvas?\nThis will remove your email and disable the feature.</string>
-  <string name="forcePlayFromBeginning">Play from Beginning</string>
-  <string name="smart_shuffle">Smart Shuffle</string>
-  <string name="loading_recommendations">Loading recommendations…</string>
-  <string name="recommendations">Recommendations</string>
-  <!-- Auto-install strings -->
-  <string name="downloading_update">Downloading update…</string>
-  <string name="download_progress_hint">The app will install automatically when download completes. Ensure a stable internet connection.</string>
-  <string name="download_complete">Download Complete</string>
-  <string name="apk_download_channel_name">App Updates</string>
-  <string name="installing_update">Installing Update…</string>
-  <string name="update_downloaded">Update Downloaded</string>
-  <string name="ready_to_install">Ready to install</string>
-  <string name="download_and_install">Download and Install</string>
-  <string name="update_failed_title">Update Check Failed</string>
-  <string name="update_failed_message">Could not fetch update information. Please try downloading manually.</string>
-  <string name="apk_download_channel_description">Notifications for app update downloads</string>
-  <string name="tap_to_install">Tap to install the update</string>
 </resources>

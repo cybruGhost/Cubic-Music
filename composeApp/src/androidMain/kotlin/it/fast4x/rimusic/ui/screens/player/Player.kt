@@ -16,7 +16,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import coil3.compose.AsyncImage
-import coil3.compose.rememberAsyncImagePainter
+import me.knighthat.coil.ImageCacheFactory
+//import coil3.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -1626,8 +1627,8 @@ SpotifyCanvasWorker()
                                          .conditional(fadingedge) {horizontalFadingEdge()}
                                      ) {
 
-                                     val coverPainter = rememberAsyncImagePainter(
-                                         model = binder.player.getMediaItemAt( it ).mediaMetadata.artworkUri.toString()
+                                    val coverPainter = ImageCacheFactory.Painter(
+                                         thumbnailUrl = binder.player.getMediaItemAt( it ).mediaMetadata.artworkUri.toString()
                                      )
 
                                      val coverModifier = Modifier
@@ -2241,10 +2242,10 @@ Column(
                                          }
                                  ){
 
-                                     val coverPainter = rememberAsyncImagePainter(
-                                         model = binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString()
+                                    val coverPainter = ImageCacheFactory.Painter(
+                                         thumbnailUrl = binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString()
                                      )
-
+                                     
                                      val coverModifier = Modifier
                                          .aspectRatio(1f)
                                          .padding(all = animatePadding)

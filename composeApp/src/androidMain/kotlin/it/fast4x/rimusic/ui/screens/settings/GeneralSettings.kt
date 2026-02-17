@@ -257,7 +257,8 @@ fun GeneralSettings(
     var pipModule by rememberPreference(pipModuleKey, PipModule.Cover)
     var jumpPrevious by rememberPreference(jumpPreviousKey,"3")
     var notificationType by rememberPreference(notificationTypeKey, NotificationType.Default)
-
+     var showCommentsButton by rememberPreference("show_comments_button", true)
+     
     Column(
         modifier = Modifier
             .background(colorPalette().background0)
@@ -656,6 +657,49 @@ AnimatedVisibility(
                     text = "When YouTube can't play a song, automatically try alternative source",
                     modifier = Modifier.padding(start = 25.dp, top = 4.dp),
                     textAlign = TextAlign.Start
+                )
+            }
+        }
+    )
+}
+
+Spacer(modifier = Modifier.height(16.dp))
+
+// ============================================================
+// COMMENTS BUTTON TOGGLE SECTION - ADD THIS BETWEEN WAIGWE AND NOTIFICATIONS
+// ============================================================
+AnimatedVisibility(
+    visible = true,
+    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(687)) + androidx.compose.animation.scaleIn(
+        animationSpec = androidx.compose.animation.core.tween(687),
+        initialScale = 0.9f
+    )
+) {
+    SettingsSectionCard(
+        title = "Comments Button",
+        icon = R.drawable.comments,
+        content = {
+            var showCommentsButton by rememberPreference("show_comments_button", true)
+            
+            if (search.inputValue.isBlank() || "Comments Button".contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = "Show comments button",
+                    text = "Display comments button on album art",
+                    isChecked = showCommentsButton,
+                    onCheckedChange = { showCommentsButton = it },
+                    icon = R.drawable.comments
+                )
+                
+                // Simple description
+                SettingsDescription(
+                    text = "Show/hide the comments button in the player screen",
+                    modifier = Modifier.padding(start = 25.dp, top = 4.dp),
+                    textAlign = TextAlign.Start
+                )
+                
+                // Optional: Show note about requiring restart
+                ImportantSettingsDescription(
+                    text = "Changes take effect immediately"
                 )
             }
         }

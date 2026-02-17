@@ -36,13 +36,17 @@ import it.fast4x.rimusic.utils.autoDownloadSongKey
 import it.fast4x.rimusic.utils.autoDownloadSongWhenAlbumBookmarkedKey
 import it.fast4x.rimusic.utils.autoDownloadSongWhenLikedKey
 import it.fast4x.rimusic.utils.isConnectionMeteredEnabledKey
+import it.fast4x.rimusic.utils.imageQualityFormatKey
+import it.fast4x.rimusic.enums.ImageQualityFormat
 import it.fast4x.rimusic.utils.navigationBarPositionKey
 import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.enums.AudioQualityFormat
 import it.fast4x.rimusic.ui.components.themed.ValueSelectorDialog
-
 import it.fast4x.rimusic.utils.audioQualityFormatKey
 import it.fast4x.rimusic.utils.RestartPlayerService
+import me.knighthat.coil.ImageCacheFactory
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.delay
 
 @ExperimentalAnimationApi
 @UnstableApi
@@ -50,15 +54,24 @@ import it.fast4x.rimusic.utils.RestartPlayerService
 fun NetworkSettings(
     navController: NavController
 ) {
-    var isConnectionMeteredEnabled by rememberPreference(isConnectionMeteredEnabledKey, true)
+    var isConnectionMeteredEnabled by rememberPreference(isConnectionMeteredEnabledKey, false)
     var autoDownloadSong by rememberPreference(autoDownloadSongKey, false)
     var autoDownloadSongWhenLiked by rememberPreference(autoDownloadSongWhenLikedKey, false)
     var autoDownloadSongWhenAlbumBookmarked by rememberPreference(autoDownloadSongWhenAlbumBookmarkedKey, false)
     var audioQualityFormat by rememberPreference(audioQualityFormatKey, AudioQualityFormat.Auto)
+    var imageQualityFormat by rememberPreference(imageQualityFormatKey, ImageQualityFormat.Auto)
     var restartService by rememberSaveable { mutableStateOf(false) }
     var showAudioQualityDialog by rememberSaveable { mutableStateOf(false) }
+    var showImageQualityDialog by rememberSaveable { mutableStateOf(false) }
     
     var navigationBarPosition by rememberPreference(navigationBarPositionKey, NavigationBarPosition.Bottom)
+
+    val networkQuality by produceState(initialValue = ImageCacheFactory.getCurrentNetworkQuality()) {
+        while (true) {
+            value = ImageCacheFactory.getCurrentNetworkQuality()
+            delay(5000) // Refresh every 5 seconds
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -90,30 +103,63 @@ fun NetworkSettings(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Connection Settings Section
+        // Network Status Section (Informative, non-clickable)
         SettingsSectionCard(
-            title = stringResource(R.string.connection_settings),
+            title = stringResource(R.string.network_status),
             icon = R.drawable.network,
             content = {
-                OtherSwitchSettingEntry(
-                    title = stringResource(R.string.enable_connection_metered),
-                    text = stringResource(R.string.info_enable_connection_metered),
-                    isChecked = isConnectionMeteredEnabled,
-                    onCheckedChange = {
-                        isConnectionMeteredEnabled = it
-                    },
-                    icon = R.drawable.wifi
+                val detectedText = when(networkQuality) {
+                    ImageCacheFactory.NetworkQuality.LOW -> stringResource(R.string.network_quality_low)
+                    ImageCacheFactory.NetworkQuality.MEDIUM -> stringResource(R.string.network_quality_medium)
+                    ImageCacheFactory.NetworkQuality.HIGH -> stringResource(R.string.network_quality_high)
+                }
+                
+                // Image Status
+                val imageStatusText = if (imageQualityFormat == ImageQualityFormat.Auto) {
+                    stringResource(R.string.audio_quality_auto_fmt, detectedText)
+                } else {
+                    when(imageQualityFormat) {
+                        ImageQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
+                        ImageQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
+                        ImageQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
+                        else -> detectedText
+                    }
+                }
+
+                OtherInfoSettingsEntry(
+                    title = stringResource(R.string.image_quality_format),
+                    text = imageStatusText,
+                    icon = R.drawable.image
+                )
+                
+                // Audio Status
+                val audioStatusText = if (audioQualityFormat == AudioQualityFormat.Auto) {
+                    stringResource(R.string.audio_quality_auto_fmt, detectedText)
+                } else {
+                    when(audioQualityFormat) {
+                        AudioQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
+                        AudioQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
+                        AudioQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
+                        else -> detectedText
+                    }
+                }
+                
+                OtherInfoSettingsEntry(
+                    title = stringResource(R.string.audio_quality_format),
+                    text = audioStatusText,
+                    icon = R.drawable.audio_quality
                 )
             }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Audio Quality Settings Section
+        // Quality Settings Section (Clickable override)
         SettingsSectionCard(
-            title = stringResource(R.string.audio_quality_format),
-            icon = R.drawable.speaker,
+            title = stringResource(R.string.quality),
+            icon = R.drawable.audio_quality,
             content = {
+                // Audio Quality Entry
                 OtherSettingsEntry(
                     title = stringResource(R.string.audio_quality_format),
                     text = when (audioQualityFormat) {
@@ -122,9 +168,23 @@ fun NetworkSettings(
                         AudioQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
                         AudioQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
                     },
-                    icon = R.drawable.audio_quality,
+                    icon = R.drawable.speaker,
                     onClick = { showAudioQualityDialog = true }
                 )
+                
+                // Image Quality Entry
+                OtherSettingsEntry(
+                    title = stringResource(R.string.image_quality_format),
+                    text = when (imageQualityFormat) {
+                        ImageQualityFormat.Auto -> stringResource(R.string.audio_quality_automatic)
+                        ImageQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
+                        ImageQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
+                        ImageQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
+                    },
+                    icon = R.drawable.image,
+                    onClick = { showImageQualityDialog = true }
+                )
+                
                 RestartPlayerService(restartService, onRestart = { restartService = false })
             }
         )
@@ -150,6 +210,46 @@ fun NetworkSettings(
                 }
             )
         }
+        
+        if (showImageQualityDialog) {
+            ValueSelectorDialog(
+                title = stringResource(R.string.image_quality_format),
+                values = ImageQualityFormat.values().toList(),
+                selectedValue = imageQualityFormat,
+                onValueSelected = {
+                    imageQualityFormat = it
+                    showImageQualityDialog = false
+                },
+                onDismiss = { showImageQualityDialog = false },
+                valueText = {
+                    when (it) {
+                        ImageQualityFormat.Auto -> stringResource(R.string.audio_quality_automatic)
+                        ImageQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
+                        ImageQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
+                        ImageQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Connection Settings Section
+        SettingsSectionCard(
+            title = stringResource(R.string.connection_settings),
+            icon = R.drawable.network,
+            content = {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.enable_connection_metered),
+                    text = stringResource(R.string.info_enable_connection_metered),
+                    isChecked = isConnectionMeteredEnabled,
+                    onCheckedChange = {
+                        isConnectionMeteredEnabled = it
+                    },
+                    icon = R.drawable.wifi
+                )
+            }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 

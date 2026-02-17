@@ -34,9 +34,26 @@ class CubicJamManager(
     private var refreshJob: Job? = null
     private var lastUpdateTime = 0L
     private val UPDATE_INTERVAL = 15000L // 15 seconds
+    
+    // Flag to indicate if user has explicitly logged out
+    private var isUserLoggedOut = false
 
-    // Token refresh helper for manager
+    // Public method for explicit logout - this should be called when user clicks logout
+    fun logout() {
+        isUserLoggedOut = true
+        val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
+        lastToken = null
+        Timber.tag("CubicJam").d("User explicitly logged out, data cleared")
+    }
+
+    // Token refresh helper for manager - FIXED to NOT delete data on refresh failure
     private suspend fun ensureValidTokenForManager(): String? {
+        // If user explicitly logged out, don't attempt anything
+        if (isUserLoggedOut) {
+            return null
+        }
+        
         val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
         val currentToken = prefs.getString("bearer_token", null)
         val refreshToken = prefs.getString("refresh_token", null)
@@ -55,23 +72,23 @@ class CubicJamManager(
                             lastToken = authResponse.session.access_token
                             Timber.tag("CubicJam").d("✅ Token refreshed successfully")
                             return authResponse.session.access_token
+                        } else {
+                            Timber.tag("CubicJam").w("Token refresh returned unsuccessful but not failed")
+                            // Don't delete data, just return current token and hope it works
+                            return currentToken
                         }
                     },
                     onFailure = { e ->
-                        Timber.tag("CubicJam").e(e, "Failed to refresh token")
-                        // Token refresh failed, user needs to re-login
-                        prefs.edit().apply {
-                            remove("bearer_token")
-                            remove("refresh_token")
-                            remove("refresh_at")
-                            apply()
-                        }
-                        return null
+                        // LOG ONLY - DON'T DELETE DATA
+                        Timber.tag("CubicJam").e(e, "Failed to refresh token, but keeping user data")
+                        // Return the current token - it might still work
+                        return currentToken
                     }
                 )
             } catch (e: Exception) {
-                Timber.tag("CubicJam").e(e, "Error refreshing token")
-                return null
+                // LOG ONLY - DON'T DELETE DATA
+                Timber.tag("CubicJam").e(e, "Error refreshing token, but keeping user data")
+                return currentToken
             }
         }
         
@@ -107,16 +124,19 @@ class CubicJamManager(
                                     Timber.tag("CubicJam").d("Retrying request with new token")
                                     val newToken = authResponse.session.access_token
                                     return@recoverCatching request(newToken)
+                                } else {
+                                    Timber.tag("CubicJam").w("Token refresh unsuccessful, but keeping data")
+                                    // Don't throw, just rethrow original error
                                 }
                             },
                             onFailure = { e ->
-                                Timber.tag("CubicJam").e(e, "Failed to refresh token")
-                                // Throw an exception instead of returning null
-                                throw IllegalStateException("Authentication failed: ${e.message}")
+                                // LOG ONLY - DON'T DELETE DATA
+                                Timber.tag("CubicJam").e(e, "Failed to refresh token on 401, but keeping user data")
                             }
                         )
                     } catch (e: Exception) {
-                        Timber.tag("CubicJam").e(e, "Token refresh failed")
+                        // LOG ONLY - DON'T DELETE DATA
+                        Timber.tag("CubicJam").e(e, "Token refresh failed on 401, but keeping user data")
                     }
                 }
             }
@@ -238,22 +258,26 @@ class CubicJamManager(
         externalScope.launch {
             Timber.tag("CubicJam").d("Media stopped, sending clear activity")
             
-            makeAuthenticatedRequest { token ->
-                Innertube.client.post("$BASE_URL/clear-activity") {
-                    header("Authorization", "Bearer $token")
-                    contentType(ContentType.Application.Json)
-                    setBody("{}")
-                }
-            }.fold(
-                onSuccess = { response ->
-                    if (response.status.value in 200..299) {
-                        Timber.tag("CubicJam").d("✅ Activity cleared successfully")
+            try {
+                makeAuthenticatedRequest { token ->
+                    Innertube.client.post("$BASE_URL/clear-activity") {
+                        header("Authorization", "Bearer $token")
+                        contentType(ContentType.Application.Json)
+                        setBody("{}")
                     }
-                },
-                onFailure = { e ->
-                    Timber.tag("CubicJam").e(e, "Failed to clear activity")
-                }
-            )
+                }.fold(
+                    onSuccess = { response ->
+                        if (response.status.value in 200..299) {
+                            Timber.tag("CubicJam").d("✅ Activity cleared successfully")
+                        }
+                    },
+                    onFailure = { e ->
+                        Timber.tag("CubicJam").e(e, "Failed to clear activity")
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.tag("CubicJam").e(e, "Error in sendStoppedActivity")
+            }
         }
     }
 

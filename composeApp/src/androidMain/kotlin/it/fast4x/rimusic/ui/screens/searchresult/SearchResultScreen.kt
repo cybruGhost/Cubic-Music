@@ -3,6 +3,7 @@ import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -214,6 +215,7 @@ fun SearchResultScreen(
                                 SongItem(
                                     song = song.asSong,
                                     navController = navController,
+                                    modifier = Modifier.background(colorPalette().background0),
                                     onClick = {
                                         binder?.startRadio(song.asMediaItem, false, song.info?.endpoint)
                                     }
@@ -491,6 +493,7 @@ fun SearchResultScreen(
                                     thumbnailWidthDp = thumbnailWidthDp,
                                     thumbnailHeightDp = thumbnailHeightDp,
                                     modifier = Modifier
+                                        .background(colorPalette().background0)
                                         .combinedClickable(
                                             onLongClick = {
                                                 menuState.display {

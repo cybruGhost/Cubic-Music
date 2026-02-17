@@ -610,18 +610,12 @@ class MainActivity :
                     preferences.getEnum(colorPaletteModeKey, ColorPaletteMode.Dark)
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
-                        val result = coil3.SingletonImageLoader.get(this@MainActivity).execute(
-                            coil3.request.ImageRequest.Builder(this@MainActivity)
-                                .data(url)
-                                .allowHardware(false)
-                                .build()
-                        )
+                        val bitmap = ImageCacheFactory.loadBitmap(url, allowHardware = false)
                         
                         val isPicthBlack = colorPaletteMode == ColorPaletteMode.PitchBlack
                         val isDark =
                             colorPaletteMode == ColorPaletteMode.Dark || isPicthBlack || (colorPaletteMode == ColorPaletteMode.System && isSystemInDarkTheme)
 
-                        val bitmap = result.image?.toBitmap()
                         if (bitmap != null) {
                             val palette = Palette
                                 .from(bitmap)
@@ -1378,4 +1372,3 @@ val LocalPlayerSheetState =
     staticCompositionLocalOf<SheetState> { error("No player sheet state provided") }
 
 //val LocalInternetConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
-

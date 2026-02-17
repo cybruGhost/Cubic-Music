@@ -5,23 +5,22 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.core.graphics.applyCanvas
-import me.knighthat.coil.ImageCacheFactory
-import coil3.ImageLoader
-import coil3.request.ImageRequest
-import coil3.request.Disposable
-import coil3.request.allowHardware
-import androidx.core.graphics.drawable.toBitmap
-import coil3.toBitmap
 import it.fast4x.rimusic.appContext
-import it.fast4x.rimusic.utils.thumbnail
 import timber.log.Timber
+import me.knighthat.coil.ImageCacheFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 //context(Context)
 class BitmapProvider(
+    private val scope: CoroutineScope,
     private val bitmapSize: Int,
     private val colorProvider: (isSystemInDarkMode: Boolean) -> Int
 ) {
-    private val imageLoader = coil3.SingletonImageLoader.get(appContext())
+    // Removed private val imageLoader
 
     var lastUri: Uri? = null
         private set
@@ -29,7 +28,7 @@ class BitmapProvider(
     var lastBitmap: Bitmap? = null
     private var lastIsSystemInDarkMode = false
 
-    private var lastEnqueued: Disposable? = null
+    private var loadJob: Job? = null
 
     private lateinit var defaultBitmap: Bitmap
 
@@ -78,35 +77,33 @@ class BitmapProvider(
         }
         
         if (lastUri == uri) {
+            onDone(lastBitmap ?: defaultBitmap)
             listener?.invoke(lastBitmap)
             return
         }
 
-        lastEnqueued?.dispose()
+        loadJob?.cancel()
         lastUri = uri
 
-        runCatching {
-            val imageRequest = ImageRequest.Builder(appContext())
-                .data(uri.thumbnail(bitmapSize).toString())
-                .allowHardware(false)
-                .listener(
-                    onError = { _, result ->
-                        Timber.e("Failed to load bitmap ${result.throwable.stackTraceToString()}")
+        loadJob = scope.launch(Dispatchers.IO) {
+            try {
+                val loadedBitmap = ImageCacheFactory.loadBitmap(uri.toString(), allowHardware = false)
+                
+                withContext(Dispatchers.Main) {
+                    if (loadedBitmap != null) {
+                        lastBitmap = loadedBitmap
+                    } else {
                         lastBitmap = null
-                        onDone(bitmap)
-                        //listener?.invoke(lastBitmap)
-                    },
-                    onSuccess = { _, result ->
-                        lastBitmap = result.image?.toBitmap()
-                        onDone(bitmap)
-                        //listener?.invoke(lastBitmap)
                     }
-                )
-                .build()
-            
-            lastEnqueued = imageLoader.enqueue(imageRequest)
-        }.onFailure {
-            Timber.e("Failed enqueue in BitmapProvider ${it.stackTraceToString()}")
+                    onDone(bitmap)
+                }
+            } catch (e: Exception) {
+                Timber.e("Failed to load bitmap ${e.stackTraceToString()}")
+                withContext(Dispatchers.Main) {
+                    lastBitmap = null
+                    onDone(bitmap)
+                }
+            }
         }
     }
 }

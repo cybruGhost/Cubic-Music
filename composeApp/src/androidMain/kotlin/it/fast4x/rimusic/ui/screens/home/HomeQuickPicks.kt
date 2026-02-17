@@ -654,24 +654,6 @@ refreshScope.launch(Dispatchers.IO) {
             relatedInit = null
             mostPopularSong = null
             
-            // Clear discover page (moods, albums) so it reloads
-            discoverPageResult = null
-            discoverPageInit = null
-            discoverPagePreference = null
-            
-            // Clear charts
-            chartsPageResult = null
-            chartsPageInit = null
-            
-            // Clear notification cache
-            notificationResult = null
-            notificationInit = null
-            
-            // Clear homepage
-            homePageResult = null
-            homePageInit = null
-            homePagePreference = null
-            
             // Reset loaded flag
             loadedData = false
             

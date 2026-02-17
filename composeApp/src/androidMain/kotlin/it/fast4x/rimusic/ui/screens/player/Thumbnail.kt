@@ -224,6 +224,7 @@ fun CommentsOverlay(
     var currentContinuation by remember { mutableStateOf<String?>(null) }
     var hasMoreComments by remember { mutableStateOf(true) }
     var isLoadingMore by remember { mutableStateOf(false) }
+
     
     // Pause rotation when user interacts with comments
     val isUserInteracting = selectedCommentId != null || expandedComments.isNotEmpty()
@@ -733,6 +734,9 @@ fun Thumbnail(
     }
 
     var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
+ 
+    val showCommentsButton by rememberPreference("show_comments_button", true)
+
     var nullableWindow by remember {
         mutableStateOf(player.currentWindow)
     }
@@ -925,7 +929,7 @@ fun Thumbnail(
                     }
 
                 // Comments toggle button (comments icon) - only show when comments are not visible
-                if (!showComments) {
+           if (!showComments && showCommentsButton) {
                     Image(
                         painter = painterResource(R.drawable.comments),
                         contentDescription = "Toggle comments",
