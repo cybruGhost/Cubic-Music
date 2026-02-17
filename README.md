@@ -44,6 +44,17 @@ What is Spotify Canvas?
   <img src="assets/scrrenshot.jpeg" width="280" alt="Cubic Music Screenshot"/>
 </p>
 
+----
+## 🌍 Help Translate Cubic Music!
+
+We welcome contributors to help make **Cubic Music** accessible in more languages!  
+
+Join our translation project on Crowdin:  
+
+[![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
+
+You can contribute translations for `.ts` (TypeScript) and `.md` (Markdown) files. Every language counts! 🌐✨
+----
 
 ## 🎵 About Cubic Music
 
