@@ -53,7 +53,6 @@ Join our translation project on Crowdin:
 
 [![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
 
-You can contribute translations for `.ts` (TypeScript) and `.md` (Markdown) files. Every language counts! 🌐✨
 ----
 
 ## 🎵 About Cubic Music
