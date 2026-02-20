@@ -23,6 +23,24 @@ data class ArtistPage(
     val shuffleEndpoint: NavigationEndpoint.Endpoint.Watch?,
     val radioEndpoint: NavigationEndpoint.Endpoint.Watch?,
 ) {
+    fun withUpdatedVideoDurations(durations: Map<String, String?>): ArtistPage {
+        return copy(
+            sections = sections.map { section ->
+                section.copy(
+                    items = section.items.map { item ->
+                        if (item is Innertube.VideoItem && durations.containsKey(item.key)) {
+                            item.copy(durationText = durations[item.key] ?: item.durationText)
+                        } else if (item is Innertube.SongItem && durations.containsKey(item.key)) {
+                            item.copy(durationText = durations[item.key] ?: item.durationText)
+                        } else {
+                            item
+                        }
+                    }
+                )
+            }
+        )
+    }
+
     companion object {
         fun fromSectionListRendererContent(content: SectionListRenderer.Content): ArtistSection? {
             return when {
@@ -142,6 +160,31 @@ data class ArtistPage(
                         thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
                         channel = null,
                         isEditable = false
+                    )
+                }
+
+                renderer.isVideo -> {
+                    val subtitleParts = renderer.subtitle?.splitBySeparator() ?: emptyList()
+                    Innertube.VideoItem(
+                        info = Innertube.Info(
+                            renderer.title?.runs?.firstOrNull()?.text,
+                            renderer.navigationEndpoint?.watchEndpoint
+                        ),
+                        authors = subtitleParts.getOrNull(0)?.map {
+                            Innertube.Info(
+                                name = it.text,
+                                endpoint = it.navigationEndpoint?.browseEndpoint
+                            )
+                        },
+                        durationText = subtitleParts.getOrNull(
+                            if (subtitleParts.size >= 3) subtitleParts.lastIndex else -1
+                        )?.firstOrNull()?.text,
+                        thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
+                        viewsText = subtitleParts.getOrNull(
+                            if (subtitleParts.size >= 3) subtitleParts.lastIndex - 1
+                            else if (subtitleParts.size == 2) 1
+                            else -1
+                        )?.firstOrNull()?.text
                     )
                 }
 

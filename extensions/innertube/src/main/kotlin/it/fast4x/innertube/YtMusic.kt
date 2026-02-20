@@ -206,47 +206,50 @@ object YtMusic {
     suspend fun getArtistItemsPage(endpoint: BrowseEndpoint): Result<ArtistItemsPage> = runCatching {
         val response = Innertube.browse(browseId = endpoint.browseId, params = endpoint.params).body<BrowseResponse>()
 
-        println("getArtistItemsPage() response continuation: " +
-                "${
-                    response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-                        ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-                        ?.musicPlaylistShelfRenderer?.contents?.lastOrNull()
-                        ?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
-        }")
+        val contents = (response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer?.contents
+            ?: response.contents?.sectionListRenderer?.contents
+            ?: emptyList())
 
-        val gridRenderer = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-            ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-            ?.gridRenderer
-        if (gridRenderer != null) {
-            ArtistItemsPage(
-                title = gridRenderer.header?.gridHeaderRenderer?.title?.runs?.firstOrNull()?.text.orEmpty(),
-                items = gridRenderer.items!!.mapNotNull {
-                    it.musicTwoRowItemRenderer?.let { renderer ->
-                        ArtistItemsPage.fromMusicTwoRowItemRenderer(renderer)
-                    }
-                },
-                continuation = gridRenderer.continuations?.getContinuation()
-            )
-        } else {
-            ArtistItemsPage(
-                title = response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text!!,
-                items = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-                    ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-                    ?.musicPlaylistShelfRenderer?.contents?.mapNotNull {
+        val gridRenderer = contents.firstNotNullOfOrNull { it.gridRenderer }
+        val musicShelfRenderer = contents.firstNotNullOfOrNull { it.musicShelfRenderer }
+        val musicPlaylistShelfRenderer = contents.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer }
+
+        when {
+            gridRenderer != null -> {
+                ArtistItemsPage(
+                    title = gridRenderer.header?.gridHeaderRenderer?.title?.runs?.firstOrNull()?.text.orEmpty(),
+                    items = gridRenderer.items!!.mapNotNull {
+                        it.musicTwoRowItemRenderer?.let { renderer ->
+                            ArtistItemsPage.fromMusicTwoRowItemRenderer(renderer)
+                        }
+                    },
+                    continuation = gridRenderer.continuations?.getContinuation()
+                )
+            }
+            musicShelfRenderer != null -> {
+                ArtistItemsPage.fromMusicShelfRenderer(musicShelfRenderer)!!
+            }
+            musicPlaylistShelfRenderer != null -> {
+                ArtistItemsPage(
+                    title = response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text.orEmpty(),
+                    items = musicPlaylistShelfRenderer.contents?.mapNotNull {
                         it.musicResponsiveListItemRenderer?.let { it1 ->
-                            ArtistItemsPage.fromMusicResponsiveListItemRenderer(
-                                it1
-                            )
+                            ArtistItemsPage.fromMusicResponsiveListItemRenderer(it1)
                         }
                     }!!,
-//                continuation = response.contents.singleColumnBrowseResultsRenderer.tabs.firstOrNull()
-//                    ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-//                    ?.musicPlaylistShelfRenderer?.continuations?.getContinuation()
-                continuation = response.contents.singleColumnBrowseResultsRenderer.tabs.firstOrNull()
-                    ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-                    ?.musicPlaylistShelfRenderer?.contents?.lastOrNull()
-                    ?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
-            )
+                    continuation = musicPlaylistShelfRenderer.contents?.lastOrNull()
+                        ?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
+                )
+            }
+            else -> {
+                // Fallback or empty
+                ArtistItemsPage(
+                    title = response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text.orEmpty(),
+                    items = emptyList(),
+                    continuation = null
+                )
+            }
         }
     }.onFailure {
         println("YtMusic getArtistItemsPage() error: ${it.stackTraceToString()}")

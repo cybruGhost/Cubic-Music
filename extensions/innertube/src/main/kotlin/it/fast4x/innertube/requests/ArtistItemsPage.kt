@@ -4,7 +4,9 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.MusicResponsiveListItemRenderer
 import it.fast4x.innertube.models.MusicTwoRowItemRenderer
 import it.fast4x.innertube.models.NavigationEndpoint
+import it.fast4x.innertube.models.getContinuation
 import it.fast4x.innertube.models.oddElements
+import it.fast4x.innertube.utils.from
 
 data class ArtistItemsPage(
     val title: String,
@@ -64,21 +66,30 @@ data class ArtistItemsPage(
 //                    } != null
                 )
                 // Video
-                renderer.isSong -> Innertube.VideoItem(
-                    info = Innertube.Info(
-                        renderer.title?.runs?.firstOrNull()?.text,
-                        renderer.navigationEndpoint?.watchEndpoint
-                    ),
-                    authors = renderer.subtitle?.runs?.map {
-                        Innertube.Info(
-                            name = it.text,
-                            endpoint = it.navigationEndpoint?.browseEndpoint
-                        )
-                    },
-                    durationText = null,
-                    thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
-                    viewsText =null,
-                )
+                renderer.isSong -> {
+                    val subtitleParts = renderer.subtitle?.splitBySeparator() ?: emptyList()
+                    Innertube.VideoItem(
+                        info = Innertube.Info(
+                            renderer.title?.runs?.firstOrNull()?.text,
+                            renderer.navigationEndpoint?.watchEndpoint
+                        ),
+                        authors = subtitleParts.getOrNull(0)?.map {
+                            Innertube.Info(
+                                name = it.text,
+                                endpoint = it.navigationEndpoint?.browseEndpoint
+                            )
+                        },
+                        durationText = subtitleParts.getOrNull(
+                            if (subtitleParts.size >= 3) subtitleParts.lastIndex else -1
+                        )?.firstOrNull()?.text,
+                        thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
+                        viewsText = subtitleParts.getOrNull(
+                            if (subtitleParts.size >= 3) subtitleParts.lastIndex - 1
+                            else if (subtitleParts.size == 2) 1
+                            else -1
+                        )?.firstOrNull()?.text,
+                    )
+                }
                 renderer.isPlaylist -> Innertube.PlaylistItem(
                     info = Innertube.Info(
                         renderer.title?.runs?.firstOrNull()?.text,
@@ -91,6 +102,21 @@ data class ArtistItemsPage(
                 )
                 else -> null
             }
+        }
+
+        fun fromMusicShelfRenderer(renderer: it.fast4x.innertube.models.MusicShelfRenderer): ArtistItemsPage? {
+            return ArtistItemsPage(
+                title = renderer.title?.runs?.firstOrNull()?.text.orEmpty(),
+                items = renderer.contents?.mapNotNull { content ->
+                    val songItem = content.musicResponsiveListItemRenderer?.let { fromMusicResponsiveListItemRenderer(it) }
+                    if (songItem != null && songItem.album == null) {
+                        Innertube.VideoItem.from(content) ?: songItem
+                    } else {
+                        songItem ?: Innertube.VideoItem.from(content)
+                    }
+                }.orEmpty(),
+                continuation = renderer.continuations?.getContinuation()
+            )
         }
     }
 }
