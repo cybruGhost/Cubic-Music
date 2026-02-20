@@ -46,7 +46,8 @@ lombok = "1.18.38"
 junit5 = "5.13.4"
 webkit = "1.14.0"
 newpipe-extractor = "v0.25.2"
-
+kotlinx-serialization = "1.8.0"
+composeMaterial3 = "1.5.6"
 
 [libraries]
 # Kotlinx
@@ -150,6 +151,7 @@ vlcj = {  group = "uk.co.caprica", name = "vlcj", version.ref = "vlcj" }
 brotli = { group = "org.brotli", name = "dec", version.ref = "brotli" }
 desugaring-nio = { group = "com.android.tools", name = "desugar_jdk_libs_nio", version.ref = "desugaring" }
 compose-shimmer = { group = "com.valentinilk.shimmer", name = "compose-shimmer", version.ref = "shimmer" }
+androidx-compose-material3 = { group = "androidx.wear.compose", name = "compose-material3", version.ref = "composeMaterial3" }
 
 
 [plugins]
@@ -165,3 +167,4 @@ room = { id = "androidx.room", version.ref = "room" }
 # Others
 kotlin-ksp = { id = "com.google.devtools.ksp", version.ref = "kotlin-ksp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin"}
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
