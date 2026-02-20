@@ -89,7 +89,8 @@ import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.fast4x.rimusic.ui.components.themed.Header
-import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
+import me.knighthat.component.menu.search.SearchItemMenu
+import it.fast4x.rimusic.utils.asSong
 import it.fast4x.rimusic.ui.components.themed.NowPlayingSongIndicator
 import it.fast4x.rimusic.ui.components.themed.TitleMiniSection
 import it.fast4x.rimusic.ui.items.AlbumItem
@@ -425,16 +426,14 @@ fun OnlineSearch(
                                             modifier = Modifier
                                                 .combinedClickable(
                                                     onLongClick = {
+                                                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                                         menuState.display {
-                                                            NonQueuedMediaItemMenu(
-                                                                navController = navController,
-                                                                onDismiss = menuState::hide,
-                                                                mediaItem = mediaItem,
-                                                                disableScrollingText = disableScrollingText
-                                                            )
-                                                        };
-                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    },
+                                                             SearchItemMenu(
+                                                               navController = navController,
+                                                               song = mediaItem.asSong
+                                                        ).MenuComponent()
+                                                    }
+                                                },
                                                     onClick = {
                                                         binder?.player?.forcePlay(mediaItem)
                                                     }
@@ -606,16 +605,14 @@ fun OnlineSearch(
                                             modifier = Modifier
                                                 .combinedClickable(
                                                     onLongClick = {
+                                                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                                         menuState.display {
-                                                            NonQueuedMediaItemMenu(
-                                                                navController = navController,
-                                                                onDismiss = menuState::hide,
-                                                                mediaItem = mediaItem,
-                                                                disableScrollingText = disableScrollingText
-                                                            )
-                                                        };
-                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    },
+                                                            SearchItemMenu(
+                                                            navController = navController,
+                                                            song = mediaItem.asSong
+                                                        ).MenuComponent()
+                                                    }
+                                                },
                                                     onClick = {
                                                         binder?.player?.forcePlay(mediaItem)
                                                     }
@@ -744,22 +741,32 @@ fun MoodAndGenreCard(
         )
     }
 }
-
 @Composable
 fun ModernSearchSuggestionItem(
     query: String,
     onSearchClick: () -> Unit,
     onEditClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    var isPressed by remember { mutableStateOf(false) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clickable(
-                indication = ripple(bounded = false),
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = onSearchClick
-            )
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = onSearchClick,
+                onLongClick = { /* optional long press */ },
+                indication = ripple(
+                    bounded = true,  // 👈 CHANGE to bounded ripple
+                    color = colorPalette().accent.copy(alpha = 0.3f)  // 👈 Custom ripple color
+                ),
+                interactionSource = interactionSource
+            )
+            .then(
+                if (isPressed) Modifier.background(colorPalette().accent.copy(alpha = 0.1f)) // 👈 Visual feedback
+                else Modifier
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Icon(
@@ -779,9 +786,15 @@ fun ModernSearchSuggestionItem(
                 .weight(1f)
         )
 
-        IconButton(
-            onClick = onEditClick,
-            modifier = Modifier.size(32.dp)
+        // Keep edit button separate so it doesn't trigger the main click
+        Box(
+            modifier = Modifier
+                .clickable(
+                    indication = ripple(bounded = true, radius = 16.dp),
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = onEditClick
+                )
+                .padding(8.dp)
         ) {
             Icon(
                 painter = painterResource(R.drawable.pencil),
@@ -803,12 +816,15 @@ fun ModernHistoryItem(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clickable(
-                indication = ripple(bounded = false),
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = onSearchClick
-            )
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = onSearchClick,
+                indication = ripple(
+                    bounded = true,  // 👈 FIXED
+                    color = colorPalette().accent.copy(alpha = 0.3f)
+                ),
+                interactionSource = remember { MutableInteractionSource() }
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Icon(
@@ -828,9 +844,12 @@ fun ModernHistoryItem(
                 .weight(1f)
         )
 
+        // Edit button with its own click handler
         IconButton(
             onClick = onEditClick,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(8.dp))
         ) {
             Icon(
                 painter = painterResource(R.drawable.pencil),
@@ -840,9 +859,12 @@ fun ModernHistoryItem(
             )
         }
 
+        // Delete button with its own click handler
         IconButton(
             onClick = onDeleteClick,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(8.dp))
         ) {
             Icon(
                 painter = painterResource(R.drawable.close),

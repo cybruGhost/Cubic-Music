@@ -40,11 +40,11 @@ enum class LogType {
 // API Configuration
 object SpotifyApiConfig {
     // Configuration URL
-    private const val CONFIG_URL = "https://EEW_config.json"
+    private const val CONFIG_URL = "https://vjson"
     
     // Default URLs tuseme fallback and quick fetching
-    private const val DEFAULT_MATCH_API = "https://EEW/api/spotify/match"
-    private const val DEFAULT_CANVAS_API = "https://EEW/api/canvas"
+    private const val DEFAULT_MATCH_API = "https://api/spotify/match"
+    private const val DEFAULT_CANVAS_API = "https://api/canvas"
 
     // Actual URLs used
     var MATCH_API: String = DEFAULT_MATCH_API

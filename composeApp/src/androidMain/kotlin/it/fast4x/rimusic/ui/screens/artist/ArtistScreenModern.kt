@@ -34,6 +34,9 @@ import androidx.compose.ui.text.ExperimentalTextApi
 import app.kreate.android.R
 import it.fast4x.rimusic.ui.components.Skeleton
 
+import it.fast4x.innertube.models.bodies.QueueBody
+import it.fast4x.innertube.requests.queue
+
 @OptIn(ExperimentalAnimationApi::class, ExperimentalTextApi::class)
 @UnstableApi
 @ExperimentalFoundationApi
@@ -47,7 +50,7 @@ fun ArtistScreenModern(
     val saveableStateHolder = rememberSaveableStateHolder()
 
     // Settings
-    val transitionEffect by rememberPreference( transitionEffectKey, TransitionEffect.SlideHorizontal )
+    val transitionEffect by rememberPreference( transitionEffectKey, TransitionEffect.Scale )
     val playerPosition by rememberPreference( playerPositionKey, PlayerPosition.Bottom )
 
 
@@ -87,6 +90,19 @@ fun ArtistScreenModern(
                              ?.also {
                                  mapIgnore( onlineArtist, *it.toTypedArray() )
                              }
+                   }
+
+                   // Batch fetch durations for videos and songs missing it
+                   val itemsToFetch = online.sections.flatMap { it.items }
+                       .filter { (it is Innertube.VideoItem && it.durationText == null) || (it is Innertube.SongItem && it.durationText == null) }
+                       .map { it.key }
+                       .distinct()
+
+                   if (itemsToFetch.isNotEmpty()) {
+                       Innertube.queue(QueueBody(videoIds = itemsToFetch))?.onSuccess { queueItems ->
+                           val durationsMap = queueItems?.associate { it.key to it.durationText } ?: emptyMap()
+                           artistPage = artistPage?.withUpdatedVideoDurations(durationsMap)
+                       }
                    }
                }
     }

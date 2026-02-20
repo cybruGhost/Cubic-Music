@@ -38,7 +38,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import me.knighthat.innertube.Endpoints
 import me.knighthat.utils.Toaster
 import org.jetbrains.annotations.Blocking
 import org.jetbrains.annotations.NonBlocking
@@ -59,7 +58,7 @@ private const val CHUNK_LENGTH = 512 * 1024L     // 512Kb
 private var justInserted: String = ""
 
 /**
- * Reach out to [Endpoints.NEXT] endpoint for song's information.
+ * Reach out to `next` endpoint for song's information.
  *
  * Info includes:
  * - Titles
@@ -253,63 +252,62 @@ fun DataSpec.process(
 
 //<editor-fold defaultstate="collapsed" desc="Data source factories">
 @UnstableApi
-fun PlayerServiceModern.createDataSourceFactory(): DataSource.Factory =
-    ResolvingDataSource.Factory(
-        CacheDataSource.Factory()
-                       .setCache( downloadCache )
-                       .setUpstreamDataSourceFactory(
-                           CacheDataSource.Factory()
-                                          .setCache( cache )
-                                          .setUpstreamDataSourceFactory(
-                                              appContext().okHttpDataSourceFactory
-                                          )
-                       )
-                       .setCacheWriteDataSinkFactory( null )
-                       .setFlags( FLAG_IGNORE_CACHE_ON_ERROR )
-    ) { dataSpec ->
-        Database.asyncTransaction {
-            runBlocking( Dispatchers.Main ) {
-                player.currentMediaItem
-            }?.also( ::insertIgnore )
+fun PlayerServiceModern.createDataSourceFactory(): DataSource.Factory {
+    val upstreamFactory = appContext().okHttpDataSourceFactory
+
+    // This factory resolves the Video ID to a real URL when needed (cache miss)
+    val resolvingDataSourceFactory = ResolvingDataSource.Factory(upstreamFactory) { dataSpec ->
+        val videoId = dataSpec.uri.toString().substringAfter("watch?v=")
+        val isLocal = dataSpec.uri.scheme == ContentResolver.SCHEME_CONTENT || dataSpec.uri.scheme == ContentResolver.SCHEME_FILE
+
+        if (isLocal) {
+            return@Factory dataSpec
         }
 
-        val videoId = dataSpec.uri.toString().substringAfter("watch?v=")
+        // Only upsert info if we are actually resolving (cache miss)
+        CoroutineScope(Threads.DATASPEC_DISPATCHER).launch { upsertSongInfo(videoId) }
 
-        val isLocal = dataSpec.uri.scheme == ContentResolver.SCHEME_CONTENT || dataSpec.uri.scheme == ContentResolver.SCHEME_FILE
-        val isCached = cache.isCached( videoId, dataSpec.position, CHUNK_LENGTH )
-        val isDownloaded = downloadCache.isCached( videoId, dataSpec.position, CHUNK_LENGTH )
-
-        if( !isLocal )
-            CoroutineScope( Threads.DATASPEC_DISPATCHER ).launch { upsertSongInfo( videoId ) }
-
-        return@Factory if( isLocal || isCached || isDownloaded )
-            // No need to fetch online for already cached data
-            dataSpec
-        else
-            dataSpec.process( videoId, audioQualityFormat, applicationContext.isConnectionMetered() )
+        // Always resolve URL for non-local files and ensure key is set to videoId
+        // This ensures CacheDataSource uses the correct key even if URI changes
+        dataSpec.process(videoId, audioQualityFormat, applicationContext.isConnectionMetered())
+            .buildUpon()
+            .setKey(videoId)
+            .build()
     }
+
+    // LRU Cache (Writable) - Upstream is the Resolver
+    val lruCacheFactory = CacheDataSource.Factory()
+        .setCache(cache)
+        .setUpstreamDataSourceFactory(resolvingDataSourceFactory)
+
+    // Download Cache (Read-Only during playback) - Upstream is LRU Cache
+    return CacheDataSource.Factory()
+        .setCache(downloadCache)
+        .setUpstreamDataSourceFactory(lruCacheFactory)
+        .setCacheWriteDataSinkFactory(null)
+        .setFlags(FLAG_IGNORE_CACHE_ON_ERROR)
+}
 
 @UnstableApi
-fun MyDownloadHelper.createDataSourceFactory(): DataSource.Factory =
-    ResolvingDataSource.Factory(
-        CacheDataSource.Factory()
-                       .setCache( getDownloadCache(appContext()) )
-                       .apply {
-                           setUpstreamDataSourceFactory(
-                               appContext().okHttpDataSourceFactory
-                           )
-                           setCacheWriteDataSinkFactory( null )
-                       }
-    ) { dataSpec: DataSpec ->
+fun MyDownloadHelper.createDataSourceFactory(): DataSource.Factory {
+    val upstreamFactory = appContext().okHttpDataSourceFactory
+
+    val resolvingDataSourceFactory = ResolvingDataSource.Factory(upstreamFactory) { dataSpec ->
         val videoId = dataSpec.uri.toString().substringAfter("watch?v=")
-        CoroutineScope( Threads.DATASPEC_DISPATCHER ).launch { upsertSongInfo( videoId ) }
+        
+        CoroutineScope(Threads.DATASPEC_DISPATCHER).launch { upsertSongInfo(videoId) }
 
-        val isDownloaded = downloadCache.isCached( videoId, dataSpec.position, CHUNK_LENGTH )
-
-        return@Factory if( isDownloaded )
-            // No need to fetch online for already cached data
-            dataSpec
-        else
-            dataSpec.process( videoId, audioQualityFormat, appContext().isConnectionMetered() )
+        dataSpec.process(videoId, audioQualityFormat, appContext().isConnectionMetered())
+            .buildUpon()
+            .setKey(videoId)
+            .build()
     }
+
+    // Download Cache (Writable for downloads? No, CacheWriter handles writing)
+    // We expose it as a source that can read from cache if available, or resolve upstream.
+    return CacheDataSource.Factory()
+        .setCache(getDownloadCache(appContext()))
+        .setUpstreamDataSourceFactory(resolvingDataSourceFactory)
+        .setCacheWriteDataSinkFactory(null)
+}
 //</editor-fold>

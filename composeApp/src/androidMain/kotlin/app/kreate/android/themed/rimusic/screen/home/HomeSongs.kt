@@ -3,6 +3,7 @@ package app.kreate.android.themed.rimusic.screen.home
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -110,7 +111,7 @@ fun HomeSongs(
 
     //<editor-fold defaultstate="collapsed" desc="Settings">
     val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
-    val maxTopPlaylistItems by rememberPreference( MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`40` )
+    val maxTopPlaylistItems by rememberPreference( MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10` )
     val includeLocalSongs by rememberPreference( includeLocalSongsKey, true )
     val excludeSongWithDurationLimit by rememberPreference( excludeSongsWithDurationLimitKey, DurationInMinutes.Disabled )
     //</editor-fold>
@@ -180,9 +181,9 @@ fun HomeSongs(
                                                .sortAllWithSongs( songSort.sortBy, songSort.sortOrder, excludeHidden = hiddenSongs.isHiddenExcluded() )
                                                .map { list ->
                                                    list.fastFilter {
-                                                       val contentLength = it.format.contentLength ?: return@fastFilter false
-                                                       binder?.cache?.isCached( it.song.id, 0, contentLength ) == true
-                                                   }.map( FormatWithSong::song )
+                                                        val contentLength = it.format.contentLength ?: return@fastFilter false
+                                                        binder?.cache?.isCached( it.song.id, 0, contentLength ) == true
+                                                    }.map( FormatWithSong::song )
                                                }
 
             BuiltInPlaylist.Favorites -> Database.songTable.sortFavorites( songSort.sortBy, songSort.sortOrder )
@@ -337,7 +338,10 @@ fun HomeSongs(
     LazyColumn(
         state = lazyListState,
         userScrollEnabled = !isLoading,
-        contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer )
+        contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer ),
+        modifier = Modifier
+            .background(colorPalette().background0)
+            .fillMaxSize()
     ) {
         if( isLoading )
             items(
@@ -375,11 +379,13 @@ fun HomeSongs(
                     binder?.player?.enqueue(mediaItem)
                 }
             ) {
+                val isRecommended = song in relatedSongs
+
                 SongItem(
                     song = song,
                     itemSelector = itemSelector,
                     navController = navController,
-                    isRecommended = song in relatedSongs,
+                    isRecommended = isRecommended,
                     modifier = Modifier.animateItem(),
                     thumbnailOverlay = {
                         if ( songSort.sortBy == SongSortBy.PlayTime || builtInPlaylist == BuiltInPlaylist.Top ) {
@@ -424,6 +430,7 @@ fun HomeSongs(
                     }
                 )
             }
+
         }
     }
 }

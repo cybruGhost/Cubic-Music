@@ -77,7 +77,7 @@ import me.knighthat.component.playlist.NewPlaylistDialog
 import me.knighthat.component.tab.ImportSongsFromCSV
 import me.knighthat.component.tab.Search
 import me.knighthat.component.tab.SongShuffler
-
+import it.fast4x.rimusic.ui.components.tab.toolbar.Randomizer
 
 @ExperimentalMaterial3Api
 @UnstableApi
@@ -171,6 +171,12 @@ fun HomeLibrary(
         CheckMonthlyPlaylist()
     // END - Monthly playlist
 
+    // FIX: Changed from Playlist to PlaylistPreview to match the actual type
+    val randomizer = object: Randomizer<PlaylistPreview> {
+        override fun getItems(): List<PlaylistPreview> = itemsOnDisplay
+        override fun onClick(index: Int) = onPlaylistClick( itemsOnDisplay[index].playlist )
+    }
+
     val doAutoSync by rememberPreference(autosyncKey, false)
     var justSynced by rememberSaveable { mutableStateOf(!doAutoSync) }
 
@@ -210,7 +216,7 @@ fun HomeLibrary(
                 }
 
                 // Sticky tab's tool bar
-                TabToolBar.Buttons( sort, sync, search, shuffle, newPlaylistDialog, importPlaylistDialog, itemSize )
+                TabToolBar.Buttons( sort, search, shuffle, newPlaylistDialog, randomizer, importPlaylistDialog, itemSize )
 
                 // Sticky search bar
                 search.SearchBar( this )
@@ -260,6 +266,7 @@ fun HomeLibrary(
                                 .animateItem(fadeInSpec = null, fadeOutSpec = null)
                                 .clickable(onClick = {
                                     search.hideIfEmpty()
+                                    // FIX: Pass the playlist property of preview, not preview itself
                                     onPlaylistClick(preview.playlist)
                                 }),
                             disableScrollingText = disableScrollingText,
@@ -281,8 +288,8 @@ fun HomeLibrary(
 
             FloatingActionsContainerWithScrollToTop(lazyGridState = lazyGridState)
 
-            val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
-            if (UiType.ViMusic.isCurrent() && showFloatingIcon)
+            val showFloaticon by rememberPreference(showFloatingIconKey, false)
+            if (UiType.ViMusic.isCurrent() && showFloaticon)
                 MultiFloatingActionsContainer(
                     iconId = R.drawable.search,
                     onClick = onSearchClick,

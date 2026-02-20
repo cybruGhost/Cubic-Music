@@ -3,6 +3,7 @@ package it.fast4x.rimusic
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.ActivityManager
+import android.app.PictureInPictureParams
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -63,6 +64,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -381,10 +383,9 @@ class MainActivity :
         isInPictureInPictureMode: Boolean,
         newConfig: Configuration
     ) {
-        pipState.value = isInPictureInPictureMode
-        println("MainActivity.onPictureInPictureModeChanged isInPictureInPictureMode: $isInPictureInPictureMode")
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-
+        pipState.value = isInPictureInPictureMode
+        Timber.d("MainActivity onPictureInPictureModeChanged: $isInPictureInPictureMode")
     }
 
 
@@ -448,7 +449,7 @@ class MainActivity :
                 it.getBoolean("expandPlayerBottomSheet") || it.getBoolean("fromWidget")
             } ?: false
 
-        println("MainActivity.onCreate launchedFromNotification: $launchedFromNotification intent $intent.action")
+        Timber.d("MainActivity.onCreate launchedFromNotification: $launchedFromNotification intent ${intent.action}")
 
         intentUriData = intent.data ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.toUri()
 
@@ -952,14 +953,14 @@ class MainActivity :
                             actions_artists -> HomeScreenTabs.Artists.index
                             action_library -> HomeScreenTabs.Playlists.index
                             action_search -> -2
-                            else -> -1
+                                    else -> -1
+                                }
+                            intent.action = null
                         }
-                    intent.action = null
-                }
 
-                CrossfadeContainer(state = pipState.value) { isCurrentInPip ->
-                    println("MainActivity pipState ${pipState.value} CrossfadeContainer isCurrentInPip $isCurrentInPip ")
-                    val pipModule by rememberPreference(pipModuleKey, PipModule.Cover)
+                        CrossfadeContainer(state = pipState.value) { isCurrentInPip ->
+                            Timber.d("MainActivity pipState ${pipState.value} CrossfadeContainer isCurrentInPip $isCurrentInPip ")
+                            val pipModule by rememberPreference(pipModuleKey, PipModule.Cover)
                     if (isCurrentInPip) {
                         Box(
                             modifier = Modifier
@@ -970,8 +971,10 @@ class MainActivity :
                                 PipModule.Cover -> {
                                     PipModuleContainer {
                                         PipModuleCover(
-                                            url = binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri.toString()
-                                                .resize(1200, 1200)
+                                            url = binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
+                                                ?.toString()
+                                                ?.resize(1200, 1200)
+                                                .orEmpty()
                                         )
                                     }
                                 }
@@ -1255,14 +1258,16 @@ class MainActivity :
 
     override fun onResume() {
         super.onResume()
-        runCatching {
-            sensorManager?.registerListener(
-                sensorListener, sensorManager!!.getDefaultSensor(
-                    Sensor.TYPE_ACCELEROMETER
-                ), SensorManager.SENSOR_DELAY_NORMAL
-            )
-        }.onFailure {
-            Timber.e("MainActivity.onResume registerListener sensorManager ${it.stackTraceToString()}")
+        if (preferences.getBoolean(shakeEventEnabledKey, false)) {
+            runCatching {
+                sensorManager?.registerListener(
+                    sensorListener, sensorManager!!.getDefaultSensor(
+                        Sensor.TYPE_ACCELEROMETER
+                    ), SensorManager.SENSOR_DELAY_NORMAL
+                )
+            }.onFailure {
+                Timber.e("MainActivity.onResume registerListener sensorManager ${it.stackTraceToString()}")
+            }
         }
         appRunningInBackground = false
     }
@@ -1270,7 +1275,7 @@ class MainActivity :
     override fun onPause() {
         super.onPause()
         runCatching {
-            sensorListener.let { sensorManager?.unregisterListener(it) }
+            sensorManager?.unregisterListener(sensorListener)
         }.onFailure {
             Timber.e("MainActivity.onPause unregisterListener sensorListener ${it.stackTraceToString()}")
         }

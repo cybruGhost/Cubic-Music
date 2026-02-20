@@ -3,6 +3,7 @@ package it.fast4x.rimusic.ui.components.themed
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,6 +47,9 @@ import me.knighthat.utils.Toaster
 import timber.log.Timber
 import java.util.UUID
 
+import me.knighthat.component.menu.player.PlayerItemMenu
+
+@OptIn(ExperimentalFoundationApi::class)
 @ExperimentalTextApi
 @ExperimentalAnimationApi
 @UnstableApi
@@ -57,105 +61,27 @@ fun PlayerMenu(
     onDismiss: () -> Unit,
     onClosePlayer: () -> Unit,
     onMatchingSong: (() -> Unit)? = null,
+    onShowSleepTimer: () -> Unit,
     disableScrollingText: Boolean
     ) {
+    
     val menuState = LocalMenuState.current
-    val menuStyle by rememberPreference(
-        menuStyleKey,
-        MenuStyle.List
-    )
+    val styleState = rememberPreference(menuStyleKey, MenuStyle.List)
 
-    //val context = LocalContext.current
-
-    val launchEqualizer by rememberEqualizerLauncher(audioSessionId = { binder.player.audioSessionId })
-
-    val activityResultLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
-
-    var isHiding by remember {
-        mutableStateOf(false)
-    }
-
-    if (isHiding) {
-        ConfirmationDialog(
-            text = stringResource(R.string.update_song),
-            onDismiss = { isHiding = false },
-            onConfirm = {
-                onDismiss()
-                binder.cache.removeResource(mediaItem.mediaId)
-                binder.downloadCache.removeResource(mediaItem.mediaId)
-                Database.asyncTransaction {
-                    songTable.updateTotalPlayTime( mediaItem.mediaId, 0 )
-                }
-            }
-        )
-    }
-
-
-    if (menuStyle == MenuStyle.Grid) {
-        BaseMediaItemGridMenu(
+    val menu = remember(mediaItem.mediaId, binder, menuState, styleState) {
+        PlayerItemMenu.create(
             navController = navController,
+            binder = binder,
             mediaItem = mediaItem,
+            menuState = menuState,
+            styleState = styleState,
             onDismiss = onDismiss,
-            onStartRadio = {
-                binder.startRadio( mediaItem )
-
-                menuState.hide()
-            },
-            onGoToEqualizer = launchEqualizer,
-            /*
-            onGoToEqualizer = {
-                try {
-                    activityResultLauncher.launch(
-                        Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                            putExtra(AudioEffect.EXTRA_AUDIO_SESSION, binder.player.audioSessionId)
-                            putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                            putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-                        }
-                    )
-                } catch (e: ActivityNotFoundException) {
-                    SmartMessage(context.resources.getString(R.string.info_not_find_application_audio), type = PopupType.Warning, context = context)
-                }
-            },
-             */
-            onHideFromDatabase = { isHiding = true },
             onClosePlayer = onClosePlayer,
-            disableScrollingText = disableScrollingText
-        )
-    } else {
-        BaseMediaItemMenu(
-            navController = navController,
-            mediaItem = mediaItem,
-            onStartRadio = {
-                binder.startRadio( mediaItem )
-
-                menuState.hide()
-            },
-            onGoToEqualizer = launchEqualizer,
-            onShowSleepTimer = {},
-            onHideFromDatabase = { isHiding = true },
-            onDismiss = onDismiss,
-            onAddToPreferites = {
-                if (!isNetworkConnected(context()) && isYouTubeSyncEnabled()){
-                    Toaster.noInternet()
-                } else if (!isYouTubeSyncEnabled()){
-                    Database.asyncTransaction {
-                        songTable.likeState( mediaItem.mediaId, true )
-                        MyDownloadHelper.autoDownloadWhenLiked(context(),mediaItem)
-                    }
-                }
-                else {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        addToYtLikedSong(mediaItem)
-                    }
-                }
-            },
-            onClosePlayer = onClosePlayer,
-            onMatchingSong = onMatchingSong,
-            disableScrollingText = disableScrollingText
+            onShowSleepTimer = onShowSleepTimer
         )
     }
-
+    
+    menu.MenuComponent()
 }
 
 

@@ -2,9 +2,10 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:description="@string/horizontal_widget"
-    android:minWidth="200dp"
-    android:minHeight="100dp"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
     android:previewImage="@drawable/player_horizontal_widget"
     android:resizeMode="horizontal|vertical"
+    android:widgetFeatures="reconfigurable|configuration_optional"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen" />

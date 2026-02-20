@@ -96,6 +96,10 @@ enum class DurationInMilliseconds(
     `900ms`( 900L ),
     `1000ms`( 1000L );
 
+    // Add this property for backward compatibility with your fade code
+    val milliSeconds: Int
+        get() = asMillis.toInt()
+
     override val text: String
         @Composable
         get() = when( this )  {

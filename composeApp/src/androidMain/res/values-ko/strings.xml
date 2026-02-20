@@ -681,7 +681,7 @@
   <string name="event_volumekeysinfo">볼륨 위 버튼으로 다음 곡을, 아래 버튼으로 이전 곡으로 변경합니다</string>
   <string name="paste">붙여넣기</string>
   <string name="searches_no_suggestions">추천 없음</string>
-  <string name="action_bar_show_discover_button">Show Enable Jennie Ai🌟</string>
+  <string name="action_bar_show_discover_button">Show Enable Discover🌟</string>
   <string name="playertype">Player type</string>
   <string name="noblur">Remove background blur when lyrics is disabled</string>
   <string name="fadingedge">Fading edge</string>

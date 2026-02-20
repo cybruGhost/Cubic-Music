@@ -313,13 +313,14 @@ var notificationInit by remember { mutableStateOf<NotificationData?>(null) }
     )
     val localCount = localRecommandationsNumber.value
 
-    suspend fun loadData() {
+   suspend fun loadData(forceReload: Boolean = false) {
 
-//Used to refresh chart when country change
-if (showCharts)
+//Used to refresh chart when country change - only if needed
+if (showCharts && (chartsPageResult == null || forceReload))
     chartsPageResult =
         Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
   // ===== FETCH NOTIFICATION =====
+if (notificationResult == null || forceReload) {
     notificationResult = runCatching {
         // Replace with your JSON URL
         val url = "https://raw.githubusercontent.com/cybruGhost/waigwe/main/storex/notification.json"
@@ -350,18 +351,19 @@ if (showCharts)
             null
         }
     }
+}
     // ===== END FETCH NOTIFICATION =====
 
-if (showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) {
+if ((showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) && (discoverPageResult == null || forceReload)) {
     discoverPageResult = Innertube.discoverPage()
 }
 
-// Load homepage if logged in
-if (isYouTubeLoggedIn()) {
+// Load homepage if logged in - only if needed
+if (isYouTubeLoggedIn() && (homePageResult == null || forceReload)) {
     homePageResult = YtMusic.getHomePage()
 }
 
-if (loadedData) return
+if (loadedData && !forceReload) return
 
 refreshScope.launch(Dispatchers.IO) {
     runCatching {
@@ -499,7 +501,7 @@ refreshScope.launch(Dispatchers.IO) {
     }
 }
 }
- LaunchedEffect(playEventType) {
+LaunchedEffect(playEventType) {
     // Only reset trending-related data
     trendingList = emptyList()
     trending = null
@@ -638,32 +640,37 @@ refreshScope.launch(Dispatchers.IO) {
             )
         }
     }
+    // Add this after LaunchedEffect(selectedCountryCode) and before var refreshing
+LaunchedEffect(Unit) {
+    if (!loadedData) {
+        loadData()
+    }
+}
 
     var refreshing by remember { mutableStateOf(false) }
 
-    fun refresh() {
-        if (refreshing) return
+   fun refresh() {
+    if (refreshing) return
+    
+    refreshScope.launch(Dispatchers.IO) {
+        refreshing = true
         
-        refreshScope.launch(Dispatchers.IO) {
-            refreshing = true
-            
-            // Clear trending data
-            trendingList = emptyList()
-            trending = null
-            relatedPageResult = null
-            relatedInit = null
-            mostPopularSong = null
-            
-            // Reset loaded flag
-            loadedData = false
-            
-            // Reload everything
-            loadData()
-            
-            delay(500)
-            refreshing = false
-        }
+        // Clear trending data
+        trendingList = emptyList()
+        trending = null
+        relatedPageResult = null
+        relatedInit = null
+        mostPopularSong = null
+        
+        // DON'T reset loaded flag
+        
+        // Reload with force=true (only refreshes what's needed)
+        loadData(forceReload = true)
+        
+        delay(500)
+        refreshing = false
     }
+}
     val songThumbnailSizeDp = Dimensions.thumbnails.song
     val songThumbnailSizePx = songThumbnailSizeDp.px
     val albumThumbnailSizeDp = 108.dp

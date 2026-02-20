@@ -309,67 +309,75 @@ fun ConfirmationDialog(
     confirmBackgroundPrimary: Boolean = true
 ) {
     val colorPalette = colorPalette()
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = colorPalette.background1
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp)
+            Card(
+                modifier = modifier
+                    .fillMaxWidth(0.9f)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorPalette.background1
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                // Message text
-                BasicText(
-                    text = text,
-                    style = typography().s.copy(
-                        color = colorPalette.text
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp)
-                )
-
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Column(
+                    modifier = Modifier.padding(24.dp)
                 ) {
-                    Button(
-                        onClick = onCancel,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorPalette.background2,
-                            contentColor = colorPalette.text
+                    // Message text
+                    BasicText(
+                        text = text,
+                        style = typography().s.copy(
+                            color = colorPalette.text
                         ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = cancelText,
-                            style = typography().s.semiBold
-                        )
-                    }
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp)
+                    )
 
-                    Button(
-                        onClick = {
-                            onConfirm()
-                            onDismiss()
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorPalette.accent,
-                            contentColor = colorPalette.textSecondary
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                    // Action buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = confirmText,
-                            style = typography().s.semiBold
-                        )
+                        Button(
+                            onClick = onCancel,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorPalette.background2,
+                                contentColor = colorPalette.text
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = cancelText,
+                                style = typography().s.semiBold
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                onConfirm()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorPalette.accent,
+                                contentColor = colorPalette.textSecondary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = confirmText,
+                                style = typography().s.semiBold
+                            )
+                        }
                     }
                 }
             }
@@ -389,17 +397,23 @@ inline fun DefaultDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Column(
-            horizontalAlignment = horizontalAlignment,
-            modifier = modifier
-                .padding(all = 10.dp)
-                .background(
-                    color = colorPalette().background1,
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            content = content
-        )
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Column(
+                horizontalAlignment = horizontalAlignment,
+                modifier = modifier
+                    .fillMaxWidth(0.9f)
+                    .padding(all = 10.dp)
+                    .background(
+                        color = colorPalette().background1,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                content = content
+            )
+        }
     }
 }
 
@@ -415,109 +429,117 @@ fun <T> ValueSelectorDialog(
     valueText: @Composable (T) -> String = { it.toString() }
 ) {
     val colorPalette = colorPalette()
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = colorPalette.background1
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp)
+            Card(
+                modifier = modifier
+                    .fillMaxWidth(0.9f)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorPalette.background1
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(24.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f)
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        BasicText(
-                            text = title,
-                            style = typography().l.semiBold.copy(
-                                color = colorPalette.text
-                            )
-                        )
-                        if (titleSecondary != null) {
-                            Spacer(modifier = Modifier.height(4.dp))
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
                             BasicText(
-                                text = titleSecondary,
-                                style = typography().s.copy(
-                                    color = colorPalette.textSecondary
-                                )
-                            )
-                        }
-                    }
-                    
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                                 // Values list
-                 Column(
-                     modifier = Modifier
-                         .verticalScroll(rememberScrollState())
-                         .weight(1f, false)
-                 ) {
-                     values.forEach { value ->
-                         Row(
-                             verticalAlignment = Alignment.CenterVertically,
-                             horizontalArrangement = Arrangement.spacedBy(0.dp),
-                             modifier = Modifier
-                                 .clickable(
-                                     onClick = {
-                                         onDismiss()
-                                         onValueSelected(value)
-                                     }
-                                 )
-                                                                   .padding(vertical = 0.dp, horizontal = 16.dp)
-                                 .fillMaxWidth()
-                                 .clip(RoundedCornerShape(8.dp))
-                         ) {
-                            RadioButton(
-                                selected = selectedValue == value,
-                                onClick = {
-                                    onDismiss()
-                                    onValueSelected(value)
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = colorPalette.accent,
-                                    unselectedColor = colorPalette.textSecondary
-                                )
-                            )
-
-                            BasicText(
-                                text = valueText(value),
-                                style = typography().s.copy(
+                                text = title,
+                                style = typography().l.semiBold.copy(
                                     color = colorPalette.text
                                 )
                             )
+                            if (titleSecondary != null) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                BasicText(
+                                    text = titleSecondary,
+                                    style = typography().s.copy(
+                                        color = colorPalette.textSecondary
+                                    )
+                                )
+                            }
+                        }
+                    
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Values list
+                    Column(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .weight(1f, false)
+                    ) {
+                        values.forEach { value ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                                modifier = Modifier
+                                    .clickable(
+                                        onClick = {
+                                            onDismiss()
+                                            onValueSelected(value)
+                                        }
+                                    )
+                                    .padding(vertical = 0.dp, horizontal = 16.dp)
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                            ) {
+                                RadioButton(
+                                    selected = selectedValue == value,
+                                    onClick = {
+                                        onDismiss()
+                                        onValueSelected(value)
+                                    },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = colorPalette.accent,
+                                        unselectedColor = colorPalette.textSecondary
+                                    )
+                                )
+
+                                BasicText(
+                                    text = valueText(value),
+                                    style = typography().s.copy(
+                                        color = colorPalette.text
+                                    )
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Cancel button
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorPalette.background2,
-                        contentColor = colorPalette.text
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.cancel),
-                        style = typography().s.semiBold
-                    )
+                    // Cancel button
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorPalette.background2,
+                            contentColor = colorPalette.text
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            style = typography().s.semiBold
+                        )
+                    }
                 }
             }
         }

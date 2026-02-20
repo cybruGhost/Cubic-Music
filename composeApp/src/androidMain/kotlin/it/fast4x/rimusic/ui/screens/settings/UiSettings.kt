@@ -1,6 +1,10 @@
 package it.fast4x.rimusic.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -17,6 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import it.fast4x.rimusic.ui.components.themed.ValueSelectorDialog
+import it.fast4x.rimusic.ui.screens.settings.ColorSettingEntry
+import it.fast4x.rimusic.ui.screens.settings.ButtonBarSettingEntry
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -432,7 +439,7 @@ fun DefaultUiSettings() {
     blackgradient = false
     var showTotalTimeQueue by rememberPreference(showTotalTimeQueueKey, true)
     showTotalTimeQueue = true
-    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, true)
+    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, false)
     showNextSongsInPlayer = false
     var showRemainingSongTime by rememberPreference(showRemainingSongTimeKey, true)
     showRemainingSongTime = true
@@ -466,11 +473,11 @@ fun DefaultUiSettings() {
     showButtonPlayerArrow = false
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
     showButtonPlayerDownload = true
-    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
+    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, true)
     showButtonPlayerLoop = true
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
     showButtonPlayerLyrics = true
-    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, false)
+    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, true)
     expandedplayertoggle = true
     var showButtonPlayerShuffle by rememberPreference(showButtonPlayerShuffleKey, true)
     showButtonPlayerShuffle = true
@@ -523,6 +530,7 @@ fun UiSettings(
 
 
 
+    var uiType by rememberPreference(UiTypeKey, UiType.RiMusic)
     var keepPlayerMinimized by rememberPreference(keepPlayerMinimizedKey,   false)
 
     var disableIconButtonOnTop by rememberPreference(disableIconButtonOnTopKey, false)
@@ -637,7 +645,7 @@ fun UiSettings(
     )
     var blackgradient by rememberPreference(blackgradientKey, false)
     var showTotalTimeQueue by rememberPreference(showTotalTimeQueueKey, true)
-    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, true)
+    var showNextSongsInPlayer by rememberPreference(showNextSongsInPlayerKey, false)
     var showRemainingSongTime by rememberPreference(showRemainingSongTimeKey, true)
     var disableScrollingText by rememberPreference(disableScrollingTextKey, false)
     var effectRotationEnabled by rememberPreference(effectRotationKey, true)
@@ -657,9 +665,9 @@ fun UiSettings(
     var showButtonPlayerAddToPlaylist by rememberPreference(showButtonPlayerAddToPlaylistKey, true)
     var showButtonPlayerArrow by rememberPreference(showButtonPlayerArrowKey, true)
     var showButtonPlayerDownload by rememberPreference(showButtonPlayerDownloadKey, true)
-    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, false)
+    var showButtonPlayerLoop by rememberPreference(showButtonPlayerLoopKey, true)
     var showButtonPlayerLyrics by rememberPreference(showButtonPlayerLyricsKey, true)
-    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, false)
+    var expandedplayertoggle by rememberPreference(expandedplayertoggleKey, true)
     var showButtonPlayerShuffle by rememberPreference(showButtonPlayerShuffleKey, true)
     var showButtonPlayerSleepTimer by rememberPreference(showButtonPlayerSleepTimerKey, false)
     var showButtonPlayerMenu by rememberPreference(showButtonPlayerMenuKey, false)
@@ -702,11 +710,9 @@ fun UiSettings(
     )
 
     var customColor by rememberPreference(customColorKey, Color.Green.hashCode())
-
     Column(
         modifier = Modifier
             .background(colorPalette().background0)
-            //.fillMaxSize()
             .fillMaxHeight()
             .fillMaxWidth(
                 if (navigationBarPosition == NavigationBarPosition.Left ||
@@ -716,25 +722,25 @@ fun UiSettings(
                 else Dimensions.contentWidthRightBar
             )
             .verticalScroll(rememberScrollState())
-            /*
-            .padding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Vertical + WindowInsetsSides.End)
-                    .asPaddingValues()
-            )
-             */
     ) {
         HeaderWithIcon(
             title = stringResource(R.string.user_interface),
-            iconId = R.drawable.ui,
+            iconId = R.drawable.ic_launcher_monochrome,
             enabled = false,
             showIcon = true,
             modifier = Modifier,
             onClick = {}
         )
 
+        SettingsDescription(
+            text = stringResource(R.string.ui_settings_description),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
         search.ToolBarButton()
-        search.SearchBar( this )
+        search.SearchBar(this)
 
         if (resetCustomLightThemeDialog) {
             ConfirmationDialog(
@@ -776,625 +782,834 @@ fun UiSettings(
             )
         }
 
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(stringResource(R.string.user_interface))
+        val uiSearchContextMatch = search.inputValue.isBlank() || stringResource(R.string.theme).contains(search.inputValue, true) ||
+            stringResource(R.string.interface_in_use).contains(search.inputValue, true) ||
+            stringResource(R.string.theme).contains(search.inputValue, true) ||
+            stringResource(R.string.theme_mode).contains(search.inputValue, true)
 
-        var uiType by rememberPreference(UiTypeKey, UiType.RiMusic)
-        if (search.inputValue.isBlank() || stringResource(R.string.interface_in_use).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.interface_in_use),
-                selectedValue = uiType,
-                onValueSelected = {
-                    uiType = it
-                    if (uiType == UiType.ViMusic) {
-                        disablePlayerHorizontalSwipe = true
-                        disableIconButtonOnTop = true
-                        playerTimelineType = PlayerTimelineType.FakeAudioBar
-                        visualizerEnabled = false
-                        playerThumbnailSize = PlayerThumbnailSize.Medium
-                        thumbnailTapEnabled = true
-                        showSearchTab = true
-                        showStatsInNavbar = true
-                        navigationBarPosition = NavigationBarPosition.Left
-                        showTopActionsBar = false
-                        playerType = PlayerType.Modern
-                        queueType = QueueType.Modern
-                        fadingedge = false
-                        carousel = true
-                        carouselSize = CarouselSize.Medium
-                        thumbnailType = ThumbnailType.Essential
-                        playerTimelineSize = PlayerTimelineSize.Medium
-                        playerInfoShowIcons = true
-                        miniPlayerType = MiniPlayerType.Modern
-                        playerSwapControlsWithTimeline = false
-                        transparentBackgroundActionBarPlayer = false
-                        playerControlsType = PlayerControlsType.Essential
-                        playerPlayButtonType = PlayerPlayButtonType.Disabled
-                        buttonzoomout = true
-                        iconLikeType = IconLikeType.Essential
-                        playerBackgroundColors = PlayerBackgroundColors.CoverColorGradient
-                        blackgradient = true
-                        showTotalTimeQueue = false
-                        showRemainingSongTime = false
-                        showNextSongsInPlayer = false
-                        disableScrollingText = false
-                        effectRotationEnabled = true
-                        clickLyricsText = true
-                        playerEnableLyricsPopupMessage = true
-                        backgroundProgress = BackgroundProgress.MiniPlayer
-                        transparentBackgroundActionBarPlayer = true
-                        actionspacedevenly = false
-                        tapqueue = false
-                        swipeUpQueue = true
-                        showButtonPlayerDiscover = false
-                        showButtonPlayerDownload = false
-                        showButtonPlayerAddToPlaylist = false
-                        showButtonPlayerLoop = false
-                        showButtonPlayerShuffle = false
-                        showButtonPlayerLyrics = false
-                        expandedplayertoggle = false
-                        showButtonPlayerSleepTimer = false
-                        showButtonPlayerSystemEqualizer = false
-                        showButtonPlayerArrow = false
-                        showButtonPlayerShuffle = false
-                        showButtonPlayerMenu = true
-                        showthumbnail = true
-                        keepPlayerMinimized = false
-                    } else {
-                        disablePlayerHorizontalSwipe = false
-                        disableIconButtonOnTop = false
-                        playerTimelineType = lastPlayerTimelineType
-                        playerThumbnailSize = lastPlayerThumbnailSize
-                        playerPlayButtonType = lastPlayerPlayButtonType
-                        navigationBarPosition = NavigationBarPosition.Bottom
-                    }
-
-                    RestartAppDialog.showDialog()
-                },
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.theme).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.theme),
-                selectedValue = colorPaletteName,
-                onValueSelected = {
-                    colorPaletteName = it
-                   when (it) {
-                       ColorPaletteName.PureBlack,
-                       ColorPaletteName.ModernBlack -> colorPaletteMode = ColorPaletteMode.System
-                       else -> {}
-                   }
-                },
-                valueText = { it.text }
-            )
-
-        AnimatedVisibility(visible = colorPaletteName == ColorPaletteName.CustomColor) {
-            Column{
-            ColorSettingEntry(
-                title = stringResource(R.string.customcolor),
-                text = "",
-                color = Color(customColor),
-                onColorSelected = {
-                    customColor = it.hashCode()
-                },
-                modifier = Modifier
-                    .padding(start = 25.dp)
-            )
-            ImportantSettingsDescription(
-                text = stringResource(R.string.restarting_rimusic_is_required),
-                modifier = Modifier
-                .padding(start = 25.dp)
-            )
-            }
-        }
-        AnimatedVisibility(visible = colorPaletteName == ColorPaletteName.Customized) {
-            Column {
-                SettingsEntryGroupText(stringResource(R.string.title_customized_light_theme_colors))
-                ButtonBarSettingEntry(
-                    title = stringResource(R.string.title_reset_customized_light_colors),
-                    text = stringResource(R.string.info_click_to_reset_default_light_colors),
-                    icon = R.drawable.trash,
-                    onClick = { resetCustomLightThemeDialog = true }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_1),
-                    text = "",
-                    color = Color(customThemeLight_Background0),
-                    onColorSelected = {
-                        customThemeLight_Background0 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_2),
-                    text = "",
-                    color = Color(customThemeLight_Background1),
-                    onColorSelected = {
-                        customThemeLight_Background1 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_3),
-                    text = "",
-                    color = Color(customThemeLight_Background2),
-                    onColorSelected = {
-                        customThemeLight_Background2 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_4),
-                    text = "",
-                    color = Color(customThemeLight_Background3),
-                    onColorSelected = {
-                        customThemeLight_Background3 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_5),
-                    text = "",
-                    color = Color(customThemeLight_Background4),
-                    onColorSelected = {
-                        customThemeLight_Background4 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_text),
-                    text = "",
-                    color = Color(customThemeLight_Text),
-                    onColorSelected = {
-                        customThemeLight_Text= it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_text_secondary),
-                    text = "",
-                    color = Color(customThemeLight_TextSecondary),
-                    onColorSelected = {
-                        customThemeLight_TextSecondary = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_text_disabled),
-                    text = "",
-                    color = Color(customThemeLight_TextDisabled),
-                    onColorSelected = {
-                        customThemeLight_TextDisabled = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_icon_button_player),
-                    text = "",
-                    color = Color(customThemeLight_IconButtonPlayer),
-                    onColorSelected = {
-                        customThemeLight_IconButtonPlayer = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_accent),
-                    text = "",
-                    color = Color(customThemeLight_Accent),
-                    onColorSelected = {
-                        customThemeLight_Accent = it.hashCode()
-                    }
-                )
-
-                SettingsEntryGroupText(stringResource(R.string.title_customized_dark_theme_colors))
-                ButtonBarSettingEntry(
-                    title = stringResource(R.string.title_reset_customized_dark_colors),
-                    text = stringResource(R.string.click_to_reset_default_dark_colors),
-                    icon = R.drawable.trash,
-                    onClick = { resetCustomDarkThemeDialog = true }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_1),
-                    text = "",
-                    color = Color(customThemeDark_Background0),
-                    onColorSelected = {
-                        customThemeDark_Background0 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_2),
-                    text = "",
-                    color = Color(customThemeDark_Background1),
-                    onColorSelected = {
-                        customThemeDark_Background1 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_3),
-                    text = "",
-                    color = Color(customThemeDark_Background2),
-                    onColorSelected = {
-                        customThemeDark_Background2 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_4),
-                    text = "",
-                    color = Color(customThemeDark_Background3),
-                    onColorSelected = {
-                        customThemeDark_Background3 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_background_5),
-                    text = "",
-                    color = Color(customThemeDark_Background4),
-                    onColorSelected = {
-                        customThemeDark_Background4 = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_text),
-                    text = "",
-                    color = Color(customThemeDark_Text),
-                    onColorSelected = {
-                        customThemeDark_Text= it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_text_secondary),
-                    text = "",
-                    color = Color(customThemeDark_TextSecondary),
-                    onColorSelected = {
-                        customThemeDark_TextSecondary = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_text_disabled),
-                    text = "",
-                    color = Color(customThemeDark_TextDisabled),
-                    onColorSelected = {
-                        customThemeDark_TextDisabled = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_icon_button_player),
-                    text = "",
-                    color = Color(customThemeDark_IconButtonPlayer),
-                    onColorSelected = {
-                        customThemeDark_IconButtonPlayer = it.hashCode()
-                    }
-                )
-                ColorSettingEntry(
-                    title = stringResource(R.string.color_accent),
-                    text = "",
-                    color = Color(customThemeDark_Accent),
-                    onColorSelected = {
-                        customThemeDark_Accent = it.hashCode()
-                    }
-                )
-            }
-        }
-
-        if (search.inputValue.isBlank() || stringResource(R.string.theme_mode).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.theme_mode),
-                selectedValue = colorPaletteMode,
-                isEnabled = when (colorPaletteName) {
-                    ColorPaletteName.PureBlack -> false
-                    ColorPaletteName.ModernBlack -> false
-                    else -> { true }
-                },
-                onValueSelected = {
-                    colorPaletteMode = it
-                    //if (it == ColorPaletteMode.PitchBlack) colorPaletteName = ColorPaletteName.ModernBlack
-                },
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.navigation_bar_position).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.navigation_bar_position),
-                selectedValue = navigationBarPosition,
-                onValueSelected = { navigationBarPosition = it },
-                // As of version 0.6.53, changing navigation bar to top or bottom
-                // while using ViMusic theme breaks the UI
-                isEnabled = uiType != UiType.ViMusic,
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.navigation_bar_type).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.navigation_bar_type),
-                selectedValue = navigationBarType,
-                onValueSelected = { navigationBarType = it },
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.player_position).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.player_position),
-                selectedValue = playerPosition,
-                onValueSelected = { playerPosition = it },
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.menu_style).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.menu_style),
-                selectedValue = menuStyle,
-                onValueSelected = { menuStyle = it },
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.message_type).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.message_type),
-                selectedValue = messageType,
-                onValueSelected = { messageType = it },
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.default_page).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.default_page),
-                selectedValue = indexNavigationTab,
-                onValueSelected = {indexNavigationTab = it},
-                valueText = { it.text }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.transition_effect).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.transition_effect),
-                selectedValue = transitionEffect,
-                onValueSelected = { transitionEffect = it },
-                valueText = { it.text }
-            )
-
-        if ( UiType.ViMusic.isCurrent() ) {
-            if (search.inputValue.isBlank() || stringResource(R.string.vimusic_show_search_button_in_navigation_bar).contains(
-                    search.inputValue,
-                    true
-                )
-            )
-                SwitchSettingEntry(
-                    title = stringResource(R.string.vimusic_show_search_button_in_navigation_bar),
-                    text = stringResource(R.string.vismusic_only_in_left_right_navigation_bar),
-                    isChecked = showSearchTab,
-                    onCheckedChange = { showSearchTab = it }
-                )
-
-
-
-            if (search.inputValue.isBlank() || stringResource(R.string.show_statistics_in_navigation_bar).contains(
-                    search.inputValue,
-                    true
-                )
-            )
-                SwitchSettingEntry(
-                    title = stringResource(R.string.show_statistics_in_navigation_bar),
-                    text = "",
-                    isChecked = showStatsInNavbar,
-                    onCheckedChange = { showStatsInNavbar = it }
-                )
-        }
-
-        if (search.inputValue.isBlank() || stringResource(R.string.show_floating_icon).contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = stringResource(R.string.show_floating_icon),
-                text = "",
-                isChecked = showFloatingIcon,
-                onCheckedChange = { showFloatingIcon = it }
-            )
-
-
-
-        if (search.inputValue.isBlank() || stringResource(R.string.settings_use_font_type).contains(search.inputValue,true))
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.settings_use_font_type),
-                selectedValue = fontType,
-                onValueSelected = { fontType = it },
-                valueText = { it.name }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.use_system_font).contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = stringResource(R.string.use_system_font),
-                text = stringResource(R.string.use_font_by_the_system),
-                isChecked = useSystemFont,
-                onCheckedChange = { useSystemFont = it }
-            )
-
-        if (search.inputValue.isBlank() || stringResource(R.string.apply_font_padding).contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = stringResource(R.string.apply_font_padding),
-                text = stringResource(R.string.add_spacing_around_texts),
-                isChecked = applyFontPadding,
-                onCheckedChange = { applyFontPadding = it }
-            )
-
-
-        if (search.inputValue.isBlank() || stringResource(R.string.swipe_to_action).contains(search.inputValue,true))
-        {
-            SwitchSettingEntry(
-                title = stringResource(R.string.swipe_to_action),
-                text = stringResource(R.string.activate_the_action_menu_by_swiping_the_song_left_or_right),
-                isChecked = isSwipeToActionEnabled,
-                onCheckedChange = { isSwipeToActionEnabled = it }
-            )
-
-            AnimatedVisibility(visible = isSwipeToActionEnabled) {
-                Column(
-                    modifier = Modifier.padding(start = 25.dp)
-                ) {
-                    EnumValueSelectorSettingsEntry<QueueSwipeAction>(
-                        title = stringResource(R.string.queue_and_local_playlists_left_swipe),
-                        selectedValue = queueSwipeLeftAction,
-                        onValueSelected = {
-                            queueSwipeLeftAction = it
-                        },
-                        valueText = { it.text },
-                    )
-                    EnumValueSelectorSettingsEntry<QueueSwipeAction>(
-                        title = stringResource(R.string.queue_and_local_playlists_right_swipe),
-                        selectedValue = queueSwipeRightAction,
-                        onValueSelected = {
-                            queueSwipeRightAction = it
-                        },
-                        valueText = { it.text },
-                    )
-                    EnumValueSelectorSettingsEntry<PlaylistSwipeAction>(
-                        title = stringResource(R.string.playlist_left_swipe),
-                        selectedValue = playlistSwipeLeftAction,
-                        onValueSelected = {
-                            playlistSwipeLeftAction = it
-                        },
-                        valueText = { it.text },
-                    )
-                    EnumValueSelectorSettingsEntry<PlaylistSwipeAction>(
-                        title = stringResource(R.string.playlist_right_swipe),
-                        selectedValue = playlistSwipeRightAction,
-                        onValueSelected = {
-                            playlistSwipeRightAction = it
-                        },
-                        valueText = { it.text },
-                    )
-                    EnumValueSelectorSettingsEntry<AlbumSwipeAction>(
-                        title = stringResource(R.string.album_left_swipe),
-                        selectedValue = albumSwipeLeftAction,
-                        onValueSelected = {
-                            albumSwipeLeftAction = it
-                        },
-                        valueText = { it.text },
-                    )
-                    EnumValueSelectorSettingsEntry<AlbumSwipeAction>(
-                        title = stringResource(R.string.album_right_swipe),
-                        selectedValue = albumSwipeRightAction,
-                        onValueSelected = {
-                            albumSwipeRightAction = it
-                        },
-                        valueText = { it.text },
-                    )
-                }
-            }
-        }
-
-
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(title = stringResource(R.string.search_display_order))
-
-        if (search.inputValue.isBlank() || stringResource(R.string.search_display_order).contains(
-                search.inputValue,
-                true
-            )
+        AnimatedVisibility(
+            visible = uiSearchContextMatch,
+            enter = fadeIn(animationSpec = tween(600)) + scaleIn(animationSpec = tween(600), initialScale = 0.9f)
         ) {
-            EnumValueSelectorSettingsEntry(
-                title = stringResource(R.string.search_display_order),
-                text = stringResource(R.string.search_display_order_description),
-                selectedValue = searchDisplayOrder,
-                onValueSelected = {
-                    searchDisplayOrder = it
-                },
-                valueText = { 
-                    when (it) {
-                        SearchDisplayOrder.SuggestionsFirst -> stringResource(R.string.search_display_order_suggestions_first)
-                        SearchDisplayOrder.SavedSearchesFirst -> stringResource(R.string.search_display_order_saved_searches_first)
+            SettingsSectionCard(
+                title = stringResource(R.string.theme),
+                icon = R.drawable.color_palette,
+                content = {
+                    var showUiTypeDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.interface_in_use).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.interface_in_use),
+                            text = uiType.text,
+                            icon = R.drawable.ui,
+                            onClick = { showUiTypeDialog = true }
+                        )
+                    }
+
+                    if (showUiTypeDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.interface_in_use),
+                            selectedValue = uiType,
+                            onValueSelected = {
+                                uiType = it
+                                if (uiType == UiType.ViMusic) {
+                                    disablePlayerHorizontalSwipe = true
+                                    disableIconButtonOnTop = true
+                                    playerTimelineType = PlayerTimelineType.FakeAudioBar
+                                    visualizerEnabled = false
+                                    playerThumbnailSize = PlayerThumbnailSize.Medium
+                                    thumbnailTapEnabled = true
+                                    showSearchTab = true
+                                    showStatsInNavbar = true
+                                    navigationBarPosition = NavigationBarPosition.Left
+                                    showTopActionsBar = false
+                                    playerType = PlayerType.Modern
+                                    queueType = QueueType.Modern
+                                    fadingedge = false
+                                    carousel = true
+                                    carouselSize = CarouselSize.Medium
+                                    thumbnailType = ThumbnailType.Essential
+                                    playerTimelineSize = PlayerTimelineSize.Medium
+                                    playerInfoShowIcons = true
+                                    miniPlayerType = MiniPlayerType.Modern
+                                    playerSwapControlsWithTimeline = false
+                                    transparentBackgroundActionBarPlayer = false
+                                    playerControlsType = PlayerControlsType.Essential
+                                    playerPlayButtonType = PlayerPlayButtonType.Disabled
+                                    buttonzoomout = true
+                                    iconLikeType = IconLikeType.Essential
+                                    playerBackgroundColors = PlayerBackgroundColors.CoverColorGradient
+                                    blackgradient = true
+                                    showTotalTimeQueue = false
+                                    showRemainingSongTime = false
+                                    showNextSongsInPlayer = false
+                                    disableScrollingText = false
+                                    effectRotationEnabled = true
+                                    clickLyricsText = true
+                                    playerEnableLyricsPopupMessage = true
+                                    backgroundProgress = BackgroundProgress.MiniPlayer
+                                    transparentBackgroundActionBarPlayer = true
+                                    actionspacedevenly = false
+                                    tapqueue = false
+                                    swipeUpQueue = true
+                                    showButtonPlayerDiscover = false
+                                    showButtonPlayerDownload = false
+                                    showButtonPlayerAddToPlaylist = false
+                                    showButtonPlayerLoop = false
+                                    showButtonPlayerShuffle = false
+                                    showButtonPlayerLyrics = false
+                                    expandedplayertoggle = false
+                                    showButtonPlayerSleepTimer = false
+                                    showButtonPlayerSystemEqualizer = false
+                                    showButtonPlayerArrow = false
+                                    showButtonPlayerShuffle = false
+                                    showButtonPlayerMenu = true
+                                    showthumbnail = true
+                                    keepPlayerMinimized = false
+                                } else {
+                                    disablePlayerHorizontalSwipe = false
+                                    disableIconButtonOnTop = false
+                                    playerTimelineType = lastPlayerTimelineType
+                                    playerThumbnailSize = lastPlayerThumbnailSize
+                                    playerPlayButtonType = lastPlayerPlayButtonType
+                                    navigationBarPosition = NavigationBarPosition.Bottom
+                                }
+                                RestartAppDialog.showDialog()
+                            },
+                            valueText = { it.text },
+                            values = UiType.values().toList(),
+                            onDismiss = { showUiTypeDialog = false }
+                        )
+                    }
+
+                    var showThemeDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.theme).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.theme),
+                            text = colorPaletteName.text,
+                            icon = R.drawable.color_palette,
+                            onClick = { showThemeDialog = true }
+                        )
+                    }
+
+                    if (showThemeDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.theme),
+                            selectedValue = colorPaletteName,
+                            onValueSelected = {
+                                colorPaletteName = it
+                                when (it) {
+                                    ColorPaletteName.PureBlack,
+                                    ColorPaletteName.ModernBlack -> colorPaletteMode = ColorPaletteMode.System
+                                    else -> {}
+                                }
+                            },
+                            valueText = { it.text },
+                            values = ColorPaletteName.values().toList(),
+                            onDismiss = { showThemeDialog = false }
+                        )
+                    }
+
+                    AnimatedVisibility(visible = colorPaletteName == ColorPaletteName.CustomColor) {
+                        Column {
+                            ColorSettingEntry(
+                                title = stringResource(R.string.customcolor),
+                                text = "",
+                                color = Color(customColor),
+                                onColorSelected = { customColor = it.hashCode() },
+                                modifier = Modifier.padding(start = 25.dp)
+                            )
+                            ImportantSettingsDescription(
+                                text = stringResource(R.string.restarting_rimusic_is_required),
+                                modifier = Modifier.padding(start = 25.dp)
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(visible = colorPaletteName == ColorPaletteName.Customized) {
+                        Column(modifier = Modifier.padding(start = 25.dp)) {
+                            // Using standard Custom Light colors
+
+                            ButtonBarSettingEntry(
+                                title = stringResource(R.string.title_reset_customized_light_colors),
+                                text = stringResource(R.string.info_click_to_reset_default_light_colors),
+                                icon = R.drawable.trash,
+                                onClick = { resetCustomLightThemeDialog = true }
+                            )
+
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_1),
+                                text = "Light",
+                                color = Color(customThemeLight_Background0),
+                                onColorSelected = { customThemeLight_Background0 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_2),
+                                text = "Light",
+                                color = Color(customThemeLight_Background1),
+                                onColorSelected = { customThemeLight_Background1 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_3),
+                                text = "Light",
+                                color = Color(customThemeLight_Background2),
+                                onColorSelected = { customThemeLight_Background2 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_4),
+                                text = "Light",
+                                color = Color(customThemeLight_Background3),
+                                onColorSelected = { customThemeLight_Background3 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_5),
+                                text = "Light",
+                                color = Color(customThemeLight_Background4),
+                                onColorSelected = { customThemeLight_Background4 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_text),
+                                text = "Light",
+                                color = Color(customThemeLight_Text),
+                                onColorSelected = { customThemeLight_Text= it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_text_secondary),
+                                text = "Light",
+                                color = Color(customThemeLight_TextSecondary),
+                                onColorSelected = { customThemeLight_TextSecondary = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_text_disabled),
+                                text = "Light",
+                                color = Color(customThemeLight_TextDisabled),
+                                onColorSelected = { customThemeLight_TextDisabled = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_icon_button_player),
+                                text = "Light",
+                                color = Color(customThemeLight_IconButtonPlayer),
+                                onColorSelected = { customThemeLight_IconButtonPlayer = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_accent),
+                                text = "Light",
+                                color = Color(customThemeLight_Accent),
+                                onColorSelected = { customThemeLight_Accent = it.hashCode() }
+                            )
+
+
+                            ButtonBarSettingEntry(
+                                title = stringResource(R.string.title_reset_customized_dark_colors),
+                                text = stringResource(R.string.click_to_reset_default_dark_colors),
+                                icon = R.drawable.trash,
+                                onClick = { resetCustomDarkThemeDialog = true }
+                            )
+
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_1),
+                                text = "Dark",
+                                color = Color(customThemeDark_Background0),
+                                onColorSelected = { customThemeDark_Background0 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_2),
+                                text = "Dark",
+                                color = Color(customThemeDark_Background1),
+                                onColorSelected = { customThemeDark_Background1 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_3),
+                                text = "Dark",
+                                color = Color(customThemeDark_Background2),
+                                onColorSelected = { customThemeDark_Background2 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_4),
+                                text = "Dark",
+                                color = Color(customThemeDark_Background3),
+                                onColorSelected = { customThemeDark_Background3 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_background_5),
+                                text = "Dark",
+                                color = Color(customThemeDark_Background4),
+                                onColorSelected = { customThemeDark_Background4 = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_text),
+                                text = "Dark",
+                                color = Color(customThemeDark_Text),
+                                onColorSelected = { customThemeDark_Text= it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_text_secondary),
+                                text = "Dark",
+                                color = Color(customThemeDark_TextSecondary),
+                                onColorSelected = { customThemeDark_TextSecondary = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_text_disabled),
+                                text = "Dark",
+                                color = Color(customThemeDark_TextDisabled),
+                                onColorSelected = { customThemeDark_TextDisabled = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_icon_button_player),
+                                text = "Dark",
+                                color = Color(customThemeDark_IconButtonPlayer),
+                                onColorSelected = { customThemeDark_IconButtonPlayer = it.hashCode() }
+                            )
+                            ColorSettingEntry(
+                                title = stringResource(R.string.color_accent),
+                                text = "Dark",
+                                color = Color(customThemeDark_Accent),
+                                onColorSelected = { customThemeDark_Accent = it.hashCode() }
+                            )
+
+                        }
+                    }
+
+                    var showThemeModeDialog by remember { mutableStateOf(false) }
+                    val themeModeEnabled = when (colorPaletteName) {
+                        ColorPaletteName.PureBlack -> false
+                        ColorPaletteName.ModernBlack -> false
+                        else -> true
+                    }
+                    if (search.inputValue.isBlank() || stringResource(R.string.theme_mode).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.theme_mode),
+                            text = colorPaletteMode.text,
+                            icon = R.drawable.sparkles,
+                            onClick = { if(themeModeEnabled) showThemeModeDialog = true }
+                        )
+                    }
+
+                    if (showThemeModeDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.theme_mode),
+                            selectedValue = colorPaletteMode,
+                            onValueSelected = { colorPaletteMode = it },
+                            valueText = { it.text },
+                            values = ColorPaletteMode.values().toList(),
+                            onDismiss = { showThemeModeDialog = false }
+                        )
+                    }
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        val navSearchContextMatch = search.inputValue.isBlank() || 
+            stringResource(R.string.search_display_order).contains(search.inputValue, true) ||
+            stringResource(R.string.navigation_bar_position).contains(search.inputValue, true) ||
+            stringResource(R.string.navigation_bar_type).contains(search.inputValue, true) ||
+            stringResource(R.string.player_position).contains(search.inputValue, true) ||
+            stringResource(R.string.menu_style).contains(search.inputValue, true) ||
+            stringResource(R.string.message_type).contains(search.inputValue, true) ||
+            stringResource(R.string.default_page).contains(search.inputValue, true) ||
+            stringResource(R.string.transition_effect).contains(search.inputValue, true)
+
+        AnimatedVisibility(
+            visible = navSearchContextMatch,
+            enter = fadeIn(animationSpec = tween(700)) + scaleIn(animationSpec = tween(700), initialScale = 0.9f)
+        ) {
+            SettingsSectionCard(
+                title = stringResource(R.string.user_interface),
+                icon = R.drawable.ui,
+                content = {
+                    var showNavPosDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.navigation_bar_position).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.navigation_bar_position),
+                            text = navigationBarPosition.text,
+                            icon = R.drawable.locate,
+                            onClick = { if(uiType != UiType.ViMusic) showNavPosDialog = true }
+                        )
+                    }
+                    if (showNavPosDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.navigation_bar_position),
+                            selectedValue = navigationBarPosition,
+                            onValueSelected = { navigationBarPosition = it },
+                            valueText = { it.text },
+                            values = NavigationBarPosition.values().toList(),
+                            onDismiss = { showNavPosDialog = false }
+                        )
+                    }
+
+                    var showNavTypeDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.navigation_bar_type).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.navigation_bar_type),
+                            text = navigationBarType.text,
+                            icon = R.drawable.burger,
+                            onClick = { showNavTypeDialog = true }
+                        )
+                    }
+                    if (showNavTypeDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.navigation_bar_type),
+                            selectedValue = navigationBarType,
+                            onValueSelected = { navigationBarType = it },
+                            valueText = { it.text },
+                            values = NavigationBarType.values().toList(),
+                            onDismiss = { showNavTypeDialog = false }
+                        )
+                    }
+
+                    var showPlayerPosDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.player_position).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.player_position),
+                            text = playerPosition.text,
+                            icon = R.drawable.position,
+                            onClick = { showPlayerPosDialog = true }
+                        )
+                    }
+                    if (showPlayerPosDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.player_position),
+                            selectedValue = playerPosition,
+                            onValueSelected = { playerPosition = it },
+                            valueText = { it.text },
+                            values = PlayerPosition.values().toList(),
+                            onDismiss = { showPlayerPosDialog = false }
+                        )
+                    }
+
+                    var showMenuStyleDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.menu_style).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.menu_style),
+                            text = menuStyle.text,
+                            icon = R.drawable.reorder,
+                            onClick = { showMenuStyleDialog = true }
+                        )
+                    }
+                    if (showMenuStyleDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.menu_style),
+                            selectedValue = menuStyle,
+                            onValueSelected = { menuStyle = it },
+                            valueText = { it.text },
+                            values = MenuStyle.values().toList(),
+                            onDismiss = { showMenuStyleDialog = false }
+                        )
+                    }
+
+                    var showMessageTypeDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.message_type).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.message_type),
+                            text = messageType.text,
+                            icon = R.drawable.information,
+                            onClick = { showMessageTypeDialog = true }
+                        )
+                    }
+                    if (showMessageTypeDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.message_type),
+                            selectedValue = messageType,
+                            onValueSelected = { messageType = it },
+                            valueText = { it.text },
+                            values = MessageType.values().toList(),
+                            onDismiss = { showMessageTypeDialog = false }
+                        )
+                    }
+
+                    var showDefPageDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.default_page).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.default_page),
+                            text = indexNavigationTab.text,
+                            icon = R.drawable.star_brilliant,
+                            onClick = { showDefPageDialog = true }
+                        )
+                    }
+                    if (showDefPageDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.default_page),
+                            selectedValue = indexNavigationTab,
+                            onValueSelected = { indexNavigationTab = it },
+                            valueText = { it.text },
+                            values = HomeScreenTabs.values().toList(),
+                            onDismiss = { showDefPageDialog = false }
+                        )
+                    }
+
+                    var showTransDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.transition_effect).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.transition_effect),
+                            text = transitionEffect.text,
+                            icon = R.drawable.images_sharp,
+                            onClick = { showTransDialog = true }
+                        )
+                    }
+                    if (showTransDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.transition_effect),
+                            selectedValue = transitionEffect,
+                            onValueSelected = { transitionEffect = it },
+                            valueText = { it.text },
+                            values = TransitionEffect.values().toList(),
+                            onDismiss = { showTransDialog = false }
+                        )
+                    }
+
+                    var showSearchOrderDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.search_display_order).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.search_display_order),
+                            text = stringResource(R.string.search_display_order_description),
+                            icon = R.drawable.search,
+                            onClick = { showSearchOrderDialog = true }
+                        )
+                    }
+                    if (showSearchOrderDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.search_display_order),
+                            selectedValue = searchDisplayOrder,
+                            onValueSelected = { searchDisplayOrder = it },
+                            valueText = {
+                                when (it) {
+                                    SearchDisplayOrder.SuggestionsFirst -> stringResource(R.string.search_display_order_suggestions_first)
+                                    SearchDisplayOrder.SavedSearchesFirst -> stringResource(R.string.search_display_order_saved_searches_first)
+                                }
+                            },
+                            values = SearchDisplayOrder.values().toList(),
+                            onDismiss = { showSearchOrderDialog = false }
+                        )
+                    }
+
+                    if ( UiType.ViMusic.isCurrent() ) {
+                        if (search.inputValue.isBlank() || stringResource(R.string.vimusic_show_search_button_in_navigation_bar).contains(search.inputValue, true)) {
+                            OtherSwitchSettingEntry(
+                                title = stringResource(R.string.vimusic_show_search_button_in_navigation_bar),
+                                text = stringResource(R.string.vismusic_only_in_left_right_navigation_bar),
+                                isChecked = showSearchTab,
+                                onCheckedChange = { showSearchTab = it },
+                                icon = R.drawable.search
+                            )
+                        }
+                        if (search.inputValue.isBlank() || stringResource(R.string.show_statistics_in_navigation_bar).contains(search.inputValue, true)) {
+                            OtherSwitchSettingEntry(
+                                title = stringResource(R.string.show_statistics_in_navigation_bar),
+                                text = "",
+                                isChecked = showStatsInNavbar,
+                                onCheckedChange = { showStatsInNavbar = it },
+                                icon = R.drawable.stats_chart
+                            )
+                        }
+                    }
+
+
+
+
+                    if (search.inputValue.isBlank() || stringResource(R.string.show_floating_icon).contains(search.inputValue,true)) {
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.show_floating_icon),
+                            text = "",
+                            isChecked = showFloatingIcon,
+                            onCheckedChange = { showFloatingIcon = it },
+                            icon = R.drawable.maximize
+                        )
+                    }
+
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val typoSearchContextMatch = search.inputValue.isBlank() || 
+            stringResource(R.string.settings_use_font_type).contains(search.inputValue, true) ||
+            stringResource(R.string.use_system_font).contains(search.inputValue, true) ||
+            stringResource(R.string.apply_font_padding).contains(search.inputValue, true)
+
+        AnimatedVisibility(
+            visible = typoSearchContextMatch,
+            enter = fadeIn(animationSpec = tween(800)) + scaleIn(animationSpec = tween(800), initialScale = 0.9f)
+        ) {
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_use_font_type),
+                icon = R.drawable.text,
+                content = {
+                    var showFontDialog by remember { mutableStateOf(false) }
+                    if (search.inputValue.isBlank() || stringResource(R.string.settings_use_font_type).contains(search.inputValue,true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.settings_use_font_type),
+                            text = fontType.name,
+                            icon = R.drawable.text,
+                            onClick = { showFontDialog = true }
+                        )
+                    }
+                    if (showFontDialog) {
+                        ValueSelectorDialog(
+                            title = stringResource(R.string.settings_use_font_type),
+                            selectedValue = fontType,
+                            onValueSelected = { fontType = it },
+                            valueText = { it.name },
+                            values = FontType.values().toList(),
+                            onDismiss = { showFontDialog = false }
+                        )
+                    }
+
+                    if (search.inputValue.isBlank() || stringResource(R.string.use_system_font).contains(search.inputValue,true)) {
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.use_system_font),
+                            text = stringResource(R.string.use_font_by_the_system),
+                            isChecked = useSystemFont,
+                            onCheckedChange = { useSystemFont = it },
+                            icon = R.drawable.settings
+                        )
+                    }
+
+                    if (search.inputValue.isBlank() || stringResource(R.string.apply_font_padding).contains(search.inputValue,true)) {
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.apply_font_padding),
+                            text = stringResource(R.string.add_spacing_around_texts),
+                            isChecked = applyFontPadding,
+                            onCheckedChange = { applyFontPadding = it },
+                            icon = R.drawable.resize
+                        )
+                    }
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val swipeSearchContextMatch = search.inputValue.isBlank() || 
+            stringResource(R.string.swipe_to_action).contains(search.inputValue, true)
+
+        AnimatedVisibility(
+            visible = swipeSearchContextMatch,
+            enter = fadeIn(animationSpec = tween(900)) + scaleIn(animationSpec = tween(900), initialScale = 0.9f)
+        ) {
+            SettingsSectionCard(
+                title = stringResource(R.string.swipe_to_action),
+                icon = R.drawable.arrow_forward,
+                content = {
+                    if (search.inputValue.isBlank() || stringResource(R.string.swipe_to_action).contains(search.inputValue,true)) {
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.swipe_to_action),
+                            text = stringResource(R.string.activate_the_action_menu_by_swiping_the_song_left_or_right),
+                            isChecked = isSwipeToActionEnabled,
+                            onCheckedChange = { isSwipeToActionEnabled = it },
+                            icon = R.drawable.arrow_forward
+                        )
+                    }
+
+                    AnimatedVisibility(visible = isSwipeToActionEnabled) {
+                        Column(modifier = Modifier.padding(start = 25.dp)) {
+                            var showQSLeftDialog by remember { mutableStateOf(false) }
+                            OtherSettingsEntry(
+                                title = stringResource(R.string.queue_and_local_playlists_left_swipe),
+                                text = queueSwipeLeftAction.text,
+                                icon = R.drawable.arrow_left,
+                                onClick = { showQSLeftDialog = true }
+                            )
+                            if (showQSLeftDialog) {
+                                ValueSelectorDialog(
+                                    title = stringResource(R.string.queue_and_local_playlists_left_swipe),
+                                    selectedValue = queueSwipeLeftAction,
+                                    onValueSelected = { queueSwipeLeftAction = it },
+                                    valueText = { it.text },
+                                    values = QueueSwipeAction.values().toList(),
+                                    onDismiss = { showQSLeftDialog = false }
+                                )
+                            }
+                            
+                            var showPLLeftDialog by remember { mutableStateOf(false) }
+                            OtherSettingsEntry(
+                                title = stringResource(R.string.playlist_left_swipe),
+                                text = playlistSwipeLeftAction.text,
+                                icon = R.drawable.arrow_left,
+                                onClick = { showPLLeftDialog = true }
+                            )
+                            if (showPLLeftDialog) {
+                                ValueSelectorDialog(
+                                    title = stringResource(R.string.playlist_left_swipe),
+                                    selectedValue = playlistSwipeLeftAction,
+                                    onValueSelected = { playlistSwipeLeftAction = it },
+                                    valueText = { it.text },
+                                    values = PlaylistSwipeAction.values().toList(),
+                                    onDismiss = { showPLLeftDialog = false }
+                                )
+                            }
+
+                            var showPLRightDialog by remember { mutableStateOf(false) }
+                            OtherSettingsEntry(
+                                title = stringResource(R.string.playlist_right_swipe),
+                                text = playlistSwipeRightAction.text,
+                                icon = R.drawable.arrow_right,
+                                onClick = { showPLRightDialog = true }
+                            )
+                            if (showPLRightDialog) {
+                                ValueSelectorDialog(
+                                    title = stringResource(R.string.playlist_right_swipe),
+                                    selectedValue = playlistSwipeRightAction,
+                                    onValueSelected = { playlistSwipeRightAction = it },
+                                    valueText = { it.text },
+                                    values = PlaylistSwipeAction.values().toList(),
+                                    onDismiss = { showPLRightDialog = false }
+                                )
+                            }
+
+                            var showALeftDialog by remember { mutableStateOf(false) }
+                            OtherSettingsEntry(
+                                title = stringResource(R.string.album_left_swipe),
+                                text = albumSwipeLeftAction.text,
+                                icon = R.drawable.arrow_left,
+                                onClick = { showALeftDialog = true }
+                            )
+                            if (showALeftDialog) {
+                                ValueSelectorDialog(
+                                    title = stringResource(R.string.album_left_swipe),
+                                    selectedValue = albumSwipeLeftAction,
+                                    onValueSelected = { albumSwipeLeftAction = it },
+                                    valueText = { it.text },
+                                    values = AlbumSwipeAction.values().toList(),
+                                    onDismiss = { showALeftDialog = false }
+                                )
+                            }
+
+                            var showARightDialog by remember { mutableStateOf(false) }
+                            OtherSettingsEntry(
+                                title = stringResource(R.string.album_right_swipe),
+                                text = albumSwipeRightAction.text,
+                                icon = R.drawable.arrow_right,
+                                onClick = { showARightDialog = true }
+                            )
+                            if (showARightDialog) {
+                                ValueSelectorDialog(
+                                    title = stringResource(R.string.album_right_swipe),
+                                    selectedValue = albumSwipeRightAction,
+                                    onValueSelected = { albumSwipeRightAction = it },
+                                    valueText = { it.text },
+                                    values = AlbumSwipeAction.values().toList(),
+                                    onDismiss = { showARightDialog = false }
+                                )
+                            }
+
+                            var showQSRightDialog by remember { mutableStateOf(false) }
+                            OtherSettingsEntry(
+                                title = stringResource(R.string.queue_and_local_playlists_right_swipe),
+                                text = queueSwipeRightAction.text,
+                                icon = R.drawable.arrow_right,
+                                onClick = { showQSRightDialog = true }
+                            )
+                            if (showQSRightDialog) {
+                                ValueSelectorDialog(
+                                    title = stringResource(R.string.queue_and_local_playlists_right_swipe),
+                                    selectedValue = queueSwipeRightAction,
+                                    onValueSelected = { queueSwipeRightAction = it },
+                                    valueText = { it.text },
+                                    values = QueueSwipeAction.values().toList(),
+                                    onDismiss = { showQSRightDialog = false }
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val listsSearchContextMatch = search.inputValue.isBlank() || 
+            stringResource(R.string.songs).contains(search.inputValue, true) ||
+            stringResource(R.string.playlists).contains(search.inputValue, true)
+
+        AnimatedVisibility(
+            visible = listsSearchContextMatch,
+            enter = fadeIn(animationSpec = tween(1000)) + scaleIn(animationSpec = tween(1000), initialScale = 0.9f)
+        ) {
+            SettingsSectionCard(
+                title = stringResource(R.string.library),
+                icon = R.drawable.library,
+                content = {
+                    if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.favorites)}".contains(search.inputValue,true))
+                        OtherSwitchSettingEntry(
+                            title = "${stringResource(R.string.show)} ${stringResource(R.string.favorites)}",
+                            text = "",
+                            isChecked = showFavoritesPlaylist,
+                            onCheckedChange = { showFavoritesPlaylist = it },
+                            icon = R.drawable.heart
+                        )
+
+                    if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.cached)}".contains(search.inputValue,true))
+                        OtherSwitchSettingEntry(
+                            title = "${stringResource(R.string.show)} ${stringResource(R.string.cached)}",
+                            text = "",
+                            isChecked = showCachedPlaylist,
+                            onCheckedChange = { showCachedPlaylist = it },
+                            icon = R.drawable.server
+                        )
+
+                    if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.downloaded)}".contains(search.inputValue,true))
+                        OtherSwitchSettingEntry(
+                            title = "${stringResource(R.string.show)} ${stringResource(R.string.downloaded)}",
+                            text = "",
+                            isChecked = showDownloadedPlaylist,
+                            onCheckedChange = { showDownloadedPlaylist = it },
+                            icon = R.drawable.downloaded
+                        )
+
+                    if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.on_device)}".contains(search.inputValue,true))
+                        OtherSwitchSettingEntry(
+                            title = "${stringResource(R.string.show)} ${stringResource(R.string.on_device)}",
+                            text = "",
+                            isChecked = showOnDevicePlaylist,
+                            onCheckedChange = { showOnDevicePlaylist = it },
+                            icon = R.drawable.folder
+                        )
+
+                    if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.piped_playlists)}".contains(search.inputValue,true))
+                        OtherSwitchSettingEntry(
+                            title = "${stringResource(R.string.show)} ${stringResource(R.string.piped_playlists)}",
+                            text = "",
+                            isChecked = showPipedPlaylists,
+                            onCheckedChange = { showPipedPlaylists = it },
+                            icon = R.drawable.piped_logo
+                        )
+
+                    if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.pinned_playlists)}".contains(search.inputValue,true))
+                        OtherSwitchSettingEntry(
+                            title = "${stringResource(R.string.show)} ${stringResource(R.string.pinned_playlists)}",
+                            text = "",
+                            isChecked = showPinnedPlaylists,
+                            onCheckedChange = { showPinnedPlaylists = it },
+                            icon = R.drawable.pin_filled
+                        )
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        AnimatedVisibility(
+            visible = search.inputValue.isBlank(),
+            enter = fadeIn(animationSpec = tween(1100)) + scaleIn(animationSpec = tween(1100), initialScale = 0.9f)
+        ) {
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_reset),
+                icon = R.drawable.refresh,
+                content = {
+                    var resetToDefault by remember { mutableStateOf(false) }
+                    val context = LocalContext.current
+                    OtherSettingsEntry(
+                        title = stringResource(R.string.settings_reset),
+                        text = stringResource(R.string.settings_restore_default_settings),
+                        icon = R.drawable.refresh,
+                        onClick = { resetToDefault = true }
+                    )
+                    if (resetToDefault) {
+                        DefaultUiSettings()
+                        resetToDefault = false
+                        navController.popBackStack()
+                        Toaster.done()
                     }
                 }
             )
         }
 
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(title = stringResource(R.string.notification_player))
-
-
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(title = stringResource(R.string.songs).uppercase())
-
-        if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.favorites)}".contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.favorites)}",
-                text = "",
-                isChecked = showFavoritesPlaylist,
-                onCheckedChange = { showFavoritesPlaylist = it }
-            )
-
-        if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.cached)}".contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.cached)}",
-                text = "",
-                isChecked = showCachedPlaylist,
-                onCheckedChange = { showCachedPlaylist = it }
-            )
-
-        if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.downloaded)}".contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.downloaded)}",
-                text = "",
-                isChecked = showDownloadedPlaylist,
-                onCheckedChange = { showDownloadedPlaylist = it }
-            )
-
-        if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.on_device)}".contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.on_device)}",
-                text = "",
-                isChecked = showOnDevicePlaylist,
-                onCheckedChange = { showOnDevicePlaylist = it }
-            )
-
-        /*
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(title = stringResource(R.string.playlists).uppercase())
-
-        if (filter.isNullOrBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.playlists)}".contains(filterCharSequence,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.playlists)}",
-                text = "",
-                isChecked = showPlaylists,
-                onCheckedChange = { showPlaylists = it }
-            )
-        if (filter.isNullOrBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.monthly_playlists)}".contains(filterCharSequence,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.monthly_playlists)}",
-                text = "",
-                isChecked = showMonthlyPlaylistInLibrary,
-                onCheckedChange = { showMonthlyPlaylistInLibrary = it }
-            )
-         */
-
-        SettingsGroupSpacer()
-        SettingsEntryGroupText(title = stringResource(R.string.playlists).uppercase())
-
-        if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.piped_playlists)}".contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.piped_playlists)}",
-                text = "",
-                isChecked = showPipedPlaylists,
-                onCheckedChange = { showPipedPlaylists = it }
-            )
-
-        if (search.inputValue.isBlank() || "${stringResource(R.string.show)} ${stringResource(R.string.pinned_playlists)}".contains(search.inputValue,true))
-            SwitchSettingEntry(
-                title = "${stringResource(R.string.show)} ${stringResource(R.string.pinned_playlists)}",
-                text = "",
-                isChecked = showPinnedPlaylists,
-                onCheckedChange = { showPinnedPlaylists = it }
-            )
-
-
-
-        var resetToDefault by remember { mutableStateOf(false) }
-        val context = LocalContext.current
-        ButtonBarSettingEntry(
-            title = stringResource(R.string.settings_reset),
-            text = stringResource(R.string.settings_restore_default_settings),
-            icon = R.drawable.refresh,
-            iconColor = colorPalette().text,
-            onClick = { resetToDefault = true },
-        )
-        if (resetToDefault) {
-            DefaultUiSettings()
-            resetToDefault = false
-            navController.popBackStack()
-            Toaster.done()
-        }
-
-        SettingsGroupSpacer(
-            modifier = Modifier.height(Dimensions.bottomSpacer)
-        )
-
+        Spacer(modifier = Modifier.height(Dimensions.bottomSpacer))
     }
 }

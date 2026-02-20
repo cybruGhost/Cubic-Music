@@ -84,8 +84,6 @@ kotlin {
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
 
-            implementation("org.jsoup:jsoup:1.17.2")
-
             implementation(projects.innertube)
             implementation(projects.piped)
             implementation(projects.invidious)
@@ -98,15 +96,15 @@ kotlin {
 
             implementation(libs.navigation.kmp)
             implementation("androidx.compose.material:material-icons-extended:1.6.0")
-
+            //coil3 mp
             implementation(libs.coil.compose.core)
             implementation(libs.coil.compose)
             implementation(libs.coil.mp)
             implementation(libs.coil.network.okhttp)
 
             implementation(libs.translator)
-        }
 
+        }
     }
 }
 

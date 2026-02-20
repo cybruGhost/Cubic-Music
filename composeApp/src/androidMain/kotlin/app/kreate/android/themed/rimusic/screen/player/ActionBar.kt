@@ -172,13 +172,13 @@ fun BoxScope.ActionBar(
     val binder = LocalPlayerServiceBinder.current ?: return
     val menuState = LocalMenuState.current
 
-    val mediaItem = binder?.player?.currentMediaItem ?: return
+    val mediaItem = binder.player.currentMediaItem ?: return
 
     val playerBackgroundColors by rememberPreference( playerBackgroundColorsKey, PlayerBackgroundColors.BlurredCoverColor )
     val blackGradient by rememberPreference( blackgradientKey, false )
     val showLyricsThumbnail by rememberPreference(showlyricsthumbnailKey, false)
-    val showNextSongsInPlayer by rememberPreference( showNextSongsInPlayerKey, true )
-    val miniQueueExpanded by rememberPreference( miniQueueExpandedKey, false )
+    val showNextSongsInPlayer by rememberPreference( showNextSongsInPlayerKey, false )
+    val miniQueueExpanded by rememberPreference( miniQueueExpandedKey, true )
     val tapQueue by rememberPreference( tapqueueKey, true )
     val transparentBackgroundActionBarPlayer by rememberPreference( transparentBackgroundPlayerActionBarKey, false )
     val swipeUpQueue by rememberPreference( swipeUpQueueKey, true )
@@ -197,7 +197,7 @@ fun BoxScope.ActionBar(
                                showQueue = true
                            }
                            .background(
-                               colorPalette().background2.copy(
+                               color = colorPalette().background2.copy(
                                    alpha =
                                        if (transparentBackgroundActionBarPlayer
                                            || (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient
@@ -207,8 +207,10 @@ fun BoxScope.ActionBar(
                                            0.0f
                                        else
                                            0.7f // 0.0 > 0.1
-                               )
+                               ),
+                               shape = if (isLandscape) CircleShape else RoundedCornerShape(0.dp)
                            )
+                           .clip(if (isLandscape) CircleShape else RoundedCornerShape(0.dp))
                            .pointerInput(Unit) {
                                if (swipeUpQueue)
                                    detectVerticalDragGestures(
@@ -245,12 +247,16 @@ fun BoxScope.ActionBar(
 
                     binder.player.DisposableListener {
                         object : Player.Listener {
-                            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-                                mediaItems.clear()
-                                mediaItems.addAll( timeline.mediaItems )
+                            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                                currentIndex = binder.player.currentMediaItemIndex
+                                nextIndex = binder.player.nextMediaItemIndex
                             }
 
-                            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                                mediaItems.clear()
+                                for (i in 0 until timeline.windowCount) {
+                                    mediaItems.add(timeline.getWindow(i, Timeline.Window()).mediaItem)
+                                }
                                 currentIndex = binder.player.currentMediaItemIndex
                                 nextIndex = binder.player.nextMediaItemIndex
                             }
@@ -262,7 +268,7 @@ fun BoxScope.ActionBar(
                         mediaItems.addAll( binder.player.mediaItems )
 
                         pagerStateQueue.requestScrollToPage(
-                            nextIndex.coerceIn( 0, pagerStateQueue.pageCount )
+                            nextIndex.coerceIn( 0, pagerStateQueue.pageCount.coerceAtLeast(1) )
                         )
                     }
 
@@ -298,7 +304,7 @@ fun BoxScope.ActionBar(
                         )
                     }
 
-                    val showSongsState = rememberPreference( showsongsKey, SongsNumber.`4` )
+                    val showSongsState = rememberPreference( showsongsKey, SongsNumber.`2` )
                     val viewPort = remember {
                         PagerViewPort( showSongsState, pagerStateQueue )
                     }
@@ -515,7 +521,7 @@ fun BoxScope.ActionBar(
 
                 val showButtonPlayerAddToPlaylist by rememberPreference( showButtonPlayerAddToPlaylistKey, true )
                 if (showButtonPlayerAddToPlaylist) {
-                    val showPlaylistIndicator by rememberPreference( playlistindicatorKey, true )
+                    val showPlaylistIndicator by rememberPreference( playlistindicatorKey, false )
                     val colorPaletteName by rememberPreference( colorPaletteNameKey, ColorPaletteName.Dynamic )
                     val color = colorPalette()
                     val isSongMappedToPlaylist by remember( mediaItem.mediaId ) {
@@ -544,7 +550,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerLoop by rememberPreference( showButtonPlayerLoopKey, false )
+                val showButtonPlayerLoop by rememberPreference( showButtonPlayerLoopKey, true )
                 if (showButtonPlayerLoop) {
                     var queueLoopType by queueLoopState
                     val effectRotationEnabled by rememberPreference( effectRotationKey, true )
@@ -587,7 +593,7 @@ fun BoxScope.ActionBar(
                 val playerType by rememberPreference( playerTypeKey, PlayerType.Essential )
                 val showThumbnail by rememberPreference( showthumbnailKey, true )
                 if (!isLandscape || ((playerType == PlayerType.Essential) && !showThumbnail)) {
-                    val expandedPlayerToggle by rememberPreference( expandedplayertoggleKey, false )
+                    val expandedPlayerToggle by rememberPreference( expandedplayertoggleKey, true )
                     var expandedPlayer by expandPlayerState
 
                     if (expandedPlayerToggle && !showLyricsThumbnail)
@@ -664,7 +670,7 @@ fun BoxScope.ActionBar(
                     )
                 }
 
-                val showButtonPlayerStartRadio by rememberPreference( showButtonPlayerStartRadioKey, true )
+                val showButtonPlayerStartRadio by rememberPreference( showButtonPlayerStartRadioKey, false )
                 if (showButtonPlayerStartRadio)
                     IconButton(
                         icon = R.drawable.radio,
@@ -705,15 +711,22 @@ fun BoxScope.ActionBar(
                         icon = R.drawable.ellipsis_vertical,
                         color = colorPalette().accent,
                         onClick = {
-                            menuState.display {
-                                PlayerMenu(
-                                    navController = navController,
-                                    onDismiss = menuState::hide,
-                                    mediaItem = mediaItem,
-                                    binder = binder,
-                                    onClosePlayer = onDismiss,
-                                    disableScrollingText = disableScrollingText
-                                )
+                            val currentMediaItem = binder.player.currentMediaItem
+                            if (currentMediaItem != null) {
+                                menuState.display {
+                                    PlayerMenu(
+                                        navController = navController,
+                                        onDismiss = menuState::hide,
+                                        mediaItem = currentMediaItem,
+                                        binder = binder,
+                                        onClosePlayer = onDismiss,
+                                        onShowSleepTimer = {
+                                            showSleepTimerState.value = true
+                                            menuState.hide()
+                                        },
+                                        disableScrollingText = disableScrollingText
+                                    )
+                                }
                             }
                         },
                         modifier = Modifier

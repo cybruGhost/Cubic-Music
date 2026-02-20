@@ -260,7 +260,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 // waigwe fallback api
 import it.fast4x.rimusic.utils.WaigweApi
 import it.fast4x.rimusic.utils.WaigweSearchResponse
-
+import it.fast4x.rimusic.utils.FadeAdjuster
+import it.fast4x.rimusic.enums.DurationInMilliseconds
 import androidx.media3.ui.AspectRatioFrameLayout
 
 import androidx.compose.runtime.DisposableEffect
@@ -284,7 +285,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 // --- GEOMETRY ---
 
 import androidx.compose.ui.geometry.CornerRadius
-// Add these imports with your other imports:
+
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.rememberUpdatedState
@@ -296,7 +297,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.MimeTypes
-// Add with your other imports
+// canvas
 import it.fast4x.rimusic.ui.screens.spotify.CanvasPlayerManager
 import androidx.compose.material3.CircularProgressIndicator
 
@@ -373,6 +374,17 @@ fun Player(
     // WAIGWE FALLBACK
     val waigweFallbackEnabled by rememberPreference("waigweFallbackKey", true)
 
+    // AUDIO FADE 
+    val playbackFadeAudioDuration by rememberPreference("playbackFadeAudioDurationKey", DurationInMilliseconds.Disabled)
+    val blurAdjuster = BlurAdjuster()
+    
+
+    val fadeAdjuster = FadeAdjuster()
+    fadeAdjuster.setContext(context)
+    // AUDIO FADE
+    LaunchedEffect(playbackFadeAudioDuration) {
+        fadeAdjuster.setDuration(playbackFadeAudioDuration.milliSeconds)
+    }
     if (binder.player.currentTimeline.windowCount == 0) return
 
     var nullableMediaItem by remember {
@@ -523,7 +535,7 @@ binder.player.DisposableListener {
     }
 }
 
-// Add this LaunchedEffect outside the Player.Listener to handle waigwe fallback
+//LaunchedEffect outside the Player.Listener to handle waigwe fallback
 LaunchedEffect(playerError, waigweFallbackEnabled) {
     if (waigweFallbackEnabled && playerError != null) {
         try {
@@ -666,6 +678,7 @@ LaunchedEffect(playerError, waigweFallbackEnabled) {
                     list.map { Info(it.id, it.name) }
                 }
     }.collectAsState( emptyList(), Dispatchers.IO )
+
     val albumId by remember( mediaItem ) {
         val result = mediaItem.mediaMetadata.extras?.getString("albumId")
         if( !result.isNullOrBlank() )
@@ -689,11 +702,18 @@ LaunchedEffect(playerError, waigweFallbackEnabled) {
                 cancelText = stringResource(R.string.no),
                 confirmText = stringResource(R.string.stop),
                 onDismiss = { isShowingSleepTimerDialog = false },
-                onConfirm = {
-                    binder.cancelSleepTimer()
-                    delayedSleepTimer = false
-                    //onDismiss()
-                }
+               onConfirm = {
+    val fadeDuration = playbackFadeAudioDuration.milliSeconds
+    if (fadeDuration > 0) {
+        fadeAdjuster.fadeOut(binder.player) {
+            binder.cancelSleepTimer()
+            delayedSleepTimer = false
+        }
+    } else {
+        binder.cancelSleepTimer()
+        delayedSleepTimer = false
+    }
+}
             )
         } else {
             DefaultDialog(
@@ -941,7 +961,40 @@ LaunchedEffect(playerError, waigweFallbackEnabled) {
         tempGradient = gradients[valueGrad]
     }
 
-    val blurAdjuster = BlurAdjuster()
+
+LaunchedEffect(playbackFadeAudioDuration) {
+    fadeAdjuster.setDuration(playbackFadeAudioDuration.milliSeconds)
+}
+  // AUDIO FADE  before artistInfos
+var previousMediaItemId by remember { mutableStateOf<String?>(null) }
+
+LaunchedEffect(mediaItem.mediaId) {
+    val fadeDuration = playbackFadeAudioDuration.milliSeconds
+    
+    if (fadeDuration > 0 && previousMediaItemId != null && previousMediaItemId != mediaItem.mediaId) {
+        // Song transition - fade out then in
+        fadeAdjuster.fadeOut(binder.player) {
+            fadeAdjuster.fadeIn(binder.player, binder.player.volume)
+        }
+    }
+    previousMediaItemId = mediaItem.mediaId
+}
+            // AUDIO FADE  before albumId
+val previousShouldBePlaying by remember { derivedStateOf { shouldBePlaying } }
+
+LaunchedEffect(shouldBePlaying) {
+    val fadeDuration = playbackFadeAudioDuration.milliSeconds
+    
+    if (fadeDuration > 0 && previousShouldBePlaying != shouldBePlaying) {
+        if (shouldBePlaying) {
+            // Pause -> Play: Fade in
+            fadeAdjuster.fadeIn(binder.player, binder.player.volume)
+        } else {
+            // Play -> Pause: Fade out
+            fadeAdjuster.fadeOut(binder.player)
+        }
+    }
+}
 
     if (!isGradientBackgroundEnabled) {
         if (playerBackgroundColors == PlayerBackgroundColors.BlurredCoverColor && (playerType == PlayerType.Essential || (showthumbnail && (!albumCoverRotation)))) {
@@ -1266,7 +1319,10 @@ LaunchedEffect(playerError, waigweFallbackEnabled) {
     }
 
     blurAdjuster.Render()
-// ADD THIS LINE: Start the Spotify Canvas Worker
+    // AUDIO FADE 
+    fadeAdjuster.Render()
+
+// Start the Spotify Canvas Worker
 SpotifyCanvasWorker()
     Box(
         modifier = Modifier
@@ -1290,8 +1346,9 @@ SpotifyCanvasWorker()
         val player = binder.player
 
         if (isLandscape) {
-        Box { // ← Add canvas player at the beginning of this Box too
-        // ✅ ADD CANVAS PLAYER FOR LANDSCAPE MODE
+        Box { 
+
+        // CANVAS PLAYER FOR LANDSCAPE MODE
         val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
         val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
         val shouldShowCanvas = spotifyCanvasEnabled && 
@@ -1438,7 +1495,7 @@ SpotifyCanvasWorker()
                  contentScale = ContentScale.FillHeight,
                  modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(-1f) // ← Add this
+                    .zIndex(-1f) 
              )
  }
     Row(
@@ -1802,7 +1859,7 @@ SpotifyCanvasWorker()
          }
         } else {
                     Box {
-               // ✅ ADD CANVAS PLAYER HERE - RIGHT AT THE BEGINNING OF THE BOX
+               //  CANVAS PLAYER HERE
                val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
                val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
                val shouldShowCanvas = spotifyCanvasEnabled && 
@@ -2153,6 +2210,10 @@ Column(
                                                     binder = binder,
                                                     onClosePlayer = {
                                                         onDismiss()
+                                                    },
+                                                    onShowSleepTimer = {
+                                                        isShowingSleepTimerDialog = true
+                                                        menuState.hide()
                                                     },
                                                     disableScrollingText = disableScrollingText
                                                 )
@@ -2581,7 +2642,7 @@ private fun OptimizedSpotifyCanvasPlayer(
         "canvas_${currentCanvasUrl.hashCode()}_${currentMediaItemId.hashCode()}"
     }
 
-    // ✅ ADAPTIVE EDGE PADDING - SEPARATE TOP AND BOTTOM
+    //ADAPTIVE EDGE PADDING - SEPARATE TOP AND BOTTOM
     val topPadding = remember(maxWidth) {
         when {
             maxWidth < 360.dp -> 6.dp
@@ -2591,9 +2652,9 @@ private fun OptimizedSpotifyCanvasPlayer(
         }
     }
     
-    val bottomPadding = topPadding * 0.3f // ⬅️ REDUCED BOTTOM PADDING (30% of top)
+    val bottomPadding = topPadding * 0.3f //REDUCED BOTTOM PADDING (30% of top)
 
-    // ✅ ADAPTIVE CORNER RADIUS - Smaller for cleaner look
+    //  ADAPTIVE CORNER RADIUS - Smaller for cleaner look
     val cornerRadius = remember(maxWidth) {
         if (maxWidth >= 600.dp) 10.dp else 12.dp
     }
@@ -2691,7 +2752,7 @@ private fun OptimizedCanvasVideoPlayer(
         }
     }
     
-    // 🧹 OPTIMIZED CLEANUP: Only release when necessary
+    //  OPTIMIZED CLEANUP: Only release when necessary
     DisposableEffect(playerKey) {
         onDispose {
             if (shouldReleasePlayer.value) {
@@ -2700,7 +2761,7 @@ private fun OptimizedCanvasVideoPlayer(
         }
     }
     
-    // 🎮 OPTIMIZED PLAY STATE UPDATES: Debounce rapid changes
+    // OPTIMIZED PLAY STATE UPDATES: Debounce rapid changes
     LaunchedEffect(isPlaying) {
         // Small delay to prevent rapid toggling
         if (isPlaying != CanvasPlayerManager.isActive()) {
@@ -2709,7 +2770,7 @@ private fun OptimizedCanvasVideoPlayer(
         }
     }
     
-    // 📺 OPTIMIZED ANDROID VIEW: With proper lifecycle
+    //  OPTIMIZED ANDROID VIEW: With proper lifecycle
     AndroidView(
         factory = { context ->
             CanvasPlayerManager.setupPlayer(
@@ -2998,7 +3059,7 @@ private fun LogEntryItem(log: LogEntry) {
         LogType.LOADING -> Color.Cyan
         LogType.WARNING -> Color.Yellow
         LogType.INFO -> Color.White
-        else -> Color.White // Add this else branch to make when exhaustive
+        else -> Color.White // else branch to make when exhaustive
     }
     
     val timestampColor = Color.White.copy(alpha = 0.4f)

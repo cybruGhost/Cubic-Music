@@ -73,6 +73,7 @@ import it.fast4x.rimusic.ui.components.themed.PlayNext
 import it.fast4x.rimusic.ui.items.AlbumItem
 import it.fast4x.rimusic.ui.items.ArtistItem
 import it.fast4x.rimusic.ui.items.PlaylistItem
+import it.fast4x.rimusic.ui.items.VideoItem
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.addNext
@@ -85,6 +86,7 @@ import it.fast4x.rimusic.utils.conditional
 import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.fadingEdge
+import it.fast4x.rimusic.utils.forcePlay
 import it.fast4x.rimusic.utils.forcePlayAtIndex
 import it.fast4x.rimusic.utils.getHttpClient
 import it.fast4x.rimusic.utils.isLandscape
@@ -138,8 +140,8 @@ fun ArtistDetails(
                       section.items.fastAll { it is Innertube.SongItem }
                   }
                   ?.items
-                  ?.map {
-                      (it as Innertube.SongItem).asSong
+                  ?.mapNotNull {
+                      (it as? Innertube.SongItem)?.asSong
                   }
                   .orEmpty()
     }
@@ -305,6 +307,8 @@ fun ArtistDetails(
                                     NavRoutes.playlist
                                 else if( section.items.fastAll { it is Innertube.AlbumItem } )
                                     NavRoutes.artistAlbums
+                                else if( section.items.fastAll { it is Innertube.VideoItem } )
+                                    NavRoutes.artistVideos
                                 else
                                     return@clickable
 
@@ -327,7 +331,7 @@ fun ArtistDetails(
                                 itemSelector = itemSelector,
                                 navController = navController,
                                 showThumbnail = true,
-                               modifier = Modifier.background(colorPalette().background0),
+                                modifier = Modifier.background(colorPalette().background0),
                                 onClick = {
                                     binder?.stopRadio()
                                     binder?.player?.forcePlayAtIndex(
@@ -379,6 +383,27 @@ fun ArtistDetails(
                                 disableScrollingText = disableScrollingText,
                                 modifier = Modifier.clickable {
                                     navController.navigate("${NavRoutes.playlist.name}/${playlist.key}")
+                                }
+                            )
+                        }
+                    }
+
+
+                if( section.items.fastAll { it is Innertube.VideoItem } )
+                    LazyRow {
+                        items(
+                            items = section.items.fastMap { it as Innertube.VideoItem },
+                            key = Innertube.VideoItem::key
+                        ) { video ->
+                            VideoItem(
+                                video = video,
+                                thumbnailHeightDp = 72.dp,
+                                thumbnailWidthDp = 128.dp,
+                                alternative = true,
+                                disableScrollingText = disableScrollingText,
+                                modifier = Modifier.clickable {
+                                    binder?.stopRadio()
+                                    binder?.player?.forcePlay(video.asMediaItem)
                                 }
                             )
                         }

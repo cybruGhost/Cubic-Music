@@ -135,7 +135,7 @@ import it.fast4x.rimusic.ui.components.themed.InputTextDialog
 
 import me.knighthat.component.dialog.RestartAppDialog
 import me.knighthat.component.tab.Search
-// ADD THESE IMPORTS FOR SPOTIFY CANVAS
+// SPOTIFY CANVAS
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -144,7 +144,7 @@ import it.fast4x.rimusic.ui.components.themed.DefaultDialog
 import android.content.Intent
 import android.net.Uri
 
-// Add these imports:
+
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.tween
@@ -548,7 +548,7 @@ if (showBetaWarning) {
                 Text(
                     text = "Beta Feature Warning",
                     style = typography().l.semiBold.copy(color = colorPalette().text),
-                    color = colorPalette().text // Add this line
+                    color = colorPalette().text 
                 )
             }
         },
@@ -558,14 +558,14 @@ if (showBetaWarning) {
                     text = "Cubic Canvas is currently in beta testing.",    
                     style = typography().s.copy(color = colorPalette().text),
                     modifier = Modifier.padding(bottom = 8.dp),
-                    color = colorPalette().text // Add this line
+                    color = colorPalette().text 
                 )
                 
                 Text(
                     text = "Important notes:",
                     style = typography().s.semiBold.copy(color = colorPalette().text),
                     modifier = Modifier.padding(bottom = 4.dp),
-                    color = colorPalette().text // Add this line
+                    color = colorPalette().text
                 )
                 
                 Text(
@@ -576,7 +576,7 @@ if (showBetaWarning) {
                           "• Data usage may be higher when enabled",
                     style = typography().xs.copy(color = colorPalette().text),
                     modifier = Modifier.padding(start = 8.dp),
-                    color = colorPalette().text // Add this line
+                    color = colorPalette().text 
                 )
                 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -584,7 +584,7 @@ if (showBetaWarning) {
                 Text(
                     text = "By enabling this feature, you acknowledge these limitations.",
                     style = typography().xs.copy(color = colorPalette().textSecondary),
-                    color = colorPalette().textSecondary // Add this line
+                    color = colorPalette().textSecondary 
                 )
             }
         },
@@ -598,9 +598,9 @@ if (showBetaWarning) {
                 )
             }
         },
-        containerColor = colorPalette().background1, // Add background color
-        titleContentColor = colorPalette().text, // Add title color
-        textContentColor = colorPalette().text // Add text color
+        containerColor = colorPalette().background1,
+        titleContentColor = colorPalette().text,
+        textContentColor = colorPalette().text
     )
 }
             
@@ -1299,7 +1299,43 @@ Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
-
+// AUDIO FADE SETTING - Add this after bass boost
+if (search.inputValue.isBlank() || "Audio Fade".contains(search.inputValue, true)) {
+    var showFadeDurationDialog by remember { mutableStateOf(false) }
+    
+    OtherSettingsEntry(
+        title = "Audio Fade", // Use direct string instead of resource
+        text = when (playbackFadeAudioDuration) {
+            DurationInMilliseconds.Disabled -> "Disabled"
+            else -> playbackFadeAudioDuration.text
+        },
+        onClick = { showFadeDurationDialog = true },
+        icon = R.drawable.volume_up // Use existing icon
+    )
+    
+    if (showFadeDurationDialog) {
+        ValueSelectorDialog(
+            title = "Fade Duration",
+            selectedValue = playbackFadeAudioDuration,
+            onValueSelected = { playbackFadeAudioDuration = it },
+            valueText = { 
+                when (it) {
+                    DurationInMilliseconds.Disabled -> "Disabled"
+                    else -> it.text
+                }
+            },
+            values = DurationInMilliseconds.values().toList(),
+            onDismiss = { showFadeDurationDialog = false }
+        )
+    }
+    
+    // Optional description
+    SettingsDescription(
+        text = "Smoothly fade volume between songs and when pausing/playing",
+        modifier = Modifier.padding(start = 25.dp, top = 4.dp),
+        textAlign = TextAlign.Start
+    )
+}
                      var showAudioReverbDialog by remember { mutableStateOf(false) }
         if (search.inputValue.isBlank() || stringResource(R.string.settings_audio_reverb).contains(search.inputValue,true)) {
                          OtherSettingsEntry(

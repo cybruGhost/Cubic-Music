@@ -404,7 +404,7 @@ fun SearchResultScreen(
                 }
 
                 2 -> {
-                    val thumbnailSizeDp = 64.dp
+                    val thumbnailSizeDp = 48.dp
                     val thumbnailSizePx = thumbnailSizeDp.px
 
                     ItemsPage(

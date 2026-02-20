@@ -31,16 +31,31 @@ import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.typography
 import androidx.compose.foundation.basicMarquee
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 @Composable
 inline fun Menu(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     Column(
         modifier = modifier
             .padding(top = 48.dp)
+            .let {
+                 if (isLandscape) it.padding(horizontal = 72.dp) else it
+            }
             .verticalScroll(rememberScrollState())
             .fillMaxWidth()
+            .let {
+                if (isLandscape) it.clip(RoundedCornerShape(16.dp))
+                else it.clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            }
             .background(colorPalette().background1)
             .padding(top = 2.dp)
             .padding(vertical = 8.dp)

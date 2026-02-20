@@ -660,7 +660,7 @@
   <string name="deleted">Deleted</string>
   <string name="playlistindicatorinfo2">Song is Present in one of the Playlists</string>
   <string name="statsfornerdsplayer">Stats for Nerds</string>
-  <string name="discover">Jennie Ai🌟</string>
+  <string name="discover">Discover🌟</string>
   <string name="discoverinfo">Remove songs from the queue if included in favorites or playlists</string>
   <string name="controls_header_customize">Customize</string>
   <string name="controls_title_blur_effect">Blur effect</string>
@@ -676,7 +676,7 @@
   <string name="event_volumekeysinfo">Volume UP next and volume DOWN previous song</string>
   <string name="paste">Paste</string>
   <string name="searches_no_suggestions">No suggestions</string>
-  <string name="action_bar_show_discover_button">Show Enable Jennie Ai🌟</string>
+  <string name="action_bar_show_discover_button">Show Enable Discover🌟</string>
   <string name="playertype">Player type</string>
   <string name="noblur">Remove background blur when lyrics is disabled</string>
   <string name="fadingedge">Fading edge</string>

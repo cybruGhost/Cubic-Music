@@ -32,6 +32,7 @@ enum class NavRoutes {
     donate,
     moodsPage,
     podcast,
+    artistVideos,
     artistAlbums;
 
     companion object {

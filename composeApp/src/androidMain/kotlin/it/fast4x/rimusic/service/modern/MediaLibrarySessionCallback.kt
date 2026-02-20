@@ -126,14 +126,14 @@ class MediaLibrarySessionCallback(
             val resultList = searchedSongs.map {
                 it.toMediaItem(PlayerServiceModern.SEARCHED)
             }
-            return@runBlocking Futures.immediateFuture(LibraryResult.ofItemList(resultList, params))
+            return@runBlocking Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.copyOf(resultList), params))
         }
 
-        return Futures.immediateFuture(LibraryResult.ofItemList(searchedSongs.map {
+        return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.copyOf(searchedSongs.map {
             it.toMediaItem(
                 PlayerServiceModern.SEARCHED
             )
-        }, params))
+        }), params))
     }
 
     override fun onCustomCommand(

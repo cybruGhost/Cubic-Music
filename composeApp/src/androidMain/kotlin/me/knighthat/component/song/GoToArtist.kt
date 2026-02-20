@@ -10,6 +10,7 @@ import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.appContext
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.models.Song
+import androidx.compose.ui.res.stringResource
 import it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +31,7 @@ class GoToArtist(
     override val messageId: Int = R.string.artists
     override val menuIconTitle: String
         @Composable
-        get() = appContext().getString( R.string.about ) + " ${song.cleanArtistsText()}"
+          get() = stringResource(R.string.more_of) + " ${song.cleanArtistsText()}"
 
     private var channelId: Optional<String> = Optional.empty()
 

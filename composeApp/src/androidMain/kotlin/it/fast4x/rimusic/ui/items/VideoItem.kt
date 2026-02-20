@@ -46,6 +46,7 @@ fun VideoItem(
     thumbnailHeightDp: Dp,
     thumbnailWidthDp: Dp,
     modifier: Modifier = Modifier,
+    alternative: Boolean = false,
     disableScrollingText: Boolean
 ) {
     VideoItem(
@@ -57,6 +58,7 @@ fun VideoItem(
         thumbnailHeightDp = thumbnailHeightDp,
         thumbnailWidthDp = thumbnailWidthDp,
         modifier = modifier,
+        alternative = alternative,
         disableScrollingText = disableScrollingText
     )
 }
@@ -71,11 +73,12 @@ fun VideoItem(
     thumbnailHeightDp: Dp,
     thumbnailWidthDp: Dp,
     modifier: Modifier = Modifier,
+    alternative: Boolean = false,
     disableScrollingText: Boolean
 ) {
     ItemContainer(
-        alternative = false,
-        thumbnailSizeDp = 0.dp,
+        alternative = alternative,
+        thumbnailSizeDp = thumbnailWidthDp,
         modifier = modifier
     ) {
         Box {

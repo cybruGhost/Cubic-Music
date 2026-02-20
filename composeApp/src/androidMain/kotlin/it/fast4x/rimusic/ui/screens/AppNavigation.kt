@@ -18,6 +18,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
+import app.kreate.android.themed.rimusic.screen.artist.ArtistVideos
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -480,6 +481,27 @@ composable(
             val params = navBackStackEntry.arguments?.getString("params").orEmpty()
 
             ArtistAlbums( navController, id, params, miniPlayer )
+        }
+                composable(
+            route = "${NavRoutes.artistVideos.name}/{id}?params={params}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = { type = NavType.StringType }
+                ),
+                navArgument(
+                    name = "params",
+                    builder = {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getString("id").orEmpty()
+            val params = navBackStackEntry.arguments?.getString("params").orEmpty()
+
+            ArtistVideos( navController, id, params, miniPlayer )
         }
     }
 }

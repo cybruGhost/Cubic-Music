@@ -211,7 +211,8 @@ fun SongItem(
 
             NowPlayingSongIndicator(
                 mediaId = mediaItem.mediaId,
-                player = binder?.player
+                player = binder?.player,
+                containerSize = thumbnailSizeDp
             )
         },
         modifier = modifier,

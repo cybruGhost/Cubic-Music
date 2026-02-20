@@ -20,7 +20,7 @@ object Preference {
     val HOME_ALBUM_ITEM_SIZE = Key( "AlbumItemSizeEnum", HomeItemSize.SMALL )
     val HOME_LIBRARY_ITEM_SIZE = Key( "LibraryItemSizeEnum", HomeItemSize.SMALL )
     val HOME_SONGS_TOP_PLAYLIST_PERIOD = Key( "HomeSongsTopPlaylistPeriod", StatisticsType.All )
-
+    val enableVoiceInputKey = Preference.Key("enableVoiceInput", true)
     //<editor-fold defaultstate="collapsed" desc="Sort by">
     val HOME_SONGS_SORT_BY = Key( "HomeSongsSortBy", SongSortBy.Title )
     val HOME_ON_DEVICE_SONGS_SORT_BY = Key( "HomeOnDeviceSongsSortBy", OnDeviceSongSortBy.Title )

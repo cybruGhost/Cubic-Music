@@ -34,7 +34,7 @@ import it.fast4x.rimusic.MainActivity
 import it.fast4x.rimusic.cleanPrefix
 import java.io.File
 
-sealed class Widget: GlanceAppWidget() {
+sealed class Widget : GlanceAppWidget() {
 
     val songTitleKey = stringPreferencesKey("songTitleKey")
     val songArtistKey = stringPreferencesKey("songArtistKey")
@@ -46,44 +46,56 @@ sealed class Widget: GlanceAppWidget() {
     private var onNextAction: () -> Unit = {}
 
     @Composable
-    protected abstract fun Content( context: Context )
+    protected abstract fun Content(context: Context)
 
     @Composable
     @GlanceComposable
-    protected fun Thumbnail( modifier: GlanceModifier ) {
-        val bitmap = currentState( bitmapPath )?.let( BitmapFactory::decodeFile ) ?: APP_ICON_BITMAP
+    protected fun Thumbnail(modifier: GlanceModifier) {
+        val bitmap = currentState(bitmapPath)?.let(BitmapFactory::decodeFile) ?: APP_ICON_BITMAP
         Image(
-            provider = ImageProvider( bitmap ),
+            provider = ImageProvider(bitmap),
             contentDescription = "cover",
-            modifier = modifier.clickable( actionStartActivity<MainActivity>() )
+            modifier = modifier.clickable(actionStartActivity<MainActivity>())
         )
     }
 
     @Composable
     @GlanceComposable
     protected fun Controller() {
-        val isPlaying = currentState( isPlayingKey ) ?: false
+        val isPlaying = currentState(isPlayingKey) ?: false
 
-        Image(
-            provider = ImageProvider( R.drawable.play_skip_back ),
-            contentDescription = "back",
-            modifier = GlanceModifier.clickable( onPreviousAction )
-        )
+        Row(
+            modifier = GlanceModifier.padding(horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                provider = ImageProvider(R.drawable.play_skip_back),
+                contentDescription = "Previous",
+                modifier = GlanceModifier
+                    .size(32.dp)
+                    .clickable(onPreviousAction)
+            )
 
-        Image(
-            provider = ImageProvider(
-                if ( isPlaying ) R.drawable.pause else R.drawable.play
-            ),
-            contentDescription = "play/pause",
-            modifier = GlanceModifier.padding(horizontal = 20.dp)
-                                     .clickable( onPlayPauseAction )
-        )
+            Image(
+                provider = ImageProvider(
+                    if (isPlaying) R.drawable.pause else R.drawable.play
+                ),
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                modifier = GlanceModifier
+                    .size(40.dp)
+                    .padding(horizontal = 16.dp)
+                    .clickable(onPlayPauseAction)
+            )
 
-        Image(
-            provider = ImageProvider( R.drawable.play_skip_forward ),
-            contentDescription = "next",
-            modifier = GlanceModifier.clickable( onNextAction )
-        )
+            Image(
+                provider = ImageProvider(R.drawable.play_skip_forward),
+                contentDescription = "Next",
+                modifier = GlanceModifier
+                    .size(32.dp)
+                    .clickable(onNextAction)
+            )
+        }
     }
 
     @UnstableApi
@@ -97,11 +109,11 @@ sealed class Widget: GlanceAppWidget() {
             GlanceAppWidgetManager(context).getGlanceIds(this::class.java).firstOrNull() ?: return
 
         updateAppWidgetState(context, glanceId) {
-            it[songTitleKey] = cleanPrefix( status.first )
-            it[songArtistKey] = cleanPrefix( status.second )
+            it[songTitleKey] = cleanPrefix(status.first)
+            it[songArtistKey] = cleanPrefix(status.second)
             it[isPlayingKey] = status.third
 
-            if( it[bitmapPath].isNullOrEmpty() )
+            if (it[bitmapPath].isNullOrEmpty())
                 it[bitmapPath] = bitmapFile.absolutePath
         }
 
@@ -112,67 +124,83 @@ sealed class Widget: GlanceAppWidget() {
         update(context, glanceId)
     }
 
-    override suspend fun provideGlance( context: Context, id: GlanceId ) {
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            GlanceTheme { Content( context ) }
+            GlanceTheme { Content(context) }
         }
     }
 
-    data object Horizontal: Widget() {
+    data object Horizontal : Widget() {
 
         @Composable
         override fun Content(context: Context) {
             Row(
-                modifier = GlanceModifier.fillMaxWidth()
-                                         .background( GlanceTheme.colors.widgetBackground )
-                                         .padding( 4.dp ),
-                verticalAlignment = Alignment.Top,
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .background(GlanceTheme.colors.widgetBackground)
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.Start
             ) {
-                Thumbnail( GlanceModifier.padding( start = 5.dp, end = 20.dp ).size( 120.dp ) )
+                Thumbnail(
+                    GlanceModifier
+                        .size(72.dp)
+                        .padding(end = 12.dp)
+                )
 
                 Column(
-                    modifier = GlanceModifier.fillMaxWidth()
-                                             .padding( vertical = 12.dp ),
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.Start
                 ) {
-                    Text( currentState( songTitleKey ).orEmpty() )
-                    Text( currentState( songArtistKey ).orEmpty() )
+                    // Simple text without styling
+                    Text(
+                        text = currentState(songTitleKey).orEmpty(),
+                        modifier = GlanceModifier.padding(bottom = 2.dp)
+                    )
 
-                    Row(
-                        modifier = GlanceModifier.padding( vertical = 12.dp ),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) { Controller() }
+                    Text(
+                        text = currentState(songArtistKey).orEmpty(),
+                        modifier = GlanceModifier.padding(bottom = 8.dp)
+                    )
+
+                    Controller()
                 }
             }
         }
     }
 
-    data object Vertical: Widget() {
+    data object Vertical : Widget() {
 
         @Composable
         override fun Content(context: Context) {
             Column(
-                modifier = GlanceModifier.fillMaxWidth()
-                                         .background( GlanceTheme.colors.widgetBackground )
-                                         .padding( 4.dp ),
-                verticalAlignment = Alignment.Top,
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .background(GlanceTheme.colors.widgetBackground)
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text( currentState( songTitleKey ).orEmpty() )
-                Text( currentState( songArtistKey ).orEmpty() )
+                Thumbnail(
+                    GlanceModifier
+                        .size(80.dp)
+                        .padding(bottom = 8.dp)
+                )
 
-                Row(
-                    modifier = GlanceModifier.fillMaxWidth()
-                                             .background( GlanceTheme.colors.widgetBackground )
-                                             .padding( vertical = 12.dp ),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) { Controller() }
+                Text(
+                    text = currentState(songTitleKey).orEmpty(),
+                    modifier = GlanceModifier.padding(bottom = 2.dp)
+                )
+                
+                Text(
+                    text = currentState(songArtistKey).orEmpty(),
+                    modifier = GlanceModifier.padding(bottom = 8.dp)
+                )
 
-                Thumbnail( GlanceModifier.padding( horizontal = 5.dp) )
+                Controller()
             }
         }
     }

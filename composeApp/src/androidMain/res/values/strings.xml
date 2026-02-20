@@ -671,7 +671,7 @@
 <string name="deleted">Deleted</string>
 <string name="playlistindicatorinfo2">Song is Present in one of the Playlists</string>
 <string name="statsfornerdsplayer">Stats for Nerds</string>
-<string name="discover">Jennie Ai🌟</string>
+<string name="discover">Discover🌟</string>
 <string name="discoverinfo">Remove songs from the queue if included in favorites or playlists</string>
 <string name="controls_header_customize">Customize</string>
 <string name="controls_title_blur_effect">Blur effect</string>
@@ -687,7 +687,7 @@
 <string name="event_volumekeysinfo">Volume UP next and volume DOWN previous song</string>
 <string name="paste">Paste</string>
 <string name="searches_no_suggestions">No suggestions</string>
-<string name="action_bar_show_discover_button">Show Enable Jennie Ai🌟</string>
+<string name="action_bar_show_discover_button">Show Enable Discover🌟</string>
 <string name="playertype">Player type</string>
 <string name="noblur">Remove background blur when lyrics is disabled</string>
 <string name="fadingedge">Fading edge</string>
@@ -696,7 +696,7 @@
 <string name="addednext">Added to play next</string>
 <string name="info_paused_with_volume_zero">Paused due to zero volume</string>
 <string name="effect_fade_audio">Fade audio effect</string>
-<string name="effect_fade_audio_description">Fade audio when song is paused or played</string>
+<string name="effect_fade_audio_description">Smoothly fade between songs and when pausing/playing</string>
 <string name="autosync">Auto Sync Imported Playlists</string>
 <string name="message_type">Popup message style</string>
 <string name="message_type_modern">Modern</string>
@@ -1046,6 +1046,7 @@
 <string name="easter_egg_number_one">You are a number one, click and enjoy the surprise</string>
 <string name="easter_egg_last">You are a number one, long click and enjoy the surprise</string>
 <string name="general_settings_description">The general section contains settings for the general functionality of the app</string>
+<string name="ui_settings_description">The user interface section contains settings to modify the global interface and navigation</string>
 <string name="pause_between_songs_description">Add a pause between songs</string>
 <string name="notifications">Notifications</string>
 <string name="playback">Playback</string>
@@ -1094,5 +1095,15 @@
 <string name="update_failed_message">Could not fetch update information. Please try downloading manually.</string>
 <string name="apk_download_channel_description">Notifications for app update downloads</string>
 <string name="tap_to_install">Tap to install the update</string>
+<string name="album_not_found">Album not found</string>
+ <!-- Voice Input Strings -->
+<string name="voice_you_can_talk_now">You can talk now</string>
+<string name="voice_you_said">You said: %s</string>
+<string name="voice_microphone_permission_granted">Microphone permission granted</string>
+<string name="voice_microphone_permission_denied">Microphone permission denied</string>
+<string name="voice_missing_microphone_permissions_please_grant">Please grant microphone permission to use voice input</string>
+<string name="voice_recognition_failed">Voice recognition failed</string>
+<string name="voice_speak_now">Speak now...</string>
+<string name="voice_device_not_supported">Your device does not support voice input</string>
 
 </resources>
