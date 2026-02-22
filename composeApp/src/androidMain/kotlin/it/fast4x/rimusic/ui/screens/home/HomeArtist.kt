@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -202,13 +203,9 @@ fun HomeArtists(
             modifier = Modifier
                 .background(colorPalette().background0)
                 .fillMaxHeight()
-                .fillMaxWidth(
-                    if( NavigationBarPosition.Right.isCurrent() )
-                        Dimensions.contentWidthRightBar
-                    else
-                        1f
-                )
+                .fillMaxWidth()
         ) {
+
             Column( Modifier.fillMaxSize() ) {
                 // Sticky tab's title
                 TabHeader( R.string.artists ) {
@@ -216,72 +213,8 @@ fun HomeArtists(
                 }
 
                 // Sticky tab's tool bar
-                TabToolBar.Buttons( sort, search, randomizer, shuffle, itemSize )
+                TabToolBar.Buttons( sort, sync, search, randomizer, shuffle, itemSize )
 
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        //.padding(vertical = 4.dp)
-                        .padding(bottom = 8.dp)
-                        .fillMaxWidth()
-                ) {
-                    Box {
-                        ButtonsRow(
-                            chips = buttonsList,
-                            currentValue = artistType,
-                            onValueUpdate = { artistType = it },
-                            modifier = Modifier.padding(end = 12.dp)
-                        )
-                        if (isYouTubeSyncEnabled()) {
-                            Row(
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                            ) {
-                                BasicText(
-                                    text = when (filterBy) {
-                                        FilterBy.All -> stringResource(R.string.all)
-                                        FilterBy.Local -> stringResource(R.string.on_device)
-                                        FilterBy.YoutubeLibrary -> stringResource(R.string.ytm_library)
-                                    },
-                                    style = typography.xs.semiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .align(Alignment.CenterVertically)
-                                        .padding(end = 5.dp)
-                                        .clickable {
-                                            menuState.display {
-                                                FilterMenu(
-                                                    title = stringResource(R.string.filter_by),
-                                                    onDismiss = menuState::hide,
-                                                    onAll = { filterBy = FilterBy.All },
-                                                    onYoutubeLibrary = {
-                                                        filterBy = FilterBy.YoutubeLibrary
-                                                    },
-                                                    onLocal = { filterBy = FilterBy.Local }
-                                                )
-                                            }
-
-                                        }
-                                )
-                                HeaderIconButton(
-                                    icon = R.drawable.playlist,
-                                    color = colorPalette.text,
-                                    onClick = {},
-                                    modifier = Modifier
-                                        .offset(0.dp, 2.5.dp)
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = {}
-                                        )
-                                )
-                            }
-                        }
-                    }
-                }
 
                 // Sticky search bar
                 search.SearchBar( this )
@@ -293,6 +226,74 @@ fun HomeArtists(
                                        .fillMaxSize(),
                     contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer )
                 ) {
+                    item(
+                        key = "separator",
+                        span = { GridItemSpan(maxLineSpan) }
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 8.dp)
+                                .fillMaxWidth()
+                        ) {
+                            Box {
+                                ButtonsRow(
+                                    chips = buttonsList,
+                                    currentValue = artistType,
+                                    onValueUpdate = { artistType = it },
+                                    modifier = Modifier.padding(end = 12.dp)
+                                )
+                                if (isYouTubeSyncEnabled()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .align(Alignment.CenterEnd)
+                                    ) {
+                                        BasicText(
+                                            text = when (filterBy) {
+                                                FilterBy.All -> stringResource(R.string.all)
+                                                FilterBy.Local -> stringResource(R.string.on_device)
+                                                FilterBy.YoutubeLibrary -> stringResource(R.string.ytm_library)
+                                            },
+                                            style = typography.xs.semiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier
+                                                .align(Alignment.CenterVertically)
+                                                .padding(end = 5.dp)
+                                                .clickable {
+                                                    menuState.display {
+                                                        FilterMenu(
+                                                            title = stringResource(R.string.filter_by),
+                                                            onDismiss = menuState::hide,
+                                                            onAll = { filterBy = FilterBy.All },
+                                                            onYoutubeLibrary = {
+                                                                filterBy = FilterBy.YoutubeLibrary
+                                                            },
+                                                            onLocal = { filterBy = FilterBy.Local }
+                                                        )
+                                                    }
+
+                                                }
+                                        )
+                                        HeaderIconButton(
+                                            icon = R.drawable.playlist,
+                                            color = colorPalette.text,
+                                            onClick = {},
+                                            modifier = Modifier
+                                                .offset(0.dp, 2.5.dp)
+                                                .clickable(
+                                                    interactionSource = remember { MutableInteractionSource() },
+                                                    indication = null,
+                                                    onClick = {}
+                                                )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     items(items = itemsOnDisplay, key = Artist::id) { artist ->
                         ArtistItem(
                             artist = artist,
@@ -324,4 +325,3 @@ fun HomeArtists(
         }
     }
 }
-

@@ -1,14 +1,24 @@
+@file:kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
 package it.fast4x.rimusic.ui.components
 
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.drawscope.Stroke
+import it.fast4x.rimusic.utils.DOWNLOAD_INDICATOR_SIZE_SWIPE
+import it.fast4x.rimusic.utils.DOWNLOAD_INDICATOR_STROKE_WIDTH
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -18,6 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +67,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import me.knighthat.sync.YouTubeSync
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeableContent(
     swipeToLeftIcon: Int? = null,
@@ -62,6 +75,7 @@ fun SwipeableContent(
     onSwipeToLeft: () -> Unit,
     onSwipeToRight: () -> Unit,
     modifier: Modifier = Modifier,
+    backgroundColor: Color = colorPalette().background1,
     content: @Composable () -> Unit
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -79,44 +93,47 @@ fun SwipeableContent(
     val current = LocalViewConfiguration.current
     CompositionLocalProvider(LocalViewConfiguration provides object : ViewConfiguration by current{
         override val touchSlop: Float
-            get() = current.touchSlop * 5f
+            get() = current.touchSlop * 2f
     }) {
         SwipeToDismissBox(
             gesturesEnabled = isSwipeToActionEnabled,
-            modifier = modifier,
-            //.padding(horizontal = 16.dp)
-            //.clip(RoundedCornerShape(12.dp)),
+            modifier = modifier
+                .clip(RoundedCornerShape(10.dp)),
             state = dismissState,
             backgroundContent = {
+                val offset = try { dismissState.requireOffset() } catch (e: Exception) { 0f }
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        //.background(colorPalette.background1)
+                        .background(backgroundColor)
                         .padding(horizontal = 16.dp),
-                    horizontalArrangement = when (dismissState.targetValue) {
-                        SwipeToDismissBoxValue.StartToEnd -> Arrangement.Start
-                        SwipeToDismissBoxValue.EndToStart -> Arrangement.End
-                        SwipeToDismissBoxValue.Settled -> Arrangement.Center
+                    horizontalArrangement = when {
+                        offset > 0 -> Arrangement.Start
+                        offset < 0 -> Arrangement.End
+                        else -> Arrangement.Center
                     },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val icon = when (dismissState.targetValue) {
-                        SwipeToDismissBoxValue.StartToEnd -> if (swipeToRightIcon == null) null else ImageVector.vectorResource(
-                            swipeToRightIcon
-                        )
-
-                        SwipeToDismissBoxValue.EndToStart -> if (swipeToLeftIcon == null) null else ImageVector.vectorResource(
-                            swipeToLeftIcon
-                        )
-
-                        SwipeToDismissBoxValue.Settled -> null
+                    val iconId = when {
+                        offset > 0 -> swipeToRightIcon
+                        offset < 0 -> swipeToLeftIcon
+                        else -> null
                     }
-                    if (icon != null)
+                    if (iconId == app.kreate.android.R.drawable.download_progress) {
+                        CircularWavyProgressIndicator(
+                            color = colorPalette().accent,
+                            trackColor = colorPalette().textDisabled,
+                            modifier = Modifier.size(DOWNLOAD_INDICATOR_SIZE_SWIPE.dp),
+                            stroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { DOWNLOAD_INDICATOR_STROKE_WIDTH.dp.toPx() }),
+                            trackStroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { DOWNLOAD_INDICATOR_STROKE_WIDTH.dp.toPx() })
+                        )
+                    } else if (iconId != null) {
                         Icon(
-                            imageVector = icon,
+                            imageVector = ImageVector.vectorResource(iconId),
                             contentDescription = null,
                             tint = colorPalette().accent,
                         )
+                    }
                 }
             }
         ) {
@@ -134,6 +151,7 @@ fun SwipeableQueueItem(
     onRemoveFromQueue: (() -> Unit) = {},
     onEnqueue: (() -> Unit) = {},
     modifier: Modifier = Modifier,
+    backgroundColor: Color = colorPalette().background0,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -208,7 +226,8 @@ fun SwipeableQueueItem(
         ),
         onSwipeToLeft = swipeLeftCallback,
         onSwipeToRight = swipeRighCallback,
-        modifier = modifier
+        modifier = modifier,
+        backgroundColor = backgroundColor
     ) {
         content()
     }

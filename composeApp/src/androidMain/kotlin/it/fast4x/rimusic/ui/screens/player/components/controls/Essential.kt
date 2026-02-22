@@ -1,4 +1,8 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package it.fast4x.rimusic.ui.screens.player.components.controls
+
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.CircularWavyProgressIndicator
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDp
@@ -381,6 +385,7 @@ fun ControlsEssential(
     likedAt: Long?,
     mediaId: String,
     playerPlayButtonType: PlayerPlayButtonType,
+    isBuffering: Boolean,
     isGradientBackgroundEnabled: Boolean,
     onShowSpeedPlayerDialog: () -> Unit,
 ) {
@@ -518,16 +523,28 @@ fun ControlsEssential(
                 contentScale = ContentScale.Fit
             )
 
-        Image(
-            painter = painterResource(if (shouldBePlaying) R.drawable.pause else R.drawable.play),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(if ((playerPlayButtonType == PlayerPlayButtonType.Disabled) || ((colorPaletteName == ColorPaletteName.Dynamic) && (colorPaletteMode == ColorPaletteMode.PitchBlack))) colorPalette().accent else colorPalette().text),
-            modifier = Modifier
-                .rotate(rotationAngle)
-                .align(Alignment.Center)
-                .size(if (playerPlayButtonType == PlayerPlayButtonType.Disabled) 40.dp else 30.dp)
-                .bounceClick()
-        )
+        if (isBuffering) {
+            CircularWavyProgressIndicator(
+                color = if ((playerPlayButtonType == PlayerPlayButtonType.Disabled) || ((colorPaletteName == ColorPaletteName.Dynamic) && (colorPaletteMode == ColorPaletteMode.PitchBlack))) colorPalette().accent else colorPalette().text,
+                trackColor = colorPalette().text,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(if (playerPlayButtonType == PlayerPlayButtonType.Disabled) 40.dp else 30.dp),
+                stroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 4.dp.toPx() }),
+                trackStroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 4.dp.toPx() })
+            )
+        } else {
+            Image(
+                painter = painterResource(if (shouldBePlaying) R.drawable.pause else R.drawable.play),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(if ((playerPlayButtonType == PlayerPlayButtonType.Disabled) || ((colorPaletteName == ColorPaletteName.Dynamic) && (colorPaletteMode == ColorPaletteMode.PitchBlack))) colorPalette().accent else colorPalette().text),
+                modifier = Modifier
+                    .rotate(rotationAngle)
+                    .align(Alignment.Center)
+                    .size(if (playerPlayButtonType == PlayerPlayButtonType.Disabled) 40.dp else 30.dp)
+                    .bounceClick()
+            )
+        }
 
         val fmtSpeed = "%.1fx".format(playbackSpeed).replace(",", ".")
         if (fmtSpeed != "1.0x")

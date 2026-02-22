@@ -141,7 +141,9 @@ fun AlbumItem(
                 )
             }
         }
-        ItemInfoContainer {
+        ItemInfoContainer(
+            horizontalAlignment = if (yearCentered == true) Alignment.CenterHorizontally else Alignment.Start
+        ) {
             BasicText(
                 text = cleanPrefix(title ?: ""),
                 style = typography().xs.semiBold,
@@ -160,9 +162,6 @@ fun AlbumItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .conditional(!disableScrollingText) { basicMarquee(iterations = Int.MAX_VALUE) }
-                            .align(
-                                if (yearCentered == true) Alignment.CenterHorizontally else Alignment.Start
-                            )
                     )
                 }
             }
@@ -174,9 +173,6 @@ fun AlbumItem(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .padding(top = 4.dp)
-                    .align(
-                        if (yearCentered == true) Alignment.CenterHorizontally else Alignment.Start
-                    )
             )
         }
     }
@@ -199,7 +195,9 @@ fun AlbumItemPlaceholder(
                 .size(thumbnailSizeDp)
         )
 
-        ItemInfoContainer {
+         ItemInfoContainer(
+            horizontalAlignment = if (alternative) Alignment.CenterHorizontally else Alignment.Start
+        ) {
             TextPlaceholder()
 
             if (!alternative) {

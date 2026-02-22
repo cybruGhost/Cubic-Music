@@ -195,11 +195,8 @@ fun StatisticsPage(
             .map { it.take(maxStatisticsItems.toInt()) }
     }.collectAsState(emptyList(), Dispatchers.IO)
 
-    var downloadState by remember {
-        mutableStateOf(Download.STATE_STOPPED)
-    }
-
     val navigationBarPosition by rememberPreference(
+
         navigationBarPositionKey,
         NavigationBarPosition.Bottom
     )
@@ -314,7 +311,7 @@ fun StatisticsPage(
                     items(
                         count = songs.count(),
                     ) {
-                        downloadState = getDownloadState(songs.get(it).asMediaItem.mediaId)
+                        val currentDownloadState = getDownloadState(songs.get(it).asMediaItem.mediaId)
                         val isDownloaded = isDownloadedSong(songs.get(it).asMediaItem.mediaId)
                         var forceRecompose by remember { mutableStateOf(false) }
                         SwipeablePlaylistItem(
@@ -339,7 +336,7 @@ fun StatisticsPage(
                                         downloadState = isDownloaded
                                     )
                                 },
-                                downloadState = downloadState,
+                                downloadState = currentDownloadState,
                                 thumbnailSizeDp = thumbnailSizeDp,
                                 thumbnailSizePx = thumbnailSize,
                                 onThumbnailContent = {
@@ -354,6 +351,7 @@ fun StatisticsPage(
                                     )
                                 },
                                 modifier = Modifier
+                                    .background(colorPalette().background0)
                                     .combinedClickable(
                                         onLongClick = {
                                             menuState.display {

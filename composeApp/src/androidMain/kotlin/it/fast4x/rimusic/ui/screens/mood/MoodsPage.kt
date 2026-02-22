@@ -46,6 +46,7 @@ import it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import it.fast4x.rimusic.ui.components.themed.TextPlaceholder
 import it.fast4x.rimusic.ui.items.AlbumItemPlaceholder
 import it.fast4x.rimusic.ui.screens.home.MoodGridItemColored
+import it.fast4x.rimusic.ui.components.themed.Loader
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.secondary
@@ -146,19 +147,10 @@ fun MoodsPage(
                     .align(Alignment.CenterHorizontally)
                     .padding(all = 16.dp)
             )
-        } ?: ShimmerHost {
-            HeaderPlaceholder(modifier = Modifier.shimmer())
-            repeat(4) {
-                TextPlaceholder(modifier = sectionTextModifier)
-                Row {
-                    repeat(6) {
-                        AlbumItemPlaceholder(
-                            thumbnailSizeDp = thumbnailSizeDp,
-                            alternative = true
-                        )
-                    }
-                }
-            }
-        }
+        } ?: Loader(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(windowInsets.asPaddingValues())
+        )
     }
 }

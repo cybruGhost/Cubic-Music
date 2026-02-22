@@ -95,6 +95,7 @@ import kotlinx.coroutines.launch
 import me.knighthat.sync.YouTubeSync
 import me.knighthat.component.tab.Search
 import me.knighthat.utils.Toaster
+import it.fast4x.rimusic.utils.ExternalUris
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -417,7 +418,7 @@ fun MediaItemGridMenu (
                                 type = "text/plain"
                                 putExtra(
                                     Intent.EXTRA_TEXT,
-                                    "https://music.youtube.com/watch?v=${mediaItem.mediaId}"
+                                    ExternalUris.youtubeMusic(mediaItem.mediaId)
                                 )
                             }
 

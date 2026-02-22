@@ -33,7 +33,9 @@ enum class NavRoutes {
     moodsPage,
     podcast,
     artistVideos,
-    artistAlbums;
+    artistAlbums,
+    chipsBrowse,      // Added this for chips navigation
+    chipsPage;        // Optional: for dedicated chips page
 
     companion object {
 

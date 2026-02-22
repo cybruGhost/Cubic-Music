@@ -117,6 +117,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import me.knighthat.sync.YouTubeSync
+import it.fast4x.rimusic.utils.ExternalUris
 import timber.log.Timber
 import java.time.LocalTime.now
 import java.time.format.DateTimeFormatter
@@ -301,7 +302,9 @@ fun NonQueuedMediaItemMenuLibrary(
             onPlayNext = { binder?.player?.addNext(mediaItem, context) },
             onEnqueue = { binder?.player?.enqueue(mediaItem, context) },
             onDownload = onDownload,
-            onRemoveFromPlaylist = onRemoveFromPlaylist as ((Playlist) -> Unit)?,
+            onRemoveFromPlaylist = if (onRemoveFromPlaylist != null) {
+            { _: Playlist -> onRemoveFromPlaylist() }
+        } else null,
             onHideFromDatabase = { isHiding = true },
             onRemoveFromQuickPicks = onRemoveFromQuickPicks,
             onAddToPreferites = {
@@ -398,7 +401,9 @@ fun NonQueuedMediaItemMenu(
             onPlayNext = { binder?.player?.addNext(mediaItem, context) },
             onEnqueue = { binder?.player?.enqueue(mediaItem, context) },
             onDownload = onDownload,
-            onRemoveFromPlaylist = onRemoveFromPlaylist as ((Playlist) -> Unit)?,
+            onRemoveFromPlaylist = if (onRemoveFromPlaylist != null) {
+            { _: Playlist -> onRemoveFromPlaylist() }
+        } else null,
             onHideFromDatabase = onHideFromDatabase,
             onDeleteFromDatabase = onDeleteFromDatabase,
             onRemoveFromQuickPicks = onRemoveFromQuickPicks,
@@ -616,7 +621,7 @@ fun BaseMediaItemMenu(
                 type = "text/plain"
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    "https://music.youtube.com/watch?v=${mediaItem.mediaId}"
+                    ExternalUris.youtubeMusic(mediaItem.mediaId)
                 )
             }
 
@@ -676,7 +681,7 @@ fun MiniMediaItemMenu(
                 type = "text/plain"
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    "https://music.youtube.com/watch?v=${mediaItem.mediaId}"
+                    ExternalUris.youtubeMusic(mediaItem.mediaId)
                 )
             }
 

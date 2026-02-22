@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
@@ -73,7 +74,9 @@ import it.fast4x.rimusic.ui.components.themed.PlayNext
 import it.fast4x.rimusic.ui.components.themed.PlaylistsMenu
 import it.fast4x.rimusic.ui.items.AlbumItem
 import it.fast4x.rimusic.ui.items.AlbumItemPlaceholder
+import it.fast4x.rimusic.ui.components.themed.Loader
 import it.fast4x.rimusic.ui.items.SongItemPlaceholder
+
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.addNext
@@ -155,6 +158,13 @@ fun AlbumDetails(
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
     val bookmark = AlbumBookmark( browseId )
+    
+    LaunchedEffect(items) {
+        if (items.isEmpty() && album == null) {
+            // Force fetch or similar if needed, but usually AlbumDetails is called with a pre-fetched album
+        }
+    }
+
     val deleteAllDownloadsDialog = DeleteAllDownloadedSongsDialog( ::getSongs )
     val downloadALlDialog = DownloadAllSongsDialog( ::getSongs )
     val shuffle = SongShuffler {
@@ -237,16 +247,20 @@ fun AlbumDetails(
     DynamicOrientationLayout( thumbnailPainter ) {
         Box(
             Modifier.fillMaxSize()
-                .background( colorPalette().background0 )
+                .background( colorPalette().background0 ),
+            contentAlignment = Alignment.Center
         ) {
-            LazyColumn(
-                state = lazyListState,
-                userScrollEnabled = items.isNotEmpty(),
-                contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer ),
-                modifier = Modifier.fillMaxSize()
-                    .background( colorPalette().background0 )
-            ) {
-                item( "header" ) {
+            if (items.isEmpty()) {
+                Loader()
+            } else {
+                LazyColumn(
+                    state = lazyListState,
+                    userScrollEnabled = items.isNotEmpty(),
+                    contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer ),
+                    modifier = Modifier.fillMaxSize()
+                        .background( colorPalette().background0 )
+                ) {
+                    item( "header" ) {
                     Box( Modifier.fillMaxWidth() ) {
                         if (!isLandscape)
                             Image(
@@ -360,12 +374,8 @@ fun AlbumDetails(
                         modifier = sectionTextModifier.fillMaxWidth()
                     )
                 }
-                // Placeholders while songs are loading
-                if( items.isEmpty() )
-                    items(
-                        count = 10,
-                        key = { index -> "song_placeholders_no$index" }
-                    ) { SongItemPlaceholder() }
+
+
                 itemsIndexed(
                     items = items,
                     key = { _, song -> song.id }
@@ -382,7 +392,8 @@ fun AlbumDetails(
                             itemSelector = itemSelector,
                             navController = navController,
                             showThumbnail = false,
-                            modifier = Modifier.background(colorPalette().background0),
+                            modifier = Modifier,
+
                             thumbnailOverlay = {
                                 BasicText(
                                     text = "${index + 1}",
@@ -552,6 +563,7 @@ fun AlbumDetails(
                     onClickSettings = onSettingsClick,
                     onClickSearch = onSearchClick
                 )
+            }
         }
     }
 }

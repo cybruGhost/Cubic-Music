@@ -30,6 +30,7 @@ fun GetControls(
     binder: PlayerServiceModern.Binder,
     position: Long,
     shouldBePlaying: Boolean,
+    isBuffering: Boolean,
     likedAt: Long?,
     mediaId: String,
     onBlurScaleChange: (Float) -> Unit
@@ -92,6 +93,7 @@ fun GetControls(
                 position = position,
                 playbackSpeed = playbackSpeed,
                 shouldBePlaying = shouldBePlaying,
+                isBuffering = isBuffering,
                 likedAt = likedAt,
                 mediaId = mediaId,
                 playerPlayButtonType = playerPlayButtonType,
@@ -105,6 +107,7 @@ fun GetControls(
                 position = position,
                 playbackSpeed = playbackSpeed,
                 shouldBePlaying = shouldBePlaying,
+                isBuffering = isBuffering,
                 playerPlayButtonType = playerPlayButtonType,
                 isGradientBackgroundEnabled = isGradientBackgroundEnabled,
                 onShowSpeedPlayerDialog = { showSpeedPlayerDialog = true }

@@ -1,4 +1,8 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package it.fast4x.rimusic.ui.screens.player.components.controls
+
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.CircularWavyProgressIndicator
 
 import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
@@ -381,6 +385,7 @@ fun ControlsModern(
     position: Long,
     playbackSpeed: Float,
     shouldBePlaying: Boolean,
+    isBuffering: Boolean,
     playerPlayButtonType: PlayerPlayButtonType,
     isGradientBackgroundEnabled: Boolean,
     onShowSpeedPlayerDialog: () -> Unit,
@@ -532,16 +537,28 @@ fun ControlsModern(
             )
          */
 
-              Image(
-                  painter = painterResource(if (shouldBePlaying) R.drawable.pause else R.drawable.play),
-                  contentDescription = null,
-                  colorFilter = ColorFilter.tint(colorPalette().text),  //ColorFilter.tint(colorPalette().collapsedPlayerProgressBar),
-                  modifier = Modifier
-                      .rotate(rotationAngle)
-                      .align(Alignment.Center)
-                      .size(30.dp)
-                      .bounceClick()
-              )
+              if (isBuffering) {
+                  CircularWavyProgressIndicator(
+                      color = colorPalette().accent,
+                      trackColor = colorPalette().text,
+                      modifier = Modifier
+                          .align(Alignment.Center)
+                          .size(30.dp),
+                      stroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 4.dp.toPx() }),
+                      trackStroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 4.dp.toPx() })
+                  )
+              } else {
+                  Image(
+                      painter = painterResource(if (shouldBePlaying) R.drawable.pause else R.drawable.play),
+                      contentDescription = null,
+                      colorFilter = ColorFilter.tint(colorPalette().text),  //ColorFilter.tint(colorPalette().collapsedPlayerProgressBar),
+                      modifier = Modifier
+                          .rotate(rotationAngle)
+                          .align(Alignment.Center)
+                          .size(30.dp)
+                          .bounceClick()
+                  )
+              }
 
               val fmtSpeed = "%.1fx".format(playbackSpeed).replace(",", ".")
               if (fmtSpeed != "1.0x")

@@ -80,7 +80,7 @@ fun Controls(
     navController: NavController,
     onCollapse: () -> Unit,
     onBlurScaleChange: (Float) -> Unit,
-    expandPlayer: Boolean,
+    expandedplayer: Boolean,
     titleExpanded: Boolean,
     timelineExpanded: Boolean,
     controlsExpanded: Boolean,
@@ -89,13 +89,14 @@ fun Controls(
     artistIds: List<Info>?,
     albumId: String?,
     shouldBePlaying: Boolean,
+    isBuffering: Boolean,
     positionAndDuration: Pair<Long, Long>,
     modifier: Modifier = Modifier
 ) = Controls(
     navController = navController,
     onCollapse = onCollapse,
     onBlurScaleChange = onBlurScaleChange,
-    expandedplayer = expandPlayer,
+    expandedplayer = expandedplayer,
     titleExpanded = titleExpanded,
     timelineExpanded = timelineExpanded,
     controlsExpanded = controlsExpanded,
@@ -107,6 +108,7 @@ fun Controls(
     artistIds = artistIds,
     albumId = albumId,
     shouldBePlaying = shouldBePlaying,
+    isBuffering = isBuffering,
     position = positionAndDuration.first,
     duration = positionAndDuration.second,
     isExplicit = mediaItem.isExplicit,
@@ -135,6 +137,7 @@ fun Controls(
     artistIds: List<Info>?,
     albumId: String?,
     shouldBePlaying: Boolean,
+    isBuffering: Boolean,
     position: Long,
     duration: Long,
     isExplicit: Boolean,
@@ -317,6 +320,7 @@ fun Controls(
                         binder = binder,
                         position = position,
                         shouldBePlaying = shouldBePlaying,
+                        isBuffering = isBuffering,
                         likedAt = currentSong?.likedAt,
                         mediaId = mediaId,
                         onBlurScaleChange = onBlurScaleChange
@@ -394,6 +398,7 @@ fun Controls(
                         binder = binder,
                         position = position,
                         shouldBePlaying = shouldBePlaying,
+                        isBuffering = isBuffering,
                         likedAt = currentSong?.likedAt,
                         mediaId = mediaId,
                         onBlurScaleChange = onBlurScaleChange
@@ -407,6 +412,7 @@ fun Controls(
                         binder = binder,
                         position = position,
                         shouldBePlaying = shouldBePlaying,
+                        isBuffering = isBuffering,
                         likedAt = currentSong?.likedAt,
                         mediaId = mediaId,
                         onBlurScaleChange = onBlurScaleChange
@@ -492,7 +498,7 @@ fun Controls(
                 GetControls(
                     binder = binder,
                     position = position,
-                    shouldBePlaying = shouldBePlaying,
+                    shouldBePlaying = shouldBePlaying, isBuffering = isBuffering,
                     likedAt = currentSong?.likedAt,
                     mediaId = mediaId,
                     onBlurScaleChange = onBlurScaleChange
@@ -507,7 +513,7 @@ fun Controls(
                 GetControls(
                     binder = binder,
                     position = position,
-                    shouldBePlaying = shouldBePlaying,
+                    shouldBePlaying = shouldBePlaying, isBuffering = isBuffering,
                     likedAt = currentSong?.likedAt,
                     mediaId = mediaId,
                     onBlurScaleChange = onBlurScaleChange

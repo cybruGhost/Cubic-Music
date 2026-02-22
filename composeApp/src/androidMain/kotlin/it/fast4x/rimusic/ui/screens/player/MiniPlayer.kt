@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package it.fast4x.rimusic.ui.screens.player
 
 import androidx.compose.animation.core.LinearEasing
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -59,6 +61,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.navigation.NavController
 import app.kreate.android.R
 import it.fast4x.rimusic.Database
@@ -102,9 +106,7 @@ import me.knighthat.utils.Toaster
 import kotlin.math.absoluteValue
 
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalFoundationApi::class,
-    ExperimentalFoundationApi::class, ExperimentalFoundationApi::class,
-    ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MiniPlayer(
     showPlayer: () -> Unit,
@@ -128,6 +130,9 @@ fun MiniPlayer(
     var playerError by remember {
         mutableStateOf<PlaybackException?>(binder.player.playerError)
     }
+    var isBuffering by remember {
+        mutableStateOf(binder.player.playbackState == Player.STATE_BUFFERING)
+    }
 
     binder.player.DisposableListener {
         object : Player.Listener {
@@ -142,6 +147,7 @@ fun MiniPlayer(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 playerError = binder.player.playerError
                 shouldBePlaying = if (playerError == null) binder.player.shouldBePlaying else false
+                isBuffering = playbackState == Player.STATE_BUFFERING
             }
 
             override fun onPlayerError(playbackException: PlaybackException) {
@@ -224,34 +230,38 @@ fun MiniPlayer(
             )
              */
 
+            val offset = try { dismissState.requireOffset() } catch (e: Exception) { 0f }
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(colorPalette().background1)
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = when (dismissState.targetValue) {
-                    SwipeToDismissBoxValue.StartToEnd -> Arrangement.Start
-                    SwipeToDismissBoxValue.EndToStart -> Arrangement.End
-                    SwipeToDismissBoxValue.Settled -> Arrangement.Center
+                horizontalArrangement = when {
+                    offset > 0 -> Arrangement.Start
+                    offset < 0 -> Arrangement.End
+                    else -> Arrangement.Center
                 },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = when (dismissState.targetValue) {
-                        SwipeToDismissBoxValue.StartToEnd -> {
-                            if (miniPlayerType == MiniPlayerType.Modern)
-                                ImageVector.vectorResource(R.drawable.play_skip_back)
-                            else if ( isSongLiked )
-                                ImageVector.vectorResource(R.drawable.heart)
-                            else
-                                ImageVector.vectorResource(R.drawable.heart_outline)
-                        }
-                        SwipeToDismissBoxValue.EndToStart ->  ImageVector.vectorResource(R.drawable.play_skip_forward)
-                        SwipeToDismissBoxValue.Settled ->  ImageVector.vectorResource(R.drawable.play)
-                    },
-                    contentDescription = null,
-                    tint = colorPalette().iconButtonPlayer,
-                )
+                val icon = when {
+                    offset > 0 -> {
+                        if (miniPlayerType == MiniPlayerType.Modern)
+                            ImageVector.vectorResource(R.drawable.play_skip_back)
+                        else if (isSongLiked)
+                            ImageVector.vectorResource(R.drawable.heart)
+                        else
+                            ImageVector.vectorResource(R.drawable.heart_outline)
+                    }
+
+                    offset < 0 -> ImageVector.vectorResource(R.drawable.play_skip_forward)
+                    else -> null
+                }
+                if (icon != null)
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = colorPalette().iconButtonPlayer,
+                    )
             }
         }
     ) {
@@ -406,15 +416,28 @@ fun MiniPlayer(
                         .background(colorPalette().background2)
                         .size(42.dp)
                 ) {
-                    Image(
-                        painter = painterResource(if (shouldBePlaying) R.drawable.pause else R.drawable.play),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette().iconButtonPlayer),
-                        modifier = Modifier
-                            .rotate(rotationAngle)
-                            .align(Alignment.Center)
-                            .size(24.dp)
-                    )
+                    if (isBuffering) {
+                        CircularWavyProgressIndicator(
+                            color = colorPalette().accent,
+                            trackColor = colorPalette().text,
+                            modifier = Modifier
+                                .rotate(rotationAngle)
+                                .align(Alignment.Center)
+                                .size(24.dp),
+                            stroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 2.dp.toPx() }),
+                            trackStroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 2.dp.toPx() })
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(if (shouldBePlaying) R.drawable.pause else R.drawable.play),
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(colorPalette().iconButtonPlayer),
+                            modifier = Modifier
+                                .rotate(rotationAngle)
+                                .align(Alignment.Center)
+                                .size(24.dp)
+                        )
+                    }
                 }
                if (miniPlayerType == MiniPlayerType.Essential)
                 it.fast4x.rimusic.ui.components.themed.IconButton(

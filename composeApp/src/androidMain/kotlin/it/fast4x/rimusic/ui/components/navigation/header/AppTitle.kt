@@ -11,7 +11,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
@@ -88,7 +87,7 @@ private fun AppLogo(
     Image(
         bitmap = APP_ICON_IMAGE_BITMAP,
         contentDescription = "App's icon",
-        modifier = modifier.size( 36.dp )
+        modifier = modifier.size( 36.dp ) 
     )
 }
 
@@ -100,11 +99,11 @@ private fun AppLogoText( navController: NavController ) {
     }
 
     BasicText(
-        text = "Cubic-Music",
+        text = "Cubic",
         style = TextStyle(
-            fontSize = typography().xl.semiBold.fontSize,
-            fontWeight = typography().xl.semiBold.fontWeight,
-            fontFamily = typography().xl.semiBold.fontFamily,
+            fontSize = typography().m.semiBold.fontSize, // Changed from s to m (medium)
+            fontWeight = typography().s.semiBold.fontWeight,
+            fontFamily = typography().s.semiBold.fontFamily,
             color = AppBar.contentColor()
         ),
         modifier = Modifier
@@ -120,12 +119,10 @@ private fun NetworkStatusIcon() {
     DisposableEffect(Unit) {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         
-        // Update initial state
         updateNetworkIcon(connectivityManager) { iconRes ->
             networkIcon = iconRes
         }
         
-        // Register network callback for real-time updates
         val networkRequest = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
@@ -161,7 +158,7 @@ private fun NetworkStatusIcon() {
     Image(
         painter = painterResource(id = networkIcon),
         contentDescription = "Network status",
-        modifier = Modifier.size(16.dp),
+        modifier = Modifier.size(14.dp), // Reduced from 16.dp
         colorFilter = ColorFilter.tint(AppBar.contentColor())
     )
 }
@@ -190,14 +187,13 @@ fun AppTitle(
     context: Context
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), // Reduced from 8.dp
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 0.dp)
     ) {
         AppLogo(navController, context)
         AppLogoText(navController)
         
-        // Network icon positioned NEXT TO the title (not overlapping)
         NetworkStatusIcon()
 
         if(Preference.parentalControl())
@@ -205,12 +201,12 @@ fun AppTitle(
                 iconId = R.drawable.shield_checkmark,
                 color = AppBar.contentColor(),
                 padding = 0.dp,
-                size = 20.dp
+                size = 20.dp // Reduced from 20.dp
             ).Draw()
 
         if (Preference.debugLog())
             BasicText(
-                text = stringResource(R.string.info_debug_mode_enabled),
+                text = "DBG", // Ultra-minimal debug indicator
                 style = TextStyle(
                     fontSize = typography().xxxs.semiBold.fontSize,
                     fontWeight = typography().xxxs.semiBold.fontWeight,

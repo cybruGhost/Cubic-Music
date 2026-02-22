@@ -1,5 +1,6 @@
 package it.fast4x.rimusic.ui.screens.searchresult
 import androidx.compose.animation.ExperimentalAnimationApi
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,17 +22,21 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+
 import androidx.compose.ui.unit.dp
 import it.fast4x.compose.persist.persist
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.utils.plus
 import it.fast4x.rimusic.enums.NavigationBarPosition
+import it.fast4x.rimusic.enums.ContentType
 import it.fast4x.rimusic.ui.components.ShimmerHost
 import it.fast4x.rimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.utils.center
 import it.fast4x.rimusic.utils.secondary
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.typography
@@ -45,6 +50,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import it.fast4x.rimusic.ui.items.AlbumPlaceholder
 import it.fast4x.rimusic.ui.items.SongItemPlaceholder
+import it.fast4x.rimusic.ui.components.themed.Loader
+import androidx.compose.foundation.lazy.itemsIndexed
+import kotlinx.coroutines.delay
+
 
 @ExperimentalAnimationApi
 @Composable
@@ -57,6 +66,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     initialPlaceholderCount: Int = 8,
     continuationPlaceholderCount: Int = 3,
     emptyItemsText: String = "No items found",
+    filterContentType: ContentType = ContentType.All,
     noinline itemsPageProvider: (suspend (String?) -> Result<Innertube.ItemsPage<T>?>?)? = null,
 ) {
     val updatedItemsPageProvider by rememberUpdatedState(itemsPageProvider)
@@ -67,25 +77,45 @@ inline fun <T : Innertube.Item> ItemsPage(
     var hasScrolledToTop by remember { mutableStateOf(false) }
     var isInitialLoad by remember { mutableStateOf(true) }
 
+    var isLoadingMore by remember { mutableStateOf(false) }
+
     LaunchedEffect(lazyListState, updatedItemsPageProvider) {
         val currentItemsPageProvider = updatedItemsPageProvider ?: return@LaunchedEffect
 
-        snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "loading" } }
-            .collect { shouldLoadMore ->
-                if (!shouldLoadMore) return@collect
+        while (true) {
+            val shouldLoad = snapshotFlow {
+                val info = lazyListState.layoutInfo
+                val total = info.totalItemsCount
+                val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+                val hasContinuation = itemsPage?.continuation != null
+                (hasContinuation && total > 0 && lastVisible >= total - 20) && !isLoadingMore
+            }
+                .distinctUntilChanged()
+                .first { it }
 
+            if (shouldLoad) {
+                isLoadingMore = true
+                val currentContinuation = itemsPage?.continuation
                 withContext(Dispatchers.IO) {
-                    currentItemsPageProvider(itemsPage?.continuation)
-                }?.onSuccess {
-                    if (it == null) {
+                    currentItemsPageProvider(currentContinuation)
+                }?.onSuccess { newPage ->
+                    if (newPage == null) {
                         if (itemsPage == null) {
                             itemsPage = Innertube.ItemsPage(null, null)
                         }
                     } else {
-                        itemsPage += it
+                        val merged = withContext(Dispatchers.IO) {
+                            itemsPage + newPage
+                        }
+                        itemsPage = merged
                     }
-                }?.exceptionOrNull()?.printStackTrace()
+                }?.onFailure {
+                    it.printStackTrace()
+                    delay(2000) // Avoid rapid retry on failure
+                }
+                isLoadingMore = false
             }
+        }
     }
 
     LaunchedEffect(itemsPage, updatedItemsPageProvider) {
@@ -121,14 +151,15 @@ inline fun <T : Innertube.Item> ItemsPage(
             )
     ) {
         if (itemsPage == null) {
-            LazyColumn(
+            Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                item {
-                    headerContent(null)
-                }
-                items(initialPlaceholderCount) {
-                    itemPlaceholderContent()
+                headerContent(null)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Loader()
                 }
             }
         } else {
@@ -141,12 +172,32 @@ inline fun <T : Innertube.Item> ItemsPage(
                     key = "header",
                     contentType = "header",
                 ) {
-                    headerContent(null)
+                    Column {
+                        headerContent(null)
+                    }
                 }
 
                 items(
-                    itemsPage?.items ?: emptyList(),
-                    key = { item -> "item_${System.identityHashCode(item)}_${item.key}" },
+                    itemsPage?.items?.filter { item ->
+                        when {
+                            item is Innertube.SongItem -> {
+                                when (filterContentType) {
+                                    ContentType.All -> true
+                                    ContentType.Official -> !item.isUserGeneratedContent
+                                    ContentType.UserGenerated -> item.isUserGeneratedContent
+                                }
+                            }
+                            item is Innertube.VideoItem -> {
+                                when (filterContentType) {
+                                    ContentType.All -> true
+                                    ContentType.Official -> !item.isUserGeneratedContent
+                                    ContentType.UserGenerated -> item.isUserGeneratedContent
+                                }
+                            }
+                            else -> true
+                        }
+                    } ?: emptyList(),
+                    key = { item -> "${item::class.simpleName}_${item.key.ifEmpty { System.identityHashCode(item) }}" },
                     itemContent = itemContent
                 )
 
@@ -195,8 +246,9 @@ inline fun <T : Innertube.Item> ItemsGridPage(
     noinline itemPlaceholderContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     initialPlaceholderCount: Int = 8,
-    continuationPlaceholderCount: Int = 3,
+    continuationPlaceholderCount: Int = 6,
     emptyItemsText: String = "No items found",
+    filterContentType: ContentType = ContentType.All,
     noinline itemsPageProvider: (suspend (String?) -> Result<Innertube.ItemsPage<T>?>?)? = null,
     thumbnailSizeDp: androidx.compose.ui.unit.Dp
 ) {
@@ -205,23 +257,45 @@ inline fun <T : Innertube.Item> ItemsGridPage(
     var itemsPage by persist<Innertube.ItemsPage<T>?>(tag)
     var hasScrolledToTop by remember { mutableStateOf(false) }
 
+    var isLoadingMore by remember { mutableStateOf(false) }
+
     LaunchedEffect(lazyGridState, updatedItemsPageProvider) {
         val currentItemsPageProvider = updatedItemsPageProvider ?: return@LaunchedEffect
-        snapshotFlow { lazyGridState.layoutInfo.visibleItemsInfo.any { it.key == "loading" } }
-            .collect { shouldLoadMore ->
-                if (!shouldLoadMore) return@collect
+
+        while (true) {
+            val shouldLoad = snapshotFlow {
+                val info = lazyGridState.layoutInfo
+                val total = info.totalItemsCount
+                val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+                val hasContinuation = itemsPage?.continuation != null
+                (hasContinuation && total > 0 && lastVisible >= total - 20) && !isLoadingMore
+            }
+                .distinctUntilChanged()
+                .first { it }
+
+            if (shouldLoad) {
+                isLoadingMore = true
+                val currentContinuation = itemsPage?.continuation
                 withContext(Dispatchers.IO) {
-                    currentItemsPageProvider(itemsPage?.continuation)
-                }?.onSuccess {
-                    if (it == null) {
+                    currentItemsPageProvider(currentContinuation)
+                }?.onSuccess { newPage ->
+                    if (newPage == null) {
                         if (itemsPage == null) {
                             itemsPage = Innertube.ItemsPage(null, null)
                         }
                     } else {
-                        itemsPage += it
+                        val merged = withContext(Dispatchers.IO) {
+                            itemsPage + newPage
+                        }
+                        itemsPage = merged
                     }
-                }?.exceptionOrNull()?.printStackTrace()
+                }?.onFailure {
+                    it.printStackTrace()
+                    delay(2000)
+                }
+                isLoadingMore = false
             }
+        }
     }
 
     LaunchedEffect(itemsPage, updatedItemsPageProvider) {
@@ -257,14 +331,15 @@ inline fun <T : Innertube.Item> ItemsGridPage(
             )
     ) {
         if (itemsPage == null) {
-            LazyColumn(
+            Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                item {
-                    headerContent(null)
-                }
-                items(initialPlaceholderCount) {
-                    itemPlaceholderContent()
+                headerContent(null)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Loader()
                 }
             }
         } else {
@@ -281,12 +356,32 @@ inline fun <T : Innertube.Item> ItemsGridPage(
                     contentType = 0,
                     span = { GridItemSpan(maxLineSpan) }
                 ) {
-                    headerContent(null)
+                    Column {
+                        headerContent(null)
+                    }
                 }
 
                 items(
-                    itemsPage?.items ?: emptyList(),
-                    key = { item -> "item_${System.identityHashCode(item)}_${item.key}" },
+                    itemsPage?.items?.filter { item ->
+                        when {
+                            item is Innertube.SongItem -> {
+                                when (filterContentType) {
+                                    ContentType.All -> true
+                                    ContentType.Official -> !item.isUserGeneratedContent
+                                    ContentType.UserGenerated -> item.isUserGeneratedContent
+                                }
+                            }
+                            item is Innertube.VideoItem -> {
+                                when (filterContentType) {
+                                    ContentType.All -> true
+                                    ContentType.Official -> !item.isUserGeneratedContent
+                                    ContentType.UserGenerated -> item.isUserGeneratedContent
+                                }
+                            }
+                            else -> true
+                        }
+                    } ?: emptyList(),
+                    key = { item -> "${item::class.simpleName}_${item.key.ifEmpty { System.identityHashCode(item) }}" },
                     itemContent = itemContent
                 )
 

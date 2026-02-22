@@ -5,13 +5,15 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -160,7 +162,11 @@ fun HomeLibrary(
         PlaylistsType.MonthlyPlaylist to stringResource(R.string.monthly_playlists)
     // END - Additional playlists
 
-
+LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
+        if (!showPinnedPlaylists && playlistType == PlaylistsType.PinnedPlaylist) playlistType = PlaylistsType.Playlist
+        if (!showMonthlyPlaylists && playlistType == PlaylistsType.MonthlyPlaylist) playlistType = PlaylistsType.Playlist
+        if (!showPipedPlaylists && playlistType == PlaylistsType.PipedPlaylist) playlistType = PlaylistsType.Playlist
+    }
     // START - New playlist
     newPlaylistDialog.Render()
     // END - New playlist
@@ -226,18 +232,33 @@ fun HomeLibrary(
                     columns = GridCells.Adaptive( itemSize.size.dp ),
                     modifier = Modifier
                         .background(colorPalette().background0)
+                        .fillMaxSize(),
+                    contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer )
                 ) {
                     item(
                         key = "separator",
                         contentType = 0,
                         span = { GridItemSpan(maxLineSpan) }) {
-                        ButtonsRow(
-                            chips = buttonsList,
-                            currentValue = playlistType,
-                            onValueUpdate = { playlistType = it },
-                            modifier = Modifier.padding(start = 12.dp, end = 12.dp)
-                        )
+
+                         Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 8.dp)
+                                .fillMaxWidth()
+                        ) {
+                            Box {
+                                ButtonsRow(
+                                    chips = buttonsList,
+                                    currentValue = playlistType,
+                                    onValueUpdate = { playlistType = it },
+                                    modifier = Modifier.padding(end = 12.dp)
+                                )
+                            }
+                        }
                     }
+                    
 
                     val listPrefix =
                         when( playlistType ) {
@@ -248,9 +269,19 @@ fun HomeLibrary(
                             PlaylistsType.YTPlaylist -> YTP_PREFIX
                         }
                     val condition: (PlaylistPreview) -> Boolean = {
-                        if (playlistType == PlaylistsType.YTPlaylist){
-                            it.playlist.isYoutubePlaylist
-                        } else it.playlist.name.startsWith( listPrefix, true )
+                       when (playlistType) {
+                            PlaylistsType.YTPlaylist -> it.playlist.isYoutubePlaylist
+                            PlaylistsType.Playlist -> {
+                                val isMonthly = it.playlist.name.startsWith(MONTHLY_PREFIX, true)
+                                val isPinned = it.playlist.name.startsWith(PINNED_PREFIX, true)
+                                val isPiped = it.playlist.name.startsWith(PIPED_PREFIX, true)
+                                
+                                (!isMonthly || showMonthlyPlaylists) && 
+                                (!isPinned || showPinnedPlaylists) && 
+                                (!isPiped || showPipedPlaylists)
+                            }
+                            else -> it.playlist.name.startsWith(listPrefix, true)
+                        }
                     }
                     items(
                         items = itemsOnDisplay.filter( condition ),
@@ -273,14 +304,6 @@ fun HomeLibrary(
                             isYoutubePlaylist = preview.playlist.isYoutubePlaylist,
                             isEditable = preview.playlist.isEditable
                         )
-                    }
-
-                    item(
-                        key = "footer",
-                        contentType = 0,
-                        span = { GridItemSpan(maxLineSpan) }
-                    ) {
-                        Spacer(modifier = Modifier.height(Dimensions.bottomSpacer))
                     }
 
                 }

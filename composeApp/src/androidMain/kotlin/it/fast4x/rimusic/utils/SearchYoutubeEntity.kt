@@ -36,7 +36,9 @@ import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.fast4x.rimusic.ui.components.themed.Title
 import it.fast4x.rimusic.ui.items.VideoItem
 import it.fast4x.rimusic.ui.items.VideoItemPlaceholder
+import me.knighthat.component.menu.video.VideoItemMenu
 import it.fast4x.rimusic.ui.screens.searchresult.ItemsPage
+
 import me.knighthat.utils.Toaster
 
 @ExperimentalAnimationApi
@@ -119,14 +121,13 @@ fun SearchYoutubeEntity (
                                 .combinedClickable(
                                     onLongClick = {
                                         menuState.display {
-                                            NonQueuedMediaItemMenu(
-                                                navController = rememberNavController(),
-                                                mediaItem = video.asMediaItem,
-                                                onDismiss = menuState::hide,
-                                                disableScrollingText = disableScrollingText
-                                            )
-                                        };
+                                            VideoItemMenu(
+                                                navController = navController,
+                                                song = video.asMediaItem.asSong
+                                            ).MenuComponent()
+                                        }
                                         hapticFeedback.performHapticFeedback(
+
                                             HapticFeedbackType.LongPress
                                         )
                                     },

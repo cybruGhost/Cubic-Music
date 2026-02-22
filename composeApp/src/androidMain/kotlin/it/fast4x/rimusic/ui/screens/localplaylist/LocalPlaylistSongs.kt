@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import it.fast4x.rimusic.utils.ExternalUris
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -355,7 +356,7 @@ fun LocalPlaylistSongs(
         val browseId = playlist?.browseId?.removePrefix( "VL" )
 
         binder?.player?.pause()
-        uriHandler.openUri( "https://youtube.com/playlist?list=$browseId" )
+        uriHandler.openUri( ExternalUris.youtubePlaylist(browseId ?: "") )
     }
     val resetCache = ResetCache( ::getSongs )
 

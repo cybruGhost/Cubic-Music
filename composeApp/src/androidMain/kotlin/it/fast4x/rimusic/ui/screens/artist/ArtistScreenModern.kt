@@ -33,6 +33,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import app.kreate.android.R
 import it.fast4x.rimusic.ui.components.Skeleton
+import it.fast4x.rimusic.ui.components.themed.Loader
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+
 
 import it.fast4x.innertube.models.bodies.QueueBody
 import it.fast4x.innertube.requests.queue
@@ -112,16 +118,39 @@ fun ArtistScreenModern(
     Skeleton(
         navController = navController,
         tabIndex = selectedTabIndex,
-        onTabChanged = { selectedTabIndex = it },
+        onTabChanged = { index -> selectedTabIndex = index },
         miniPlayer = miniPlayer,
-        navBarContent = { Item ->
-            Item(0, stringResource(R.string.overview), R.drawable.artist)
-            Item(1, stringResource(R.string.library), R.drawable.library)
+        navBarContent = { item ->
+            item(0, stringResource(R.string.overview), R.drawable.artist)
+            item(1, stringResource(R.string.library), R.drawable.library)
         }
     ) { currentTabIndex ->
         when (currentTabIndex) {
-            0 -> ArtistDetails(navController, localArtist, artistPage, thumbnailPainter)
-            1 -> ArtistLocalSongs(navController, localArtist, artistPage, thumbnailPainter)
+            0 -> {
+                if (artistPage == null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Loader()
+                    }
+                } else {
+                    ArtistDetails(navController, localArtist, artistPage, thumbnailPainter)
+                }
+            }
+            1 -> {
+                if (localArtist == null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Loader()
+                    }
+                } else {
+                    ArtistLocalSongs(navController, localArtist, artistPage, thumbnailPainter)
+                }
+            }
         }
     }
+
 }

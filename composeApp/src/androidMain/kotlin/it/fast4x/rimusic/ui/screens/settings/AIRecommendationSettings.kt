@@ -321,15 +321,15 @@ fun AIRecommendationSettings(
                         icon = R.drawable.moods
                     )
 
-                    OtherSwitchSettingEntry(
-                        title = "${stringResource(R.string.show)} ${stringResource(R.string.monthly_playlists)}",
-                        text = stringResource(R.string.disable_if_you_do_not_want_to_see) + " " + stringResource(R.string.monthly_playlists),
-                        isChecked = showMonthlyPlaylistInQuickPicks,
-                        onCheckedChange = {
-                            showMonthlyPlaylistInQuickPicks = it
-                        },
-                        icon = R.drawable.calendar
-                    )
+                  	OtherSwitchSettingEntry(
+						title = stringResource(R.string.show_monthly_playlists_in_quick_picks),
+						text = "",
+						isChecked = showMonthlyPlaylistInQuickPicks,
+						onCheckedChange = {
+							showMonthlyPlaylistInQuickPicks = it
+						},
+						icon = R.drawable.featured_playlist
+					)
                 }
             )
         }
@@ -399,20 +399,25 @@ fun AIRecommendationSettings(
 
         // Monthly Playlists Section
         AnimatedVisibility(
-            visible = enableQuickPicksPage && showMonthlyPlaylistInQuickPicks,
+             visible = true,
             enter = fadeIn(animationSpec = tween(1400)) + scaleIn(
                 animationSpec = tween(1400),
                 initialScale = 0.9f
-            ),
-            exit = fadeOut(animationSpec = tween(200)) + scaleOut(
-                animationSpec = tween(200),
-                targetScale = 0.9f
             )
         ) {
             SettingsSectionCard(
                 title = stringResource(R.string.monthly_playlists),
                 icon = R.drawable.calendar,
                 content = {
+                    OtherSwitchSettingEntry(
+						title = stringResource(R.string.show_monthly_playlists_in_library),
+						text = stringResource(R.string.disable_if_you_do_not_want_to_see) + " " + stringResource(R.string.monthly_playlists) + " " + stringResource(R.string.in_txt) + " " + stringResource(R.string.library),
+						isChecked = showMonthlyPlaylists,
+						onCheckedChange = {
+							showMonthlyPlaylists = it
+						},
+						icon = R.drawable.eye
+					)
                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.enable_monthly_playlists_creation),
                         text = "",

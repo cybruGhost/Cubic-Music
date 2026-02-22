@@ -22,6 +22,9 @@ import androidx.media3.exoplayer.scheduler.Requirements
 import app.kreate.android.service.createDataSourceFactory
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.enums.AudioQualityFormat
 import it.fast4x.rimusic.enums.ExoPlayerCacheLocation
@@ -62,6 +65,7 @@ import timber.log.Timber
 import java.io.File
 import java.util.concurrent.Executors
 import kotlin.io.path.createTempDirectory
+import it.fast4x.rimusic.utils.ExternalUris
 
 @UnstableApi
 object MyDownloadHelper {
@@ -84,6 +88,8 @@ object MyDownloadHelper {
     lateinit var audioQualityFormat: AudioQualityFormat
 
     var downloads = MutableStateFlow<Map<String, Download>>(emptyMap())
+    private val mutableProgresses = MutableStateFlow<Map<String, Float>>(emptyMap())
+    val progresses = mutableProgresses.asStateFlow()
 
     fun getDownload(songId: String): Flow<Download?> {
         return downloads.map { it[songId] }
@@ -237,6 +243,26 @@ object MyDownloadHelper {
                     }
                 )
             }
+                    coroutineScope.launch {
+                while (isActive) {
+                    val currentDownloads = downloadManager.currentDownloads
+                    if (currentDownloads.isNotEmpty()) {
+                        mutableProgresses.update { progresses ->
+                            progresses.toMutableMap().apply {
+                                currentDownloads.forEach { download ->
+                                    val progress = if (download.contentLength > 0) {
+                                        download.bytesDownloaded.toFloat() / download.contentLength
+                                    } else {
+                                        0f
+                                    }
+                                    put(download.request.id, progress)
+                                }
+                            }
+                        }
+                    }
+                    delay(1000)
+                }
+            }
         }
     }
 
@@ -268,10 +294,10 @@ object MyDownloadHelper {
             .Builder(
                 /* id      = */ mediaItem.mediaId,
                 /* uri     = */ mediaItem.requestMetadata.mediaUri
-                    ?: Uri.parse("https://music.youtube.com/watch?v=${mediaItem.mediaId}")
+                    ?: Uri.parse(ExternalUris.youtubeMusic(mediaItem.mediaId))
             )
             .setCustomCacheKey(mediaItem.mediaId)
-            .setData("${mediaItem.mediaMetadata.artist.toString()} - ${mediaItem.mediaMetadata.title.toString()}".encodeToByteArray())
+            .setData("${mediaItem.mediaMetadata.artist ?: ""} - ${mediaItem.mediaMetadata.title ?: ""}".encodeToByteArray()) // Title in notification
             .build()
 
         Database.asyncTransaction {

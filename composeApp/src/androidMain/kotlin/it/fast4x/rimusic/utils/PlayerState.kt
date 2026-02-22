@@ -130,6 +130,23 @@ fun rememberEqualizerLauncher(
     }
 }
 
+@Composable
+fun Player.playbackStateState(): State<Int> {
+    val state = remember {
+        mutableStateOf(playbackState)
+    }
+
+    DisposableListener {
+        object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                state.value = playbackState
+            }
+        }
+    }
+
+    return state
+}
+
 /**
  * Safe utility functions to prevent the "Out of range" IllegalArgumentException
  * These can be used throughout the app where player position/duration calculations are done

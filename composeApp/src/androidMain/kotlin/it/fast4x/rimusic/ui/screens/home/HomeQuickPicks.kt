@@ -167,6 +167,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 
+
 // ===== NOTIFICATION DATA CLASS =====
 data class NotificationData(
     val version: String,
@@ -1470,7 +1471,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                             }
                         }
                     }
-
+                    
                 if (showCharts) {
 
                     chartsPageInit?.let { page ->

@@ -34,11 +34,8 @@ class ItemSize private constructor(
         @Composable
         get() = stringResource( R.string.size )
 
-    var size: HomeItemSize = sizeState.value
-        set(value) {
-            sizeState.value = value
-            field = value
-        }
+    val size: HomeItemSize
+        get() = sizeState.value
 
     @Composable
     private fun Entry( size: HomeItemSize) {
@@ -47,7 +44,7 @@ class ItemSize private constructor(
             size.text,
             onClick = {
                 sizeState.value = size
-                menuState::hide
+                menuState.hide()
             }
         )
     }

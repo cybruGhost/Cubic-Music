@@ -72,7 +72,6 @@ import it.fast4x.innertube.models.bodies.BrowseBody
 import it.fast4x.innertube.requests.podcastPage
 import it.fast4x.rimusic.Database
 import it.fast4x.rimusic.LocalPlayerServiceBinder
-import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.enums.NavigationBarPosition
 import it.fast4x.rimusic.enums.ThumbnailRoundness
@@ -93,6 +92,7 @@ import it.fast4x.rimusic.ui.components.themed.LayoutWithAdaptiveThumbnail
 import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.fast4x.rimusic.ui.components.themed.PlaylistsItemMenu
 import it.fast4x.rimusic.ui.components.themed.adaptiveThumbnailContent
+import it.fast4x.rimusic.ui.components.themed.Loader
 import it.fast4x.rimusic.ui.items.AlbumItemPlaceholder
 import it.fast4x.rimusic.ui.items.SongItem
 import it.fast4x.rimusic.ui.items.SongItemPlaceholder
@@ -126,6 +126,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import it.fast4x.rimusic.utils.ExternalUris
 import me.knighthat.utils.Toaster
 
 
@@ -151,33 +152,16 @@ fun Podcast(
     var filter: String? by rememberSaveable { mutableStateOf(null) }
     val hapticFeedback = LocalHapticFeedback.current
 
-    LaunchedEffect(Unit, filter) {
-        if (podcastPage != null) return@LaunchedEffect
-
-        podcastPage = withContext(Dispatchers.IO) {
-            Innertube.podcastPage(BrowseBody(browseId = browseId)).getOrNull()
+    LaunchedEffect(Unit) {
+        if (podcastPage == null) {
+            podcastPage = withContext(Dispatchers.IO) {
+                Innertube.podcastPage(BrowseBody(browseId = browseId)).getOrNull()
+            }
         }
-
-        /*
-        println("mediaItem playlists podcasts call " + withContext(Dispatchers.IO) {
-            Innertube.podcastPage(BrowseBody(browseId = browseId)).getOrNull()
-        })
-         */
-
-
     }
 
     var filterCharSequence: CharSequence
     filterCharSequence = filter.toString()
-    /*
-    //Log.d("mediaItemFilter", "<${filter}>  <${filterCharSequence}>")
-    if (!filter.isNullOrBlank())
-        playlistPage?.songsPage?.items =
-        playlistPage?.songsPage?.items?.filter {songItem ->
-                songItem.asMediaItem.mediaMetadata.title?.contains(filterCharSequence,true) ?: false
-                        || songItem.asMediaItem.mediaMetadata.artist?.contains(filterCharSequence,true) ?: false
-            }
-    */
 
     var searching by rememberSaveable { mutableStateOf(false) }
 
@@ -238,28 +222,32 @@ fun Podcast(
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box(
             modifier = Modifier
-                 .background(colorPalette().background0)
+                .background(colorPalette().background0)
                 //.fillMaxSize()
                 .fillMaxHeight()
                 .fillMaxWidth(
-                    if( NavigationBarPosition.Right.isCurrent() )
+                    if (NavigationBarPosition.Right.isCurrent())
                         Dimensions.contentWidthRightBar
                     else
                         1f
-                )
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            LazyColumn(
-                state = lazyListState,
-                //contentPadding = LocalPlayerAwareWindowInsets.current
-                //.only(WindowInsetsSides.Vertical + WindowInsetsSides.End).asPaddingValues(),
-                modifier = Modifier
-                    .background(colorPalette().background0)
-                    .fillMaxSize()
-            ) {
-
-                item(
-                    key = "header"
+            if (podcastPage == null) {
+                Loader()
+            } else {
+                LazyColumn(
+                    state = lazyListState,
+                    //contentPadding = LocalPlayerAwareWindowInsets.current
+                    //.only(WindowInsetsSides.Vertical + WindowInsetsSides.End).asPaddingValues(),
+                    modifier = Modifier
+                        .background(colorPalette().background0)
+                        .fillMaxSize()
                 ) {
+
+                    item(
+                        key = "header"
+                    ) {
 
                     val modifierArt = if (isLandscape) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().aspectRatio(4f / 3)
 
@@ -318,7 +306,7 @@ fun Podcast(
                                     .align(Alignment.TopEnd)
                                     .padding(top = 5.dp, end= 5.dp),
                                 onClick = {
-                                    ("https://music.youtube.com/playlist?list=${browseId.removePrefix("VL")}").let { url ->
+                                   (ExternalUris.youtubeMusicPlaylist(browseId.removePrefix("VL"))).let { url ->
                                         val sendIntent = Intent().apply {
                                             action = Intent.ACTION_SEND
                                             type = "text/plain"
@@ -330,29 +318,6 @@ fun Podcast(
                                 }
                             )
 
-                        } else {
-                            Column(
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(4f / 3)
-                            ) {
-                                ShimmerHost {
-                                    AlbumItemPlaceholder(
-                                        thumbnailSizeDp = 200.dp,
-                                        alternative = true
-                                    )
-                                    BasicText(
-                                        text = stringResource(R.string.info_wait_it_may_take_a_few_minutes),
-                                        style = typography().xs.medium,
-                                        maxLines = 1,
-                                        modifier = Modifier
-                                            //.padding(top = 10.dp)
-
-                                    )
-                                }
-                            }
                         }
                     }
 
@@ -583,12 +548,6 @@ fun Podcast(
                             )
                              */
 
-                        } else {
-                            BasicText(
-                                text = stringResource(R.string.info_wait_it_may_take_a_few_minutes),
-                                style = typography().xxs.medium,
-                                maxLines = 1
-                            )
                         }
                     }
                     Row (
@@ -738,6 +697,7 @@ fun Podcast(
                             thumbnailSizePx = songThumbnailSizePx,
                             thumbnailSizeDp = songThumbnailSizeDp,
                             modifier = Modifier
+                                .background(colorPalette().background0)
                                 .combinedClickable(
                                     onLongClick = {
                                         menuState.display {
@@ -776,19 +736,6 @@ fun Podcast(
                 ) {
                     Spacer(modifier = Modifier.height(Dimensions.bottomSpacer))
                 }
-
-                if (podcastPage == null) {
-                    item(key = "loading") {
-                        ShimmerHost(
-                            modifier = Modifier
-                                .fillParentMaxSize()
-                        ) {
-                            repeat(4) {
-                                SongItemPlaceholder()
-                            }
-                        }
-                    }
-                }
             }
 
             val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
@@ -807,8 +754,7 @@ fun Podcast(
                     }
                 }
             )
-
-
+            }
         }
     }
 }

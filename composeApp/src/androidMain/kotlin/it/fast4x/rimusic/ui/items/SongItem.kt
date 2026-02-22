@@ -1,10 +1,19 @@
+@file:kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
 package it.fast4x.rimusic.ui.items
 
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.ui.graphics.drawscope.Stroke
+import it.fast4x.rimusic.utils.getDownloadProgress
+import it.fast4x.rimusic.utils.DOWNLOAD_INDICATOR_SIZE_NORMAL
+import it.fast4x.rimusic.utils.DOWNLOAD_INDICATOR_STROKE_WIDTH
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -343,7 +352,7 @@ fun SongItem(
     val authors = mediaItem.mediaMetadata.artist.toString()
     val duration = mediaItem.mediaMetadata.extras?.getString("durationText")
 
-    val playlistindicator by rememberPreference(playlistindicatorKey,true)
+    val playlistindicator by rememberPreference(playlistindicatorKey,false)
     val isSongMappedToPlaylist by remember {
         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
     }.collectAsState( false, Dispatchers.IO )
@@ -656,21 +665,41 @@ fun SongItem(
                             || downloadState == Download.STATE_RESTARTING
                             )
                     && downloadedStateMedia == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED) {
-                    //val context = LocalContext.current
-                    IconButton(
-                        onClick = {
-                            DownloadService.sendRemoveDownload(
-                                context,
-                                MyDownloadService::class.java,
-                                mediaItem.mediaId,
-                                false
-                            )
-                        },
-                        icon = R.drawable.download_progress,
-                        color = colorPalette().text,
+                    androidx.compose.foundation.layout.Box(
                         modifier = Modifier
                             .size(20.dp)
-                    )
+                            .clickable(
+                                onClick = {
+                                    DownloadService.sendRemoveDownload(
+                                        context,
+                                        MyDownloadService::class.java,
+                                        mediaItem.mediaId,
+                                        false
+                                    )
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val progress = getDownloadProgress(mediaItem.mediaId)
+                        if (progress > 0.01f && downloadState == Download.STATE_DOWNLOADING) {
+                            CircularWavyProgressIndicator(
+                                progress = { progress },
+                                color = colorPalette().accent,
+                                trackColor = colorPalette().textDisabled,
+                                modifier = Modifier.size(DOWNLOAD_INDICATOR_SIZE_NORMAL.dp),
+                                stroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { DOWNLOAD_INDICATOR_STROKE_WIDTH.dp.toPx() }),
+                                trackStroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { DOWNLOAD_INDICATOR_STROKE_WIDTH.dp.toPx() })
+                            )
+                        } else {
+                            CircularWavyProgressIndicator(
+                                color = colorPalette().accent,
+                                trackColor = colorPalette().textDisabled,
+                                modifier = Modifier.size(DOWNLOAD_INDICATOR_SIZE_NORMAL.dp),
+                                stroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { DOWNLOAD_INDICATOR_STROKE_WIDTH.dp.toPx() }),
+                                trackStroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { DOWNLOAD_INDICATOR_STROKE_WIDTH.dp.toPx() })
+                            )
+                        }
+                    }
                 } else {
                     IconButton(
                         onClick = onDownloadClick,
