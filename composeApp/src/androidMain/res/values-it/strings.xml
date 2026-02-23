@@ -519,6 +519,8 @@
   <string name="vimusic_show_search_button_in_navigation_bar">Mostra il pulsante di ricerca nella barra di navigazione</string>
   <string name="vismusic_only_in_left_right_navigation_bar">Solo per la barra di navigazione sinistra o destra in ViMusic UI</string>
   <string name="enable_monthly_playlists_creation">Abilita la creazione di playlist mensili</string>
+  <string name="show_monthly_playlists_in_quick_picks">Show Monthly Playlists in Cubic Picks</string>
+  <string name="show_monthly_playlists_in_library">Show Monthly Playlists in Library</string>
   <string name="info_no_singles_yet">Nessun singolo disponibile</string>
   <string name="info_no_albums_yet">Nessun album disponibile</string>
   <string name="info_no_songs_yet">Nessun brano disponibile</string>
@@ -1061,7 +1063,6 @@
   <string name="check_beta_update_enabled">BETA abilitato</string>
   <string name="check_beta_update_disabled">BETA disabilitato</string>
   <string name="cache_status">Stato cache</string>
-  <string name="cache_working">Cache funzionante</string>
   <string name="cache_empty">Cache vuota</string>
   <string name="rewind">Rewind</string>
   <string name="donate">Donate</string>
@@ -1095,6 +1096,10 @@
   <string name="apk_download_channel_description">Notifications for app update downloads</string>
   <string name="tap_to_install">Tap to install the update</string>
   <string name="album_not_found">Album not found</string>
+  <string name="content_type_all">All</string>
+  <string name="content_type_official">Official</string>
+  <string name="content_type_user_generated">User Generated</string>
+  <string name="in_txt">in</string>
   <!-- Voice Input Strings -->
   <string name="voice_you_can_talk_now">You can talk now</string>
   <string name="voice_you_said">You said: %s</string>
@@ -1104,4 +1109,5 @@
   <string name="voice_recognition_failed">Voice recognition failed</string>
   <string name="voice_speak_now">Speak now...</string>
   <string name="voice_device_not_supported">Your device does not support voice input</string>
+  <string name="loading_please_wait">Loading, please wait...</string>
 </resources>
