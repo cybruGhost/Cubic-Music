@@ -519,6 +519,8 @@
 <string name="vimusic_show_search_button_in_navigation_bar">Show the search button in the navigation bar</string>
 <string name="vismusic_only_in_left_right_navigation_bar">Only for left or right navigation bar in ViMusic UI</string>
 <string name="enable_monthly_playlists_creation">Enable monthly playlists creation</string>
+<string name="show_monthly_playlists_in_quick_picks">Show Monthly Playlists in Cubic Picks</string>
+<string name="show_monthly_playlists_in_library">Show Monthly Playlists in Library</string>
 <string name="info_no_singles_yet">No singles available</string>
 <string name="info_no_albums_yet">No albums available</string>
 <string name="info_no_songs_yet">No songs available</string>
@@ -1061,7 +1063,6 @@
 <string name="check_beta_update_enabled">BETA enabled</string>
 <string name="check_beta_update_disabled">BETA disabled</string>
 <string name="cache_status">Cache status</string>
-<string name="cache_working">Cache working</string>
 <string name="cache_empty">Cache empty</string>
 <string name="rewind">Rewind</string>
 <string name="donate">Donate</string>
@@ -1096,6 +1097,10 @@
 <string name="apk_download_channel_description">Notifications for app update downloads</string>
 <string name="tap_to_install">Tap to install the update</string>
 <string name="album_not_found">Album not found</string>
+<string name="content_type_all">All</string>
+<string name="content_type_official">Official</string>
+<string name="content_type_user_generated">User Generated</string>
+<string name="in_txt">in</string>
  <!-- Voice Input Strings -->
 <string name="voice_you_can_talk_now">You can talk now</string>
 <string name="voice_you_said">You said: %s</string>
@@ -1105,5 +1110,6 @@
 <string name="voice_recognition_failed">Voice recognition failed</string>
 <string name="voice_speak_now">Speak now...</string>
 <string name="voice_device_not_supported">Your device does not support voice input</string>
+<string name="loading_please_wait">Loading, please wait...</string>
 
 </resources>

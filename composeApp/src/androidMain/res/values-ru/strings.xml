@@ -1053,6 +1053,5 @@
   <string name="check_beta_update_enabled">BETA включена</string>
   <string name="check_beta_update_disabled">БеТА отключена</string>
   <string name="cache_status">Состояние кэша</string>
-  <string name="cache_working">Обработка кэша</string>
   <string name="cache_empty">Очистить кэш</string>
 </resources>

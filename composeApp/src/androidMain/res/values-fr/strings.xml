@@ -1050,7 +1050,6 @@ Volume BAS : titre précédent</string>
   <string name="check_beta_update_enabled">BETA activé</string>
   <string name="check_beta_update_disabled">BETA désactivé</string>
   <string name="cache_status">Statut de la cache</string>
-  <string name="cache_working">Fonctionnement du cache</string>
   <string name="cache_empty">Cache vide</string>
   <string name="rewind">Rembobinages</string>
   <string name="donate">Faire un don</string>

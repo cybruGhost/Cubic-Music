@@ -1053,6 +1053,5 @@
   <string name="check_beta_update_enabled">BETA abilitato</string>
   <string name="check_beta_update_disabled">BETA disabilitato</string>
   <string name="cache_status">Stato cache</string>
-  <string name="cache_working">Cache funzionante</string>
   <string name="cache_empty">Cache vuota</string>
 </resources>
