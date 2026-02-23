@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,8 +38,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,12 +54,14 @@ import androidx.compose.ui.util.fastMap
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import app.kreate.android.R
-import coil3.compose.AsyncImagePainter
+import androidx.compose.ui.graphics.painter.Painter
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.ArtistPage
 import it.fast4x.innertube.requests.ArtistSection
 import it.fast4x.rimusic.LocalPlayerServiceBinder
+import it.fast4x.rimusic.ui.components.LocalMenuState
 import it.fast4x.rimusic.appContext
+
 import it.fast4x.rimusic.cleanPrefix
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
@@ -74,7 +80,9 @@ import it.fast4x.rimusic.ui.items.AlbumItem
 import it.fast4x.rimusic.ui.items.ArtistItem
 import it.fast4x.rimusic.ui.items.PlaylistItem
 import it.fast4x.rimusic.ui.items.VideoItem
+import me.knighthat.component.menu.video.VideoItemMenu
 import it.fast4x.rimusic.ui.styling.Dimensions
+
 import it.fast4x.rimusic.ui.styling.px
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.align
@@ -115,15 +123,18 @@ fun ArtistDetails(
     navController: NavController,
     localArtist: Artist?,
     artistPage: ArtistPage?,
-    thumbnailPainter: AsyncImagePainter,
+    thumbnailPainter: Painter,
 ) {
-    localArtist ?: return
     artistPage ?: return
 
     // Essentials
+
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
+    val menuState = LocalMenuState.current
+    val hapticFeedback = LocalHapticFeedback.current
     val lazyListState = rememberLazyListState()
+
 
     // Settings
     val disableScrollingText by rememberPreference( disableScrollingTextKey, false )
@@ -152,8 +163,9 @@ fun ArtistDetails(
     fun getSongs() = itemSelector.ifEmpty { songs }
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
-    val followButton = FollowButton { localArtist }
+    val followButton = localArtist?.let { artist -> FollowButton { artist } }
     val shuffler = SongShuffler(::getSongs)
+
     val downloadAllDialog = DownloadAllSongsDialog(::getSongs)
     val deleteAllDownloadsDialog = DeleteAllDownloadedSongsDialog(::getSongs)
     val radio = Radio(::getSongs)
@@ -212,7 +224,7 @@ fun ArtistDetails(
 
                     Column( Modifier.align( Alignment.BottomCenter ) ) {
                         AutoResizeText(
-                            text = cleanPrefix( localArtist.name ?: "..." ),
+                            text = cleanPrefix( localArtist?.name ?: artistPage.artist.title ?: "..." ),
                             style = typography().l.semiBold,
                             fontSizeRange = FontSizeRange(32.sp, 38.sp),
                             fontWeight = typography().l.semiBold.fontWeight,
@@ -227,6 +239,7 @@ fun ArtistDetails(
                                                }
                                                .align( Alignment.CenterHorizontally )
                         )
+
 
                         BasicText(
                             text = artistPage.subscribers.orEmpty(),
@@ -243,8 +256,9 @@ fun ArtistDetails(
                         modifier = Modifier.align( Alignment.TopEnd )
                                            .padding( top = 5.dp, end = 5.dp ),
                         onClick = {
-                            val url = "https://music.youtube.com/channel/${localArtist.id}"
+                            val url = "https://music.youtube.com/channel/${localArtist?.id ?: artistPage.artist.key}"
                             val sendIntent = Intent().apply {
+
                                 action = Intent.ACTION_SEND
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, url)
@@ -264,9 +278,10 @@ fun ArtistDetails(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    followButton.ToolBarButton()
+                    followButton?.ToolBarButton()
 
                     Spacer( Modifier.width( 5.dp ) )
+
 
                     TabToolBar.Buttons(
                         shuffler,
@@ -401,11 +416,23 @@ fun ArtistDetails(
                                 thumbnailWidthDp = 128.dp,
                                 alternative = true,
                                 disableScrollingText = disableScrollingText,
-                                modifier = Modifier.clickable {
-                                    binder?.stopRadio()
-                                    binder?.player?.forcePlay(video.asMediaItem)
-                                }
+                                modifier = Modifier.combinedClickable(
+                                    onLongClick = {
+                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        menuState.display {
+                                            VideoItemMenu(
+                                                navController = navController,
+                                                song = video.asMediaItem.asSong
+                                            ).MenuComponent()
+                                        }
+                                    },
+                                    onClick = {
+                                        binder?.stopRadio()
+                                        binder?.player?.forcePlay(video.asMediaItem)
+                                    }
+                                )
                             )
+
                         }
                     }
 

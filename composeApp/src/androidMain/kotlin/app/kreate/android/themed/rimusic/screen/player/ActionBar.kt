@@ -501,6 +501,7 @@ fun BoxScope.ActionBar(
                         icon = if (isDownloaded) R.drawable.downloaded else R.drawable.download,
                         color = if (isDownloaded) colorPalette().accent else Color.Gray,
                         downloadState = getDownloadState(mediaItem.mediaId),
+                        mediaId = mediaItem.mediaId,
                         onClick = {
                             manageDownload(
                                 context = context,

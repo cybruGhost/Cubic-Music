@@ -28,6 +28,12 @@ import it.fast4x.innertube.utils.from
 import it.fast4x.rimusic.colorPalette
 import it.fast4x.rimusic.enums.NavRoutes
 import it.fast4x.rimusic.ui.components.Skeleton
+import it.fast4x.rimusic.ui.components.Skeleton
+import it.fast4x.rimusic.ui.components.themed.Loader
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+
 import it.fast4x.rimusic.ui.items.AlbumItem
 import it.fast4x.rimusic.ui.styling.Dimensions
 import it.fast4x.rimusic.ui.styling.px
@@ -93,38 +99,48 @@ fun ArtistAlbums(
         miniPlayer = miniplayer,
         navBarContent = {}
     ) {
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = {
-                isRefreshing = true
-                CoroutineScope( Dispatchers.IO ).launch {
-                    fetchAlbums()
-                    isRefreshing = false
-                }
-            }
-        ) {
-            LazyVerticalGrid(
-                state = lazyGridState,
-                columns = GridCells.Adaptive( Dimensions.thumbnails.album + 24.dp ),
-                contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer ),
-                modifier = Modifier.background( colorPalette().background0 )
+        if (albums.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                items(
-                    items = albums.distinctBy( Innertube.AlbumItem::key ),
-                    key = Innertube.AlbumItem::key
+                Loader()
+            }
+        } else {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    isRefreshing = true
+                    CoroutineScope(Dispatchers.IO).launch {
+                        fetchAlbums()
+                        isRefreshing = false
+                    }
+                }
+            ) {
+                LazyVerticalGrid(
+                    state = lazyGridState,
+                    columns = GridCells.Adaptive(Dimensions.thumbnails.album + 24.dp),
+                    contentPadding = PaddingValues(bottom = Dimensions.bottomSpacer),
+                    modifier = Modifier.background(colorPalette().background0)
                 ) {
-                    AlbumItem(
-                        album = it,
-                        thumbnailSizePx = thumbnailSizePx,
-                        thumbnailSizeDp = thumbnailSizeDp,
-                        alternative = true,
-                        modifier = Modifier.clickable(onClick = {
-                            NavRoutes.album.navigateHere( navController, it.key )
-                        }),
-                        disableScrollingText = disableScrollingText
-                    )
+                    items(
+                        items = albums.distinctBy(Innertube.AlbumItem::key),
+                        key = Innertube.AlbumItem::key
+                    ) {
+                        AlbumItem(
+                            album = it,
+                            thumbnailSizePx = thumbnailSizePx,
+                            thumbnailSizeDp = thumbnailSizeDp,
+                            alternative = true,
+                            modifier = Modifier.clickable(onClick = {
+                                NavRoutes.album.navigateHere(navController, it.key)
+                            }),
+                            disableScrollingText = disableScrollingText
+                        )
+                    }
                 }
             }
         }
     }
+
 }

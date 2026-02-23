@@ -80,7 +80,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import it.fast4x.rimusic.typography
 import it.fast4x.rimusic.utils.semiBold
-
+// Add these to your existing imports:
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.draw.clip
 
@@ -104,11 +104,7 @@ fun HomeSongsScreen(navController: NavController ) {
 
     val itemSelector = ItemSelector<Song>()
     fun getSongs() = itemSelector.ifEmpty { itemsOnDisplayState }.toList()
-    fun getSelectedSongsOnly(): List<Song> {
-    return if (itemSelector.isActive) itemSelector.toList() else emptyList()
-}
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
-    fun getSelectedMediaItemsOnly() = getSelectedSongsOnly().map( Song::asMediaItem )
 
     val search = Search(lazyListState)
     val locator = Locator( lazyListState, ::getSongs )
@@ -134,16 +130,13 @@ fun HomeSongsScreen(navController: NavController ) {
     val addToFavorite = LikeComponent(::getSongs)
     val addToPlaylist = PlaylistsMenu.init(
         navController = navController,
-        mediaItems = { _ -> 
-            // Use the NEW function that returns ONLY selected items
-            getSelectedMediaItemsOnly() 
-        },
+        mediaItems = { _ -> getMediaItems() },
         onFailure = { throwable, preview ->
             Timber.e( "Failed to add songs to playlist ${preview.playlist.name} on HomeSongs" )
             throwable.printStackTrace()
         },
         finalAction = {
-            // Turn off selector clears the selected list
+            // Turn of selector clears the selected list
             itemSelector.isActive = false
         }
     )

@@ -195,12 +195,13 @@ fun DurationIndicator(
                                    .height( DURATION_INDICATOR_HEIGHT.dp ),
                 contentAlignment = Alignment.Center
             ) {
-                val positionAndDuration by binder.player.positionAndDurationState()
-                val timeRemaining by remember {
+               val positionAndDurationState = binder.player.positionAndDurationState()
+               val timeRemainingState = remember {
                     derivedStateOf {
-                        (positionAndDuration.second - positionAndDuration.first).coerceAtLeast( 0 )
+                       (positionAndDurationState.value.second - positionAndDurationState.value.first).coerceAtLeast( 0 )
                     }
                 }
+                val timeRemaining by timeRemainingState
                 var isPaused by remember { mutableStateOf(false) }
 
                 val pauseBetweenSongs by rememberPreference(pauseBetweenSongsKey, PauseBetweenSongs.`0`)

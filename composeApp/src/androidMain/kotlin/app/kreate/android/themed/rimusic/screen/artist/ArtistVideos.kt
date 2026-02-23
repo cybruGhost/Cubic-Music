@@ -1,6 +1,7 @@
 package app.kreate.android.themed.rimusic.screen.artist
 
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
@@ -30,9 +31,12 @@ import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.fast4x.rimusic.ui.components.themed.Title
 import it.fast4x.rimusic.ui.items.VideoItem
 import it.fast4x.rimusic.ui.items.VideoItemPlaceholder
+import me.knighthat.component.menu.video.VideoItemMenu
 import it.fast4x.rimusic.ui.screens.searchresult.ItemsPage
+
 import it.fast4x.rimusic.utils.addNext
 import it.fast4x.rimusic.utils.asMediaItem
+import it.fast4x.rimusic.utils.asSong
 import it.fast4x.rimusic.utils.disableScrollingTextKey
 import it.fast4x.rimusic.utils.enqueue
 import it.fast4x.rimusic.utils.forcePlay
@@ -41,6 +45,7 @@ import it.fast4x.rimusic.utils.preferences
 import it.fast4x.rimusic.utils.rememberPreference
 import it.fast4x.rimusic.utils.showButtonPlayerVideoKey
 
+@OptIn(ExperimentalFoundationApi::class)
 @UnstableApi
 @ExperimentalTextApi
 @ExperimentalAnimationApi
@@ -107,14 +112,13 @@ fun ArtistVideos(
                                 .combinedClickable(
                                     onLongClick = {
                                         menuState.display {
-                                            NonQueuedMediaItemMenu(
+                                            VideoItemMenu(
                                                 navController = navController,
-                                                mediaItem = mediaItem,
-                                                onDismiss = menuState::hide,
-                                                disableScrollingText = disableScrollingText
-                                            )
+                                                song = mediaItem.asSong
+                                            ).MenuComponent()
                                         }
                                         hapticFeedback.performHapticFeedback(
+
                                             HapticFeedbackType.LongPress
                                         )
                                     },
