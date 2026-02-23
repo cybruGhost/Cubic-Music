@@ -13,7 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import coil3.compose.AsyncImagePainter
+import androidx.compose.ui.graphics.painter.Painter
 import it.fast4x.rimusic.enums.ThumbnailRoundness
 import it.fast4x.rimusic.utils.isLandscape
 import it.fast4x.rimusic.utils.rememberPreference
@@ -33,7 +33,7 @@ import it.fast4x.rimusic.utils.thumbnailRoundnessKey
  */
 @Composable
 fun DynamicOrientationLayout(
-    thumbnail: AsyncImagePainter,
+      thumbnail: Painter,
     content: @Composable () -> Unit
 ) {
     if( isLandscape )
