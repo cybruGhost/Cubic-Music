@@ -117,8 +117,8 @@
   <string name="left">%1$s restantes</string>
   <string name="confirm">Confirmer</string>
   <string name="show">Afficher</string>
-  <string name="unsynchronized_lyrics">unsynchronized lyrics</string>
-  <string name="synchronized_lyrics">synchronized lyrics</string>
+  <string name="unsynchronized_lyrics">paroles non synchronisées</string>
+  <string name="synchronized_lyrics">paroles synchronisées</string>
   <string name="provided_by">Fournies par</string>
   <string name="delete_playback_events">Supprimer %1$s événements de la lecture</string>
   <string name="existing_data_will_be_overwritten">Les données existantes seront écrasées. %1$s se fermera automatiquement après la restauration de la base de données.</string>
@@ -265,7 +265,7 @@
   <string name="catalan">Catalan (Català)</string>
   <string name="disable_scrolling_text">Désactiver le défilement du texte</string>
   <string name="scrolling_text_is_used_for_long_texts">Le défilement du texte est utilisé pour les longs textes</string>
-  <string name="audio_quality_format">Audio Quality</string>
+  <string name="audio_quality_format">Qualité audio</string>
   <string name="persian">Persan (فارسی)</string>
   <string name="hungarian">Hongrois (Magyar)</string>
   <string name="korean">Coréen (한국인)</string>
@@ -375,8 +375,8 @@
   <string name="tab_data">Données</string>
   <string name="image_cache_max_size">Taille maximale du cache des images</string>
   <string name="song_cache_max_size">Taille maximale du cache des titres</string>
-  <string name="network_status">Quality Status</string>
-  <string name="image_quality_format">Image Quality</string>
+  <string name="network_status">Status de la qualité</string>
+  <string name="image_quality_format">Qualité d\'image</string>
   <string name="audio_quality_auto_fmt">Auto (Detected: %1$s)</string>
   <string name="network_quality_low">Low</string>
   <string name="network_quality_medium">Medium</string>
@@ -520,7 +520,7 @@
   <string name="vismusic_only_in_left_right_navigation_bar">Uniquement pour la barre de navigation gauche ou droite dans l\'interface utilisateur ViMusic</string>
   <string name="enable_monthly_playlists_creation">Activer la création de playlists mensuelles</string>
   <string name="show_monthly_playlists_in_quick_picks">Show Monthly Playlists in Cubic Picks</string>
-  <string name="show_monthly_playlists_in_library">Show Monthly Playlists in Library</string>
+  <string name="show_monthly_playlists_in_library">Montrer playlists mensuelles dans la librairie</string>
   <string name="info_no_singles_yet">Pas encore de morceaux</string>
   <string name="info_no_albums_yet">Pas encore d\'albums</string>
   <string name="info_no_songs_yet">Pas encore de titres</string>
@@ -660,11 +660,11 @@
   <string name="info_debug_mode_enabled">Mode débogage activé</string>
   <string name="info_debug_mode_is_enabled">Le mode débogage est activé, n\'oubliez pas de le désactiver dans les paramètres</string>
   <string name="tapqueue">Appuyer pour ouvrir la file d\'attente</string>
-  <string name="past_day">This day</string>
-  <string name="past_week">This week</string>
-  <string name="past_month">This month</string>
-  <string name="past_year">This year</string>
-  <string name="all_time">All time</string>
+  <string name="past_day">Aujourd\'hui</string>
+  <string name="past_week">Cette semaine</string>
+  <string name="past_month">Ce mois</string>
+  <string name="past_year">Cette année</string>
+  <string name="all_time">Tous les temps</string>
   <string name="header_view_top_of">Voir le top %s de …</string>
   <string name="podcast_episodes">Épisodes</string>
   <string name="podcasts">Podcasts</string>
@@ -673,7 +673,7 @@
   <string name="deleted">Supprimé</string>
   <string name="playlistindicatorinfo2">Le titre est présent dans l\'une des playlists</string>
   <string name="statsfornerdsplayer">Afficher les statistiques pour les nerds dans le lecteur</string>
-  <string name="discover">Discover🌟</string>
+  <string name="discover">Découvrir 🌟</string>
   <string name="discoverinfo">Supprimer les titres de la file d\'attente s\'ils sont inclus dans les favoris ou les playlists</string>
   <string name="controls_header_customize">Personnaliser</string>
   <string name="controls_title_blur_effect">Effet de flou</string>
@@ -690,7 +690,7 @@
 Volume BAS : titre précédent</string>
   <string name="paste">Coller</string>
   <string name="searches_no_suggestions">Aucune suggestion</string>
-  <string name="action_bar_show_discover_button">Show Enable Discover🌟</string>
+  <string name="action_bar_show_discover_button">Montrer le bouton découvrir 🌟</string>
   <string name="playertype">Type de lecteur</string>
   <string name="noblur">Pas de flou quand les paroles sont désactivées</string>
   <string name="fadingedge">Bord en dégradé</string>
@@ -699,7 +699,7 @@ Volume BAS : titre précédent</string>
   <string name="addednext">Ajouté à la lecture suivante</string>
   <string name="info_paused_with_volume_zero">Mettre en pause quand le volume est à 0</string>
   <string name="effect_fade_audio">Fondu audio</string>
-  <string name="effect_fade_audio_description">Smoothly fade between songs and when pausing/playing</string>
+  <string name="effect_fade_audio_description">Diminuer doucement le volume entre les sons quand pause/lecture</string>
   <string name="autosync">Synchronisation automatique des playlists importées</string>
   <string name="message_type">Type de message</string>
   <string name="message_type_modern">Moderne</string>
@@ -1097,10 +1097,10 @@ Volume BAS : titre précédent</string>
   <string name="apk_download_channel_description">Notifications pour les téléchargements de mises à jour d\'applications</string>
   <string name="tap_to_install">Appuyez pour installer la mise à jour.</string>
   <string name="album_not_found">Album introuvable</string>
-  <string name="content_type_all">All</string>
-  <string name="content_type_official">Official</string>
-  <string name="content_type_user_generated">User Generated</string>
-  <string name="in_txt">in</string>
+  <string name="content_type_all">Tout</string>
+  <string name="content_type_official">Officiel</string>
+  <string name="content_type_user_generated">Généré par utilisateur</string>
+  <string name="in_txt">dans</string>
   <!-- Voice Input Strings -->
   <string name="voice_you_can_talk_now">Vous pouvez parler maintenant</string>
   <string name="voice_you_said">Vous avez dit : %s</string>
@@ -1110,5 +1110,5 @@ Volume BAS : titre précédent</string>
   <string name="voice_recognition_failed">Échec de la reconnaissance vocale</string>
   <string name="voice_speak_now">Parlez maintenant...</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
-  <string name="loading_please_wait">Loading, please wait...</string>
+  <string name="loading_please_wait">Chargement, veuillez patienter...</string>
 </resources>
