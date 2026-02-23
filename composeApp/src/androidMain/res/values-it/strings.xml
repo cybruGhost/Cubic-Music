@@ -74,7 +74,7 @@
   <string name="cache_cleared">Quando la cache esaurisce lo spazio, le risorse a cui non è stato effettuato l\'accesso per il tempo più lungo vengono cancellate</string>
   <string name="image_cache">CACHE IMMAGINI</string>
   <string name="max_size">Grandezza massima</string>
-  <string name="database">Database</string>
+  <string name="database">Base de données</string>
   <string name="reset_quick_picks">Reimposta Piccoli Rapidi</string>
   <string name="quick_picks_are_cleared">Scelte rapide cancellate</string>
   <string name="backup">BACKUP</string>
@@ -117,8 +117,8 @@
   <string name="left">%1$s rimanenti</string>
   <string name="confirm">Conferma</string>
   <string name="show">Mostra</string>
-  <string name="unsynchronized_lyrics">unsynchronized lyrics</string>
-  <string name="synchronized_lyrics">synchronized lyrics</string>
+  <string name="unsynchronized_lyrics">paroles non synchronisées</string>
+  <string name="synchronized_lyrics">paroles synchronysées</string>
   <string name="provided_by">Fornito da</string>
   <string name="delete_playback_events">Elimina %1$s eventi di riproduzione</string>
   <string name="existing_data_will_be_overwritten">I dati esistenti verranno sovrascritti. %1$s si chiuderà automaticamente dopo il ripristino del database.</string>
@@ -126,7 +126,7 @@
   <string name="cache_reset_by_clicking_button">Attenzione cliccando sul pulsante in basso, la cartella di posizione della cache verrà ripristinata</string>
   <string name="cache_location_folder">Posizione cartella</string>
   <string name="custom_cache_from_android_10_may_not_be_available">Dal momento che Android 10, questa funzione potrebbe non essere disponibile</string>
-  <string name="reset_cache_location_folder">RESET CACHE FOLDER LOCATION</string>
+  <string name="reset_cache_location_folder">RÉINITIALISER LA POSITION DU FICHIER CACHE</string>
   <string name="used">" usato"</string>
   <string name="close_background_player">Chiudi lettore in background</string>
   <string name="when_app_swipe_out_from_task_manager">Quando l\'app viene rimossa dal task manager</string>
@@ -196,7 +196,7 @@
   <string name="search_queries">" query di ricerca"</string>
   <string name="not_find_battery_optimization_settings">Impossibile trovare le impostazioni di ottimizzazione della batteria, si prega di farlo manualmente</string>
   <string name="search">Cerca</string>
-  <string name="no">No</string>
+  <string name="no">Non</string>
   <string name="stop">Interrompi</string>
   <string name="listen_on_youtube">Ascolta su YouTube</string>
   <string name="listen_on_youtube_music">Ascolta su YouTube Music</string>
@@ -265,7 +265,7 @@
   <string name="catalan">Catalano (Catala&lt;unk&gt; )</string>
   <string name="disable_scrolling_text">Disabilita testo scorrevole</string>
   <string name="scrolling_text_is_used_for_long_texts">Il testo scorrevole è usato per testi lunghi</string>
-  <string name="audio_quality_format">Audio Quality</string>
+  <string name="audio_quality_format">Qualité d\'Audio</string>
   <string name="persian">Persiano (&lt;unk&gt; ار&lt;unk&gt; &lt;unk&gt; )</string>
   <string name="hungarian">Ungherese (Magyar)</string>
   <string name="korean">Coreano (&lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; )</string>
@@ -375,12 +375,12 @@
   <string name="tab_data">Dati</string>
   <string name="image_cache_max_size">Dimensione massima della cache immagine</string>
   <string name="song_cache_max_size">Dimensione massima della cache brano</string>
-  <string name="network_status">Quality Status</string>
-  <string name="image_quality_format">Image Quality</string>
+  <string name="network_status">Status de la qualité</string>
+  <string name="image_quality_format">Qualité d\'image</string>
   <string name="audio_quality_auto_fmt">Auto (Detected: %1$s)</string>
-  <string name="network_quality_low">Low</string>
-  <string name="network_quality_medium">Medium</string>
-  <string name="network_quality_high">High</string>
+  <string name="network_quality_low">Faible</string>
+  <string name="network_quality_medium">Moyen</string>
+  <string name="network_quality_high">Fort</string>
   <string name="song_download_max_size">Dimensione massima del download brano</string>
   <string name="save_to_backup">Esegui backup</string>
   <string name="restore_from_backup">Carica un backup</string>
@@ -519,7 +519,7 @@
   <string name="vimusic_show_search_button_in_navigation_bar">Mostra il pulsante di ricerca nella barra di navigazione</string>
   <string name="vismusic_only_in_left_right_navigation_bar">Solo per la barra di navigazione sinistra o destra in ViMusic UI</string>
   <string name="enable_monthly_playlists_creation">Abilita la creazione di playlist mensili</string>
-  <string name="show_monthly_playlists_in_quick_picks">Show Monthly Playlists in Cubic Picks</string>
+  <string name="show_monthly_playlists_in_quick_picks">Montrer les playlists mensuelles dans les Cubic Picks</string>
   <string name="show_monthly_playlists_in_library">Show Monthly Playlists in Library</string>
   <string name="info_no_singles_yet">Nessun singolo disponibile</string>
   <string name="info_no_albums_yet">Nessun album disponibile</string>
