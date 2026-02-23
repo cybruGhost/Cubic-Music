@@ -377,10 +377,10 @@
   <string name="song_cache_max_size">Taille maximale du cache des titres</string>
   <string name="network_status">Status de la qualité</string>
   <string name="image_quality_format">Qualité d\'image</string>
-  <string name="audio_quality_auto_fmt">Auto (Detected: %1$s)</string>
-  <string name="network_quality_low">Low</string>
-  <string name="network_quality_medium">Medium</string>
-  <string name="network_quality_high">High</string>
+  <string name="audio_quality_auto_fmt">Auto(Détecté : %1$s)</string>
+  <string name="network_quality_low">Faible</string>
+  <string name="network_quality_medium">Moyen</string>
+  <string name="network_quality_high">Fort</string>
   <string name="song_download_max_size">Taille maximale du téléchargement des titres</string>
   <string name="save_to_backup">Sauvegarder pour restaurer</string>
   <string name="restore_from_backup">Restaurer depuis une sauvegarde</string>
@@ -519,7 +519,7 @@
   <string name="vimusic_show_search_button_in_navigation_bar">Afficher le bouton de recherche dans la barre de navigation</string>
   <string name="vismusic_only_in_left_right_navigation_bar">Uniquement pour la barre de navigation gauche ou droite dans l\'interface utilisateur ViMusic</string>
   <string name="enable_monthly_playlists_creation">Activer la création de playlists mensuelles</string>
-  <string name="show_monthly_playlists_in_quick_picks">Show Monthly Playlists in Cubic Picks</string>
+  <string name="show_monthly_playlists_in_quick_picks">Montrer playlists mensuelles dans Cubic Picks</string>
   <string name="show_monthly_playlists_in_library">Montrer playlists mensuelles dans la librairie</string>
   <string name="info_no_singles_yet">Pas encore de morceaux</string>
   <string name="info_no_albums_yet">Pas encore d\'albums</string>
