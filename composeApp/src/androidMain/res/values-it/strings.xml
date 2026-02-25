@@ -117,8 +117,8 @@
   <string name="left">%1$s rimanenti</string>
   <string name="confirm">Conferma</string>
   <string name="show">Mostra</string>
-  <string name="unsynchronized_lyrics">lyrics non sincronizzate</string>
-  <string name="synchronized_lyrics">lyrics sincronizzate</string>
+  <string name="unsynchronized_lyrics">unsynchronized lyrics</string>
+  <string name="synchronized_lyrics">synchronized lyrics</string>
   <string name="provided_by">Fornito da</string>
   <string name="delete_playback_events">Elimina %1$s eventi di riproduzione</string>
   <string name="existing_data_will_be_overwritten">I dati esistenti verranno sovrascritti. %1$s si chiuderà automaticamente dopo il ripristino del database.</string>
@@ -265,7 +265,7 @@
   <string name="catalan">Catalano (Catala&lt;unk&gt; )</string>
   <string name="disable_scrolling_text">Disabilita testo scorrevole</string>
   <string name="scrolling_text_is_used_for_long_texts">Il testo scorrevole è usato per testi lunghi</string>
-  <string name="audio_quality_format">Qualità audio</string>
+  <string name="audio_quality_format">Audio Quality</string>
   <string name="persian">Persiano (&lt;unk&gt; ار&lt;unk&gt; &lt;unk&gt; )</string>
   <string name="hungarian">Ungherese (Magyar)</string>
   <string name="korean">Coreano (&lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; )</string>
@@ -375,6 +375,12 @@
   <string name="tab_data">Dati</string>
   <string name="image_cache_max_size">Dimensione massima della cache immagine</string>
   <string name="song_cache_max_size">Dimensione massima della cache brano</string>
+  <string name="network_status">Quality Status</string>
+  <string name="image_quality_format">Image Quality</string>
+  <string name="audio_quality_auto_fmt">Auto (Detected: %1$s)</string>
+  <string name="network_quality_low">Low</string>
+  <string name="network_quality_medium">Medium</string>
+  <string name="network_quality_high">High</string>
   <string name="song_download_max_size">Dimensione massima del download brano</string>
   <string name="save_to_backup">Esegui backup</string>
   <string name="restore_from_backup">Carica un backup</string>
@@ -513,6 +519,8 @@
   <string name="vimusic_show_search_button_in_navigation_bar">Mostra il pulsante di ricerca nella barra di navigazione</string>
   <string name="vismusic_only_in_left_right_navigation_bar">Solo per la barra di navigazione sinistra o destra in ViMusic UI</string>
   <string name="enable_monthly_playlists_creation">Abilita la creazione di playlist mensili</string>
+  <string name="show_monthly_playlists_in_quick_picks">Show Monthly Playlists in Cubic Picks</string>
+  <string name="show_monthly_playlists_in_library">Show Monthly Playlists in Library</string>
   <string name="info_no_singles_yet">Nessun singolo disponibile</string>
   <string name="info_no_albums_yet">Nessun album disponibile</string>
   <string name="info_no_songs_yet">Nessun brano disponibile</string>
@@ -652,11 +660,11 @@
   <string name="info_debug_mode_enabled">Modalità debug attivata</string>
   <string name="info_debug_mode_is_enabled">La modalità debug è abilitata, ricorda di disabilitarla nelle impostazioni</string>
   <string name="tapqueue">Tocca per aprire la coda</string>
-  <string name="past_day">Questo giorno</string>
-  <string name="past_week">Questa settimana</string>
-  <string name="past_month">Questo mese</string>
-  <string name="past_year">Quest\'anno</string>
-  <string name="all_time">Da sempre</string>
+  <string name="past_day">This day</string>
+  <string name="past_week">This week</string>
+  <string name="past_month">This month</string>
+  <string name="past_year">This year</string>
+  <string name="all_time">All time</string>
   <string name="header_view_top_of">Top %s di …</string>
   <string name="podcast_episodes">Episodi</string>
   <string name="podcasts">Podcast</string>
@@ -665,7 +673,7 @@
   <string name="deleted">Eliminato</string>
   <string name="playlistindicatorinfo2">Il brano è presente in una delle Playlist</string>
   <string name="statsfornerdsplayer">Statistiche per nerd</string>
-  <string name="discover">Esplora</string>
+  <string name="discover">Discover🌟</string>
   <string name="discoverinfo">Rimuovi i brani dalla coda se inclusi nei preferiti o nelle playlist</string>
   <string name="controls_header_customize">Personalizza</string>
   <string name="controls_title_blur_effect">Effetto sfocatura</string>
@@ -681,7 +689,7 @@
   <string name="event_volumekeysinfo">Volume SU brano successivo e volume GIÙ brano precedente</string>
   <string name="paste">Incolla</string>
   <string name="searches_no_suggestions">Nessun suggerimento</string>
-  <string name="action_bar_show_discover_button">Pulsante Scopri</string>
+  <string name="action_bar_show_discover_button">Show Enable Discover🌟</string>
   <string name="playertype">Tipo di giocatore</string>
   <string name="noblur">Rimuovi sfocatura di sfondo quando il testo è disabilitato</string>
   <string name="fadingedge">Bordo dissolvenza</string>
@@ -690,7 +698,7 @@
   <string name="addednext">Aggiunto come prossimo brano</string>
   <string name="info_paused_with_volume_zero">Pausa a causa del volume zero</string>
   <string name="effect_fade_audio">Dissolvenza effetto audio</string>
-  <string name="effect_fade_audio_description">Dissolvenza audio quando il brano è in pausa o riprodotto</string>
+  <string name="effect_fade_audio_description">Smoothly fade between songs and when pausing/playing</string>
   <string name="autosync">Sincronizzazione Automatica Playlist Importate</string>
   <string name="message_type">Popup message style</string>
   <string name="message_type_modern">Moderno</string>
@@ -755,7 +763,7 @@
   <string name="titleartist">Titolo e Artisti</string>
   <string name="miniqueue">Prossima coda del brano</string>
   <string name="controls">Controlli</string>
-  <string name="add_to_favorites">Aggiungi ai preferiti</string>
+  <string name="add_to_favorites">Add All to favorites</string>
   <string name="import_favorites">Importa preferiti</string>
   <string name="skip_media_on_error">Salta il brano all\'errore</string>
   <string name="skip_media_on_error_description">Se si verifica un errore, passa al brano successivo</string>
@@ -803,9 +811,9 @@
   <string name="music_animations_crazy_points">Pazzo punti</string>
   <string name="music_animations_bubbles">Bolle</string>
   <string name="now_playing_indicator">Indicatore Ora In Riproduzione</string>
-  <string name="good_morning">Buongiorno</string>
   <string name="good_afternoon">Buon pomeriggio</string>
   <string name="good_evening">Buona sera</string>
+  <string name="good_morning">Buongiorno</string>
   <string name="good_night">Buona notte</string>
   <string name="colored_bar">Barra Colorata</string>
   <string name="about_developers_designers">Sviluppatori / Designers</string>
@@ -962,6 +970,7 @@
   <string name="update_changelogs">%s changelogs</string>
   <string name="rotating_cover_title">Rotating album cover</string>
   <string name="title_playback_speed">Velocità di riproduzione</string>
+  <string name="error_no_inet">No internet connection</string>
   <string name="description_playback_speed">Adjust how slow/fast the song goes</string>
   <string name="opens_link_in_web_browser">Apre il collegamento nel browser web</string>
   <string name="title_appearance_changes">Cambio Aspetto</string>
@@ -1039,6 +1048,7 @@
   <string name="easter_egg_number_one">Sei un numero uno, clicca e goditi la sorpresa</string>
   <string name="easter_egg_last">Sei un numero uno, clic lungo e goditi la sorpresa</string>
   <string name="general_settings_description">La sezione generale contiene le impostazioni per la funzionalità generale dell\'app</string>
+  <string name="ui_settings_description">The user interface section contains settings to modify the global interface and navigation</string>
   <string name="pause_between_songs_description">Aggiunge una pausa tra i brani</string>
   <string name="notifications">Notifiche</string>
   <string name="playback">Riproduzione</string>
@@ -1054,4 +1064,50 @@
   <string name="check_beta_update_disabled">BETA disabilitato</string>
   <string name="cache_status">Stato cache</string>
   <string name="cache_empty">Cache vuota</string>
+  <string name="rewind">Rewind</string>
+  <string name="donate">Donate</string>
+  <!-- Spotify Canvas Strings -->
+  <string name="spotify_canvas">Spotify Canvas</string>
+  <string name="spotify_canvas_description">Show animated canvas videos in player</string>
+  <string name="spotify_not_connected">Not connected</string>
+  <string name="spotify_connected">Connected</string>
+  <string name="spotify_add_email">Tap to add email</string>
+  <string name="spotify_debug_logs">Show debug logs</string>
+  <string name="spotify_disconnect">Disconnect Spotify</string>
+  <string name="spotify_email_dialog_title">Spotify Canvas Email</string>
+  <string name="spotify_email_instructions">Enter the email you used to sign in to Spotify Canvas website</string>
+  <string name="spotify_note">Note: You must first authenticate at:\nv0-spotify-playlist-csv.vercel.app</string>
+  <string name="spotify_disconnect_confirm">Disconnect Spotify Canvas?\nThis will remove your email and disable the feature.</string>
+  <string name="forcePlayFromBeginning">Play from Beginning</string>
+  <string name="smart_shuffle">Smart Shuffle</string>
+  <string name="loading_recommendations">Loading recommendations…</string>
+  <string name="recommendations">Recommendations</string>
+  <!-- Auto-install strings -->
+  <string name="downloading_update">Downloading update…</string>
+  <string name="download_progress_hint">The app will install automatically when download completes. Ensure a stable internet connection.</string>
+  <string name="download_complete">Download Complete</string>
+  <string name="apk_download_channel_name">App Updates</string>
+  <string name="installing_update">Installing Update…</string>
+  <string name="update_downloaded">Update Downloaded</string>
+  <string name="ready_to_install">Ready to install</string>
+  <string name="download_and_install">Download and Install</string>
+  <string name="update_failed_title">Update Check Failed</string>
+  <string name="update_failed_message">Could not fetch update information. Please try downloading manually.</string>
+  <string name="apk_download_channel_description">Notifications for app update downloads</string>
+  <string name="tap_to_install">Tap to install the update</string>
+  <string name="album_not_found">Album not found</string>
+  <string name="content_type_all">All</string>
+  <string name="content_type_official">Official</string>
+  <string name="content_type_user_generated">User Generated</string>
+  <string name="in_txt">in</string>
+  <!-- Voice Input Strings -->
+  <string name="voice_you_can_talk_now">You can talk now</string>
+  <string name="voice_you_said">You said: %s</string>
+  <string name="voice_microphone_permission_granted">Microphone permission granted</string>
+  <string name="voice_microphone_permission_denied">Microphone permission denied</string>
+  <string name="voice_missing_microphone_permissions_please_grant">Please grant microphone permission to use voice input</string>
+  <string name="voice_recognition_failed">Voice recognition failed</string>
+  <string name="voice_speak_now">Speak now...</string>
+  <string name="voice_device_not_supported">Your device does not support voice input</string>
+  <string name="loading_please_wait">Loading, please wait...</string>
 </resources>
