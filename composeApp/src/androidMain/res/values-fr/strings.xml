@@ -600,7 +600,6 @@
   <string name="piped_connect">Se connecter</string>
   <string name="piped_connected_to_s">Connecté à %s</string>
   <string name="fake_audio_bar">Fausse barre audio</string>
-  <string name="ocean_timeline">Ocean</string>
   <string name="copy_crash_log_to_clipboard">Copier le journal des plantages dans le presse-papiers</string>
   <string name="title_backup_and_restore">SAUVEGARDE ET RESTAURATION</string>
   <string name="message_excluded_s_songs">Titres %s exclus</string>
@@ -926,7 +925,7 @@ Volume BAS : titre précédent</string>
   <string name="please_wait">Veuillez patienter</string>
   <string name="songs_liked_yt">Les titres sont appréciés sur YouTube</string>
   <string name="song_unliked_yt">Le titre n\'est pas apprécié sur YouTube</string>
-  <string name="add_rimusic_to_ytm_favorites">J\'aime les titres aimés de RiMusic sur YouTube</string>
+  <string name="add_rimusic_to_ytm_favorites">J\'aime les titres aimés de CubicMusic sur YouTube</string>
   <string name="do_you_really_want_to_like_all_rimusictoytmusic">(temps estimé) est nécessaire pour aimer tous les titres. Cette action ne peut pas être reprise si elle est annulée entre-temps. Vous devez fermer l\'application pour annuler ce processus. Voulez-vous continuer ?</string>
   <string name="do_you_really_want_to_like_all">(temps estimé) est nécessaire pour aimer tous les titres. Vous devez fermer l\'application pour annuler ce processus. Voulez-vous continuer ?</string>
   <string name="songs_liked_yt_failed">Impossible d\'aimer le titre sur YouTube</string>
@@ -1112,6 +1111,4 @@ Volume BAS : titre précédent</string>
   <string name="voice_speak_now">Parlez maintenant...</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
   <string name="loading_please_wait">Chargement, veuillez patienter...</string>
-  <string name="other">Other</string>
-  <string name="lucky_shuffle">Lucky Shuffle</string>
 </resources>
