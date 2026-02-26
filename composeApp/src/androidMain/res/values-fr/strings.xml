@@ -202,8 +202,8 @@
   <string name="listen_on_youtube_music">Écouter sur YouTube Music</string>
   <string name="on_device">Sur l\'appareil</string>
   <string name="wavy_timeline">Ondulée</string>
-  <string name="timeline_style">Timeline Style(click here to change)</string>
-  <string name="transparentbar_description">Make progress bar background transparent</string>
+  <string name="timeline_style">Style de la chronologie (cliquez ici pour modifier)</string>
+  <string name="transparentbar_description">Rendre le fond de la barre de progression transparent</string>
   <string name="play_next">Suivant</string>
   <string name="toggle_lyrics">Afficher / Masquer les paroles</string>
   <string name="by_tapping_on_the_thumbnail">En appuyant sur la miniature</string>
@@ -602,7 +602,7 @@
   <string name="piped_connect">Se connecter</string>
   <string name="piped_connected_to_s">Connecté à %s</string>
   <string name="fake_audio_bar">Fausse barre audio</string>
-  <string name="ocean_timeline">Ocean</string>
+  <string name="ocean_timeline">Océan</string>
   <string name="copy_crash_log_to_clipboard">Copier le journal des plantages dans le presse-papiers</string>
   <string name="title_backup_and_restore">SAUVEGARDE ET RESTAURATION</string>
   <string name="message_excluded_s_songs">Titres %s exclus</string>
@@ -877,11 +877,11 @@ Volume BAS : titre précédent</string>
   <string name="lyricsSizeSecondary">Appuyez longuement pour changer la taille</string>
   <string name="home">Accueil</string>
   <!-- Presets Section -->
-  <string name="tap_to_view_presets">Tap to view and select presets</string>
-  <string name="preset_classic">Classic</string>
-  <string name="preset_modern">Modern</string>
+  <string name="tap_to_view_presets">Appuyez pour afficher et sélectionner les préréglages</string>
+  <string name="preset_classic">Classique</string>
+  <string name="preset_modern">Moderne</string>
   <string name="preset_minimal">Minimal</string>
-  <string name="preset_dark_edge">Dark Edge</string>
+  <string name="preset_dark_edge">Bord sombre</string>
   <string name="preset_gradient">Gradient</string>
   <string name="preset_vibrant">Vibrant</string>
   <string name="appearancepresets">Préréglages d\'apparence</string>
@@ -1122,6 +1122,6 @@ Volume BAS : titre précédent</string>
   <string name="voice_speak_now">Parlez maintenant...</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
   <string name="loading_please_wait">Chargement, veuillez patienter...</string>
-  <string name="other">Other</string>
+  <string name="other">Autre</string>
   <string name="lucky_shuffle">Lucky Shuffle</string>
 </resources>
