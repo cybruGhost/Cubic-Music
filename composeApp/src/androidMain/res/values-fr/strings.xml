@@ -202,6 +202,8 @@
   <string name="listen_on_youtube_music">Écouter sur YouTube Music</string>
   <string name="on_device">Sur l\'appareil</string>
   <string name="wavy_timeline">Ondulée</string>
+  <string name="timeline_style">Timeline Style(click here to change)</string>
+  <string name="transparentbar_description">Make progress bar background transparent</string>
   <string name="play_next">Suivant</string>
   <string name="toggle_lyrics">Afficher / Masquer les paroles</string>
   <string name="by_tapping_on_the_thumbnail">En appuyant sur la miniature</string>
@@ -600,6 +602,7 @@
   <string name="piped_connect">Se connecter</string>
   <string name="piped_connected_to_s">Connecté à %s</string>
   <string name="fake_audio_bar">Fausse barre audio</string>
+  <string name="ocean_timeline">Ocean</string>
   <string name="copy_crash_log_to_clipboard">Copier le journal des plantages dans le presse-papiers</string>
   <string name="title_backup_and_restore">SAUVEGARDE ET RESTAURATION</string>
   <string name="message_excluded_s_songs">Titres %s exclus</string>
@@ -873,6 +876,14 @@ Volume BAS : titre précédent</string>
   <string name="yt_playlists">YouTube / YouTube Music</string>
   <string name="lyricsSizeSecondary">Appuyez longuement pour changer la taille</string>
   <string name="home">Accueil</string>
+  <!-- Presets Section -->
+  <string name="tap_to_view_presets">Tap to view and select presets</string>
+  <string name="preset_classic">Classic</string>
+  <string name="preset_modern">Modern</string>
+  <string name="preset_minimal">Minimal</string>
+  <string name="preset_dark_edge">Dark Edge</string>
+  <string name="preset_gradient">Gradient</string>
+  <string name="preset_vibrant">Vibrant</string>
   <string name="appearancepresets">Préréglages d\'apparence</string>
   <string name="appearancepresetssecondary">Les aperçus seront de faible qualité</string>
   <string name="yt_history">Historique de YouTube Music</string>
@@ -925,7 +936,7 @@ Volume BAS : titre précédent</string>
   <string name="please_wait">Veuillez patienter</string>
   <string name="songs_liked_yt">Les titres sont appréciés sur YouTube</string>
   <string name="song_unliked_yt">Le titre n\'est pas apprécié sur YouTube</string>
-  <string name="add_rimusic_to_ytm_favorites">J\'aime les titres aimés de CubicMusic sur YouTube</string>
+  <string name="add_rimusic_to_ytm_favorites">J\'aime les titres aimés de RiMusic sur YouTube</string>
   <string name="do_you_really_want_to_like_all_rimusictoytmusic">(temps estimé) est nécessaire pour aimer tous les titres. Cette action ne peut pas être reprise si elle est annulée entre-temps. Vous devez fermer l\'application pour annuler ce processus. Voulez-vous continuer ?</string>
   <string name="do_you_really_want_to_like_all">(temps estimé) est nécessaire pour aimer tous les titres. Vous devez fermer l\'application pour annuler ce processus. Voulez-vous continuer ?</string>
   <string name="songs_liked_yt_failed">Impossible d\'aimer le titre sur YouTube</string>
@@ -1111,4 +1122,6 @@ Volume BAS : titre précédent</string>
   <string name="voice_speak_now">Parlez maintenant...</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
   <string name="loading_please_wait">Chargement, veuillez patienter...</string>
+  <string name="other">Other</string>
+  <string name="lucky_shuffle">Lucky Shuffle</string>
 </resources>
