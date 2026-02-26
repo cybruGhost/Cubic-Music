@@ -600,6 +600,7 @@
   <string name="piped_connect">Se connecter</string>
   <string name="piped_connected_to_s">Connecté à %s</string>
   <string name="fake_audio_bar">Fausse barre audio</string>
+  <string name="ocean_timeline">Ocean</string>
   <string name="copy_crash_log_to_clipboard">Copier le journal des plantages dans le presse-papiers</string>
   <string name="title_backup_and_restore">SAUVEGARDE ET RESTAURATION</string>
   <string name="message_excluded_s_songs">Titres %s exclus</string>
