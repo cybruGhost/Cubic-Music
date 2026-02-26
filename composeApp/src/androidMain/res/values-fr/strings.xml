@@ -1111,4 +1111,6 @@ Volume BAS : titre précédent</string>
   <string name="voice_speak_now">Parlez maintenant...</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
   <string name="loading_please_wait">Chargement, veuillez patienter...</string>
+  <string name="other">Other</string>
+  <string name="lucky_shuffle">Lucky Shuffle</string>
 </resources>
