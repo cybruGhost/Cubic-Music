@@ -600,6 +600,7 @@
   <string name="piped_connect">Connetti</string>
   <string name="piped_connected_to_s">Connesso a %s</string>
   <string name="fake_audio_bar">Falso Waveform</string>
+  <string name="ocean_timeline">Ocean</string>
   <string name="copy_crash_log_to_clipboard">Copia il registro dei crash negli appunti</string>
   <string name="title_backup_and_restore">BACKUP E RIPRISTINO</string>
   <string name="message_excluded_s_songs">Esclusi %s brani</string>
