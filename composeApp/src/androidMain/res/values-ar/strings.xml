@@ -1111,7 +1111,7 @@
   <string name="content_type_official">Official</string>
   <string name="content_type_user_generated">User Generated</string>
   <string name="in_txt">in</string>
-  <!-- Voice Input Strings -->
+  <!-- Voice/audio Input Strings -->
   <string name="voice_you_can_talk_now">You can talk now</string>
   <string name="voice_you_said">You said: %s</string>
   <string name="voice_microphone_permission_granted">Microphone permission granted</string>
@@ -1122,5 +1122,15 @@
   <string name="voice_device_not_supported">Your device does not support voice input</string>
   <string name="loading_please_wait">Loading, please wait...</string>
   <string name="other">Other</string>
-  <string name="lucky_shuffle">Lucky Shuffle</string>
+  <string name="lucky_shuffle">Feeling Lucky</string>
+  <string name="audio_fade_title">Audio Fade</string>
+  <string name="audio_fade_description">Smoothly fade volume between songs and when pausing/playing</string>
+  <string name="fade_duration_title">Fade Duration</string>
+  <string name="disabled">Disabled</string>
+  <!-- username  String -->
+  <string name="change_username_title">Change Your Name</string>
+  <string name="change_username_prompt">Enter your new name (max %1$d characters):</string>
+  <string name="username_label">Your name</string>
+  <string name="character_count">%1$d / %2$d</string>
+  <string name="save">Save</string>
 </resources>
