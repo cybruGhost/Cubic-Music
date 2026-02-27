@@ -32,62 +32,62 @@ import androidx.navigation.NavController
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.bodies.NextBody
 import it.fast4x.innertube.requests.relatedSongs
-import it.fast4x.rimusic.Database
-import it.fast4x.rimusic.EXPLICIT_PREFIX
-import it.fast4x.rimusic.LocalPlayerServiceBinder
-import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.BuiltInPlaylist
-import it.fast4x.rimusic.enums.DurationInMinutes
-import it.fast4x.rimusic.enums.MaxTopPlaylistItems
-import it.fast4x.rimusic.enums.RecommendationsNumber
-import it.fast4x.rimusic.enums.SongSortBy
-import it.fast4x.rimusic.models.Song
-import it.fast4x.rimusic.service.MyDownloadHelper
-import it.fast4x.rimusic.service.modern.LOCAL_KEY_PREFIX
-import it.fast4x.rimusic.service.modern.isLocal
-import it.fast4x.rimusic.thumbnailShape
-import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
-import it.fast4x.rimusic.ui.components.tab.toolbar.Button
-import it.fast4x.rimusic.ui.items.SongItemPlaceholder
-import it.fast4x.rimusic.ui.styling.Dimensions
-import it.fast4x.rimusic.ui.styling.onOverlay
-import it.fast4x.rimusic.ui.styling.overlay
-import it.fast4x.rimusic.utils.MaxTopPlaylistItemsKey
-import it.fast4x.rimusic.utils.Preference
-import it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_BY
-import it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_ORDER
-import it.fast4x.rimusic.utils.addNext
-import it.fast4x.rimusic.utils.asMediaItem
-import it.fast4x.rimusic.utils.center
-import it.fast4x.rimusic.utils.color
-import it.fast4x.rimusic.utils.durationTextToMillis
-import it.fast4x.rimusic.utils.enqueue
-import it.fast4x.rimusic.utils.excludeSongsWithDurationLimitKey
-import it.fast4x.rimusic.utils.forcePlayAtIndex
-import it.fast4x.rimusic.utils.includeLocalSongsKey
-import it.fast4x.rimusic.utils.isDownloadedSong
-import it.fast4x.rimusic.utils.manageDownload
-import it.fast4x.rimusic.utils.parentalControlEnabledKey
-import it.fast4x.rimusic.utils.recommendationsNumberKey
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.Database
+import app.it.fast4x.rimusic.EXPLICIT_PREFIX
+import app.it.fast4x.rimusic.LocalPlayerServiceBinder
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.enums.BuiltInPlaylist
+import app.it.fast4x.rimusic.enums.DurationInMinutes
+import app.it.fast4x.rimusic.enums.MaxTopPlaylistItems
+import app.it.fast4x.rimusic.enums.RecommendationsNumber
+import app.it.fast4x.rimusic.enums.SongSortBy
+import app.it.fast4x.rimusic.models.Song
+import app.it.fast4x.rimusic.service.MyDownloadHelper
+import app.it.fast4x.rimusic.service.modern.LOCAL_KEY_PREFIX
+import app.it.fast4x.rimusic.service.modern.isLocal
+import app.it.fast4x.rimusic.thumbnailShape
+import app.it.fast4x.rimusic.typography
+import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
+import app.it.fast4x.rimusic.ui.components.tab.toolbar.Button
+import app.it.fast4x.rimusic.ui.items.SongItemPlaceholder
+import app.it.fast4x.rimusic.ui.styling.Dimensions
+import app.it.fast4x.rimusic.ui.styling.onOverlay
+import app.it.fast4x.rimusic.ui.styling.overlay
+import app.it.fast4x.rimusic.utils.MaxTopPlaylistItemsKey
+import app.it.fast4x.rimusic.utils.Preference
+import app.it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_BY
+import app.it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_ORDER
+import app.it.fast4x.rimusic.utils.addNext
+import app.it.fast4x.rimusic.utils.asMediaItem
+import app.it.fast4x.rimusic.utils.center
+import app.it.fast4x.rimusic.utils.color
+import app.it.fast4x.rimusic.utils.durationTextToMillis
+import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.excludeSongsWithDurationLimitKey
+import app.it.fast4x.rimusic.utils.forcePlayAtIndex
+import app.it.fast4x.rimusic.utils.includeLocalSongsKey
+import app.it.fast4x.rimusic.utils.isDownloadedSong
+import app.it.fast4x.rimusic.utils.manageDownload
+import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
+import app.it.fast4x.rimusic.utils.recommendationsNumberKey
+import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import me.knighthat.component.SongItem
-import me.knighthat.component.Sort
-import me.knighthat.component.song.PeriodSelector
-import me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
-import me.knighthat.component.tab.DownloadAllSongsDialog
-import me.knighthat.component.tab.ExportSongsToCSVDialog
-import me.knighthat.component.tab.HiddenSongs
-import me.knighthat.component.tab.ItemSelector
-import me.knighthat.component.tab.Search
-import me.knighthat.database.ext.FormatWithSong
+import app.kreate.android.me.knighthat.component.SongItem
+import app.kreate.android.me.knighthat.component.Sort
+import app.kreate.android.me.knighthat.component.song.PeriodSelector
+import app.kreate.android.me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
+import app.kreate.android.me.knighthat.component.tab.DownloadAllSongsDialog
+import app.kreate.android.me.knighthat.component.tab.ExportSongsToCSVDialog
+import app.kreate.android.me.knighthat.component.tab.HiddenSongs
+import app.kreate.android.me.knighthat.component.tab.ItemSelector
+import app.kreate.android.me.knighthat.component.tab.Search
+import app.kreate.android.me.knighthat.database.ext.FormatWithSong
 
 @UnstableApi
 @ExperimentalFoundationApi
@@ -207,7 +207,10 @@ fun HomeSongs(
 
         retrievedSongs.flowOn( Dispatchers.IO )
                       .distinctUntilChanged()
-                      .collect { items = it }
+                       .collect { 
+                          items = it
+                          isLoading = false
+                      }
     }
 
     LaunchedEffect(isRecommendationEnabled, items) {
@@ -310,7 +313,6 @@ fun HomeSongs(
                  itemsOnDisplay.addAll(it)
              }
 
-        isLoading = false
     }
 
     LaunchedEffect( relatedSongs.size, isRecommendationEnabled ) {

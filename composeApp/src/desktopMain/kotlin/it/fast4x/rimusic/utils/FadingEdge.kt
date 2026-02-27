@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.utils
+package app.it.fast4x.rimusic.utils
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent

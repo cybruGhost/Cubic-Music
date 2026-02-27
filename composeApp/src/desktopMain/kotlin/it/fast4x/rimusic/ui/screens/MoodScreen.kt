@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.screens
+package app.it.fast4x.rimusic.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,15 +31,15 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.bodies.BrowseBodyWithLocale
 import it.fast4x.innertube.requests.BrowseResult
 import it.fast4x.innertube.requests.browse
-import it.fast4x.rimusic.items.AlbumItem
-import it.fast4x.rimusic.items.ArtistItem
-import it.fast4x.rimusic.items.PlaylistItem
-import it.fast4x.rimusic.styling.Dimensions.albumThumbnailSize
-import it.fast4x.rimusic.styling.Dimensions.artistThumbnailSize
-import it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomSpacer
-import it.fast4x.rimusic.styling.Dimensions.playlistThumbnailSize
-import it.fast4x.rimusic.ui.components.Loader
-import it.fast4x.rimusic.ui.components.Title
+import app.it.fast4x.rimusic.items.AlbumItem
+import app.it.fast4x.rimusic.items.ArtistItem
+import app.it.fast4x.rimusic.items.PlaylistItem
+import app.it.fast4x.rimusic.styling.Dimensions.albumThumbnailSize
+import app.it.fast4x.rimusic.styling.Dimensions.artistThumbnailSize
+import app.it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomSpacer
+import app.it.fast4x.rimusic.styling.Dimensions.playlistThumbnailSize
+import app.it.fast4x.rimusic.ui.components.Loader
+import app.it.fast4x.rimusic.ui.components.Title
 
 internal const val defaultBrowseId = "FEmusic_moods_and_genres_category"
 

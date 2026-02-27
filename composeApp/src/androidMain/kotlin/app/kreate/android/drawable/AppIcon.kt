@@ -5,7 +5,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import app.kreate.android.R
-import it.fast4x.rimusic.appContext
+import app.it.fast4x.rimusic.appContext
 
 // Due to the complexity of rasterized image, it must be converted into
 // bitmap before rendering.

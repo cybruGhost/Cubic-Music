@@ -7,6 +7,7 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.Thumbnail
 import it.fast4x.innertube.models.bodies.BrowseBody
 import it.fast4x.innertube.models.v0624.podcasts.BrowsePodcastsResponse0624
+import it.fast4x.innertube.models.v0624.podcasts.MusicShelfContinuation
 import it.fast4x.innertube.models.v0624.podcasts.MusicShelfRendererContent
 
 suspend fun Innertube.podcastPage(body: BrowseBody) = runCatching {
@@ -78,15 +79,55 @@ suspend fun Innertube.podcastPage(body: BrowseBody) = runCatching {
     val description =
         response.contents?.twoColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
             ?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer
-            ?.description?.musicDescriptionShelfRenderer?.description?.runs?.map {
-                it.text
-            }?.joinToString("")
+            ?.description?.musicDescriptionShelfRenderer?.description?.runs?.joinToString("") {
+                it.text.toString()
+            }
     val data =
         response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()
             ?.musicShelfRenderer?.contents
     println("mediaItem podcastPage contents count ${data?.size}")
     parsePodcastData(data, author).let {
         listEpisode.addAll(it)
+    }
+
+    var continueParam =
+        response.contents
+            ?.twoColumnBrowseResultsRenderer
+            ?.secondaryContents
+            ?.sectionListRenderer
+            ?.contents
+            ?.firstOrNull()
+            ?.musicShelfRenderer
+            ?.continuations
+            ?.firstOrNull()
+            ?.nextContinuationData
+            ?.continuation
+
+    println("mediaItem podcastPage first continueParam $continueParam")
+
+    while (continueParam != null) {
+        val continueData = browse(
+            continuation = continueParam,
+            browseId = null,
+            setLogin = true
+        ).body<BrowsePodcastsResponse0624>()
+
+        parseContinuationPodcastEpisodes(
+            continueData.continuationContents?.musicShelfContinuation?.contents,
+            author,
+        ).let {
+            listEpisode.addAll(it)
+        }
+
+        continueParam =
+            continueData.continuationContents
+                ?.musicShelfContinuation
+                ?.continuations
+                ?.firstOrNull()
+                ?.nextContinuationData
+                ?.continuation
+
+        println("mediaItem podcastPage other continueParam $continueParam")
     }
 
     //println("mediaItem podcastPage listEpisode ${listEpisode.size}")
@@ -167,4 +208,68 @@ fun Thumbnail.toThumbnail(): Thumbnail {
         url = this.url,
         width = this.width ?: 0
     )
+}
+
+fun parseContinuationPodcastEpisodes(
+    listContent: List<MusicShelfContinuation.Content>?,
+    author: String?,
+): List<Innertube.Podcast.EpisodeItem> {
+    if (listContent == null || author == null) {
+        return emptyList()
+    } else {
+        val listEpisode: ArrayList<Innertube.Podcast.EpisodeItem> = arrayListOf()
+        listContent.forEach { content ->
+            listEpisode.add(
+                Innertube.Podcast.EpisodeItem(
+                    title =
+                        content.musicMultiRowListItemRenderer
+                            ?.title
+                            ?.runs
+                            ?.firstOrNull()
+                            ?.text
+                            ?: "",
+                    author = author,
+                    description =
+                        content.musicMultiRowListItemRenderer?.description?.runs?.joinToString(
+                            separator = "",
+                        ) { it.text.toString() } ?: "",
+                    thumbnail =
+                        content.musicMultiRowListItemRenderer
+                            ?.thumbnail
+                            ?.musicThumbnailRenderer
+                            ?.thumbnail
+                            ?.thumbnails
+                            ?.map {
+                                Thumbnail(
+                                    url = it.url ?: "",
+                                    width = it.width?.toInt(),
+                                    height = it.height?.toInt()
+                                )
+                            }
+                            ?: emptyList<Thumbnail>(),
+                    createdDay =
+                        content.musicMultiRowListItemRenderer
+                            ?.subtitle
+                            ?.runs
+                            ?.firstOrNull()
+                            ?.text
+                            ?: "",
+                    durationString =
+                        content.musicMultiRowListItemRenderer
+                            ?.subtitle
+                            ?.runs
+                            ?.lastOrNull()
+                            ?.text
+                            ?: "",
+                    videoId =
+                        content.musicMultiRowListItemRenderer
+                            ?.onTap
+                            ?.watchEndpoint
+                            ?.videoID
+                            ?: "",
+                ),
+            )
+        }
+        return listEpisode
+    }
 }

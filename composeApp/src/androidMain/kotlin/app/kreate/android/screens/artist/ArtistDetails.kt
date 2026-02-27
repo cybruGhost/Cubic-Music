@@ -55,66 +55,67 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import app.kreate.android.R
 import androidx.compose.ui.graphics.painter.Painter
+
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.ArtistPage
 import it.fast4x.innertube.requests.ArtistSection
-import it.fast4x.rimusic.LocalPlayerServiceBinder
-import it.fast4x.rimusic.ui.components.LocalMenuState
-import it.fast4x.rimusic.appContext
+import app.it.fast4x.rimusic.LocalPlayerServiceBinder
+import app.it.fast4x.rimusic.ui.components.LocalMenuState
+import app.it.fast4x.rimusic.appContext
 
-import it.fast4x.rimusic.cleanPrefix
-import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.NavRoutes
-import it.fast4x.rimusic.models.Album
-import it.fast4x.rimusic.models.Artist
-import it.fast4x.rimusic.models.Song
-import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
-import it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
-import it.fast4x.rimusic.ui.components.themed.AutoResizeText
-import it.fast4x.rimusic.ui.components.themed.Enqueue
-import it.fast4x.rimusic.ui.components.themed.FontSizeRange
-import it.fast4x.rimusic.ui.components.themed.HeaderIconButton
-import it.fast4x.rimusic.ui.components.themed.PlayNext
-import it.fast4x.rimusic.ui.items.AlbumItem
-import it.fast4x.rimusic.ui.items.ArtistItem
-import it.fast4x.rimusic.ui.items.PlaylistItem
-import it.fast4x.rimusic.ui.items.VideoItem
-import me.knighthat.component.menu.video.VideoItemMenu
-import it.fast4x.rimusic.ui.styling.Dimensions
+import app.it.fast4x.rimusic.cleanPrefix
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.enums.NavRoutes
+import app.it.fast4x.rimusic.models.Album
+import app.it.fast4x.rimusic.models.Artist
+import app.it.fast4x.rimusic.models.Song
+import app.it.fast4x.rimusic.typography
+import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
+import app.it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
+import app.it.fast4x.rimusic.ui.components.themed.AutoResizeText
+import app.it.fast4x.rimusic.ui.components.themed.Enqueue
+import app.it.fast4x.rimusic.ui.components.themed.FontSizeRange
+import app.it.fast4x.rimusic.ui.components.themed.HeaderIconButton
+import app.it.fast4x.rimusic.ui.components.themed.PlayNext
+import app.it.fast4x.rimusic.ui.items.AlbumItem
+import app.it.fast4x.rimusic.ui.items.ArtistItem
+import app.it.fast4x.rimusic.ui.items.PlaylistItem
+import app.it.fast4x.rimusic.ui.items.VideoItem
+import app.kreate.android.me.knighthat.component.menu.video.VideoItemMenu
+import app.it.fast4x.rimusic.ui.styling.Dimensions
 
-import it.fast4x.rimusic.ui.styling.px
-import it.fast4x.rimusic.utils.addNext
-import it.fast4x.rimusic.utils.align
-import it.fast4x.rimusic.utils.asAlbum
-import it.fast4x.rimusic.utils.asMediaItem
-import it.fast4x.rimusic.utils.asSong
-import it.fast4x.rimusic.utils.color
-import it.fast4x.rimusic.utils.conditional
-import it.fast4x.rimusic.utils.disableScrollingTextKey
-import it.fast4x.rimusic.utils.enqueue
-import it.fast4x.rimusic.utils.fadingEdge
-import it.fast4x.rimusic.utils.forcePlay
-import it.fast4x.rimusic.utils.forcePlayAtIndex
-import it.fast4x.rimusic.utils.getHttpClient
-import it.fast4x.rimusic.utils.isLandscape
-import it.fast4x.rimusic.utils.languageDestination
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.secondary
-import it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.ui.styling.px
+import app.it.fast4x.rimusic.utils.addNext
+import app.it.fast4x.rimusic.utils.align
+import app.it.fast4x.rimusic.utils.asAlbum
+import app.it.fast4x.rimusic.utils.asMediaItem
+import app.it.fast4x.rimusic.utils.asSong
+import app.it.fast4x.rimusic.utils.color
+import app.it.fast4x.rimusic.utils.conditional
+import app.it.fast4x.rimusic.utils.disableScrollingTextKey
+import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.fadingEdge
+import app.it.fast4x.rimusic.utils.forcePlay
+import app.it.fast4x.rimusic.utils.forcePlayAtIndex
+import app.cubic.android.core.network.NetworkClientFactory
+import app.it.fast4x.rimusic.utils.isLandscape
+import app.it.fast4x.rimusic.utils.languageDestination
+import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.secondary
+import app.it.fast4x.rimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.bush.translator.Language
 import me.bush.translator.Translator
-import me.knighthat.component.SongItem
-import me.knighthat.component.artist.FollowButton
-import me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
-import me.knighthat.component.tab.DownloadAllSongsDialog
-import me.knighthat.component.tab.ItemSelector
-import me.knighthat.component.tab.Radio
-import me.knighthat.component.tab.SongShuffler
-import me.knighthat.component.ui.screens.DynamicOrientationLayout
-import me.knighthat.component.ui.screens.album.Translate
+import app.kreate.android.me.knighthat.component.SongItem
+import app.kreate.android.me.knighthat.component.artist.FollowButton
+import app.kreate.android.me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
+import app.kreate.android.me.knighthat.component.tab.DownloadAllSongsDialog
+import app.kreate.android.me.knighthat.component.tab.ItemSelector
+import app.kreate.android.me.knighthat.component.tab.Radio
+import app.kreate.android.me.knighthat.component.tab.SongShuffler
+import app.kreate.android.me.knighthat.component.ui.screens.DynamicOrientationLayout
+import app.kreate.android.me.knighthat.component.ui.screens.album.Translate
 
 @ExperimentalFoundationApi
 @UnstableApi
@@ -189,7 +190,7 @@ fun ArtistDetails(
 
     //<editor-fold defaultstate="collapsed" desc="Translator">
     val translate = Translate.init()
-    val translator = Translator(getHttpClient())
+    val translator = Translator(NetworkClientFactory.getKtorClient())
     val languageDestination = languageDestination()
     //</editor-fold>
 

@@ -8,9 +8,12 @@ package it.fast4x.innertube.models.v0624.podcasts
 import kotlinx.serialization.*
 
 
+import kotlinx.serialization.json.JsonNames
+
 @Serializable
 data class BrowsePodcastsResponse0624 (
     val contents: Contents? = null,
+    val continuationContents: ContinuationContents? = null,
     val trackingParams: String? = null,
     val background: ThumbnailClass? = null
 )
@@ -89,7 +92,8 @@ data class PurpleContent (
 data class MusicShelfRenderer (
     val contents: List<MusicShelfRendererContent>? = null,
     val trackingParams: String? = null,
-    val shelfDivider: ShelfDivider? = null
+    val shelfDivider: ShelfDivider? = null,
+    val continuations: List<Continuation>? = null,
 )
 
 @Serializable
@@ -173,6 +177,8 @@ enum class IconType(val value: String) {
     @SerialName("ADD_TO_PLAYLIST") AddToPlaylist("ADD_TO_PLAYLIST"),
     @SerialName("ADD_TO_REMOTE_QUEUE") AddToRemoteQueue("ADD_TO_REMOTE_QUEUE"),
     @SerialName("CHECK") Check("CHECK"),
+    @SerialName("BOOKMARK_BORDER") BookmarkBorder("BOOKMARK_BORDER"),
+    @SerialName("BOOKMARK") Bookmark("BOOKMARK"),
     @SerialName("COLLAPSE") Collapse("COLLAPSE"),
     @SerialName("EXPAND") Expand("EXPAND"),
     @SerialName("LIBRARY_ADD") LibraryAdd("LIBRARY_ADD"),
@@ -580,7 +586,15 @@ data class BrowseSectionListReloadEndpoint (
 
 @Serializable
 data class Continuation (
-    val reloadContinuationData: ReloadContinuationData? = null
+    val reloadContinuationData: ReloadContinuationData? = null,
+    @JsonNames("nextContinuationData", "nextRadioContinuationData")
+    val nextContinuationData: NextContinuationData? = null,
+)
+
+@Serializable
+data class NextContinuationData (
+    val continuation: String? = null,
+    val clickTrackingParams: String? = null
 )
 
 @Serializable
@@ -841,3 +855,21 @@ data class FluffyBrowseEndpoint (
 
 @Serializable
 class Subtitle()
+
+@Serializable
+data class ContinuationContents (
+    val musicShelfContinuation: MusicShelfContinuation? = null
+)
+
+@Serializable
+data class MusicShelfContinuation (
+    val contents: List<Content>? = null,
+    val trackingParams: String? = null,
+    val continuations: List<Continuation>? = null,
+    val shelfDivider: ShelfDivider? = null
+) {
+    @Serializable
+    data class Content(
+        val musicMultiRowListItemRenderer: MusicMultiRowListItemRenderer? = null
+    )
+}

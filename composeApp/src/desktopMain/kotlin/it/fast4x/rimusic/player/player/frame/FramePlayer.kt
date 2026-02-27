@@ -10,7 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import it.fast4x.rimusic.ui.bars.DefaultBottomBar
+import app.it.fast4x.rimusic.ui.bars.DefaultBottomBar
 import player.DefaultControls
 import player.PlayerController
 

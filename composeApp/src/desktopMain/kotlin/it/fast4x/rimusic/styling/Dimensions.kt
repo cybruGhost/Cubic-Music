@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.styling
+package app.it.fast4x.rimusic.styling
 
 import androidx.compose.ui.unit.dp
 

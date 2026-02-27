@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.components
+package app.it.fast4x.rimusic.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomPadding
+import app.it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

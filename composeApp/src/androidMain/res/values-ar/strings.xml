@@ -202,8 +202,6 @@
   <string name="listen_on_youtube_music">Listen on YouTube Music</string>
   <string name="on_device">On device</string>
   <string name="wavy_timeline">Wavy timeline</string>
-  <string name="timeline_style">Timeline Style(click here to change)</string>
-  <string name="transparentbar_description">Make progress bar background transparent</string>
   <string name="play_next">Play next</string>
   <string name="toggle_lyrics">Toggle lyrics</string>
   <string name="by_tapping_on_the_thumbnail">By tapping on the thumbnail</string>
@@ -267,7 +265,7 @@
   <string name="catalan">Catalan</string>
   <string name="disable_scrolling_text">Disable scrolling text</string>
   <string name="scrolling_text_is_used_for_long_texts">Scrolling text is used for long texts</string>
-  <string name="audio_quality_format">Audio Quality</string>
+  <string name="audio_quality_format">Audio quality Format</string>
   <string name="persian">Persian</string>
   <string name="hungarian">Hungarian</string>
   <string name="korean">Korean</string>
@@ -377,12 +375,6 @@
   <string name="tab_data">Data</string>
   <string name="image_cache_max_size">Image cache max size</string>
   <string name="song_cache_max_size">Song cache max size</string>
-  <string name="network_status">Quality Status</string>
-  <string name="image_quality_format">Image Quality</string>
-  <string name="audio_quality_auto_fmt">Auto (Detected: %1$s)</string>
-  <string name="network_quality_low">Low</string>
-  <string name="network_quality_medium">Medium</string>
-  <string name="network_quality_high">High</string>
   <string name="song_download_max_size">Song download max size</string>
   <string name="save_to_backup">Save to backup</string>
   <string name="restore_from_backup">Restore from backup</string>
@@ -521,8 +513,6 @@
   <string name="vimusic_show_search_button_in_navigation_bar">Show search button in navigation bar</string>
   <string name="vismusic_only_in_left_right_navigation_bar">Only for ViMusic ui mode in left/right navigation bar</string>
   <string name="enable_monthly_playlists_creation">Enable monthly playlists creation</string>
-  <string name="show_monthly_playlists_in_quick_picks">Show Monthly Playlists in Cubic Picks</string>
-  <string name="show_monthly_playlists_in_library">Show Monthly Playlists in Library</string>
   <string name="info_no_singles_yet">No singles yet</string>
   <string name="info_no_albums_yet">No albums yet</string>
   <string name="info_no_songs_yet">No songs yet</string>
@@ -602,7 +592,6 @@
   <string name="piped_connect">Connect</string>
   <string name="piped_connected_to_s">Connected to %s</string>
   <string name="fake_audio_bar">Fake Audio Bar</string>
-  <string name="ocean_timeline">Ocean</string>
   <string name="copy_crash_log_to_clipboard">Copy crash log to clipboard</string>
   <string name="title_backup_and_restore">BACKUP AND RESTORE</string>
   <string name="message_excluded_s_songs">Excluded %s songs</string>
@@ -663,10 +652,10 @@
   <string name="info_debug_mode_enabled">Debug Mode Enabled</string>
   <string name="info_debug_mode_is_enabled">Debug mode is enabled, remember to disable it in settings</string>
   <string name="tapqueue">Tap to open Queue</string>
-  <string name="past_day">This day</string>
-  <string name="past_week">This week</string>
-  <string name="past_month">This month</string>
-  <string name="past_year">This year</string>
+  <string name="past_day">Past day</string>
+  <string name="past_week">Past week</string>
+  <string name="past_month">Past month</string>
+  <string name="past_year">Past year</string>
   <string name="all_time">All time</string>
   <string name="header_view_top_of">View top %s of …</string>
   <string name="podcast_episodes">Episodes</string>
@@ -692,7 +681,7 @@
   <string name="event_volumekeysinfo">Volume UP next and volume DOWN previous song</string>
   <string name="paste">Paste</string>
   <string name="searches_no_suggestions">No suggestions</string>
-  <string name="action_bar_show_discover_button">Show Enable Discover🌟</string>
+  <string name="action_bar_show_discover_button">Show discover button</string>
   <string name="playertype">Player Type</string>
   <string name="noblur">No Blur when Lyrics is Disabled</string>
   <string name="fadingedge">Fading Edge</string>
@@ -701,7 +690,7 @@
   <string name="addednext">Added to play next</string>
   <string name="info_paused_with_volume_zero">Paused with volume zero</string>
   <string name="effect_fade_audio">Fade audio</string>
-  <string name="effect_fade_audio_description">Smoothly fade between songs and when pausing/playing</string>
+  <string name="effect_fade_audio_description">Fade audio when song is paused or played</string>
   <string name="autosync">Auto Sync Imported Playlists</string>
   <string name="message_type">Message type</string>
   <string name="message_type_modern">Modern</string>
@@ -766,7 +755,7 @@
   <string name="titleartist">Title and Artists</string>
   <string name="miniqueue">Mini Queue</string>
   <string name="controls">Controls</string>
-  <string name="add_to_favorites">Add All to favorites</string>
+  <string name="add_to_favorites">Add to favorites</string>
   <string name="import_favorites">Import favorites</string>
   <string name="skip_media_on_error">Autoskip on error</string>
   <string name="skip_media_on_error_description">If an error occurs, the media is changed</string>
@@ -816,7 +805,7 @@
   <string name="now_playing_indicator">Now Playing Indicator</string>
   <string name="good_afternoon">Good Afternoon☀️</string>
   <string name="good_evening">Good Evening🌤</string>
-  <string name="good_morning">Good Morning🌞</string>
+  <string name="good_morning">Good Morning🌞</string> 
   <string name="good_night">Good Night🌘</string>
   <string name="colored_bar">Colored bar</string>
   <string name="about_developers_designers">App Developers</string>
@@ -875,14 +864,6 @@
   <string name="yt_playlists">YT/YTM</string>
   <string name="lyricsSizeSecondary">Long Press to change the size</string>
   <string name="home">Home</string>
-  <!-- Presets Section -->
-  <string name="tap_to_view_presets">Tap to view and select presets</string>
-  <string name="preset_classic">Classic</string>
-  <string name="preset_modern">Modern</string>
-  <string name="preset_minimal">Minimal</string>
-  <string name="preset_dark_edge">Dark Edge</string>
-  <string name="preset_gradient">Gradient</string>
-  <string name="preset_vibrant">Vibrant</string>
   <string name="appearancepresets">Appearance Presets</string>
   <string name="appearancepresetssecondary">Previews will be in low quality</string>
   <string name="yt_history">YTM History</string>
@@ -935,7 +916,7 @@
   <string name="please_wait">Please Wait</string>
   <string name="songs_liked_yt">Song(s) are Liked in YouTube</string>
   <string name="song_unliked_yt">Song is Unliked in YouTube</string>
-  <string name="add_rimusic_to_ytm_favorites">Like RiMusic Liked songs in Youtube</string>
+  <string name="add_rimusic_to_ytm_favorites">Like CubicMusic Liked songs in Youtube</string>
   <string name="do_you_really_want_to_like_all_rimusictoytmusic">(estimated time) is required to like all the songs. This action cannot be resumed if cancelled in between. You need to close the app to cancel this process. Do you want to continue?</string>
   <string name="do_you_really_want_to_like_all">(estimated time) is required to like all the songs. You need to close the app to cancel this process. Do you want to continue?</string>
   <string name="songs_liked_yt_failed">Failed to like the song in YouTube</string>
@@ -981,7 +962,6 @@
   <string name="update_changelogs">%s changelogs</string>
   <string name="rotating_cover_title">Rotating album cover</string>
   <string name="title_playback_speed">Playback speed</string>
-  <string name="error_no_inet">No internet connection</string>
   <string name="description_playback_speed">Adjust how slow/fast the song goes</string>
   <string name="opens_link_in_web_browser">فتح الرابط في متصفح الويب</string>
   <string name="title_appearance_changes">تغيير المظهر</string>
@@ -1059,7 +1039,6 @@
   <string name="easter_egg_number_one">أنت رقم 1، انقر واستمتع بالمفاجأة</string>
   <string name="easter_egg_last">أنت رقم واحد، انقر لفترة طويلة واستمتع بالمفاجأة</string>
   <string name="general_settings_description">القسم العام يحتوي على إعدادات للوظيفة العامة للتطبيق</string>
-  <string name="ui_settings_description">The user interface section contains settings to modify the global interface and navigation</string>
   <string name="pause_between_songs_description">إضافة إيقاف مؤقت بين الأغاني</string>
   <string name="notifications">الإشعارات</string>
   <string name="playback">تشغيل</string>
@@ -1075,62 +1054,4 @@
   <string name="check_beta_update_disabled">BETA معطل</string>
   <string name="cache_status">حالة ذاكرة التخزين المؤقت</string>
   <string name="cache_empty">ذاكرة التخزين المؤقت فارغة</string>
-  <string name="rewind">Rewind</string>
-  <string name="donate">Donate</string>
-  <!-- Spotify Canvas Strings -->
-  <string name="spotify_canvas">Spotify Canvas</string>
-  <string name="spotify_canvas_description">Show animated canvas videos in player</string>
-  <string name="spotify_not_connected">Not connected</string>
-  <string name="spotify_connected">Connected</string>
-  <string name="spotify_add_email">Tap to add email</string>
-  <string name="spotify_debug_logs">Show debug logs</string>
-  <string name="spotify_disconnect">Disconnect Spotify</string>
-  <string name="spotify_email_dialog_title">Spotify Canvas Email</string>
-  <string name="spotify_email_instructions">Enter the email you used to sign in to Spotify Canvas website</string>
-  <string name="spotify_note">Note: You must first authenticate at:\nv0-spotify-playlist-csv.vercel.app</string>
-  <string name="spotify_disconnect_confirm">Disconnect Spotify Canvas?\nThis will remove your email and disable the feature.</string>
-  <string name="forcePlayFromBeginning">Play from Beginning</string>
-  <string name="smart_shuffle">Smart Shuffle</string>
-  <string name="loading_recommendations">Loading recommendations…</string>
-  <string name="recommendations">Recommendations</string>
-  <!-- Auto-install strings -->
-  <string name="downloading_update">Downloading update…</string>
-  <string name="download_progress_hint">The app will install automatically when download completes. Ensure a stable internet connection.</string>
-  <string name="download_complete">Download Complete</string>
-  <string name="apk_download_channel_name">App Updates</string>
-  <string name="installing_update">Installing Update…</string>
-  <string name="update_downloaded">Update Downloaded</string>
-  <string name="ready_to_install">Ready to install</string>
-  <string name="download_and_install">Download and Install</string>
-  <string name="update_failed_title">Update Check Failed</string>
-  <string name="update_failed_message">Could not fetch update information. Please try downloading manually.</string>
-  <string name="apk_download_channel_description">Notifications for app update downloads</string>
-  <string name="tap_to_install">Tap to install the update</string>
-  <string name="album_not_found">Album not found</string>
-  <string name="content_type_all">All</string>
-  <string name="content_type_official">Official</string>
-  <string name="content_type_user_generated">User Generated</string>
-  <string name="in_txt">in</string>
-  <!-- Voice/audio Input Strings -->
-  <string name="voice_you_can_talk_now">You can talk now</string>
-  <string name="voice_you_said">You said: %s</string>
-  <string name="voice_microphone_permission_granted">Microphone permission granted</string>
-  <string name="voice_microphone_permission_denied">Microphone permission denied</string>
-  <string name="voice_missing_microphone_permissions_please_grant">Please grant microphone permission to use voice input</string>
-  <string name="voice_recognition_failed">Voice recognition failed</string>
-  <string name="voice_speak_now">Speak now...</string>
-  <string name="voice_device_not_supported">Your device does not support voice input</string>
-  <string name="loading_please_wait">Loading, please wait...</string>
-  <string name="other">Other</string>
-  <string name="lucky_shuffle">Feeling Lucky</string>
-  <string name="audio_fade_title">Audio Fade</string>
-  <string name="audio_fade_description">Smoothly fade volume between songs and when pausing/playing</string>
-  <string name="fade_duration_title">Fade Duration</string>
-  <string name="disabled">Disabled</string>
-  <!-- username  String -->
-  <string name="change_username_title">Change Your Name</string>
-  <string name="change_username_prompt">Enter your new name (max %1$d characters):</string>
-  <string name="username_label">Your name</string>
-  <string name="character_count">%1$d / %2$d</string>
-  <string name="save">Save</string>
 </resources>

@@ -24,10 +24,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import it.fast4x.rimusic.utils.BlurTransformation
-import it.fast4x.rimusic.utils.isAtLeastAndroid12
-import me.knighthat.coil.ImageCacheFactory
-import me.knighthat.component.player.BlurAdjuster
+import app.it.fast4x.rimusic.utils.BlurTransformation
+import app.it.fast4x.rimusic.utils.isAtLeastAndroid12
+import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import app.kreate.android.me.knighthat.component.player.BlurAdjuster
 import kotlin.math.sqrt
 
 @Composable

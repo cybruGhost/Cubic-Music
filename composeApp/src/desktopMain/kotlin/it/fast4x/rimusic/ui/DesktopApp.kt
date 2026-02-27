@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui
+package app.it.fast4x.rimusic.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -34,8 +34,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import database.MusicDatabaseDesktop
-import it.fast4x.rimusic.ui.screens.ArtistsScreen
-import it.fast4x.rimusic.ui.screens.QuickPicsScreen
+import app.it.fast4x.rimusic.ui.screens.ArtistsScreen
+import app.it.fast4x.rimusic.ui.screens.QuickPicsScreen
 import org.jetbrains.compose.resources.painterResource
 import rimusic.composeapp.generated.resources.Res
 import rimusic.composeapp.generated.resources.app_icon

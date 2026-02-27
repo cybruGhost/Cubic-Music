@@ -37,21 +37,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
-import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.ColorPaletteMode
-import it.fast4x.rimusic.enums.PauseBetweenSongs
-import it.fast4x.rimusic.service.modern.PlayerServiceModern
-import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.ui.styling.favoritesIcon
-import it.fast4x.rimusic.utils.DURATION_INDICATOR_HEIGHT
-import it.fast4x.rimusic.utils.colorPaletteModeKey
-import it.fast4x.rimusic.utils.formatAsDuration
-import it.fast4x.rimusic.utils.pauseBetweenSongsKey
-import it.fast4x.rimusic.utils.positionAndDurationState
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.semiBold
-import it.fast4x.rimusic.utils.showRemainingSongTimeKey
-import it.fast4x.rimusic.utils.textoutlineKey
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.enums.ColorPaletteMode
+import app.it.fast4x.rimusic.enums.PauseBetweenSongs
+import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
+import app.it.fast4x.rimusic.typography
+import app.it.fast4x.rimusic.ui.styling.favoritesIcon
+import app.it.fast4x.rimusic.utils.DURATION_INDICATOR_HEIGHT
+import app.it.fast4x.rimusic.utils.colorPaletteModeKey
+import app.it.fast4x.rimusic.utils.formatAsDuration
+import app.it.fast4x.rimusic.utils.pauseBetweenSongsKey
+import app.it.fast4x.rimusic.utils.positionAndDurationState
+import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.utils.showRemainingSongTimeKey
+import app.it.fast4x.rimusic.utils.textoutlineKey
 import kotlinx.coroutines.delay
 
 /**

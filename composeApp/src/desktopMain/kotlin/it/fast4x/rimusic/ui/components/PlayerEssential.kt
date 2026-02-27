@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.components
+package app.it.fast4x.rimusic.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,8 +15,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import database.entities.Song
-import it.fast4x.rimusic.items.SongItem
-import it.fast4x.rimusic.utils.LoadImage
+import app.it.fast4x.rimusic.items.SongItem
+import app.it.fast4x.rimusic.utils.LoadImage
 import player.frame.FramePlayer
 import vlcj.VlcjFrameController
 

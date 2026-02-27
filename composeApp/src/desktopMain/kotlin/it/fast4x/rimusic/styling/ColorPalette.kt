@@ -1,12 +1,12 @@
-package it.fast4x.rimusic.styling
+package app.it.fast4x.rimusic.styling
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.SaverScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import it.fast4x.rimusic.enums.ColorPaletteMode
-import it.fast4x.rimusic.enums.ColorPaletteName
+import app.it.fast4x.rimusic.enums.ColorPaletteMode
+import app.it.fast4x.rimusic.enums.ColorPaletteName
 import org.jetbrains.skia.Bitmap
 
 

@@ -7,12 +7,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import app.kreate.android.R
-import it.fast4x.rimusic.enums.SortOrder
-import it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
-import it.fast4x.rimusic.ui.components.tab.toolbar.DualIcon
-import it.fast4x.rimusic.ui.components.tab.toolbar.DynamicColor
-import it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
-import me.knighthat.utils.Toaster
+import app.it.fast4x.rimusic.enums.SortOrder
+import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
+import app.it.fast4x.rimusic.ui.components.tab.toolbar.DualIcon
+import app.it.fast4x.rimusic.ui.components.tab.toolbar.DynamicColor
+import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
+import app.kreate.android.me.knighthat.utils.Toaster
 
 class PositionLock(
     colorState: MutableState<Boolean>

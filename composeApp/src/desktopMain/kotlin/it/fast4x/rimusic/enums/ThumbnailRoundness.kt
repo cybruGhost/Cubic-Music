@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.enums
+package app.it.fast4x.rimusic.enums
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.RectangleShape

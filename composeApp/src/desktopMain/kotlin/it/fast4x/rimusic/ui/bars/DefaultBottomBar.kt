@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.bars
+package app.it.fast4x.rimusic.ui.bars
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
@@ -31,7 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import extension.formatTimestamp
-import it.fast4x.rimusic.enums.ThumbnailRoundness
+import app.it.fast4x.rimusic.enums.ThumbnailRoundness
 import player.PlayerController
 import kotlin.math.roundToLong
 

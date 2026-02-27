@@ -1,5 +1,5 @@
 
-package it.fast4x.rimusic.ui.pages
+package app.it.fast4x.rimusic.ui.pages
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -32,10 +32,10 @@ import database.DB
 import database.MusicDatabaseDesktop
 import database.entities.Song
 import database.entities.SongEntity
-import it.fast4x.rimusic.items.SongItem
-import it.fast4x.rimusic.styling.Dimensions
-import it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomSpacer
-import it.fast4x.rimusic.utils.asSong
+import app.it.fast4x.rimusic.items.SongItem
+import app.it.fast4x.rimusic.styling.Dimensions
+import app.it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomSpacer
+import app.it.fast4x.rimusic.utils.asSong
 import kotlinx.coroutines.flow.asFlow
 
 @OptIn(ExperimentalFoundationApi::class)

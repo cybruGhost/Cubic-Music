@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.theme
+package app.it.fast4x.rimusic.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme

@@ -1,11 +1,11 @@
-package it.fast4x.rimusic.utils
+package app.it.fast4x.rimusic.utils
 
 
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import it.fast4x.rimusic.enums.Languages
+import app.it.fast4x.rimusic.enums.Languages
 import me.bush.translator.Language
 import org.jetbrains.compose.resources.stringResource
 import rimusic.composeapp.generated.resources.Res

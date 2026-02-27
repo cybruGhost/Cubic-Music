@@ -9,7 +9,7 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import me.knighthat.utils.Toaster
+import app.kreate.android.me.knighthat.utils.Toaster
 import org.jetbrains.annotations.Blocking
 import org.schabi.newpipe.extractor.localization.ContentCountry
 import org.schabi.newpipe.extractor.localization.Localization

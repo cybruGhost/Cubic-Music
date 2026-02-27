@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.models
+package app.it.fast4x.rimusic.models
 
 import io.ktor.http.Url
 import it.fast4x.piped.models.authenticatedWith

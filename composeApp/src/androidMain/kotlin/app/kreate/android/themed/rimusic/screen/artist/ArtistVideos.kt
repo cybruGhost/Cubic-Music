@@ -22,28 +22,28 @@ import app.kreate.android.R
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.models.BrowseEndpoint
-import it.fast4x.rimusic.LocalPlayerServiceBinder
-import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.ui.components.LocalMenuState
-import it.fast4x.rimusic.ui.components.Skeleton
-import it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
-import it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
-import it.fast4x.rimusic.ui.components.themed.Title
-import it.fast4x.rimusic.ui.items.VideoItem
-import it.fast4x.rimusic.ui.items.VideoItemPlaceholder
-import me.knighthat.component.menu.video.VideoItemMenu
-import it.fast4x.rimusic.ui.screens.searchresult.ItemsPage
+import app.it.fast4x.rimusic.LocalPlayerServiceBinder
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.ui.components.LocalMenuState
+import app.it.fast4x.rimusic.ui.components.Skeleton
+import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
+import app.it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenu
+import app.it.fast4x.rimusic.ui.components.themed.Title
+import app.it.fast4x.rimusic.ui.items.VideoItem
+import app.it.fast4x.rimusic.ui.items.VideoItemPlaceholder
+import app.kreate.android.me.knighthat.component.menu.video.VideoItemMenu
+import app.it.fast4x.rimusic.ui.screens.searchresult.ItemsPage
 
-import it.fast4x.rimusic.utils.addNext
-import it.fast4x.rimusic.utils.asMediaItem
-import it.fast4x.rimusic.utils.asSong
-import it.fast4x.rimusic.utils.disableScrollingTextKey
-import it.fast4x.rimusic.utils.enqueue
-import it.fast4x.rimusic.utils.forcePlay
-import it.fast4x.rimusic.utils.playVideo
-import it.fast4x.rimusic.utils.preferences
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.showButtonPlayerVideoKey
+import app.it.fast4x.rimusic.utils.addNext
+import app.it.fast4x.rimusic.utils.asMediaItem
+import app.it.fast4x.rimusic.utils.asSong
+import app.it.fast4x.rimusic.utils.disableScrollingTextKey
+import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.forcePlay
+import app.it.fast4x.rimusic.utils.playVideo
+import app.it.fast4x.rimusic.utils.preferences
+import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.showButtonPlayerVideoKey
 
 @OptIn(ExperimentalFoundationApi::class)
 @UnstableApi

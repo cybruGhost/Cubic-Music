@@ -17,28 +17,29 @@ import com.google.gson.Gson
 import com.grack.nanojson.JsonObject
 import io.ktor.client.statement.bodyAsText
 import it.fast4x.innertube.Innertube
+import app.it.fast4x.rimusic.models.Song
 import it.fast4x.innertube.Innertube.createPoTokenChallenge
 import it.fast4x.innertube.models.PlayerResponse
 import it.fast4x.innertube.models.bodies.NextBody
 import it.fast4x.innertube.requests.nextPage
-import it.fast4x.rimusic.Database
-import it.fast4x.rimusic.appContext
-import it.fast4x.rimusic.enums.AudioQualityFormat
-import it.fast4x.rimusic.isConnectionMeteredEnabled
-import it.fast4x.rimusic.models.Format
-import it.fast4x.rimusic.service.LoginRequiredException
-import it.fast4x.rimusic.service.MyDownloadHelper
-import it.fast4x.rimusic.service.UnknownException
-import it.fast4x.rimusic.service.UnplayableException
-import it.fast4x.rimusic.service.modern.PlayerServiceModern
-import it.fast4x.rimusic.utils.isConnectionMetered
-import it.fast4x.rimusic.utils.okHttpDataSourceFactory
+import app.it.fast4x.rimusic.Database
+import app.it.fast4x.rimusic.appContext
+import app.it.fast4x.rimusic.enums.AudioQualityFormat
+import app.it.fast4x.rimusic.isConnectionMeteredEnabled
+import app.it.fast4x.rimusic.models.Format
+import app.it.fast4x.rimusic.service.LoginRequiredException
+import app.it.fast4x.rimusic.service.MyDownloadHelper
+import app.it.fast4x.rimusic.service.UnknownException
+import app.it.fast4x.rimusic.service.UnplayableException
+import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
+import app.it.fast4x.rimusic.utils.isConnectionMetered
+import app.it.fast4x.rimusic.utils.okHttpDataSourceFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import me.knighthat.utils.Toaster
+import app.kreate.android.me.knighthat.utils.Toaster
 import org.jetbrains.annotations.Blocking
 import org.jetbrains.annotations.NonBlocking
 import org.schabi.newpipe.extractor.localization.ContentCountry
@@ -108,6 +109,9 @@ private fun upsertSongFormat( videoId: String, format: PlayerResponse.StreamingD
 
     runCatching {
         Database.asyncTransaction {
+                  // Ensure Song exists first to satisfy Foreign Key constraint
+            songTable.insertIgnore(Song.makePlaceholder(videoId))
+
             formatTable.insertIgnore(Format(
                 videoId,
                 format.itag,

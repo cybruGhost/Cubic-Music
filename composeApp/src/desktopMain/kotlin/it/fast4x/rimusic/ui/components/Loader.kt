@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.components
+package app.it.fast4x.rimusic.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box

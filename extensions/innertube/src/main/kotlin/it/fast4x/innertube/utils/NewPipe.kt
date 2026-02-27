@@ -17,11 +17,7 @@ import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerMana
 import java.io.IOException
 import java.net.Proxy
 
-class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
-
-    private val client = OkHttpClient.Builder()
-        .proxy(proxy)
-        .build()
+class NewPipeDownloaderImpl(private val clientProvider: () -> OkHttpClient) : Downloader() {
 
     @Throws(IOException::class, ReCaptchaException::class)
     override fun execute(request: Request): Response {
@@ -46,7 +42,7 @@ class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
             }
         }
 
-        val response = client.newCall(requestBuilder.build()).execute()
+        val response = clientProvider().newCall(requestBuilder.build()).execute()
 
         if (response.code == 429) {
             response.close()
@@ -64,8 +60,8 @@ class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
 
 object NewPipeUtils {
 
-    init {
-        NewPipe.init(NewPipeDownloaderImpl(Innertube.proxy))
+    fun init(clientProvider: () -> OkHttpClient) {
+        NewPipe.init(NewPipeDownloaderImpl(clientProvider))
     }
 
     fun getSignatureTimestamp(videoId: String): Result<Int> = runCatching {

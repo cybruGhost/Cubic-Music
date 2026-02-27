@@ -67,74 +67,74 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import app.kreate.android.R
-import it.fast4x.rimusic.Database
-import it.fast4x.rimusic.LocalPlayerServiceBinder
-import it.fast4x.rimusic.cleanPrefix
-import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.ColorPaletteMode
-import it.fast4x.rimusic.enums.ColorPaletteName
-import it.fast4x.rimusic.enums.PlayerBackgroundColors
-import it.fast4x.rimusic.enums.PlayerType
-import it.fast4x.rimusic.enums.QueueLoopType
-import it.fast4x.rimusic.enums.SongsNumber
-import it.fast4x.rimusic.typography
-import it.fast4x.rimusic.ui.components.LocalMenuState
-import it.fast4x.rimusic.ui.components.themed.AddToPlaylistPlayerMenu
-import it.fast4x.rimusic.ui.components.themed.DownloadStateIconButton
-import it.fast4x.rimusic.ui.components.themed.IconButton
-import it.fast4x.rimusic.ui.components.themed.PlayerMenu
-import it.fast4x.rimusic.utils.DisposableListener
-import it.fast4x.rimusic.utils.actionspacedevenlyKey
-import it.fast4x.rimusic.utils.addNext
-import it.fast4x.rimusic.utils.blackgradientKey
-import it.fast4x.rimusic.utils.colorPaletteModeKey
-import it.fast4x.rimusic.utils.colorPaletteNameKey
-import it.fast4x.rimusic.utils.conditional
-import it.fast4x.rimusic.utils.disableScrollingTextKey
-import it.fast4x.rimusic.utils.effectRotationKey
-import it.fast4x.rimusic.utils.expandedplayertoggleKey
-import it.fast4x.rimusic.utils.getDownloadState
-import it.fast4x.rimusic.utils.isDownloadedSong
-import it.fast4x.rimusic.utils.isLandscape
-import it.fast4x.rimusic.utils.manageDownload
-import it.fast4x.rimusic.utils.mediaItems
-import it.fast4x.rimusic.utils.miniQueueExpandedKey
-import it.fast4x.rimusic.utils.playAtIndex
-import it.fast4x.rimusic.utils.playerBackgroundColorsKey
-import it.fast4x.rimusic.utils.playerTypeKey
-import it.fast4x.rimusic.utils.playlistindicatorKey
-import it.fast4x.rimusic.utils.rememberPreference
-import it.fast4x.rimusic.utils.semiBold
-import it.fast4x.rimusic.utils.showButtonPlayerAddToPlaylistKey
-import it.fast4x.rimusic.utils.showButtonPlayerArrowKey
-import it.fast4x.rimusic.utils.showButtonPlayerDiscoverKey
-import it.fast4x.rimusic.utils.showButtonPlayerDownloadKey
-import it.fast4x.rimusic.utils.showButtonPlayerLoopKey
-import it.fast4x.rimusic.utils.showButtonPlayerLyricsKey
-import it.fast4x.rimusic.utils.showButtonPlayerMenuKey
-import it.fast4x.rimusic.utils.showButtonPlayerShuffleKey
-import it.fast4x.rimusic.utils.showButtonPlayerSleepTimerKey
-import it.fast4x.rimusic.utils.showButtonPlayerStartRadioKey
-import it.fast4x.rimusic.utils.showButtonPlayerSystemEqualizerKey
-import it.fast4x.rimusic.utils.showButtonPlayerVideoKey
-import it.fast4x.rimusic.utils.showNextSongsInPlayerKey
-import it.fast4x.rimusic.utils.showPlaybackSpeedButtonKey
-import it.fast4x.rimusic.utils.showalbumcoverKey
-import it.fast4x.rimusic.utils.showlyricsthumbnailKey
-import it.fast4x.rimusic.utils.showsongsKey
-import it.fast4x.rimusic.utils.showthumbnailKey
-import it.fast4x.rimusic.utils.shuffleQueue
-import it.fast4x.rimusic.utils.swipeUpQueueKey
-import it.fast4x.rimusic.utils.tapqueueKey
-import it.fast4x.rimusic.utils.textoutlineKey
-import it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
-import it.fast4x.rimusic.utils.visualizerEnabledKey
+import app.it.fast4x.rimusic.Database
+import app.it.fast4x.rimusic.LocalPlayerServiceBinder
+import app.it.fast4x.rimusic.cleanPrefix
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.enums.ColorPaletteMode
+import app.it.fast4x.rimusic.enums.ColorPaletteName
+import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
+import app.it.fast4x.rimusic.enums.PlayerType
+import app.it.fast4x.rimusic.enums.QueueLoopType
+import app.it.fast4x.rimusic.enums.SongsNumber
+import app.it.fast4x.rimusic.typography
+import app.it.fast4x.rimusic.ui.components.LocalMenuState
+import app.it.fast4x.rimusic.ui.components.themed.AddToPlaylistPlayerMenu
+import app.it.fast4x.rimusic.ui.components.themed.DownloadStateIconButton
+import app.it.fast4x.rimusic.ui.components.themed.IconButton
+import app.it.fast4x.rimusic.ui.components.themed.PlayerMenu
+import app.it.fast4x.rimusic.utils.DisposableListener
+import app.it.fast4x.rimusic.utils.actionspacedevenlyKey
+import app.it.fast4x.rimusic.utils.addNext
+import app.it.fast4x.rimusic.utils.blackgradientKey
+import app.it.fast4x.rimusic.utils.colorPaletteModeKey
+import app.it.fast4x.rimusic.utils.colorPaletteNameKey
+import app.it.fast4x.rimusic.utils.conditional
+import app.it.fast4x.rimusic.utils.disableScrollingTextKey
+import app.it.fast4x.rimusic.utils.effectRotationKey
+import app.it.fast4x.rimusic.utils.expandedplayertoggleKey
+import app.it.fast4x.rimusic.utils.getDownloadState
+import app.it.fast4x.rimusic.utils.isDownloadedSong
+import app.it.fast4x.rimusic.utils.isLandscape
+import app.it.fast4x.rimusic.utils.manageDownload
+import app.it.fast4x.rimusic.utils.mediaItems
+import app.it.fast4x.rimusic.utils.miniQueueExpandedKey
+import app.it.fast4x.rimusic.utils.playAtIndex
+import app.it.fast4x.rimusic.utils.playerBackgroundColorsKey
+import app.it.fast4x.rimusic.utils.playerTypeKey
+import app.it.fast4x.rimusic.utils.playlistindicatorKey
+import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.utils.showButtonPlayerAddToPlaylistKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerArrowKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerDiscoverKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerDownloadKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerLoopKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerLyricsKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerMenuKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerShuffleKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerSleepTimerKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerStartRadioKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerSystemEqualizerKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerVideoKey
+import app.it.fast4x.rimusic.utils.showNextSongsInPlayerKey
+import app.it.fast4x.rimusic.utils.showPlaybackSpeedButtonKey
+import app.it.fast4x.rimusic.utils.showalbumcoverKey
+import app.it.fast4x.rimusic.utils.showlyricsthumbnailKey
+import app.it.fast4x.rimusic.utils.showsongsKey
+import app.it.fast4x.rimusic.utils.showthumbnailKey
+import app.it.fast4x.rimusic.utils.shuffleQueue
+import app.it.fast4x.rimusic.utils.swipeUpQueueKey
+import app.it.fast4x.rimusic.utils.tapqueueKey
+import app.it.fast4x.rimusic.utils.textoutlineKey
+import app.it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
+import app.it.fast4x.rimusic.utils.visualizerEnabledKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import me.knighthat.coil.ImageCacheFactory
-import me.knighthat.component.player.PlaybackSpeed
-import me.knighthat.utils.Toaster
+import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import app.kreate.android.me.knighthat.component.player.PlaybackSpeed
+import app.kreate.android.me.knighthat.utils.Toaster
 
 private class PagerViewPort(
     private val showSongsState: MutableState<SongsNumber>,
@@ -263,13 +263,21 @@ fun BoxScope.ActionBar(
                         }
                     }
 
+                   // Instant update and snap when the queue itself changes
                     LaunchedEffect( binder.player.mediaItems ) {
                         mediaItems.clear()
                         mediaItems.addAll( binder.player.mediaItems )
 
-                        pagerStateQueue.requestScrollToPage(
-                            nextIndex.coerceIn( 0, pagerStateQueue.pageCount.coerceAtLeast(1) )
-                        )
+                       val targetPage = nextIndex.coerceIn( 0, pagerStateQueue.pageCount.coerceAtLeast(1) - 1 )
+                        pagerStateQueue.requestScrollToPage(targetPage)
+                    }
+
+                    // Smooth slide when only the track skips
+                    LaunchedEffect( nextIndex ) {
+                        if (pagerStateQueue.pageCount > 0) {
+                            val targetPage = nextIndex.coerceIn(0, pagerStateQueue.pageCount - 1)
+                            pagerStateQueue.animateScrollToPage(targetPage)
+                        }
                     }
 
                     Row(

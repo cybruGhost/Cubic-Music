@@ -30,8 +30,8 @@ import androidx.glance.text.Text
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
 import app.kreate.android.drawable.APP_ICON_BITMAP
-import it.fast4x.rimusic.MainActivity
-import it.fast4x.rimusic.cleanPrefix
+import app.it.fast4x.rimusic.MainActivity
+import app.it.fast4x.rimusic.cleanPrefix
 import java.io.File
 
 sealed class Widget : GlanceAppWidget() {

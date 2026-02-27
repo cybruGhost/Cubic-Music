@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.items
+package app.it.fast4x.rimusic.items
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import it.fast4x.rimusic.styling.Dimensions
+import app.it.fast4x.rimusic.styling.Dimensions
 
 @Composable
 inline fun ItemContainer(

@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.utils
+package app.it.fast4x.rimusic.utils
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -6,7 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
-import it.fast4x.rimusic.enums.ThumbnailRoundness
+import app.it.fast4x.rimusic.enums.ThumbnailRoundness
 import org.jetbrains.compose.resources.painterResource
 import rimusic.composeapp.generated.resources.Res
 import rimusic.composeapp.generated.resources.loader

@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.components
+package app.it.fast4x.rimusic.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,8 +20,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import it.fast4x.rimusic.enums.ThumbnailRoundness
-import it.fast4x.rimusic.thumbnail
+import app.it.fast4x.rimusic.enums.ThumbnailRoundness
+import app.it.fast4x.rimusic.thumbnail
 import org.jetbrains.compose.resources.painterResource
 import rimusic.composeapp.generated.resources.Res
 import rimusic.composeapp.generated.resources.loader

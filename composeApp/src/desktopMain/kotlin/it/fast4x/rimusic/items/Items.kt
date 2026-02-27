@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.items
+package app.it.fast4x.rimusic.items
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -39,13 +39,13 @@ import coil3.compose.AsyncImage
 import database.entities.Album
 import database.entities.SongEntity
 import it.fast4x.innertube.Innertube
-import it.fast4x.rimusic.MONTHLY_PREFIX
-import it.fast4x.rimusic.PINNED_PREFIX
-import it.fast4x.rimusic.PIPED_PREFIX
-import it.fast4x.rimusic.cleanPrefix
-import it.fast4x.rimusic.enums.ThumbnailRoundness
-import it.fast4x.rimusic.utils.LoadImage
-import it.fast4x.rimusic.utils.getTitleMonthlyPlaylist
+import app.it.fast4x.rimusic.MONTHLY_PREFIX
+import app.it.fast4x.rimusic.PINNED_PREFIX
+import app.it.fast4x.rimusic.PIPED_PREFIX
+import app.it.fast4x.rimusic.cleanPrefix
+import app.it.fast4x.rimusic.enums.ThumbnailRoundness
+import app.it.fast4x.rimusic.utils.LoadImage
+import app.it.fast4x.rimusic.utils.getTitleMonthlyPlaylist
 import org.jetbrains.compose.resources.painterResource
 import rimusic.composeapp.generated.resources.Res
 import rimusic.composeapp.generated.resources.pin

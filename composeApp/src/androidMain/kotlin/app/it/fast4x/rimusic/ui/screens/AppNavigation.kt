@@ -1,0 +1,507 @@
+package app.it.fast4x.rimusic.ui.screens
+
+import android.net.Uri
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkOut
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Surface
+import app.kreate.android.themed.rimusic.screen.artist.ArtistVideos
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.media3.common.util.UnstableApi
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import app.kreate.android.themed.rimusic.screen.artist.ArtistAlbums
+import app.it.fast4x.rimusic.Database
+import app.it.fast4x.rimusic.enums.NavRoutes
+import app.it.fast4x.rimusic.enums.StatisticsType
+import app.it.fast4x.rimusic.enums.ThumbnailRoundness
+import app.it.fast4x.rimusic.enums.TransitionEffect
+import app.it.fast4x.rimusic.extensions.games.pacman.Pacman
+import app.it.fast4x.rimusic.extensions.games.snake.SnakeGame
+import app.it.fast4x.rimusic.models.Mood
+import app.it.fast4x.rimusic.models.SearchQuery
+import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
+import app.it.fast4x.rimusic.ui.screens.album.AlbumScreen
+import app.it.fast4x.rimusic.ui.screens.artist.ArtistScreenModern
+import app.it.fast4x.rimusic.ui.screens.history.HistoryScreen
+import app.it.fast4x.rimusic.ui.screens.home.HomeScreen
+import app.it.fast4x.rimusic.ui.screens.localplaylist.LocalPlaylistScreen
+import app.it.fast4x.rimusic.ui.screens.mood.MoodScreen
+import app.it.fast4x.rimusic.ui.screens.mood.MoodsPageScreen
+import app.it.fast4x.rimusic.ui.screens.newreleases.NewreleasesScreen
+import app.it.fast4x.rimusic.ui.screens.player.Queue
+import app.it.fast4x.rimusic.ui.screens.playlist.PlaylistScreen
+import app.it.fast4x.rimusic.ui.screens.podcast.PodcastScreen
+import app.it.fast4x.rimusic.ui.screens.rewind.RewindScreen
+import app.it.fast4x.rimusic.ui.screens.donate.DonateScreen
+import app.it.fast4x.rimusic.ui.screens.search.SearchScreen
+import app.it.fast4x.rimusic.ui.screens.searchresult.SearchResultScreen
+import app.it.fast4x.rimusic.ui.screens.settings.SettingsScreen
+import app.it.fast4x.rimusic.ui.screens.statistics.StatisticsScreen
+import app.it.fast4x.rimusic.utils.clearPreference
+import app.it.fast4x.rimusic.utils.homeScreenTabIndexKey
+import app.it.fast4x.rimusic.utils.pauseSearchHistoryKey
+import app.it.fast4x.rimusic.utils.preferences
+import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.thumbnailRoundnessKey
+import app.it.fast4x.rimusic.utils.transitionEffectKey
+import app.it.fast4x.rimusic.ui.screens.welcome.WelcomeScreen
+import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamManager
+import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamScreen
+import androidx.compose.runtime.remember
+import android.content.Context
+// i should add this import at the top of your AppNavigation.kt file
+import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamWebView
+import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamSwipeScreen
+
+
+
+
+@androidx.annotation.OptIn()
+@OptIn(
+    ExperimentalFoundationApi::class,
+    ExperimentalAnimationApi::class,
+    ExperimentalTextApi::class,
+    ExperimentalComposeUiApi::class,
+    ExperimentalMaterial3Api::class,
+)
+@UnstableApi
+@Composable
+fun AppNavigation(
+    navController: NavHostController,
+    miniPlayer: @Composable () -> Unit = {},
+    openTabFromShortcut: Int
+) {
+    val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
+
+    @Composable
+    fun modalBottomSheetPage(content: @Composable () -> Unit) {
+        var showSheet by rememberSaveable { mutableStateOf(true) }
+        val thumbnailRoundness by rememberPreference(
+            thumbnailRoundnessKey,
+            ThumbnailRoundness.Heavy
+        )
+
+        CustomModalBottomSheet(
+            showSheet = showSheet,
+            onDismissRequest = {
+                if (navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED)
+                    navController.popBackStack()
+            },
+            containerColor = Color.Transparent,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            dragHandle = {
+                Surface(
+                    modifier = Modifier.padding(vertical = 0.dp),
+                    color = Color.Transparent,
+                ) {}
+            },
+            shape = thumbnailRoundness.shape
+        ) {
+            content()
+        }
+    }
+
+    // Clearing homeScreenTabIndex in opening app.
+    val context = LocalContext.current
+    clearPreference(context, homeScreenTabIndexKey)
+
+    val enterTransition: (@JvmSuppressWildcards AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
+        {
+            when (transitionEffect) {
+                TransitionEffect.None -> EnterTransition.None
+                TransitionEffect.Expand -> expandIn(animationSpec = tween(350, easing = LinearOutSlowInEasing), expandFrom = Alignment.TopStart)
+                TransitionEffect.Fade -> fadeIn(animationSpec = tween(350))
+                TransitionEffect.Scale -> scaleIn(animationSpec = tween(350))
+                TransitionEffect.SlideVertical -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up)
+                TransitionEffect.SlideHorizontal -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left)
+            }
+        }
+    val exitTransition: (@JvmSuppressWildcards AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
+        {
+            when (transitionEffect) {
+                TransitionEffect.None -> ExitTransition.None
+                TransitionEffect.Expand -> shrinkOut(animationSpec = tween(350, easing = FastOutSlowInEasing),shrinkTowards = Alignment.TopStart)
+                TransitionEffect.Fade -> fadeOut(animationSpec = tween(350))
+                TransitionEffect.Scale -> scaleOut(animationSpec = tween(350))
+                TransitionEffect.SlideVertical -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down)
+                TransitionEffect.SlideHorizontal -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right)
+            }
+        }
+
+    NavHost(
+        navController = navController,
+        startDestination = NavRoutes.welcome.name,
+        enterTransition = enterTransition,
+        exitTransition = exitTransition,
+        popEnterTransition = enterTransition,
+        popExitTransition = exitTransition
+    ) {
+        val navigateToPlaylist =
+            { browseId: String -> navController.navigate("${NavRoutes.playlist.name}/$browseId") }
+
+        composable(route = NavRoutes.home.name) {
+            HomeScreen(
+                navController = navController,
+                onPlaylistUrl = navigateToPlaylist,
+                miniPlayer = miniPlayer,
+                openTabFromShortcut = openTabFromShortcut
+            )
+        }
+        composable(route = NavRoutes.welcome.name) {
+            WelcomeScreen(navController = navController)
+        }
+        composable(route = NavRoutes.gamePacman.name) {
+            modalBottomSheetPage {
+                Pacman()
+            }
+        }
+
+        composable(route = NavRoutes.gameSnake.name) {
+            modalBottomSheetPage {
+                SnakeGame()
+            }
+        }
+
+        composable(route = NavRoutes.queue.name) {
+            modalBottomSheetPage {
+                Queue(
+                    navController = navController,
+                    onDismiss = {},
+                    onDiscoverClick = {}
+                )
+            }
+        }
+
+        composable(
+            route = "${NavRoutes.artist.name}/{id}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = { type = NavType.StringType }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getString("id") ?: ""
+            ArtistScreenModern(
+                navController = navController,
+                browseId = id,
+                miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.album.name}/{id}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = { type = NavType.StringType }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getString("id") ?: ""
+            AlbumScreen(
+                navController = navController,
+                browseId = id,
+                miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.playlist.name}/{id}?params={params}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = {
+                        type = NavType.StringType
+                    }
+                ),
+                navArgument(
+                    name = "params",
+                    builder = {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getString("id") ?: ""
+            val params = navBackStackEntry.arguments?.getString( "params" )
+            PlaylistScreen(
+                navController = navController,
+                browseId = id,
+                params = params,
+                miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.podcast.name}/{id}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = { type = NavType.StringType }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getString("id") ?: ""
+            PodcastScreen(
+                navController = navController,
+                browseId = id,
+                params = null,
+                miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(route = NavRoutes.settings.name) {
+            SettingsScreen(
+                navController = navController,
+                miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(route = NavRoutes.statistics.name) {
+            StatisticsScreen(
+                navController = navController,
+                statisticsType = StatisticsType.Today,
+                miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(route = NavRoutes.history.name) {
+            HistoryScreen(
+                navController = navController,
+                miniPlayer = miniPlayer,
+            )
+        }
+// Cubic Jam Main Screen
+composable(route = NavRoutes.cubicjam.name) {
+    val context = LocalContext.current
+    val cubicJamManager = remember {
+        CubicJamManager(
+            context = context,
+            getToken = {
+                context.getSharedPreferences(
+                    "cubic_jam_prefs",
+                    Context.MODE_PRIVATE
+                ).getString("bearer_token", null)
+            }
+        )
+    }
+
+    CubicJamScreen(
+        navController = navController,
+        cubicJamManager = cubicJamManager
+    )
+}
+
+// Cubic Jam WebView Screen with URL parameter
+composable(
+    route = "${NavRoutes.cubicjam_web.name}?url={url}",
+    arguments = listOf(
+        navArgument("url") {
+            type = NavType.StringType
+            defaultValue = "https://jam-wave-connect.lovable.app/feed"
+            nullable = true
+        }
+    )
+) { backStackEntry ->
+    val url = backStackEntry.arguments?.getString("url")
+        ?: "https://jam-wave-connect.lovable.app/feed"
+
+    CubicJamWebView(
+        navController = navController,
+        initialUrl = url
+    )
+}
+
+        // Add Rewind screen here
+        composable(route = NavRoutes.rewind.name) {
+            RewindScreen(
+                navController = navController,
+                miniPlayer = miniPlayer,
+            )
+        }
+  // Fixed Donate screen 
+        composable(route = NavRoutes.donate.name) {
+            DonateScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.search.name}?text={text}",
+            arguments = listOf(
+                navArgument(
+                    name = "text",
+                    builder = {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            )
+        ) { navBackStackEntry ->
+            val text = navBackStackEntry.arguments?.getString("text") ?: ""
+
+            SearchScreen(
+                navController = navController,
+                miniPlayer = miniPlayer,
+                initialTextInput = text,
+                onViewPlaylist = {},
+                onSearch = { query ->
+                    println("onSearch: $query")
+
+                    navController.navigate(
+                        route = "${NavRoutes.searchResults.name}/${Uri.encode( query )}",
+                    )
+
+                    if ( !context.preferences.getBoolean(pauseSearchHistoryKey, false) )
+                        Database.asyncTransaction {
+                            // Must ignore to prevent "UNIQUE constraint" exception
+                            searchTable.insertIgnore( SearchQuery(query = query) )
+                        }
+                },
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.searchResults.name}/{query}",
+            arguments = listOf(
+                navArgument(
+                    name = "query",
+                    builder = { type = NavType.StringType }
+                )
+            )
+        ) { navBackStackEntry ->
+            val query = navBackStackEntry.arguments?.getString("query") ?: ""
+
+            SearchResultScreen(
+                navController = navController,
+                miniPlayer = miniPlayer,
+                query = query,
+                onSearchAgain = {}
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.localPlaylist.name}/{id}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = { type = NavType.LongType }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getLong("id") ?: 0L
+
+            LocalPlaylistScreen(
+                navController = navController,
+                playlistId = id,
+                miniPlayer = miniPlayer
+            )
+        }
+
+        composable(
+            route = NavRoutes.mood.name,
+        ) { navBackStackEntry ->
+            val mood: Mood? = navController.previousBackStackEntry?.savedStateHandle?.get("mood")
+            if (mood != null) {
+                MoodScreen(
+                    navController = navController,
+                    mood = mood,
+                    miniPlayer = miniPlayer,
+                )
+            }
+        }
+
+        composable(
+            route = NavRoutes.moodsPage.name
+        ) { navBackStackEntry ->
+            MoodsPageScreen(
+                navController = navController
+            )
+        }
+
+        composable(
+            route = NavRoutes.newAlbums.name
+        ) { navBackStackEntry ->
+            NewreleasesScreen(
+                navController = navController,
+                miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.artistAlbums.name}/{id}?params={params}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = { type = NavType.StringType }
+                ),
+                navArgument(
+                    name = "params",
+                    builder = {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getString("id").orEmpty()
+            val params = navBackStackEntry.arguments?.getString("params").orEmpty()
+
+            ArtistAlbums( navController, id, params, miniPlayer )
+        }
+                composable(
+            route = "${NavRoutes.artistVideos.name}/{id}?params={params}",
+            arguments = listOf(
+                navArgument(
+                    name = "id",
+                    builder = { type = NavType.StringType }
+                ),
+                navArgument(
+                    name = "params",
+                    builder = {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            )
+        ) { navBackStackEntry ->
+            val id = navBackStackEntry.arguments?.getString("id").orEmpty()
+            val params = navBackStackEntry.arguments?.getString("params").orEmpty()
+
+            ArtistVideos( navController, id, params, miniPlayer )
+        }
+    }
+}

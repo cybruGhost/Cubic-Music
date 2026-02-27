@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.screens
+package app.it.fast4x.rimusic.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -44,23 +44,23 @@ import database.entities.Song
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.bodies.BrowseBody
 import it.fast4x.innertube.requests.playlistPage
-import it.fast4x.rimusic.EXPLICIT_PREFIX
-import it.fast4x.rimusic.items.AlbumItem
-import it.fast4x.rimusic.items.SongItem
-import it.fast4x.rimusic.styling.Dimensions.albumThumbnailSize
-import it.fast4x.rimusic.styling.Dimensions.fadeSpacingBottom
-import it.fast4x.rimusic.styling.Dimensions.fadeSpacingTop
-import it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomSpacer
-import it.fast4x.rimusic.ui.components.AutoResizeText
-import it.fast4x.rimusic.ui.components.FontSizeRange
-import it.fast4x.rimusic.ui.components.Loader
-import it.fast4x.rimusic.ui.components.Title
-import it.fast4x.rimusic.utils.asSong
-import it.fast4x.rimusic.utils.fadingEdge
-import it.fast4x.rimusic.utils.getHttpClient
-import it.fast4x.rimusic.utils.languageDestination
-import it.fast4x.rimusic.utils.resize
-import it.fast4x.rimusic.utils.completed
+import app.it.fast4x.rimusic.EXPLICIT_PREFIX
+import app.it.fast4x.rimusic.items.AlbumItem
+import app.it.fast4x.rimusic.items.SongItem
+import app.it.fast4x.rimusic.styling.Dimensions.albumThumbnailSize
+import app.it.fast4x.rimusic.styling.Dimensions.fadeSpacingBottom
+import app.it.fast4x.rimusic.styling.Dimensions.fadeSpacingTop
+import app.it.fast4x.rimusic.styling.Dimensions.layoutColumnBottomSpacer
+import app.it.fast4x.rimusic.ui.components.AutoResizeText
+import app.it.fast4x.rimusic.ui.components.FontSizeRange
+import app.it.fast4x.rimusic.ui.components.Loader
+import app.it.fast4x.rimusic.ui.components.Title
+import app.it.fast4x.rimusic.utils.asSong
+import app.it.fast4x.rimusic.utils.fadingEdge
+import app.it.fast4x.rimusic.utils.getHttpClient
+import app.it.fast4x.rimusic.utils.languageDestination
+import app.it.fast4x.rimusic.utils.resize
+import app.it.fast4x.rimusic.utils.completed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.bush.translator.Language
@@ -150,7 +150,7 @@ fun PlaylistScreen(
 
                     playlistPage?.let {
                         AsyncImage(
-                            model = playlistPage!!.thumbnail?.url?.resize(1200, 1200),
+                             model = playlistPage!!.thumbnail?.url?.resize(1000, 1000),
                             contentDescription = "loading...",
                             modifier = Modifier
                                 .fillMaxWidth()

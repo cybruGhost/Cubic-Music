@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.screens
+package app.it.fast4x.rimusic.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

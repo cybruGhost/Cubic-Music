@@ -1,7 +1,7 @@
-package it.fast4x.rimusic.utils
+package app.it.fast4x.rimusic.utils
 
 import io.ktor.http.Url
-import it.fast4x.rimusic.models.PipedSession
+import app.it.fast4x.rimusic.models.PipedSession
 
 /*
 fun getPipedSession(): PipedSession {

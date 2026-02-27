@@ -25,24 +25,24 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.BrowseResponse
 import it.fast4x.innertube.models.GridRenderer
 import it.fast4x.innertube.utils.from
-import it.fast4x.rimusic.colorPalette
-import it.fast4x.rimusic.enums.NavRoutes
-import it.fast4x.rimusic.ui.components.Skeleton
-import it.fast4x.rimusic.ui.components.Skeleton
-import it.fast4x.rimusic.ui.components.themed.Loader
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.enums.NavRoutes
+import app.it.fast4x.rimusic.ui.components.Skeleton
+import app.it.fast4x.rimusic.ui.components.Skeleton
+import app.it.fast4x.rimusic.ui.components.themed.Loader
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 
-import it.fast4x.rimusic.ui.items.AlbumItem
-import it.fast4x.rimusic.ui.styling.Dimensions
-import it.fast4x.rimusic.ui.styling.px
-import it.fast4x.rimusic.utils.disableScrollingTextKey
-import it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.ui.items.AlbumItem
+import app.it.fast4x.rimusic.ui.styling.Dimensions
+import app.it.fast4x.rimusic.ui.styling.px
+import app.it.fast4x.rimusic.utils.disableScrollingTextKey
+import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import me.knighthat.utils.Toaster
+import app.kreate.android.me.knighthat.utils.Toaster
 
 @ExperimentalMaterial3Api
 @Composable

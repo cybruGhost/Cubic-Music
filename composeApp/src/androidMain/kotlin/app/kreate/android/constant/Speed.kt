@@ -1,7 +1,7 @@
 package app.kreate.android.constant
 
 import androidx.compose.runtime.Composable
-import me.knighthat.enums.TextView
+import app.kreate.android.me.knighthat.enums.TextView
 
 enum class Speed(
     private val _text: String,

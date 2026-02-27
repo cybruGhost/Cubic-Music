@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.components
+package app.it.fast4x.rimusic.ui.components
 
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text

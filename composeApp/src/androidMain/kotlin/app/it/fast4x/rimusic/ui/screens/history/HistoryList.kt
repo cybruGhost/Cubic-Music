@@ -1,0 +1,323 @@
+package app.it.fast4x.rimusic.ui.screens.history
+
+import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastDistinctBy
+import androidx.media3.common.util.UnstableApi
+import androidx.navigation.NavController
+import app.kreate.android.R
+import app.it.fast4x.compose.persist.persist
+import it.fast4x.innertube.YtMusic
+import it.fast4x.innertube.requests.HistoryPage
+import app.it.fast4x.rimusic.Database
+import app.it.fast4x.rimusic.EXPLICIT_PREFIX
+import app.it.fast4x.rimusic.LocalPlayerAwareWindowInsets
+import app.it.fast4x.rimusic.LocalPlayerServiceBinder
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.enums.HistoryType
+import app.it.fast4x.rimusic.enums.NavigationBarPosition
+import app.it.fast4x.rimusic.models.Event
+import app.it.fast4x.rimusic.thumbnailShape
+import app.it.fast4x.rimusic.ui.components.ButtonsRow
+import app.it.fast4x.rimusic.ui.components.LocalMenuState
+import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
+import app.it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
+import app.it.fast4x.rimusic.ui.components.themed.Loader
+import app.it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemMenuLibrary
+import app.it.fast4x.rimusic.ui.components.themed.Title
+import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
+import app.it.fast4x.rimusic.ui.styling.Dimensions
+import app.it.fast4x.rimusic.ui.styling.favoritesIcon
+import app.it.fast4x.rimusic.utils.addNext
+import app.it.fast4x.rimusic.utils.asMediaItem
+import app.it.fast4x.rimusic.utils.asSong
+import app.it.fast4x.rimusic.utils.disableScrollingTextKey
+import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.forcePlay
+import app.it.fast4x.rimusic.utils.historyTypeKey
+import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
+import app.it.fast4x.rimusic.utils.rememberPreference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import app.kreate.android.me.knighthat.component.tab.Search
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+@kotlin.OptIn(ExperimentalTextApi::class)
+@OptIn(UnstableApi::class)
+@ExperimentalFoundationApi
+@ExperimentalAnimationApi
+@Composable
+fun HistoryList(
+    navController: NavController
+) {
+    val context = LocalContext.current
+    val binder = LocalPlayerServiceBinder.current
+    val menuState = LocalMenuState.current
+    val lazyListState = rememberLazyListState()
+
+    val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
+
+    val search = Search(lazyListState)
+
+    val events by remember {
+        Database.eventTable
+                .allWithSong()
+                .distinctUntilChanged()
+                .map { list ->
+                    val today = java.time.LocalDate.now()
+                    val yesterday = today.minusDays(1)
+                    list.filter { !parentalControlEnabled || it.song.title.startsWith( EXPLICIT_PREFIX, true ) }
+                        .reversed()
+                        .groupBy {
+                            val eventDate = java.time.Instant.ofEpochMilli(it.event.timestamp)
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toLocalDate()
+                            when {
+                                eventDate.isEqual(today) -> context.getString(R.string.today)
+                                eventDate.isEqual(yesterday) -> context.getString(R.string.yesterday)
+                                eventDate.isAfter(today.minusWeeks(1)) -> context.getString(R.string.last_week)
+                                eventDate.isAfter(today.minusWeeks(2)) -> context.getString(R.string.last_week)
+                                else -> SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(Date(it.event.timestamp))
+                            }
+                        }
+                }
+    }.collectAsState( emptyMap(), Dispatchers.IO )
+
+    val buttonsList = mutableListOf(HistoryType.History to stringResource(R.string.history))
+    buttonsList += HistoryType.YTMHistory to stringResource(R.string.yt_history)
+
+    var historyType by rememberPreference(historyTypeKey, HistoryType.History)
+
+    var isLocalLoading by remember { mutableStateOf(true) }
+    var isYTMLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(events) {
+        if (events.isNotEmpty()) {
+            isLocalLoading = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(1500)
+        isLocalLoading = false
+    }
+
+    var historyPage by persist<Result<HistoryPage>>("home/history/pageResult")
+    LaunchedEffect(historyType) {
+        if (historyType == HistoryType.YTMHistory && isYouTubeLoggedIn()) {
+            isYTMLoading = true
+            historyPage = YtMusic.getHistory()
+            isYTMLoading = false
+        }
+    }
+
+    Column (
+        modifier = Modifier
+            .background(colorPalette().background0)
+            .fillMaxHeight()
+            .fillMaxWidth(
+                if( NavigationBarPosition.Right.isCurrent() )
+                    Dimensions.contentWidthRightBar
+                else
+                    1f
+            )
+    ) {
+        HeaderWithIcon(
+            title = stringResource(R.string.history),
+            iconId = R.drawable.history,
+            enabled = false,
+            showIcon = false,
+            modifier = Modifier,
+            onClick = {}
+        )
+
+        Row(
+            modifier = Modifier
+                .padding(start = 12.dp, end = 12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ButtonsRow(
+                chips = buttonsList,
+                currentValue = historyType,
+                onValueUpdate = { historyType = it },
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = { search.isVisible = !search.isVisible },
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.search_circle),
+                    contentDescription = stringResource(R.string.search),
+                    tint = colorPalette().favoritesIcon
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = search.isVisible,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            search.SearchBar(this@Column)
+        }
+
+        val isLoading = when (historyType) {
+            HistoryType.History -> isLocalLoading && events.isEmpty()
+            HistoryType.YTMHistory -> isYTMLoading || (historyPage == null && isYouTubeLoggedIn())
+        }
+
+        if (isLoading) {
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Loader()
+            }
+        } else {
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = LocalPlayerAwareWindowInsets.current
+                    .only(WindowInsetsSides.Vertical + WindowInsetsSides.End).asPaddingValues(),
+                modifier = Modifier
+                    .background(colorPalette().background0)
+                    .fillMaxSize()
+            ) {
+                if (historyType == HistoryType.History) {
+                    events.forEach { (headerStr, details) ->
+                        stickyHeader {
+                            Title(
+                                title = headerStr,
+                                modifier = Modifier.background(
+                                    color = colorPalette().background3,
+                                    shape = thumbnailShape()
+                                )
+                            )
+                        }
+
+                        items(
+                            items = details.fastDistinctBy { it.song.id }
+                                .filter { event ->
+                                    event.song.title.contains(search.inputValue, ignoreCase = true) ||
+                                            (event.song.artistsText ?: "").contains(search.inputValue, ignoreCase = true)
+                                },
+                            key = { it.event.id }
+                        ) { event ->
+                            SwipeablePlaylistItem(
+                                mediaItem = event.song.asMediaItem,
+                                onPlayNext = {
+                                    binder?.player?.addNext(event.song.asMediaItem)
+                                },
+                                onEnqueue = {
+                                    binder?.player?.enqueue(event.song.asMediaItem)
+                                }
+                            ) {
+                                app.kreate.android.me.knighthat.component.SongItem(
+                                    song = event.song,
+                                    navController = navController,
+                                    modifier = Modifier,
+
+                                    onClick = {
+                                        binder?.player?.forcePlay(event.song.asMediaItem)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (historyType == HistoryType.YTMHistory) {
+                    historyPage?.getOrNull()?.sections?.forEach { section ->
+                        stickyHeader {
+                            Title(
+                                title = section.title,
+                                modifier = Modifier.background(
+                                    color = colorPalette().background3,
+                                    shape = thumbnailShape()
+                                )
+                            )
+                        }
+
+                        items(
+                            items = section.songs
+                                .map { it.asMediaItem }
+                                .filter { it.mediaId.isNotEmpty() }
+                                .filter { mediaItem ->
+                                    (mediaItem.mediaMetadata.title ?: "").contains(search.inputValue, ignoreCase = true) ||
+                                            (mediaItem.mediaMetadata.artist ?: "").contains(search.inputValue, ignoreCase = true)
+                                },
+                            key = { it.mediaId }
+                        ) { mediaItem ->
+                            SwipeablePlaylistItem(
+                                mediaItem = mediaItem,
+                                onPlayNext = {
+                                    binder?.player?.addNext(mediaItem)
+                                },
+                                onEnqueue = {
+                                    binder?.player?.enqueue(mediaItem)
+                                }
+                            ) {
+                                app.kreate.android.me.knighthat.component.SongItem(
+                                    song = mediaItem.asSong,
+                                    navController = navController,
+                                    modifier = Modifier,
+
+                                    onClick = {
+                                        binder?.player?.forcePlay(mediaItem)
+                                    },
+                                    onLongClick = {
+                                        menuState.display {
+                                            NonQueuedMediaItemMenuLibrary(
+                                                navController = navController,
+                                                mediaItem = mediaItem,
+                                                onDismiss = menuState::hide,
+                                                disableScrollingText = disableScrollingText
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

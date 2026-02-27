@@ -66,16 +66,22 @@ kotlin {
             */
         }
 
-        androidMain.dependencies {
-            implementation(libs.media3.session)
-            implementation(libs.kotlinx.coroutines.guava)
-            implementation(libs.newpipe.extractor)
-            implementation(libs.nanojson)
-            implementation(libs.androidx.webkit)
-
-            // Related to built-in game, maybe removed in future?
-            implementation(libs.compose.runtime.livedata)
-        }
+      androidMain.dependencies {
+    // OkHttp dependencies
+    implementation(libs.okhttp3.okhttp)
+    implementation(libs.okhttp3.logging.interceptor)
+    
+    // Ktor OkHttp engine (THIS WAS MISSING)
+    implementation(libs.ktor.client.okhttp)
+    
+    // Your existing dependencies
+    implementation(libs.media3.session)
+    implementation(libs.kotlinx.coroutines.guava)
+    implementation(libs.newpipe.extractor)
+    implementation(libs.nanojson)
+    implementation(libs.androidx.webkit)
+    implementation(libs.compose.runtime.livedata)
+}
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -101,7 +107,9 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.coil.mp)
             implementation(libs.coil.network.okhttp)
-
+            // Direct OkHttp dependency
+            implementation("com.squareup.okhttp3:okhttp:5.1.0")
+            implementation("com.squareup.okhttp3:logging-interceptor:5.1.0")
             implementation(libs.translator)
 
         }

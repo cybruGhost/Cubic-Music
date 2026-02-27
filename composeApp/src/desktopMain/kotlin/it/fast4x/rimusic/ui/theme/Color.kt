@@ -1,4 +1,4 @@
-package it.fast4x.rimusic.ui.theme
+package app.it.fast4x.rimusic.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

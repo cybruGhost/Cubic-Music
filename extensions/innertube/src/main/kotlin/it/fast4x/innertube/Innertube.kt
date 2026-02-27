@@ -45,7 +45,6 @@ import it.fast4x.innertube.models.bodies.CreatePlaylistBody
 import it.fast4x.innertube.models.bodies.EditPlaylistBody
 import it.fast4x.innertube.models.bodies.LikeBody
 import it.fast4x.innertube.models.bodies.PlaylistDeleteBody
-import it.fast4x.innertube.models.bodies.PlayerBody
 import it.fast4x.innertube.models.bodies.SubscribeBody
 import it.fast4x.innertube.utils.ProxyPreferences
 import it.fast4x.innertube.utils.YoutubePreferences
@@ -67,7 +66,7 @@ object Innertube {
     const val DEFAULT_VISITOR_DATA = "CgtMN0FkbDFaWERfdyi8t4u7BjIKCgJWThIEGgAgWQ%3D%3D"
 
     @OptIn(ExperimentalSerializationApi::class)
-    val client = HttpClient(OkHttp) {
+      private fun createClient() = HttpClient(OkHttp) {
         expectSuccess = true
 
         install(ContentNegotiation) {
@@ -93,9 +92,10 @@ object Innertube {
             deflate(0.8F)
         }
 
-        ProxyPreferences.preference?.let {
+    val p = proxy ?: ProxyPreferences.preference?.let { getProxy(it) }
+        if (p != null) {
             engine {
-                proxy = getProxy(it)
+                 proxy = p
             }
         }
 
@@ -106,12 +106,14 @@ object Innertube {
             }
         }
     }
+ var client = createClient()
+        private set
 
     var proxy: Proxy? = null
         set(value) {
             field = value
             client.close()
-            client
+            client = createClient()
         }
 
     var locale = YouTubeLocale(
@@ -198,6 +200,20 @@ object Innertube {
         override val key get() = info?.endpoint?.videoId ?: ""
         override val title get() = info?.name
 
+        val isOfficialMusicVideo: Boolean
+            get() = info
+                ?.endpoint
+                ?.watchEndpointMusicSupportedConfigs
+                ?.watchEndpointMusicConfig
+                ?.musicVideoType == "MUSIC_VIDEO_TYPE_OMV"
+
+        val isUserGeneratedContent: Boolean
+            get() = info
+                ?.endpoint
+                ?.watchEndpointMusicSupportedConfigs
+                ?.watchEndpointMusicConfig
+                ?.musicVideoType == "MUSIC_VIDEO_TYPE_UGC"
+
         companion object {
 
             fun parse( plRenderer: PlaylistPanelVideoRenderer ): SongItem {
@@ -282,7 +298,9 @@ object Innertube {
         val info: Info<NavigationEndpoint.Endpoint.Browse>?,
         val authors: List<Info<NavigationEndpoint.Endpoint.Browse>>?,
         val year: String?,
+        val songCount: Int? = null,
         val playlistId: String? = null,
+        val description: String? = null,
         override val thumbnail: Thumbnail?
     ) : Item() {
         override val key get() = info!!.endpoint!!.browseId!!
@@ -295,7 +313,9 @@ object Innertube {
     data class ArtistItem(
         val info: Info<NavigationEndpoint.Endpoint.Browse>?,
         val subscribersCountText: String?,
+        val songCount: Int? = null,
         val channelId: String? = null,
+        val description: String? = null,
         override val thumbnail: Thumbnail?
     ) : Item() {
         override val key get() = info!!.endpoint!!.browseId!!
@@ -310,6 +330,7 @@ object Innertube {
         val channel: Info<NavigationEndpoint.Endpoint.Browse>?,
         val songCount: Int?,
         val isEditable: Boolean?,
+        val description: String? = null,
         override val thumbnail: Thumbnail?
     ) : Item() {
         override val key get() = info!!.endpoint!!.browseId!!
@@ -698,50 +719,6 @@ object Innertube {
         parameter("ctoken", continuation)
         if (continuation != null) {
             parameter("type", "next")
-        }
-    }
-
-    // FIXED PLAYER FUNCTION - SIMPLIFIED VERSION
-    suspend fun player(
-        videoId: String,
-        playlistId: String? = null,
-        params: String? = null,
-        poToken: String? = null
-    ) = client.post(player) {
-        // Use a simple approach - keep using DefaultWeb but add PoToken
-        setLogin(DefaultWeb.client, true)
-        
-        // Check if PlayerBody exists and has the right constructor
-        // If PlayerBody exists, use it; otherwise use a map
-        
-        try {
-            // Try to use PlayerBody if it exists with the right constructor
-            setBody(
-                PlayerBody(
-                    context = Context.DefaultWebWithLocale,
-                    videoId = videoId,
-                    playlistId = playlistId,
-                    params = params
-                    // Note: If PlayerBody doesn't have serviceIntegrityDimensions parameter,
-                    // we need to add it differently
-                )
-            )
-        } catch (e: Exception) {
-            // Fallback to map approach if PlayerBody doesn't work
-            val bodyMap = mutableMapOf<String, Any?>(
-                "context" to Context.DefaultWebWithLocale,
-                "videoId" to videoId
-            )
-            
-            playlistId?.let { bodyMap["playlistId"] = it }
-            params?.let { bodyMap["params"] = it }
-            
-            // Add PoToken if available (YouTube now requires this in player requests)
-            poToken?.let { 
-                bodyMap["serviceIntegrityDimensions"] = mapOf("poToken" to it)
-            }
-            
-            setBody(bodyMap)
         }
     }
 

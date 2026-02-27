@@ -1,0 +1,1003 @@
+package app.it.fast4x.rimusic.ui.screens.settings
+
+import android.annotation.SuppressLint
+import android.webkit.CookieManager
+import android.webkit.WebStorage
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.password
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.media3.common.util.UnstableApi
+import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import io.ktor.http.Url
+import app.it.fast4x.compose.persist.persistList
+import it.fast4x.innertube.utils.parseCookieString
+import it.fast4x.piped.Piped
+import it.fast4x.piped.models.Instance
+import it.fast4x.piped.models.Session
+import app.it.fast4x.rimusic.appContext
+import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.enums.NavigationBarPosition
+import app.it.fast4x.rimusic.enums.ThumbnailRoundness
+import app.it.fast4x.rimusic.extensions.discord.DiscordLoginAndGetToken
+import app.it.fast4x.rimusic.extensions.discord.DiscordPresenceManager
+import app.it.fast4x.rimusic.extensions.youtubelogin.AccountInfoFetcher
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeLogin
+import app.it.fast4x.rimusic.thumbnailShape
+import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
+import app.it.fast4x.rimusic.ui.components.LocalMenuState
+import app.it.fast4x.rimusic.ui.components.themed.DefaultDialog
+import app.it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
+import app.it.fast4x.rimusic.ui.components.themed.Menu
+import app.it.fast4x.rimusic.ui.components.themed.MenuEntry
+
+import app.it.fast4x.rimusic.ui.styling.Dimensions
+import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
+import app.it.fast4x.rimusic.utils.enableYouTubeLoginKey
+import app.it.fast4x.rimusic.utils.enableYouTubeSyncKey
+import app.it.fast4x.rimusic.utils.isAtLeastAndroid7
+import app.it.fast4x.rimusic.utils.isAtLeastAndroid81
+import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
+import app.it.fast4x.rimusic.utils.isPipedCustomEnabledKey
+import app.it.fast4x.rimusic.utils.isPipedEnabledKey
+import app.it.fast4x.rimusic.utils.pipedApiBaseUrlKey
+import app.it.fast4x.rimusic.utils.pipedApiTokenKey
+import app.it.fast4x.rimusic.utils.pipedInstanceNameKey
+import app.it.fast4x.rimusic.utils.pipedPasswordKey
+import app.it.fast4x.rimusic.utils.pipedUsernameKey
+import app.it.fast4x.rimusic.utils.preferences
+import app.it.fast4x.rimusic.utils.rememberEncryptedPreference
+import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.restartActivityKey
+import app.it.fast4x.rimusic.utils.thumbnailRoundnessKey
+import kotlinx.coroutines.launch
+import app.kreate.android.R
+import androidx.compose.material3.Card
+import androidx.compose.ui.graphics.Color
+
+import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.IconButton
+
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+
+import app.kreate.android.me.knighthat.utils.Toaster
+import timber.log.Timber
+import app.it.fast4x.rimusic.typography
+import app.kreate.android.me.knighthat.component.dialog.RestartAppDialog
+
+@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("BatteryLife")
+@ExperimentalAnimationApi
+@Composable
+fun AccountsSettings() {
+    val context = LocalContext.current
+    val thumbnailRoundness by rememberPreference(
+        thumbnailRoundnessKey,
+        ThumbnailRoundness.Heavy
+    )
+    val scope = rememberCoroutineScope()
+
+    var restartActivity by rememberPreference(restartActivityKey, false)
+    var restartService by rememberSaveable { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .background(colorPalette().background0)
+            .fillMaxHeight()
+            .fillMaxWidth(
+                if (NavigationBarPosition.Right.isCurrent())
+                    Dimensions.contentWidthRightBar
+                else
+                    1f
+            )
+            .verticalScroll(rememberScrollState())
+    ) {
+        HeaderWithIcon(
+            title = stringResource(R.string.tab_accounts),
+            iconId = R.drawable.person,
+            enabled = false,
+            showIcon = true,
+            modifier = Modifier,
+            onClick = {}
+        )
+
+        SettingsDescription(
+            text = stringResource(R.string.accounts_settings_description),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        ) 
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+// YouTube Music Section
+AnimatedVisibility(
+    visible = true,
+    enter = fadeIn(animationSpec = tween(600)) + scaleIn(
+        animationSpec = tween(600),
+        initialScale = 0.9f
+    )
+) {
+    SettingsSectionCard(
+        title = "YOUTUBE MUSIC",
+        icon = R.drawable.ytmusic,
+         content = {
+        // ⚠️ Warning message
+        Text(
+            text = "⚠️ This feature is unstable. Logging in may cause data loss. Use at your own risk I advice not to use it till a fix is found.",
+            color = Color.Red,
+            fontSize = 12.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            textAlign = TextAlign.Center
+        )
+
+            var isYouTubeLoginEnabled by rememberPreference(enableYouTubeLoginKey, false)
+            var isYouTubeSyncEnabled by rememberPreference(enableYouTubeSyncKey, false)
+            var loginYouTube by remember { mutableStateOf(false) }
+            var cookie by rememberPreference(key = "yt_cookie", defaultValue = "")
+            var visitorData by rememberPreference(key = "yt_visitor_data", defaultValue = "")
+            var dataSyncId by rememberPreference(key = "yt_data_sync_id", defaultValue = "")
+            var isRefreshingAccountInfo by remember { mutableStateOf(false) }
+            
+            // Get account info from shared preferences
+            val accountPrefs = remember { 
+                context.getSharedPreferences("youtube_account", android.content.Context.MODE_PRIVATE)
+            }
+            
+            var accountName by remember { 
+                mutableStateOf(accountPrefs.getString("account_name", "") ?: "") 
+            }
+            var accountEmail by remember { 
+                mutableStateOf(accountPrefs.getString("account_email", "") ?: "") 
+            }
+            var accountChannelHandle by remember { 
+                mutableStateOf(accountPrefs.getString("account_channel_handle", "") ?: "") 
+            }
+            var accountThumbnail by remember { 
+                mutableStateOf(accountPrefs.getString("account_thumbnail", "") ?: "") 
+            }
+            
+            var isLoggedIn = remember(cookie) {
+                parseCookieString(cookie).containsKey("SAPISID")
+            }
+
+            // Auto-fetch account info when logged in
+            LaunchedEffect(isLoggedIn) {
+                if (isLoggedIn && (accountName.isEmpty() || accountEmail.isEmpty())) {
+                    isRefreshingAccountInfo = true
+                    scope.launch {
+                        try {
+                            val accountInfo = AccountInfoFetcher.fetchAccountInfo(cookie)
+                            accountInfo?.let {
+                                accountName = it.name.orEmpty()
+                                accountEmail = it.email.orEmpty()
+                                accountChannelHandle = it.channelHandle.orEmpty()
+                                accountThumbnail = it.thumbnailUrl.orEmpty()
+                                
+                                // Save to shared preferences
+                                accountPrefs.edit()
+                                    .putString("account_name", accountName)
+                                    .putString("account_email", accountEmail)
+                                    .putString("account_channel_handle", accountChannelHandle)
+                                    .putString("account_thumbnail", accountThumbnail)
+                                    .apply()
+                                    
+                                Timber.d("AccountsSettings: Auto-fetched account info")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e("AccountsSettings: Error auto-fetching account info: ${e.message}")
+                        } finally {
+                            isRefreshingAccountInfo = false
+                        }
+                    }
+                }
+            }
+
+
+                    OtherSwitchSettingEntry(
+                        title = stringResource(R.string.enable_youtube_music_login),
+                        text = "",
+                        isChecked = isYouTubeLoginEnabled,
+                        onCheckedChange = {
+                            isYouTubeLoginEnabled = it
+                            if (!it) {
+                                visitorData = ""
+                                dataSyncId = ""
+                                cookie = ""
+                                accountName = ""
+                                accountChannelHandle = ""
+                                accountEmail = ""
+                                accountThumbnail = ""
+                            }
+                        },
+                        icon = R.drawable.ytmusic
+                    )
+
+                    AnimatedVisibility(visible = isYouTubeLoginEnabled) {
+                        Column {
+                            // Display account info card when logged in
+                            if (isLoggedIn) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = colorPalette().background1,
+                                        contentColor = colorPalette().text
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            // Profile picture
+                                            if (accountThumbnail.isNotEmpty()) {
+                                                AsyncImage(
+                                                    model = ImageRequest.Builder(context)
+                                                        .data(accountThumbnail)
+                                                        .crossfade(true)
+                                                        .build(),
+                                                    contentDescription = "Profile picture",
+                                                    modifier = Modifier
+                                                        .size(50.dp)
+                                                        .clip(thumbnailShape())
+                                                )
+                                            } else if (accountName.isNotEmpty()) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(50.dp)
+                                                        .clip(thumbnailShape())
+                                                        .background(colorPalette().accent),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = accountName.take(2).uppercase(),
+                                                        style = typography().s.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                                                        color = colorPalette().text
+                                                    )
+                                                }
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(50.dp)
+                                                        .clip(thumbnailShape())
+                                                        .background(colorPalette().accent),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.person),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(24.dp),
+                                                        tint = colorPalette().text
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.size(12.dp))
+
+                                            // Account details
+                                            Column(
+                                                modifier = Modifier.weight(1f),
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Text(
+                                                    text = accountName.ifEmpty { "YouTube Account" },
+                                                    style = typography().s.copy(fontWeight = FontWeight.Bold),
+                                                    color = colorPalette().text,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+
+                                                if (accountEmail.isNotEmpty()) {
+                                                    Text(
+                                                        text = accountEmail,
+                                                        style = typography().xs,
+                                                        color = colorPalette().textSecondary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+
+                                                if (accountChannelHandle.isNotEmpty()) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(R.drawable.ytmusic),
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(12.dp),
+                                                            tint = colorPalette().textSecondary
+                                                        )
+                                                        Spacer(modifier = Modifier.size(4.dp))
+                                                        Text(
+                                                            text = accountChannelHandle,
+                                                            style = typography().xxs,
+                                                            color = colorPalette().textSecondary
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            // Refresh button
+                                            IconButton(
+                                                onClick = {
+                                                    isRefreshingAccountInfo = true
+                                                    scope.launch {
+                                                        try {
+                                                            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
+                                                            accountInfo?.let {
+                                                                accountName = it.name.orEmpty()
+                                                                accountEmail = it.email.orEmpty()
+                                                                accountChannelHandle = it.channelHandle.orEmpty()
+                                                                accountThumbnail = it.thumbnailUrl.orEmpty()
+                                                                Timber.d("AccountsSettings: Manually refreshed account info")
+                                                                Toaster.i("Account info refreshed")
+                                                            } ?: run {
+                                                                Toaster.e("Failed to refresh account info")
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            Timber.e("AccountsSettings: Error refreshing account info: ${e.message}")
+                                                            Toaster.e("Failed to refresh account info")
+                                                        } finally {
+                                                            isRefreshingAccountInfo = false
+                                                        }
+                                                    }
+                                                },
+                                                modifier = Modifier.size(24.dp),
+                                                enabled = !isRefreshingAccountInfo
+                                            ) {
+                                                if (isRefreshingAccountInfo) {
+                                                    CircularProgressIndicator(
+                                                        strokeWidth = 2.dp,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.refresh),
+                                                        contentDescription = "Refresh",
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = colorPalette().textSecondary
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Refresh indicator
+                                        if (isRefreshingAccountInfo) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Refreshing account info...",
+                                                style = typography().xxs,
+                                                color = colorPalette().textDisabled
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Login/Logout button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                if (isLoggedIn && accountThumbnail != "")
+                                    ImageCacheFactory.AsyncImage(
+                                        thumbnailUrl = accountThumbnail,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .height(50.dp)
+                                            .clip(thumbnailShape())
+                                    )
+
+                                Column {
+                                    OtherSettingsEntry(
+                                        title = if (isLoggedIn) stringResource(R.string.youtube_disconnect) else stringResource(R.string.youtube_connect),
+                                        text = if (isLoggedIn) "$accountName ${accountChannelHandle}" else "",
+                                        icon = R.drawable.person,
+                                        onClick = {
+                                            if (isLoggedIn) {
+                                                cookie = ""
+                                                accountName = ""
+                                                accountChannelHandle = ""
+                                                accountEmail = ""
+                                                accountThumbnail = ""
+                                                visitorData = ""
+                                                dataSyncId = ""
+                                                loginYouTube = false
+                                                //Delete cookies after logout
+                                                val cookieManager = CookieManager.getInstance()
+                                                cookieManager.removeAllCookies(null)
+                                                cookieManager.flush()
+                                                WebStorage.getInstance().deleteAllData()
+                                                restartService = true
+                                            } else
+                                                loginYouTube = true
+                                        }
+                                    )
+
+                                    CustomModalBottomSheet(
+                                        showSheet = loginYouTube,
+                                        onDismissRequest = {
+                                            loginYouTube = false
+                                        },
+                                        containerColor = colorPalette().background0,
+                                        contentColor = colorPalette().background0,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                                        dragHandle = {
+                                            Surface(
+                                                modifier = Modifier.padding(vertical = 0.dp),
+                                                color = colorPalette().background0,
+                                                shape = thumbnailShape()
+                                            ) {}
+                                        },
+                                        shape = thumbnailRoundness.shape
+                                    ) {
+                                        YouTubeLogin(
+                                            onLogin = { cookieRetrieved ->
+                                                if (cookieRetrieved.contains("SAPISID")) {
+                                                    // Try to fetch account info after login
+                                                    scope.launch {
+                                                        isRefreshingAccountInfo = true
+                                                        try {
+                                                            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
+                                                            accountInfo?.let {
+                                                                accountName = it.name.orEmpty()
+                                                                accountEmail = it.email.orEmpty()
+                                                                accountChannelHandle = it.channelHandle.orEmpty()
+                                                                accountThumbnail = it.thumbnailUrl.orEmpty()
+                                                                Timber.d("AccountsSettings: Got account info after login")
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            Timber.e("AccountsSettings: Error getting account info after login: ${e.message}")
+                                                        } finally {
+                                                            isRefreshingAccountInfo = false
+                                                        }
+                                                    }
+                                                    
+                                                    loginYouTube = false
+                                                    Toaster.i( context.getString(R.string.youtube_login_successful) )
+                                                    restartService = true
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            OtherSwitchSettingEntry(
+                                title = "Sync data with YTM account",
+                                text = "Playlists, albums, artists, history, like, etc.",
+                                isChecked = isYouTubeSyncEnabled,
+                                onCheckedChange = {
+                                    isYouTubeSyncEnabled = it
+                                },
+                                icon = R.drawable.sync
+                            )
+                        }
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Piped Section
+        if (isAtLeastAndroid7) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(animationSpec = tween(800)) + scaleIn(
+                    animationSpec = tween(800),
+                    initialScale = 0.9f
+                )
+            ) {
+                SettingsSectionCard(
+                    title = stringResource(R.string.piped_account),
+                    icon = R.drawable.piped_logo,
+                    content = {
+                        // rememberEncryptedPreference only works correct with API 24 and up
+                        var isPipedEnabled by rememberPreference(isPipedEnabledKey, false)
+                        var isPipedCustomEnabled by rememberPreference(isPipedCustomEnabledKey, false)
+                        var pipedUsername by rememberEncryptedPreference(pipedUsernameKey, "")
+                        var pipedPassword by rememberEncryptedPreference(pipedPasswordKey, "")
+                        var pipedInstanceName by rememberEncryptedPreference(pipedInstanceNameKey, "")
+                        var pipedApiBaseUrl by rememberEncryptedPreference(pipedApiBaseUrlKey, "")
+                        var pipedApiToken by rememberEncryptedPreference(pipedApiTokenKey, "")
+
+                        var loadInstances by remember { mutableStateOf(false) }
+                        var isLoading by remember { mutableStateOf(false) }
+                        var instances by persistList<Instance>(tag = "otherSettings/pipedInstances")
+                        var noInstances by remember { mutableStateOf(false) }
+                        var executeLogin by remember { mutableStateOf(false) }
+                        var showInstances by remember { mutableStateOf(false) }
+                        var session by remember {
+                            mutableStateOf<Result<Session>?>(
+                                null
+                            )
+                        }
+
+                        val menuState = LocalMenuState.current
+                        val coroutineScope = rememberCoroutineScope()
+
+                        if (isLoading)
+                            DefaultDialog(
+                                onDismiss = {
+                                    isLoading = false
+                                }
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                            }
+
+                        if (loadInstances) {
+                            LaunchedEffect(Unit) {
+                                isLoading = true
+                                Piped.getInstances()?.getOrNull()?.let {
+                                    instances = it
+                                } ?: run { noInstances = true }
+                                isLoading = false
+                                showInstances = true
+                            }
+                        }
+                        if (noInstances)
+                            Toaster.i( context.getString(R.string.no_instances_found) )
+
+                        if (executeLogin) {
+                            LaunchedEffect(Unit) {
+                                coroutineScope.launch {
+                                    isLoading = true
+                                    session = Piped.login(
+                                        apiBaseUrl = Url(pipedApiBaseUrl),
+                                        username = pipedUsername,
+                                        password = pipedPassword
+                                    )?.onFailure {
+                                        Timber.e("Failed piped login ${it.stackTraceToString()}")
+                                        isLoading = false
+                                        Toaster.e( context.getString(R.string.piped_login_failed) )
+                                        loadInstances = false
+                                        session = null
+                                        executeLogin = false
+                                    }
+                                    if (session?.isSuccess == false)
+                                        return@launch
+
+                                    Toaster.s( context.getString(R.string.piped_login_successful) )
+                                    Timber.i("Piped login successful")
+
+                                    session.let {
+                                        it?.getOrNull()?.token?.let { it1 ->
+                                            pipedApiToken = it1
+                                            pipedApiBaseUrl = it.getOrNull()!!.apiBaseUrl.toString()
+                                        }
+                                    }
+
+                                    isLoading = false
+                                    loadInstances = false
+                                    executeLogin = false
+                                }
+                            }
+                        }
+
+                        if (showInstances && instances.isNotEmpty()) {
+                            menuState.display {
+                                Menu {
+                                    MenuEntry(
+                                        icon = R.drawable.chevron_back,
+                                        text = stringResource(R.string.cancel),
+                                        onClick = {
+                                            loadInstances = false
+                                            showInstances = false
+                                            menuState.hide()
+                                        }
+                                    )
+                                    instances.forEach {
+                                        MenuEntry(
+                                            icon = R.drawable.server,
+                                            text = it.name,
+                                            secondaryText = "${it.locationsFormatted} Users: ${it.userCount}",
+                                            onClick = {
+                                                menuState.hide()
+                                                pipedApiBaseUrl = it.apiBaseUrl.toString()
+                                                pipedInstanceName = it.name
+                                                loadInstances = false
+                                                showInstances = false
+                                            }
+                                        )
+                                    }
+                                    MenuEntry(
+                                        icon = R.drawable.chevron_back,
+                                        text = stringResource(R.string.cancel),
+                                        onClick = {
+                                            loadInstances = false
+                                            showInstances = false
+                                            menuState.hide()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.enable_piped_syncronization),
+                            text = "",
+                            isChecked = isPipedEnabled,
+                            onCheckedChange = { isPipedEnabled = it },
+                            icon = R.drawable.piped_logo
+                        )
+
+                        AnimatedVisibility(visible = isPipedEnabled) {
+                            Column {
+                                OtherSwitchSettingEntry(
+                                    title = stringResource(R.string.piped_custom_instance),
+                                    text = "",
+                                    isChecked = isPipedCustomEnabled,
+                                    onCheckedChange = { isPipedCustomEnabled = it },
+                                    icon = R.drawable.server
+                                )
+                                
+                                AnimatedVisibility(visible = isPipedCustomEnabled) {
+                                    Column {
+                                        var showCustomInstanceDialog by remember { mutableStateOf(false) }
+                                        OtherSettingsEntry(
+                                            title = stringResource(R.string.piped_custom_instance),
+                                            text = pipedApiBaseUrl,
+                                            icon = R.drawable.server,
+                                            onClick = { showCustomInstanceDialog = true }
+                                        )
+                                        
+                                        if (showCustomInstanceDialog) {
+                                            app.it.fast4x.rimusic.ui.components.themed.InputTextDialog(
+                                                title = stringResource(R.string.piped_custom_instance),
+                                                value = pipedApiBaseUrl,
+                                                placeholder = stringResource(R.string.piped_custom_instance),
+                                                onDismiss = { showCustomInstanceDialog = false },
+                                                setValue = { pipedApiBaseUrl = it }
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                AnimatedVisibility(visible = !isPipedCustomEnabled) {
+                                    OtherSettingsEntry(
+                                        title = stringResource(R.string.piped_change_instance),
+                                        text = pipedInstanceName,
+                                        icon = R.drawable.open,
+                                        onClick = {
+                                            loadInstances = true
+                                        }
+                                    )
+                                }
+
+                                var showUsernameDialog by remember { mutableStateOf(false) }
+                                OtherSettingsEntry(
+                                    title = stringResource(R.string.piped_username),
+                                    text = pipedUsername,
+                                    icon = R.drawable.person,
+                                    onClick = { showUsernameDialog = true }
+                                )
+                                
+                                if (showUsernameDialog) {
+                                    app.it.fast4x.rimusic.ui.components.themed.InputTextDialog(
+                                        title = stringResource(R.string.piped_username),
+                                        value = pipedUsername,
+                                        placeholder = stringResource(R.string.piped_username),
+                                        onDismiss = { showUsernameDialog = false },
+                                        setValue = { pipedUsername = it }
+                                    )
+                                }
+
+                                var showPasswordDialog by remember { mutableStateOf(false) }
+                                OtherSettingsEntry(
+                                    title = stringResource(R.string.piped_password),
+                                    text = if (pipedPassword.isNotEmpty()) "********" else "",
+                                    icon = R.drawable.locked,
+                                    onClick = { showPasswordDialog = true },
+                                    modifier = Modifier.semantics { password() }
+                                )
+                                
+                                if (showPasswordDialog) {
+                                    app.it.fast4x.rimusic.ui.components.themed.InputTextDialog(
+                                        title = stringResource(R.string.piped_password),
+                                        value = pipedPassword,
+                                        placeholder = stringResource(R.string.piped_password),
+                                        onDismiss = { showPasswordDialog = false },
+                                        setValue = { pipedPassword = it }
+                                    )
+                                }
+
+                                OtherSettingsEntry(
+                                    title = if (pipedApiToken.isNotEmpty()) stringResource(R.string.piped_disconnect) else stringResource(R.string.piped_connect),
+                                    text = if (pipedApiToken.isNotEmpty()) stringResource(R.string.piped_connected_to_s).format(pipedInstanceName) else "",
+                                    icon = R.drawable.piped_logo,
+                                    onClick = {
+                                        if (pipedApiToken.isNotEmpty()) {
+                                            pipedApiToken = ""
+                                            executeLogin = false
+                                        } else executeLogin = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Discord Section
+        if (isAtLeastAndroid7) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(animationSpec = tween(1000)) + scaleIn(
+                    animationSpec = tween(1000),
+                    initialScale = 0.9f
+                )
+            ) {
+                SettingsSectionCard(
+                    title = stringResource(R.string.social_discord) + " " + stringResource(R.string.beta_title),
+                    icon = R.drawable.logo_discord,
+                    content = {
+                        // rememberEncryptedPreference only works correct with API 24 and up
+                        var isDiscordPresenceEnabled by rememberPreference(isDiscordPresenceEnabledKey, false)
+                        var loginDiscord by remember { mutableStateOf(false) }
+                        var discordPersonalAccessToken by rememberEncryptedPreference(
+                            key = discordPersonalAccessTokenKey,
+                            defaultValue = ""
+                        )
+                        var discordAvatar by rememberEncryptedPreference(
+                            key = "discord_avatar",
+                            defaultValue = ""
+                        )
+                        var discordUsername by rememberEncryptedPreference(
+                            key = "discord_username",
+                            defaultValue = ""
+                        )
+                        var isTokenValid by remember { mutableStateOf(true) }
+                        var showTokenError by remember { mutableStateOf(false) }
+
+                        LaunchedEffect(discordPersonalAccessToken) {
+                            if (discordPersonalAccessToken.isNotEmpty()) {
+                                val presenceManager = DiscordPresenceManager(context, { discordPersonalAccessToken })
+                                when (presenceManager.validateToken(discordPersonalAccessToken)) {
+                                    true -> {
+                                        isTokenValid = true
+                                        showTokenError = false
+                                    }
+                                    false -> {
+                                        isTokenValid = false
+                                        showTokenError = true
+                                        discordPersonalAccessToken = ""
+                                        discordUsername = ""
+                                        discordAvatar = ""
+                                        Toaster.e(R.string.discord_token_text_invalid)
+                                    }
+                                    null -> { // Network error
+                                        isTokenValid = false
+                                        showTokenError = false
+                                    }
+                                }
+                            }
+                        }
+
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.discord_enable_rich_presence),
+                            text = stringResource(R.string.beta_text),
+                            isChecked = isDiscordPresenceEnabled,
+                            onCheckedChange = { 
+                                isDiscordPresenceEnabled = it
+                                if (!it) {
+                                    RestartAppDialog.showDialog()
+                                }
+                            },
+                            icon = R.drawable.musical_notes
+                        )
+
+                        AnimatedVisibility(visible = isDiscordPresenceEnabled) {
+                            Column {
+                                if (showTokenError) {
+                                    Text(
+                                        text = stringResource(R.string.discord_token_text_invalid),
+                                        color = colorPalette().red,
+                                        style = typography().s,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                }
+
+                                if (discordPersonalAccessToken.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .padding(start = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.account_info),
+                                                color = colorPalette().text,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(start = 5.dp),
+                                            )
+
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                if (discordAvatar.isNotEmpty()) {
+                                                    ImageCacheFactory.AsyncImage(
+                                                        thumbnailUrl = discordAvatar,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .padding(start = 5.dp, top = 8.dp, bottom = 8.dp)
+                                                            .size(50.dp)
+                                                            .clip(thumbnailShape())
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.person),
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .padding(start = 5.dp, top = 8.dp, bottom = 8.dp)
+                                                            .size(50.dp)
+                                                            .clip(thumbnailShape()),
+                                                        tint = colorPalette().textSecondary
+                                                    )
+                                                }
+
+                                                Box(
+                                                    modifier = Modifier
+                                                        .padding(start = 8.dp)
+                                                        .height(50.dp)
+                                                        .padding(top = 8.dp, bottom = 8.dp),
+                                                    contentAlignment = Alignment.CenterStart
+                                                ) {
+                                                    Text(
+                                                        text = discordUsername,
+                                                        color = colorPalette().textSecondary,
+                                                        modifier = Modifier.padding(start = 5.dp),
+                                                        style = typography().m
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                OtherSettingsEntry(
+                                    title = if (discordPersonalAccessToken.isNotEmpty()) stringResource(R.string.discord_disconnect) else stringResource(R.string.discord_connect),
+                                    text = if (discordPersonalAccessToken.isNotEmpty()) stringResource(R.string.discord_connected_to_discord_account) else "",
+                                    icon = R.drawable.logout,
+                                    onClick = {
+                                        if (discordPersonalAccessToken.isNotEmpty()) {
+                                            discordPersonalAccessToken = ""
+                                            discordUsername = ""
+                                            discordAvatar = ""
+                                            showTokenError = false
+                                            RestartAppDialog.showDialog()
+                                        } else
+                                            loginDiscord = true
+                                    }
+                                )
+
+                                CustomModalBottomSheet(
+                                    showSheet = loginDiscord,
+                                    onDismissRequest = {
+                                        loginDiscord = false
+                                    },
+                                    containerColor = colorPalette().background0,
+                                    contentColor = colorPalette().background0,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                                    dragHandle = {
+                                        Surface(
+                                            modifier = Modifier.padding(vertical = 0.dp),
+                                            color = colorPalette().background0,
+                                            shape = thumbnailShape()
+                                        ) {}
+                                    },
+                                    shape = thumbnailRoundness.shape
+                                ) {
+                                    DiscordLoginAndGetToken(
+                                        navController = rememberNavController(),
+                                        onGetToken = { token, username, avatar ->
+                                            loginDiscord = false
+                                            discordPersonalAccessToken = token
+                                            discordUsername = username
+                                            discordAvatar = avatar
+                                            Toaster.i(context.getString(R.string.discord_connected_to_discord_account))
+                                            RestartAppDialog.showDialog()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(Dimensions.bottomSpacer))
+    }
+}
+
+fun isYouTubeLoginEnabled(): Boolean {
+    val isYouTubeLoginEnabled = appContext().preferences.getBoolean(enableYouTubeLoginKey, false)
+    return isYouTubeLoginEnabled
+}
+
+fun isYouTubeSyncEnabled(): Boolean {
+    val isYouTubeSyncEnabled = appContext().preferences.getBoolean(enableYouTubeSyncKey, false)
+    return isYouTubeSyncEnabled && isYouTubeLoggedIn() && isYouTubeLoginEnabled()
+}
+
+fun isYouTubeLoggedIn(): Boolean {
+   val cookie = appContext().preferences.getString("yt_cookie", "")
+    val isLoggedIn = cookie?.let { parseCookieString(it) }?.contains("SAPISID") == true
+    return isLoggedIn
+}
