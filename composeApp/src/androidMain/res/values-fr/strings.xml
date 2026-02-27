@@ -202,6 +202,8 @@
   <string name="listen_on_youtube_music">Écouter sur YouTube Music</string>
   <string name="on_device">Sur l\'appareil</string>
   <string name="wavy_timeline">Ondulée</string>
+  <string name="timeline_style">Style de la chronologie (cliquez ici pour modifier)</string>
+  <string name="transparentbar_description">Rendre le fond de la barre de progression transparent</string>
   <string name="play_next">Suivant</string>
   <string name="toggle_lyrics">Afficher / Masquer les paroles</string>
   <string name="by_tapping_on_the_thumbnail">En appuyant sur la miniature</string>
@@ -600,6 +602,7 @@
   <string name="piped_connect">Se connecter</string>
   <string name="piped_connected_to_s">Connecté à %s</string>
   <string name="fake_audio_bar">Fausse barre audio</string>
+  <string name="ocean_timeline">Océan</string>
   <string name="copy_crash_log_to_clipboard">Copier le journal des plantages dans le presse-papiers</string>
   <string name="title_backup_and_restore">SAUVEGARDE ET RESTAURATION</string>
   <string name="message_excluded_s_songs">Titres %s exclus</string>
@@ -873,6 +876,14 @@ Volume BAS : titre précédent</string>
   <string name="yt_playlists">YouTube / YouTube Music</string>
   <string name="lyricsSizeSecondary">Appuyez longuement pour changer la taille</string>
   <string name="home">Accueil</string>
+  <!-- Presets Section -->
+  <string name="tap_to_view_presets">Appuyez pour afficher et sélectionner les préréglages</string>
+  <string name="preset_classic">Classique</string>
+  <string name="preset_modern">Moderne</string>
+  <string name="preset_minimal">Minimal</string>
+  <string name="preset_dark_edge">Bord sombre</string>
+  <string name="preset_gradient">Gradient</string>
+  <string name="preset_vibrant">Vibrant</string>
   <string name="appearancepresets">Préréglages d\'apparence</string>
   <string name="appearancepresetssecondary">Les aperçus seront de faible qualité</string>
   <string name="yt_history">Historique de YouTube Music</string>
@@ -925,7 +936,7 @@ Volume BAS : titre précédent</string>
   <string name="please_wait">Veuillez patienter</string>
   <string name="songs_liked_yt">Les titres sont appréciés sur YouTube</string>
   <string name="song_unliked_yt">Le titre n\'est pas apprécié sur YouTube</string>
-  <string name="add_rimusic_to_ytm_favorites">J\'aime les titres aimés de CubicMusic sur YouTube</string>
+  <string name="add_rimusic_to_ytm_favorites">J\'aime les titres aimés de RiMusic sur YouTube</string>
   <string name="do_you_really_want_to_like_all_rimusictoytmusic">(temps estimé) est nécessaire pour aimer tous les titres. Cette action ne peut pas être reprise si elle est annulée entre-temps. Vous devez fermer l\'application pour annuler ce processus. Voulez-vous continuer ?</string>
   <string name="do_you_really_want_to_like_all">(temps estimé) est nécessaire pour aimer tous les titres. Vous devez fermer l\'application pour annuler ce processus. Voulez-vous continuer ?</string>
   <string name="songs_liked_yt_failed">Impossible d\'aimer le titre sur YouTube</string>
@@ -1101,7 +1112,7 @@ Volume BAS : titre précédent</string>
   <string name="content_type_official">Officiel</string>
   <string name="content_type_user_generated">Généré par utilisateur</string>
   <string name="in_txt">dans</string>
-  <!-- Voice Input Strings -->
+  <!-- Voice/audio Input Strings -->
   <string name="voice_you_can_talk_now">Vous pouvez parler maintenant</string>
   <string name="voice_you_said">Vous avez dit : %s</string>
   <string name="voice_microphone_permission_granted">Autorisation d\'utiliser le microphone accordée</string>
@@ -1111,4 +1122,16 @@ Volume BAS : titre précédent</string>
   <string name="voice_speak_now">Parlez maintenant...</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
   <string name="loading_please_wait">Chargement, veuillez patienter...</string>
+  <string name="other">Autre</string>
+  <string name="lucky_shuffle">Feeling Lucky</string>
+  <string name="audio_fade_title">Audio Fade</string>
+  <string name="audio_fade_description">Smoothly fade volume between songs and when pausing/playing</string>
+  <string name="fade_duration_title">Fade Duration</string>
+  <string name="disabled">Disabled</string>
+  <!-- username  String -->
+  <string name="change_username_title">Change Your Name</string>
+  <string name="change_username_prompt">Enter your new name (max %1$d characters):</string>
+  <string name="username_label">Your name</string>
+  <string name="character_count">%1$d / %2$d</string>
+  <string name="save">Save</string>
 </resources>

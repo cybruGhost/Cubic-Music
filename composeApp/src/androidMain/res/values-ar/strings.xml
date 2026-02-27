@@ -202,6 +202,8 @@
   <string name="listen_on_youtube_music">Listen on YouTube Music</string>
   <string name="on_device">On device</string>
   <string name="wavy_timeline">Wavy timeline</string>
+  <string name="timeline_style">Timeline Style(click here to change)</string>
+  <string name="transparentbar_description">Make progress bar background transparent</string>
   <string name="play_next">Play next</string>
   <string name="toggle_lyrics">Toggle lyrics</string>
   <string name="by_tapping_on_the_thumbnail">By tapping on the thumbnail</string>
@@ -873,6 +875,14 @@
   <string name="yt_playlists">YT/YTM</string>
   <string name="lyricsSizeSecondary">Long Press to change the size</string>
   <string name="home">Home</string>
+  <!-- Presets Section -->
+  <string name="tap_to_view_presets">Tap to view and select presets</string>
+  <string name="preset_classic">Classic</string>
+  <string name="preset_modern">Modern</string>
+  <string name="preset_minimal">Minimal</string>
+  <string name="preset_dark_edge">Dark Edge</string>
+  <string name="preset_gradient">Gradient</string>
+  <string name="preset_vibrant">Vibrant</string>
   <string name="appearancepresets">Appearance Presets</string>
   <string name="appearancepresetssecondary">Previews will be in low quality</string>
   <string name="yt_history">YTM History</string>
@@ -1101,7 +1111,7 @@
   <string name="content_type_official">Official</string>
   <string name="content_type_user_generated">User Generated</string>
   <string name="in_txt">in</string>
-  <!-- Voice Input Strings -->
+  <!-- Voice/audio Input Strings -->
   <string name="voice_you_can_talk_now">You can talk now</string>
   <string name="voice_you_said">You said: %s</string>
   <string name="voice_microphone_permission_granted">Microphone permission granted</string>
@@ -1112,5 +1122,15 @@
   <string name="voice_device_not_supported">Your device does not support voice input</string>
   <string name="loading_please_wait">Loading, please wait...</string>
   <string name="other">Other</string>
-  <string name="lucky_shuffle">Lucky Shuffle</string>
+  <string name="lucky_shuffle">Feeling Lucky</string>
+  <string name="audio_fade_title">Audio Fade</string>
+  <string name="audio_fade_description">Smoothly fade volume between songs and when pausing/playing</string>
+  <string name="fade_duration_title">Fade Duration</string>
+  <string name="disabled">Disabled</string>
+  <!-- username  String -->
+  <string name="change_username_title">Change Your Name</string>
+  <string name="change_username_prompt">Enter your new name (max %1$d characters):</string>
+  <string name="username_label">Your name</string>
+  <string name="character_count">%1$d / %2$d</string>
+  <string name="save">Save</string>
 </resources>
