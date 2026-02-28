@@ -1123,7 +1123,7 @@ Volume BAS : titre précédent</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
   <string name="loading_please_wait">Chargement, veuillez patienter...</string>
   <string name="other">Autre</string>
-  <string name="lucky_shuffle">Feeling Lucky</string>
+  <string name="lucky_shuffle">J\'ai de la chance</string>
   <string name="audio_fade_title">Fondu Audio</string>
   <string name="audio_fade_description">Réduction progressive du volume entre les morceaux et lors de la pause/lecture</string>
   <string name="fade_duration_title">Durée du Fondu</string>
