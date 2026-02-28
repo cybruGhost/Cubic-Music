@@ -1,4 +1,4 @@
-# Cubic Music 🎵 NEW RELEASE
+# Cubic Music 
 ---
 
 ## ❤️ Support the project❣️💓
