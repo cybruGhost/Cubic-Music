@@ -21,7 +21,7 @@ Every bit of support helps keep cubicmusic growing 🚀
 
 <p><b>Cubic Music</b> is an evolving streaming app focused on smooth music playback and user experience.  
 - While it might not be as polished as some mature apps yet, it's a solid, good-looking, and lightweight alternative.  
-- The project is maintained and will only be updated when I fix bugs or add features as I learn Kotlin skills!</p>
+- The project is maintained and will only be updated when I fix bugs or add features</p>
 
 **⭐ STAR AND FOLLOW 😅 NOW!!! The way to go**
 
