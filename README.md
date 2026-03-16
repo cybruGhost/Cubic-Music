@@ -1,5 +1,7 @@
 # Cubic Music 
 ---
+<p>Resuming fixing bugs and issues and implementing new feature (Crossfading)</p>
+---
 
 ## ❤️ Support the project❣️💓
 
