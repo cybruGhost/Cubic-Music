@@ -1076,7 +1076,7 @@ Volume BAS : titre précédent</string>
   <string name="check_beta_update_disabled">BÊTA désactivée</string>
   <string name="cache_status">Statut de la cache</string>
   <string name="cache_empty">Cache vide</string>
-  <string name="rewind">Rembobinages</string>
+  <string name="rewind">Rembobiner</string>
   <string name="donate">Faire un don</string>
   <!-- Spotify Canvas Strings -->
   <string name="spotify_canvas">Spotify Canvas</string>
