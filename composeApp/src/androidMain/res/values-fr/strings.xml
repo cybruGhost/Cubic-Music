@@ -92,6 +92,15 @@
   <string name="pause_search_history">Suspendre l’historique de recherche</string>
   <string name="neither_save_new_searched_query">Ne pas enregistrer de nouvelles recherches ni afficher l’historique</string>
   <string name="clear_search_history">Effacer l’historique de recherche</string>
+  <!-- Crossfade Settings -->
+  <string name="crossfade">Crossfade</string>
+  <string name="enable_crossfade">Enable Crossfade</string>
+  <string name="crossfade_duration">Crossfade Duration</string>
+  <string name="crossfade_overlap">overlap</string>
+  <string name="crossfade_description">Songs will fade out while the next song fades in</string>
+  <string name="smooth_transition_between_songs">Smooth transition between songs</string>
+  <string name="seconds">seconds</string>
+  <string name="off">Off</string>
   <string name="history_is_empty">L’historique est vide</string>
   <string name="service_lifetime">Durée de Vie du Service</string>
   <string name="battery_optimizations_applied">Si des optimisations de batterie sont appliquées, la notification de lecture peut disparaître soudainement lorsque la lecture est mise en pause.</string>
@@ -377,12 +386,6 @@
   <string name="tab_data">Données</string>
   <string name="image_cache_max_size">Taille maximale du cache des images</string>
   <string name="song_cache_max_size">Taille maximale du cache des titres</string>
-  <string name="network_status">Status de la qualité</string>
-  <string name="image_quality_format">Qualité d\'image</string>
-  <string name="audio_quality_auto_fmt">Auto (Détecté : %1$s)</string>
-  <string name="network_quality_low">Faible</string>
-  <string name="network_quality_medium">Moyen</string>
-  <string name="network_quality_high">Fort</string>
   <string name="song_download_max_size">Taille maximale du téléchargement des titres</string>
   <string name="save_to_backup">Sauvegarder pour restaurer</string>
   <string name="restore_from_backup">Restaurer depuis une sauvegarde</string>
