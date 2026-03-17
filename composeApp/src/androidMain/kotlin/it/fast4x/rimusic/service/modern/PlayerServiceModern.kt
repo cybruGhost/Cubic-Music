@@ -170,6 +170,8 @@ import it.fast4x.rimusic.utils.skipSilenceKey
 import it.fast4x.rimusic.utils.timer
 import it.fast4x.rimusic.utils.toggleRepeatMode
 import it.fast4x.rimusic.utils.toggleShuffleMode
+import app.it.fast4x.rimusic.utils.crossFadeEnabledKey
+import app.it.fast4x.rimusic.utils.crossFadeDurationKey
 import it.fast4x.rimusic.utils.volumeNormalizationKey
 import it.fast4x.rimusic.utils.wallpaperTypeKey
 import kotlinx.coroutines.CoroutineScope
@@ -231,6 +233,8 @@ class PlayerServiceModern : MediaLibraryService(),
     lateinit var player: ExoPlayer
     lateinit var cache: Cache
     lateinit var downloadCache: Cache
+    private var crossFadePlayer: CrossFadeMediaPlayer? = null
+    private var isCrossFadeEnabled = false
     private lateinit var audioVolumeObserver: AudioVolumeObserver
     private lateinit var bitmapProvider: BitmapProvider
     private var volumeNormalizationJob: Job? = null
@@ -418,6 +422,12 @@ class PlayerServiceModern : MediaLibraryService(),
                 addListener(sleepTimer)
                 addAnalyticsListener(PlaybackStatsListener(false, this@PlayerServiceModern))
             }
+
+        crossFadePlayer = CrossFadeMediaPlayer(this)
+        isCrossFadeEnabled = preferences.getBoolean(crossFadeEnabledKey, false)
+        val crossFadeDuration = preferences.getLong(crossFadeDurationKey, 3000L)
+        crossFadePlayer?.setCrossFadeDuration(crossFadeDuration)
+        Timber.d("PlayerServiceModern CrossFade initialized: enabled=$isCrossFadeEnabled, duration=${crossFadeDuration}ms")
 
         // Force player to add all commands available, prior to android 13
         val forwardingPlayer =
@@ -661,6 +671,13 @@ class PlayerServiceModern : MediaLibraryService(),
                         // ✨ ADD THIS CUBIC JAM CLEANUP ✨
             cubicJamManager?.onStop()
             cubicJamManager = null
+
+            crossFadePlayer?.release()
+            crossFadePlayer = null
+            Timber.d("PlayerServiceModern CrossFade released")
+
+            maybeSavePlayerQueue()
+
             maybeSavePlayerQueue()
             preferences.unregisterOnSharedPreferenceChangeListener(this)
             stopService(intent<MyDownloadService>())
@@ -716,6 +733,17 @@ class PlayerServiceModern : MediaLibraryService(),
 
             bassboostLevelKey, bassboostEnabledKey -> maybeBassBoost()
             audioReverbPresetKey -> maybeReverb()
+
+            crossFadeEnabledKey -> if (sharedPreferences != null) {
+                isCrossFadeEnabled = sharedPreferences.getBoolean(key, false)
+                Timber.d("PlayerServiceModern CrossFade enabled changed: $isCrossFadeEnabled")
+            }
+
+            crossFadeDurationKey -> if (sharedPreferences != null) {
+                val duration = sharedPreferences.getLong(key, 3000L)
+                crossFadePlayer?.setCrossFadeDuration(duration)
+                Timber.d("PlayerServiceModern CrossFade duration changed: ${duration}ms")
+            }
         }
     }
 
@@ -749,6 +777,13 @@ class PlayerServiceModern : MediaLibraryService(),
         maybeRecoverPlaybackError()
         maybeNormalizeVolume()
         loadFromRadio(reason)
+
+        if (isCrossFadeEnabled && player.hasNextMediaItem()) {
+            val nextMediaItem = player.getMediaItemAt(player.nextMediaItemIndex)
+            crossFadePlayer?.play(nextMediaItem)
+            Timber.d("PlayerServiceModern CrossFade prepared next song: ${nextMediaItem.mediaMetadata.title}")
+        }
+
         // Update bitmap with proper fallback handling
         val artworkUri = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
         if (artworkUri != null) {
@@ -2002,6 +2037,31 @@ class PlayerServiceModern : MediaLibraryService(),
                 .setAction(MainActivity.action_search)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK + FLAG_ACTIVITY_CLEAR_TASK))
             Timber.d("PlayerServiceModern actionSearch")
+
+            /**
+             * Update crossfade settings from UI
+             */
+            fun updateCrossFadeSettings(enabled: Boolean, duration: Long) {
+                preferences.edit {
+                    putBoolean(crossFadeEnabledKey, enabled)
+                    putLong(crossFadeDurationKey, duration)
+                }
+                isCrossFadeEnabled = enabled
+                crossFadePlayer?.setCrossFadeDuration(duration)
+                Timber.d("PlayerServiceModern CrossFade settings updated: enabled=$enabled, duration=${duration}ms")
+            }
+
+            /**
+             * Get current crossfade enabled status
+             */
+            fun isCrossFadeEnabled(): Boolean = isCrossFadeEnabled
+
+            /**
+             * Get current crossfade duration
+             */
+            fun getCrossFadeDuration(): Long {
+                return preferences.getLong(crossFadeDurationKey, 3000L)
+            }
         }
     }
 
