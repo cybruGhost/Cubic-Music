@@ -144,6 +144,8 @@ import app.it.fast4x.rimusic.utils.statsExpandedKey
 import app.it.fast4x.rimusic.utils.statsfornerdsKey
 import app.it.fast4x.rimusic.utils.swipeAnimationsNoThumbnailKey
 import app.it.fast4x.rimusic.utils.swipeUpQueueKey
+import app.it.fast4x.rimusic.utils.crossFadeEnabledKey
+import app.it.fast4x.rimusic.utils.crossFadeDurationKey
 import app.it.fast4x.rimusic.utils.tapqueueKey
 import app.it.fast4x.rimusic.utils.textoutlineKey
 import app.it.fast4x.rimusic.utils.thumbnailFadeExKey
@@ -639,6 +641,45 @@ fun AppearanceSettings(
 
         //SettingsGroupSpacer()
         SettingsEntryGroupText(title = stringResource(R.string.player))
+
+        SettingsGroupSpacer()
+        SettingsEntryGroupText(title = stringResource(R.string.playback))
+
+        var crossFadeEnabled by rememberPreference(crossFadeEnabledKey, false)
+        var crossFadeDuration by rememberPreference(crossFadeDurationKey, 15000L)
+
+        if (search.inputValue.isBlank() || stringResource(R.string.crossfade).contains(search.inputValue, true)) {
+            SwitchSettingEntry(
+                title = stringResource(R.string.crossfade),
+                text = if (crossFadeEnabled) {
+                    "${crossFadeDuration / 1000}s ${stringResource(R.string.crossfade_overlap)}"
+                } else {
+                    stringResource(R.string.smooth_transition_between_songs)
+                },
+                isChecked = crossFadeEnabled,
+                onCheckedChange = { crossFadeEnabled = it }
+            )
+        }
+
+        // Duration selector (tap to cycle)
+        AnimatedVisibility(visible = crossFadeEnabled) {
+            if (search.inputValue.isBlank() || stringResource(R.string.crossfade_duration).contains(search.inputValue, true)) {
+                SettingsEntry(
+                    title = stringResource(R.string.crossfade_duration),
+                    text = "${crossFadeDuration / 1000}s",
+                    onClick = {
+                        crossFadeDuration = when (crossFadeDuration) {
+                            1000L -> 3000L
+                            3000L -> 5000L
+                            5000L -> 8000L
+                            8000L -> 12000L
+                            else -> 1000L
+                        }
+                    },
+                    modifier = Modifier.padding(start = 25.dp)
+                )
+            }
+        }
 
         if (playerBackgroundColors != PlayerBackgroundColors.BlurredCoverColor)
             showthumbnail = true

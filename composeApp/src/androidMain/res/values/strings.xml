@@ -92,6 +92,17 @@
 <string name="pause_search_history">Pause search history</string>
 <string name="neither_save_new_searched_query">Neither save new searched queries nor show history</string>
 <string name="clear_search_history">Clear search history</string>
+
+<!-- Crossfade Settings -->
+<string name="crossfade">Crossfade</string>
+<string name="enable_crossfade">Enable Crossfade</string>
+<string name="crossfade_duration">Crossfade Duration</string>
+<string name="crossfade_overlap">overlap</string>
+<string name="crossfade_description">Songs will fade out while the next song fades in</string>
+<string name="smooth_transition_between_songs">Smooth transition between songs</string>
+<string name="seconds">seconds</string>
+<string name="off">Off</string>
+
 <string name="history_is_empty">History is empty</string>
 <string name="service_lifetime">SERVICE LIFETIME</string>
 <string name="battery_optimizations_applied">If battery optimizations are applied, the playback notification can suddenly disappear when paused.</string>
@@ -377,12 +388,12 @@
 <string name="tab_data">Data</string>
 <string name="image_cache_max_size">Image cache max size</string>
 <string name="song_cache_max_size">Song cache max size</string>
-<string name="network_status">Quality Status</string>
-<string name="image_quality_format">Image Quality</string>
-<string name="audio_quality_auto_fmt">Auto (Detected: %1$s)</string>
-<string name="network_quality_low">Low</string>
-<string name="network_quality_medium">Medium</string>
-<string name="network_quality_high">High</string>
+<string name="network_status" translatable="false">Quality Status</string>
+<string name="image_quality_format" translatable="false">Image Quality</string>
+<string name="audio_quality_auto_fmt" translatable="false">Auto (Detected: %1$s)</string>
+<string name="network_quality_low" translatable="false">Low</string>
+<string name="network_quality_medium" translatable="false">Medium</string>
+<string name="network_quality_high" translatable="false">High</string>
 <string name="song_download_max_size">Song download max size</string>
 <string name="save_to_backup">Save to backup</string>
 <string name="restore_from_backup">Restore from backup</string>
