@@ -93,13 +93,13 @@
   <string name="neither_save_new_searched_query">Ne pas enregistrer de nouvelles recherches ni afficher l’historique</string>
   <string name="clear_search_history">Effacer l’historique de recherche</string>
   <!-- Crossfade Settings -->
-  <string name="crossfade">Crossfade</string>
-  <string name="enable_crossfade">Enable Crossfade</string>
-  <string name="crossfade_duration">Crossfade Duration</string>
-  <string name="crossfade_overlap">overlap</string>
-  <string name="crossfade_description">Songs will fade out while the next song fades in</string>
-  <string name="smooth_transition_between_songs">Smooth transition between songs</string>
-  <string name="seconds">seconds</string>
+  <string name="crossfade">Fondu enchaîné</string>
+  <string name="enable_crossfade">Activer le fondu enchaîné</string>
+  <string name="crossfade_duration">Durée du fondu enchaîné</string>
+  <string name="crossfade_overlap">chevauchement</string>
+  <string name="crossfade_description">Les titres s\'estompent progressivement tandis que le suivant commence</string>
+  <string name="smooth_transition_between_songs">Transition fluide entre les titres</string>
+  <string name="seconds">secondes</string>
   <string name="off">Off</string>
   <string name="history_is_empty">L’historique est vide</string>
   <string name="service_lifetime">Durée de Vie du Service</string>
