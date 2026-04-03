@@ -1,7 +1,7 @@
 # Cubic Music 
 ---
 IMPLEMENTING CROSSFADING
-<img src="assets/scrrenshot.jpeg" width="280" alt="crossfading" src="https://github.com/user-attachments/assets/3a611dbc-8c0c-46cd-a9cd-726ce20142f9" />
+<img src="https://github.com/user-attachments/assets/3a611dbc-8c0c-46cd-a9cd-726ce20142f9" width="600" />
 
 ---
 
