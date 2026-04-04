@@ -37,6 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -82,7 +83,6 @@ import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.utils.DisposableListener
 import app.it.fast4x.rimusic.utils.clickOnLyricsTextKey
 import app.it.fast4x.rimusic.utils.coverThumbnailAnimationKey
-import app.it.fast4x.rimusic.utils.currentWindow
 import app.it.fast4x.rimusic.utils.doubleShadowDrop
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.platform.LocalConfiguration
@@ -193,7 +193,7 @@ suspend fun fetchCommentsPage(videoId: String, continuation: String? = null): Co
 
             // Grab continuation token for the next page
             nextContinuation = if (jsonResponse.has("continuation")) {
-                jsonResponse.optString("continuation", null)
+                jsonResponse.optString("continuation").takeIf { it.isNotBlank() }
             } else null
 
         } else {
@@ -726,6 +726,7 @@ fun Thumbnail(
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
     val player = binder?.player ?: return
+    val displayedPlayerState = rememberDisplayedPlayerState(binder)
 
     println("Thumbnail call after return")
 
@@ -736,10 +737,6 @@ fun Thumbnail(
     var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
  
     val showCommentsButton by rememberPreference("show_comments_button", true)
-
-    var nullableWindow by remember {
-        mutableStateOf(player.currentWindow)
-    }
 
     var error by remember {
         mutableStateOf<PlaybackException?>(player.playerError)
@@ -777,7 +774,6 @@ fun Thumbnail(
     player.DisposableListener {
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                nullableWindow = player.currentWindow
                 // Hide comments when song changes
                 showComments = false
             }
@@ -793,10 +789,17 @@ fun Thumbnail(
         }
     }
 
-    val window = nullableWindow ?: return
+    val displayedMediaItem = displayedPlayerState.mediaItem ?: return
+
+    LaunchedEffect(displayedMediaItem.mediaId, displayedMediaItem.mediaMetadata.artworkUri) {
+        artImageAvailable = true
+        if (displayedMediaItem.mediaMetadata.artworkUri != null) {
+            ImageCacheFactory.preloadImage(displayedMediaItem.mediaMetadata.artworkUri.toString())
+        }
+    }
 
     val coverPainter = ImageCacheFactory.Painter(
-        thumbnailUrl = window.mediaItem.mediaMetadata.artworkUri.toString(),
+        thumbnailUrl = displayedMediaItem.mediaMetadata.artworkUri?.toString().orEmpty(),
         onError = { 
             artImageAvailable = false 
             // Retry loading after a short delay
@@ -804,7 +807,7 @@ fun Thumbnail(
                 delay(1000) // Wait 1 second
                 if (!artImageAvailable) {
                     // Try to preload the image
-                    ImageCacheFactory.preloadImage(window.mediaItem.mediaMetadata.artworkUri.toString())
+                    displayedMediaItem.mediaMetadata.artworkUri?.toString()?.let(ImageCacheFactory::preloadImage)
                 }
             }
         },
@@ -823,10 +826,10 @@ fun Thumbnail(
     )
 
     AnimatedContent(
-        targetState = window,
+        targetState = displayedMediaItem,
         transitionSpec = {
             val duration = 500
-            val slideDirection = if (targetState.firstPeriodIndex > initialState.firstPeriodIndex)
+            val slideDirection = if (targetState.mediaId > initialState.mediaId)
                 AnimatedContentTransitionScope.SlideDirection.Left
             else AnimatedContentTransitionScope.SlideDirection.Right
 
@@ -853,7 +856,7 @@ fun Thumbnail(
             )
         },
         contentAlignment = Alignment.Center, label = ""
-    ) { currentWindow ->
+    ) { currentDisplayedMediaItem: MediaItem ->
 
         val thumbnailType by rememberPreference(thumbnailTypeKey, ThumbnailType.Modern)
 
@@ -882,7 +885,7 @@ fun Thumbnail(
                         if (showCoverThumbnailAnimation)
                             RotateThumbnailCoverAnimation(
                                 painter = coverPainter,
-                                isSongPlaying = player.isPlaying,
+                                isSongPlaying = displayedPlayerState.shouldBePlaying,
                                 modifier = Modifier
                                     .clickable {
                                         if (thumbnailTapEnabledKey && !showComments) {
@@ -945,28 +948,28 @@ fun Thumbnail(
 
                 // Comments overlay
                 CommentsOverlay(
-                    videoId = currentWindow.mediaItem.mediaId,
+                    videoId = currentDisplayedMediaItem.mediaId,
                     isVisible = showComments,
                     onDismiss = { showComments = false }
                 )
 
                 if (showlyricsthumbnail)
                     Lyrics(
-                        mediaId = currentWindow.mediaItem.mediaId,
+                        mediaId = currentDisplayedMediaItem.mediaId,
                         isDisplayed = isShowingLyrics && error == null && !showComments,
                         onDismiss = {
                             onShowLyrics(false)
                         },
-                        ensureSongInserted = { Database.insertIgnore( currentWindow.mediaItem ) },
+                        ensureSongInserted = { Database.insertIgnore(currentDisplayedMediaItem) },
                         size = thumbnailSizeDp,
-                        mediaMetadataProvider = currentWindow.mediaItem::mediaMetadata,
+                        mediaMetadataProvider = currentDisplayedMediaItem::mediaMetadata,
                         durationProvider = player::getDuration,
                         isLandscape = isLandscape,
                         clickLyricsText = clickLyricsText,
                     )
 
                 StatsForNerds(
-                    mediaId = currentWindow.mediaItem.mediaId,
+                    mediaId = currentDisplayedMediaItem.mediaId,
                     isDisplayed = isShowingStatsForNerds && error == null && !showComments,
                     onDismiss = { onShowStatsForNerds(false) }
                 )
@@ -983,7 +986,7 @@ fun Thumbnail(
                     if (errorCounter < 3) {
                         Timber.e("Playback error: ${error?.cause?.cause}")
                         Toaster.e(
-                            if (currentWindow.mediaItem.isLocal)
+                            if (currentDisplayedMediaItem.isLocal)
                                 localMusicFileNotFoundError
                             else when (error?.cause?.cause) {
                                 is UnresolvedAddressException, is UnknownHostException -> networkerror
@@ -1005,7 +1008,6 @@ fun Thumbnail(
     }
 }
 
-@OptIn(UnstableApi::class)
 fun Modifier.thumbnailpause(
     shouldBePlaying: Boolean
 ) = composed {

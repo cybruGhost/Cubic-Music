@@ -471,7 +471,7 @@ private suspend fun fetchTopSongThumbnail(songTitle: String, artist: String): St
     return withContext(Dispatchers.IO) {
         try {
             val query = URLEncoder.encode("$songTitle $artist", "UTF-8")
-            val url = "https://yt.omada.cafe/api/v1/search?q=$query&type=video"
+            val url = "https://yewtu.be/api/v1/search?q=$query&type=video"
 
             val connection = URL(url).openConnection()
             connection.connectTimeout = 3000
@@ -516,7 +516,7 @@ private suspend fun fetchSongPreview(title: String, artist: String): String? {
                 val dataArray = json.getJSONArray("data")
                 if (dataArray.length() > 0) {
                     val songData = dataArray.getJSONObject(0)
-                    return@withContext songData.optString("preview", null)
+                    return@withContext songData.optString("preview").takeIf { it.isNotBlank() }
                 }
             }
             return@withContext null

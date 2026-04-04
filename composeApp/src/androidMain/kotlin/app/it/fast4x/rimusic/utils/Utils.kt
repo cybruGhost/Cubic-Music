@@ -53,11 +53,63 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import app.kreate.android.me.knighthat.utils.Toaster
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 const val EXPLICIT_BUNDLE_TAG = "is_explicit"
+private const val SIMPMUSIC_LYRICS_API = "https://api-lyrics.simpmusic.org/v1"
+
+data class SimpMusicLyricsResult(
+    val syncedLyrics: String?,
+    val plainLyrics: String?,
+)
+
+suspend fun fetchSimpMusicLyrics(videoId: String): SimpMusicLyricsResult? {
+    if (videoId.isBlank()) return null
+
+    return runCatching {
+        val connection = (URL("$SIMPMUSIC_LYRICS_API/$videoId?limit=10").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 5000
+            readTimeout = 5000
+        }
+
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) return@runCatching null
+
+        connection.inputStream.bufferedReader().use { reader ->
+            val data = org.json.JSONObject(reader.readText()).optJSONArray("data") ?: return@use null
+            val bestItem = (0 until data.length())
+                .map { index -> data.optJSONObject(index) }
+                .filterNotNull()
+                .sortedByDescending { item -> item.optString("syncedLyrics").isNotBlank() }
+                .firstOrNull()
+                ?: return@use null
+
+            SimpMusicLyricsResult(
+                syncedLyrics = bestItem.optString("syncedLyrics").takeIf { it.isNotBlank() },
+                plainLyrics = bestItem.optString("plainLyrics").takeIf { it.isNotBlank() }
+            )
+        }
+    }.getOrNull()
+}
+
+private fun filteredVideoAuthorNames(authors: List<Innertube.Info<*>>?): List<String> =
+    authors
+        ?.mapNotNull { author ->
+            val name = author.name?.trim().orEmpty()
+            when {
+                name.isBlank() -> null
+                author.endpoint != null -> name
+                name.contains(" views", ignoreCase = true) -> null
+                name.contains(" view", ignoreCase = true) -> null
+                else -> name
+            }
+        }
+        ?.distinct()
+        .orEmpty()
 
 val Innertube.AlbumItem.asAlbum: Album
     get() = Album (
@@ -140,13 +192,12 @@ val Innertube.VideoItem.asMediaItem: MediaItem
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(info?.name)
-                .setArtist(authors?.joinToString(", ") { it.name ?: "" })
+                .setArtist(filteredVideoAuthorNames(authors).joinToString(", "))
                 .setArtworkUri(thumbnail?.url?.toUri())
                 .setExtras(
                     bundleOf(
                         "durationText" to durationText,
-                        "artistNames" to authors?.filter { it.endpoint != null }
-                            ?.mapNotNull { it.name },
+                        "artistNames" to filteredVideoAuthorNames(authors),
                         "artistIds" to authors?.mapNotNull { it.endpoint?.browseId },
                         "isOfficialMusicVideo" to isOfficialMusicVideo,
                         "isUserGeneratedContent" to isUserGeneratedContent,
@@ -165,7 +216,7 @@ val Song.asMediaItem: MediaItem
     get() = MediaItem.Builder()
         .setMediaMetadata(
             MediaMetadata.Builder()
-                .setTitle(title)
+                .setTitle(cleanPrefix(title))
                 .setArtist(artistsText)
                 .setArtworkUri(thumbnailUrl?.toUri())
                 .setExtras(
@@ -194,7 +245,7 @@ val Innertube.VideoItem.asSong: Song
     get() = Song (
         id = key,
         title = info?.name ?: "",
-        artistsText = authors?.joinToString(", ") { it.name ?: "" },
+        artistsText = filteredVideoAuthorNames(authors).joinToString(", "),
         durationText = durationText,
         thumbnailUrl = thumbnail?.url
     )
@@ -202,10 +253,12 @@ val Innertube.VideoItem.asSong: Song
 val MediaItem.asSong: Song
     get() = Song (
         id = mediaId.split("/").lastOrNull() ?: mediaId,
-        title = mediaMetadata.title.toString(),
+        title = cleanPrefix(mediaMetadata.title.toString()),
         artistsText = mediaMetadata.artist.toString(),
         durationText = mediaMetadata.extras?.getString("durationText"),
-        thumbnailUrl = mediaMetadata.artworkUri.toString()
+        thumbnailUrl = mediaMetadata.artworkUri
+            ?.toString()
+            ?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
     )
 
 val MediaItem.cleaned: MediaItem
@@ -419,7 +472,7 @@ fun getVersionCode(): Int {
     val context = LocalContext.current
     try {
         val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        return pInfo.versionCode
+        return pInfo.longVersionCode.toInt()
     } catch (e: PackageManager.NameNotFoundException) {
         e.printStackTrace()
     }
@@ -489,6 +542,14 @@ suspend fun downloadSyncedLyrics( song: Song ) {
                 fixed = storedLyrics?.fixed,
                 synced = it?.value.orEmpty()
             )
+        }?.onFailure {
+            fetchSimpMusicLyrics(song.id)?.let { simpLyrics ->
+                fetchedLyrics = Lyrics(
+                    songId = song.id,
+                    fixed = simpLyrics.plainLyrics ?: storedLyrics?.fixed,
+                    synced = simpLyrics.syncedLyrics ?: storedLyrics?.synced
+                )
+            }
         }
     }
 

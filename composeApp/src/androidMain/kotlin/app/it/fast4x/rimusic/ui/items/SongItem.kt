@@ -108,9 +108,7 @@ fun SongItem(
         thumbnailSizeDp = thumbnailSizeDp,
         modifier = modifier,
         onDownloadClick = {
-            Database.asyncTransaction {
-                songTable.upsert( song.asSong )
-            }
+            Database.upsert(song.asSong)
             onDownloadClick()
         },
         downloadState = downloadState,
@@ -145,9 +143,7 @@ fun SongItem(
         trailingContent = trailingContent,
         modifier = modifier,
         onDownloadClick = {
-            Database.asyncTransaction {
-                songTable.upsert( song.asSong )
-            }
+            Database.upsert(song.asSong)
             onDownloadClick()
         },
         downloadState = downloadState,
@@ -181,9 +177,7 @@ fun SongItem(
         trailingContent = trailingContent,
         modifier = modifier,
         onDownloadClick = {
-            Database.asyncTransaction {
-                songTable.upsert( song )
-            }
+            Database.upsert(song)
             onDownloadClick()
         },
         downloadState = downloadState,

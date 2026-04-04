@@ -26,6 +26,7 @@ import android.media.audiofx.PresetReverb
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.annotation.MainThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,12 +48,16 @@ import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.PlaybackStats
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
@@ -125,6 +130,8 @@ import app.it.fast4x.rimusic.utils.bassboostLevelKey
 import app.it.fast4x.rimusic.utils.broadCastPendingIntent
 import app.it.fast4x.rimusic.utils.closebackgroundPlayerKey
 import app.it.fast4x.rimusic.utils.collect
+import app.it.fast4x.rimusic.utils.crossfadeDurationSecondsKey
+import app.it.fast4x.rimusic.utils.crossfadeEnabledKey
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import app.it.fast4x.rimusic.utils.enableWallpaperKey
 import app.it.fast4x.rimusic.utils.encryptedPreferences
@@ -230,6 +237,10 @@ class PlayerServiceModern : MediaLibraryService(),
     private var mediaLibrarySessionCallback: MediaLibrarySessionCallback =
         MediaLibrarySessionCallback(this, Database, MyDownloadHelper)
     lateinit var player: ExoPlayer
+    private lateinit var crossfadeOverlayPlayer: ExoPlayer
+    private lateinit var stablePlayerBridge: DelegatingExoPlayer
+    private lateinit var sessionPlayer: ExoPlayer
+    private lateinit var crossFadeMediaPlayer: CrossFadeMediaPlayer
     lateinit var cache: Cache
     lateinit var downloadCache: Cache
     private lateinit var audioVolumeObserver: AudioVolumeObserver
@@ -247,6 +258,16 @@ class PlayerServiceModern : MediaLibraryService(),
      */
     private var discordPresenceManager: DiscordPresenceManager? = null
     private var cubicJamManager: CubicJamManager? = null
+    private var lastReportedNotificationMediaId: String? = null
+    private var lastPlaybackSurfaceRefreshMs = 0L
+    private var lastNoInternetToastMs = 0L
+    private var lastSmartMessageMs = 0L
+    private var lastAutoSourceRecoveryMediaId: String? = null
+    private var lastAutoSourceRecoveryMs = 0L
+    private var lastEndedRecoveryMediaId: String? = null
+    private var lastEndedRecoveryMs = 0L
+    private var cacheCompletionJob: Job? = null
+    private var cacheCompletionMediaId: String? = null
 
     var loudnessEnhancer: LoudnessEnhancer? = null
     private var binder = Binder()
@@ -257,6 +278,7 @@ class PlayerServiceModern : MediaLibraryService(),
 
     lateinit var audioQualityFormat: AudioQualityFormat
     lateinit var sleepTimer: SleepTimer
+    private lateinit var playbackStatsListener: PlaybackStatsListener
     private var timerJob: TimerJob? = null
     private var radio: YouTubeRadio? = null
 
@@ -398,9 +420,12 @@ class PlayerServiceModern : MediaLibraryService(),
         downloadCache = MyDownloadHelper.getDownloadCache(applicationContext)
 
 
+        playbackStatsListener = PlaybackStatsListener(false, this@PlayerServiceModern)
+
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(createMediaSourceFactory())
             .setRenderersFactory(createRendersFactory())
+            .setTrackSelector(createTrackSelector())
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setAudioAttributes(
@@ -414,16 +439,55 @@ class PlayerServiceModern : MediaLibraryService(),
             .setSeekBackIncrementMs(5000)
             .setSeekForwardIncrementMs(5000)
             .build()
-            .apply {
-                addListener(this@PlayerServiceModern)
-                sleepTimer = SleepTimer(coroutineScope, this)
-                addListener(sleepTimer)
-                addAnalyticsListener(PlaybackStatsListener(false, this@PlayerServiceModern))
+
+        crossfadeOverlayPlayer = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(createMediaSourceFactory())
+            .setRenderersFactory(createRendersFactory())
+            .setTrackSelector(createTrackSelector())
+            .setHandleAudioBecomingNoisy(false)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                false
+            )
+            .setUsePlatformDiagnostics(false)
+            .build()
+
+        crossFadeMediaPlayer = CrossFadeMediaPlayer(
+            currentPlayer = player,
+            nextPlayer = crossfadeOverlayPlayer,
+            targetVolumeProvider = { preferences.getFloat(playbackVolumeKey, 1f) },
+            onPlayersSwapped = ::onCrossfadePlayersSwapped,
+        ).apply {
+            updateConfig(
+                enabled = preferences.getBoolean(crossfadeEnabledKey, false),
+                crossfadeDurationMs = preferences.getInt(crossfadeDurationSecondsKey, 21) * 1000L
+            )
+            onDisplayItemChanged = { mediaItem ->
+                if (mediaItem != null) {
+                    currentMediaItem.value = mediaItem
+                    requestArtworkPlaybackSurfaceRefresh(mediaItem)
+                    if (::stablePlayerBridge.isInitialized) {
+                        stablePlayerBridge.refreshState()
+                    }
+                }
             }
+        }
+        stablePlayerBridge = DelegatingExoPlayer(player).also {
+            it.setDisplayStateProvider { crossFadeMediaPlayer.uiState.value }
+        }
+        sessionPlayer = stablePlayerBridge.player
+        sleepTimer = SleepTimer(coroutineScope, sessionPlayer)
+        sessionPlayer.addListener(sleepTimer)
+        player.addListener(this@PlayerServiceModern)
+        player.addAnalyticsListener(playbackStatsListener)
 
         // Force player to add all commands available, prior to android 13
         val forwardingPlayer =
-            object : ForwardingPlayer(player) {
+            object : ForwardingPlayer(sessionPlayer) {
                 override fun getAvailableCommands(): Player.Commands {
                     return super.getAvailableCommands()
                         .buildUpon()
@@ -466,18 +530,17 @@ class PlayerServiceModern : MediaLibraryService(),
                 )
                 .build()
         mediaLibrarySessionCallback.observeRepository(mediaSession)
+        observeCrossfadeNotificationState()
         player.skipSilenceEnabled = preferences.getBoolean(skipSilenceKey, false)
-        player.addListener(this@PlayerServiceModern)
-        player.addAnalyticsListener(PlaybackStatsListener(false, this@PlayerServiceModern))
 
         player.repeatMode = preferences.getEnum(queueLoopTypeKey, QueueLoopType.Default).type
 
-        binder.player.playbackParameters = PlaybackParameters(
+        sessionPlayer.playbackParameters = PlaybackParameters(
             preferences.getFloat(playbackSpeedKey, 1f),
             preferences.getFloat(playbackPitchKey, 1f)
         )
-        binder.player.volume = preferences.getFloat(playbackVolumeKey, 1f)
-        binder.player.setGlobalVolume(binder.player.volume)
+        sessionPlayer.volume = preferences.getFloat(playbackVolumeKey, 1f)
+        sessionPlayer.setGlobalVolume(sessionPlayer.volume)
 
         // Keep a connected controller so that notification works
         val sessionToken = SessionToken(this, ComponentName(this, PlayerServiceModern::class.java))
@@ -501,7 +564,7 @@ class PlayerServiceModern : MediaLibraryService(),
         }
         MyDownloadHelper.getDownloadManager(this).addListener(downloadListener)
 
-        notificationActionReceiver = NotificationActionReceiver(player)
+        notificationActionReceiver = NotificationActionReceiver(sessionPlayer)
 QuickPicksRepository.refreshIfNeeded()
 
         val filter = IntentFilter().apply {
@@ -613,12 +676,17 @@ QuickPicksRepository.refreshIfNeeded()
 
         val mediaItem =
             eventTime.timeline.getWindow(eventTime.windowIndex, Timeline.Window()).mediaItem
+        if (mediaItem.mediaId.isBlank()) return
+        val songId = mediaItem.mediaId.substringAfterLast("/", mediaItem.mediaId).ifBlank { return }
 
         val totalPlayTimeMs = playbackStats.totalPlayTimeMs
 
+        if (songId.isBlank()) return
+
         if ( totalPlayTimeMs > 5000 )
             Database.asyncTransaction {
-                songTable.updateTotalPlayTime( mediaItem.mediaId, totalPlayTimeMs, true )
+                songTable.insertIgnore(Song.makePlaceholder(songId))
+                songTable.updateTotalPlayTime( songId, totalPlayTimeMs, true )
             }
 
 
@@ -627,13 +695,23 @@ QuickPicksRepository.refreshIfNeeded()
 
         if ( totalPlayTimeMs > minTimeForEvent.asMillis ) {
             Database.asyncTransaction {
-                eventTable.insertIgnore(
-                    Event(
-                        songId = mediaItem.mediaId,
-                        timestamp = System.currentTimeMillis(),
-                        playTime = totalPlayTimeMs
+                runCatching {
+                    songTable.insertIgnore(Song.makePlaceholder(songId))
+                    eventTable.insertIgnore(
+                        Event(
+                            songId = songId,
+                            timestamp = System.currentTimeMillis(),
+                            playTime = totalPlayTimeMs
+                        )
                     )
-                )
+                }.onFailure {
+                    Timber.e(
+                        it,
+                        "PlayerServiceModern failed to insert playback event for mediaId=%s songId=%s",
+                        mediaItem.mediaId,
+                        songId
+                    )
+                }
             }
 
         }
@@ -668,6 +746,10 @@ QuickPicksRepository.refreshIfNeeded()
             stopService(intent<MyDownloadService>())
             stopService(intent<PlayerServiceModern>())
             player.removeListener(this)
+            if (::crossFadeMediaPlayer.isInitialized) {
+                crossFadeMediaPlayer.release()
+            }
+            cacheCompletionJob?.cancel()
             player.stop()
             player.release()
             try{
@@ -709,12 +791,26 @@ QuickPicksRepository.refreshIfNeeded()
 
             skipSilenceKey -> if (sharedPreferences != null) {
                 player.skipSilenceEnabled = sharedPreferences.getBoolean(key, false)
+                crossfadeOverlayPlayer.skipSilenceEnabled = sharedPreferences.getBoolean(key, false)
             }
 
             queueLoopTypeKey -> {
                 player.repeatMode =
                     sharedPreferences?.getEnum(queueLoopTypeKey, QueueLoopType.Default)?.type
                         ?: QueueLoopType.Default.type
+                crossfadeOverlayPlayer.repeatMode = Player.REPEAT_MODE_OFF
+            }
+
+            crossfadeEnabledKey, crossfadeDurationSecondsKey -> {
+                crossFadeMediaPlayer.updateConfig(
+                    enabled = preferences.getBoolean(crossfadeEnabledKey, false),
+                    crossfadeDurationMs = preferences.getInt(crossfadeDurationSecondsKey, 21) * 1000L
+                )
+                crossFadeMediaPlayer.onPrimaryTimelineChanged()
+                crossFadeMediaPlayer.onPrimaryMediaItemTransition(player.currentMediaItem)
+                crossFadeMediaPlayer.onPrimaryIsPlayingChanged(player.isPlaying)
+                crossFadeMediaPlayer.onPrimaryPlayWhenReadyChanged(player.playWhenReady)
+                requestArtworkPlaybackSurfaceRefresh(displayedMediaItem() ?: player.currentMediaItem)
             }
 
             bassboostLevelKey, bassboostEnabledKey -> maybeBassBoost()
@@ -747,46 +843,31 @@ QuickPicksRepository.refreshIfNeeded()
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        crossFadeMediaPlayer.onPrimaryMediaItemTransition(mediaItem)
 
-        currentMediaItem.update { mediaItem }
-        maybeRecoverPlaybackError()
+        val displayMediaItem = displayedMediaItem() ?: mediaItem
+        currentMediaItem.update { displayMediaItem }
         maybeNormalizeVolume()
         loadFromRadio(reason)
-        // Update bitmap with proper fallback handling
-        val artworkUri = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
-        if (artworkUri != null) {
-            bitmapProvider.load(artworkUri) {
-                updateDefaultNotification()
-                updateWidgets()
-            }
-        } else {
-            // If no artwork, force the use of the default bitmap
-            bitmapProvider.load(null) {
-                updateDefaultNotification()
-                updateWidgets()
-            }
-        }
+        requestArtworkPlaybackSurfaceRefresh(displayMediaItem, minIntervalMs = 0L)
+        warmCurrentSongCache(displayMediaItem)
 
         /**
          * Discord presence
          */
-        val title = mediaItem?.mediaMetadata?.title ?: "<none>"
         val now = System.currentTimeMillis()
+        val presenceSnapshot = currentPresenceSnapshot()
         if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
             val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
             if (token?.isNotEmpty() == true) {
-                // Capture current values to avoid thread safety issues
-                val currentPosition = player.currentPosition
-                val isPlaying = player.isPlaying
-                val duration = player.duration
                 discordPresenceManager?.onPlayingStateChanged(
-                    mediaItem,
-                    isPlaying,
-                    currentPosition,
-                    duration,
+                    presenceSnapshot.mediaItem ?: mediaItem,
+                    presenceSnapshot.isPlaying,
+                    presenceSnapshot.position,
+                    presenceSnapshot.duration,
                     now,
-                    getCurrentPosition = { currentPosition },
-                    isPlayingProvider = { isPlaying }
+                    getCurrentPosition = { currentPresenceSnapshot().position },
+                    isPlayingProvider = { currentPresenceSnapshot().isPlaying }
                 )
             }
         }
@@ -808,18 +889,14 @@ QuickPicksRepository.refreshIfNeeded()
                 )
             }
             
-            val currentPosition = player.currentPosition
-            val isPlaying = player.isPlaying
-            val duration = player.duration
-            
             cubicJamManager?.onPlayingStateChanged(
-                mediaItem = mediaItem,
-                isPlaying = isPlaying,
-                position = currentPosition,
-                duration = duration,
+                mediaItem = presenceSnapshot.mediaItem ?: mediaItem,
+                isPlaying = presenceSnapshot.isPlaying,
+                position = presenceSnapshot.position,
+                duration = presenceSnapshot.duration,
                 now = now,
-                getCurrentPosition = { currentPosition },
-                isPlayingProvider = { isPlaying }
+                getCurrentPosition = { currentPresenceSnapshot().position },
+                isPlayingProvider = { currentPresenceSnapshot().isPlaying }
             )
         }
     }
@@ -828,18 +905,22 @@ QuickPicksRepository.refreshIfNeeded()
         if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
             maybeSavePlayerQueue()
         }
+        crossFadeMediaPlayer.onPrimaryTimelineChanged()
     }
 
-    override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-        updateDefaultNotification()
-        if (shuffleModeEnabled) {
-            val shuffledIndices = IntArray(player.mediaItemCount) { it }
-            shuffledIndices.shuffle()
-            shuffledIndices[shuffledIndices.indexOf(player.currentMediaItemIndex)] = shuffledIndices[0]
-            shuffledIndices[0] = player.currentMediaItemIndex
-            player.setShuffleOrder(DefaultShuffleOrder(shuffledIndices, System.currentTimeMillis()))
-        }
+override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+    updateDefaultNotification()
+    
+    // Only apply custom shuffle order if shuffle is being enabled AND there's no manually shuffled queue pending
+    // Add a flag to track if shuffle was manually handled
+    if (shuffleModeEnabled && !binder.isManuallyShuffled) {
+        val shuffledIndices = IntArray(player.mediaItemCount) { it }
+        shuffledIndices.shuffle()
+        shuffledIndices[shuffledIndices.indexOf(player.currentMediaItemIndex)] = shuffledIndices[0]
+        shuffledIndices[0] = player.currentMediaItemIndex
+        player.setShuffleOrder(DefaultShuffleOrder(shuffledIndices, System.currentTimeMillis()))
     }
+}
 
 
 
@@ -848,25 +929,23 @@ QuickPicksRepository.refreshIfNeeded()
      */
         @UnstableApi
     override fun onIsPlayingChanged(isPlaying: Boolean) {
-        val item = player.currentMediaItem
-        val title = item?.mediaMetadata?.title ?: "<none>"
-        val duration = player.duration
+        crossFadeMediaPlayer.onPrimaryIsPlayingChanged(isPlaying)
+        val presenceSnapshot = currentPresenceSnapshot()
+        val item = presenceSnapshot.mediaItem
         val now = System.currentTimeMillis()
         
         // Discord presence
         if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
             val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
             if (token?.isNotEmpty() == true) {
-                // Capture current values to avoid thread safety issues
-                val currentPosition = player.currentPosition
                 discordPresenceManager?.onPlayingStateChanged(
                     item,
-                    isPlaying,
-                    currentPosition,
-                    duration,
+                    presenceSnapshot.isPlaying,
+                    presenceSnapshot.position,
+                    presenceSnapshot.duration,
                     now,
-                    getCurrentPosition = { currentPosition },
-                    isPlayingProvider = { isPlaying }
+                    getCurrentPosition = { currentPresenceSnapshot().position },
+                    isPlayingProvider = { currentPresenceSnapshot().isPlaying }
                 )
             }
         }
@@ -886,26 +965,68 @@ QuickPicksRepository.refreshIfNeeded()
                 )
             }
             
-            val currentPosition = player.currentPosition
             cubicJamManager?.onPlayingStateChanged(
                 mediaItem = item,
-                isPlaying = isPlaying,
-                position = currentPosition,
-                duration = duration,
+                isPlaying = presenceSnapshot.isPlaying,
+                position = presenceSnapshot.position,
+                duration = presenceSnapshot.duration,
                 now = now,
-                getCurrentPosition = { currentPosition },
-                isPlayingProvider = { isPlaying }
+                getCurrentPosition = { currentPresenceSnapshot().position },
+                isPlayingProvider = { currentPresenceSnapshot().isPlaying }
             )
         }
         
-        updateWidgets()
+        requestPlaybackSurfaceRefresh(item)
     }
 
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
 
-        Timber.e("PlayerServiceModern onPlayerError error code ${error.errorCode} message ${error.message} cause ${error.cause?.cause}")
-        println("PlayerServiceModern onPlayerError error code ${error.errorCode} message ${error.message} cause ${error.cause?.cause}")
+        val currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
+        val controllerPackage = PlaybackSourceHints.currentControllerPackageName()
+        val isAndroidAutoStart = PlaybackSourceHints.shouldPreferSearchFallback(currentMediaId)
+        val deepestCause = generateSequence(error as Throwable?) { it.cause }.lastOrNull()
+        val isDecoderIssue =
+            error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ||
+                error.errorCodeName.contains("DECOD", ignoreCase = true) ||
+                deepestCause?.javaClass?.simpleName?.contains("Codec", ignoreCase = true) == true
+
+        Timber.e(
+            error,
+            "PlayerServiceModern onPlayerError mediaId=%s controller=%s androidAuto=%s errorCode=%s errorName=%s message=%s rootCause=%s",
+            currentMediaId,
+            controllerPackage,
+            isAndroidAutoStart,
+            error.errorCode,
+            error.errorCodeName,
+            error.message,
+            deepestCause?.javaClass?.simpleName
+        )
+        println(
+            "PlayerServiceModern onPlayerError mediaId=$currentMediaId controller=$controllerPackage androidAuto=$isAndroidAutoStart errorCode=${error.errorCode} errorName=${error.errorCodeName} message=${error.message} rootCause=${deepestCause?.javaClass?.simpleName}"
+        )
+
+        if (isDecoderIssue) {
+            Timber.w(
+                error,
+                "Decoder failure while playing %s. Preferring audio-only recovery path.",
+                currentMediaId
+            )
+            if (player.hasNextMediaItem()) {
+                val prev = player.currentMediaItem
+                player.playNext()
+                showSmartMessage(
+                    message = getString(
+                        R.string.skip_media_on_error_message,
+                        prev?.mediaMetadata?.title ?: prev?.mediaId.orEmpty()
+                    )
+                )
+            } else {
+                player.stop()
+                Toaster.e("Playback codec failed. Try retrying with another source.")
+            }
+            return
+        }
 
         val playbackConnectionExeptionList = listOf(
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED, //primary error code to manage
@@ -919,7 +1040,11 @@ QuickPicksRepository.refreshIfNeeded()
 
         if (!isNetworkAvailable.value || isConnectionError) {
             waitingForNetwork.value = true
-            Toaster.noInternet()
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastNoInternetToastMs >= 3_000L) {
+                lastNoInternetToastMs = now
+                Toaster.noInternet()
+            }
             return
         }
 
@@ -937,6 +1062,33 @@ QuickPicksRepository.refreshIfNeeded()
             if (player.playWhenReady) {
                 player.play()
             }
+            return
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        if (
+            isAndroidAutoStart &&
+            currentMediaId.isNotBlank() &&
+            lastAutoSourceRecoveryMediaId != currentMediaId &&
+            now - lastAutoSourceRecoveryMs > 5_000L
+        ) {
+            lastAutoSourceRecoveryMediaId = currentMediaId
+            lastAutoSourceRecoveryMs = now
+            Timber.w(
+                "PlayerServiceModern onPlayerError forcing one Android Auto recovery attempt for mediaId=%s controller=%s",
+                currentMediaId,
+                controllerPackage
+            )
+            player.pause()
+            player.prepare()
+            handler.postDelayed(
+                {
+                    if (player.currentMediaItem?.mediaId == currentMediaId) {
+                        player.play()
+                    }
+                },
+                350L
+            )
             return
         }
 
@@ -965,6 +1117,7 @@ QuickPicksRepository.refreshIfNeeded()
 
     override fun onEvents(player: Player, events: Player.Events) {
         if (events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
+            crossFadeMediaPlayer.onPrimaryPlayWhenReadyChanged(player.playWhenReady)
             val isBufferingOrReady = player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
             if (isBufferingOrReady && player.playWhenReady) {
                 sendOpenEqualizerIntent()
@@ -972,6 +1125,31 @@ QuickPicksRepository.refreshIfNeeded()
                 sendCloseEqualizerIntent()
                 if (!player.playWhenReady) {
                     waitingForNetwork.value = false
+                }
+            }
+
+            val crossfadeEnabled = ::crossFadeMediaPlayer.isInitialized && crossFadeMediaPlayer.uiState.value.isEnabled
+            val currentMediaId = player.currentMediaItem?.mediaId
+            val now = SystemClock.elapsedRealtime()
+            if (
+                !crossfadeEnabled &&
+                player.playbackState == Player.STATE_ENDED &&
+                player.mediaItemCount > 1 &&
+                player.currentMediaItemIndex in 0 until (player.mediaItemCount - 1) &&
+                currentMediaId != null &&
+                (lastEndedRecoveryMediaId != currentMediaId || now - lastEndedRecoveryMs > 2_500L)
+            ) {
+                lastEndedRecoveryMediaId = currentMediaId
+                lastEndedRecoveryMs = now
+                handler.post {
+                    if (
+                        !crossFadeMediaPlayer.uiState.value.isEnabled &&
+                        player.playbackState == Player.STATE_ENDED &&
+                        player.currentMediaItem?.mediaId == currentMediaId &&
+                        player.currentMediaItemIndex in 0 until (player.mediaItemCount - 1)
+                    ) {
+                        player.playNext()
+                    }
                 }
             }
         }
@@ -982,21 +1160,77 @@ QuickPicksRepository.refreshIfNeeded()
     }
 
 
-    private fun maybeRecoverPlaybackError() {
-        if (player.playerError != null) {
-            player.prepare()
+    private fun onCrossfadePlayersSwapped(
+        newCurrentPlayer: ExoPlayer,
+        newNextPlayer: ExoPlayer,
+    ) {
+        if (player === newCurrentPlayer && crossfadeOverlayPlayer === newNextPlayer) return
+
+        player.removeListener(this@PlayerServiceModern)
+        player.removeAnalyticsListener(playbackStatsListener)
+
+        player = newCurrentPlayer
+        crossfadeOverlayPlayer = newNextPlayer
+
+        player.addListener(this@PlayerServiceModern)
+        player.addAnalyticsListener(playbackStatsListener)
+        stablePlayerBridge.updateDelegate(player)
+
+        currentMediaItem.value = player.currentMediaItem
+        player.skipSilenceEnabled = preferences.getBoolean(skipSilenceKey, false)
+        crossfadeOverlayPlayer.skipSilenceEnabled = preferences.getBoolean(skipSilenceKey, false)
+        maybeNormalizeVolume()
+        maybeBassBoost()
+        maybeReverb()
+        requestPlaybackSurfaceRefresh(player.currentMediaItem)
+        coroutineScope.launch(Dispatchers.Main) {
+            delay(150)
+            requestPlaybackSurfaceRefresh(player.currentMediaItem, minIntervalMs = 0L)
+        }
+    }
+
+    private fun observeCrossfadeNotificationState() {
+        coroutineScope.launch {
+            crossFadeMediaPlayer.uiState.collectLatest { state ->
+                if (!state.isEnabled || state.displayMediaItem == null) {
+                    lastReportedNotificationMediaId = null
+                    return@collectLatest
+                }
+
+                val displayMediaItem = state.displayMediaItem
+                val mediaId = displayMediaItem.mediaId
+                if (mediaId == lastReportedNotificationMediaId) {
+                    return@collectLatest
+                }
+
+                lastReportedNotificationMediaId = mediaId
+                currentMediaItem.value = displayMediaItem
+
+                if (!::mediaSession.isInitialized || !::bitmapProvider.isInitialized) {
+                    return@collectLatest
+                }
+
+                requestArtworkPlaybackSurfaceRefresh(displayMediaItem)
+            }
         }
     }
 
     private fun loadFromRadio( reason: Int ) {
         val isEnabled = preferences.getBoolean( autoLoadSongsInQueueKey, true )
         val isRepeatTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+        val remainingQueueItems = (player.mediaItemCount - player.currentMediaItemIndex - 1).coerceAtLeast(0)
 
         // Don't fetch more item if:
         // - Feature is disabled
         // - When song is repeated
-        // - Start new queue
-        if( isEnabled && !isRepeatTransition && !binder.isLoadingRadio && player.mediaItemCount > 1 && preferences.getBoolean(autoLoadSongsInQueueKey, true) )
+        // - Radio fetch is already in progress
+        if(
+            isEnabled &&
+            !isRepeatTransition &&
+            !binder.isLoadingRadio &&
+            preferences.getBoolean(autoLoadSongsInQueueKey, true) &&
+            remainingQueueItems <= 5
+        )
             player.currentMediaItem?.let {
                 binder.startRadio( it, true )
             }
@@ -1135,6 +1369,13 @@ QuickPicksRepository.refreshIfNeeded()
         }
     }
 
+    private fun createTrackSelector() = DefaultTrackSelector(this).apply {
+        setParameters(
+            buildUponParameters()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+        )
+    }
+
     private fun createRendersFactory() = object : DefaultRenderersFactory(this) {
         override fun buildAudioSink(
             context: Context,
@@ -1169,6 +1410,8 @@ QuickPicksRepository.refreshIfNeeded()
                     if (isAtLeastAndroid10) setOffloadMode(AudioSink.OFFLOAD_MODE_DISABLED)
                 }
         }
+    }.apply {
+        setEnableDecoderFallback(true)
     }
 
     private fun createMediaSourceFactory() = DefaultMediaSourceFactory(
@@ -1180,7 +1423,41 @@ QuickPicksRepository.refreshIfNeeded()
         }
     )
 
+    private fun warmCurrentSongCache(mediaItem: MediaItem?) {
+        val mediaId = mediaItem?.mediaId
+            ?.substringAfterLast("/")
+            ?.takeIf { it.isNotBlank() && !it.startsWith(LOCAL_KEY_PREFIX) }
+            ?: run {
+                cacheCompletionJob?.cancel()
+                cacheCompletionJob = null
+                cacheCompletionMediaId = null
+                return
+            }
 
+        if (cacheCompletionMediaId == mediaId && cacheCompletionJob?.isActive == true) return
+
+        cacheCompletionJob?.cancel()
+        cacheCompletionMediaId = mediaId
+        cacheCompletionJob = coroutineScope.launch {
+            runCatching {
+                val dataSource = createDataSourceFactory().createDataSource() as? CacheDataSource
+                    ?: error("Failed to create cache data source")
+                val dataSpec = DataSpec.Builder()
+                    .setUri("https://music.youtube.com/watch?v=$mediaId")
+                    .setKey(mediaId)
+                    .build()
+
+                CacheWriter(dataSource, dataSpec, null, null).cache()
+                Timber.d("PlayerServiceModern completed cache warmup for %s", mediaId)
+            }.onFailure { error ->
+                if (cacheCompletionMediaId == mediaId) {
+                    Timber.w(error, "PlayerServiceModern cache warmup failed for %s", mediaId)
+                }
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
     private fun buildCustomCommandButtons(): MutableList<CommandButton> {
         val notificationPlayerFirstIcon = preferences.getEnum(notificationPlayerFirstIconKey, NotificationButtons.Download)
         val notificationPlayerSecondIcon = preferences.getEnum(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
@@ -1257,6 +1534,7 @@ QuickPicksRepository.refreshIfNeeded()
         return commandButtonsList
     }
 
+    @Suppress("DEPRECATION")
     private fun updateCustomNotification(session: MediaSession): MediaNotification {
 
         val playIntent = Action.play.pendingIntent
@@ -1264,7 +1542,23 @@ QuickPicksRepository.refreshIfNeeded()
         val nextIntent = Action.next.pendingIntent
         val prevIntent = Action.previous.pendingIntent
 
-        val mediaMetadata = player.mediaMetadata
+        val displayMediaItem = displayedMediaItem()
+        if (displayMediaItem == null) {
+            val fallbackNotification = NotificationCompat.Builder(this, NotificationChannelId)
+                .setContentTitle("Cubic Music")
+                .setContentText("Loading...")
+                .setSmallIcon(R.drawable.ic_launcher_monochrome)
+                .setAutoCancel(false)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .setOngoing(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+                .setStyle(MediaStyleNotificationHelper.MediaStyle(session))
+                .build()
+            return MediaNotification(NotificationId, fallbackNotification)
+        }
+        val mediaMetadata = displayMediaItem.mediaMetadata
 
         // Load bitmap with proper fallback handling
         bitmapProvider.load(mediaMetadata.artworkUri) {
@@ -1276,16 +1570,16 @@ QuickPicksRepository.refreshIfNeeded()
         } else {
             NotificationCompat.Builder(this)
         }
-            .setContentTitle(cleanPrefix(player.mediaMetadata.title.toString()))
+            .setContentTitle(cleanPrefix(cleanPrefix(mediaMetadata.title?.toString() ?: "")))
             .setContentText(
                 if (mediaMetadata.albumTitle != null && mediaMetadata.artist != "")
-                    "${mediaMetadata.artist} | ${mediaMetadata.albumTitle}"
-                else mediaMetadata.artist
+                    "${cleanPrefix(cleanPrefix(mediaMetadata.artist?.toString() ?: ""))} | ${cleanPrefix(cleanPrefix(mediaMetadata.albumTitle?.toString() ?: ""))}"
+                else cleanPrefix(cleanPrefix(mediaMetadata.artist?.toString() ?: ""))
             )
             .setSubText(
                 if (mediaMetadata.albumTitle != null && mediaMetadata.artist != "")
-                    "${mediaMetadata.artist} | ${mediaMetadata.albumTitle}"
-                else mediaMetadata.artist
+                    "${cleanPrefix(cleanPrefix(mediaMetadata.artist?.toString() ?: ""))} | ${cleanPrefix(cleanPrefix(mediaMetadata.albumTitle?.toString() ?: ""))}"
+                else cleanPrefix(cleanPrefix(mediaMetadata.artist?.toString() ?: ""))
             )
             .setLargeIcon(bitmapProvider.bitmap)
             .setAutoCancel(false)
@@ -1293,21 +1587,24 @@ QuickPicksRepository.refreshIfNeeded()
             .setShowWhen(false)
             .setSmallIcon(player.playerError?.let { R.drawable.alert_circle }
                 ?: R.drawable.ic_launcher_monochrome)
-            .setOngoing(false)
+            .setOngoing(
+                sessionPlayer.playWhenReady ||
+                    sessionPlayer.isPlaying ||
+                    crossFadeMediaPlayer.uiState.value.isEnabled
+            )
             .setContentIntent(activityPendingIntent<MainActivity>(
                 flags = PendingIntent.FLAG_UPDATE_CURRENT
             ) {
                 putExtra("expandPlayerBottomSheet", true)
             })
-            .setDeleteIntent(broadCastPendingIntent<NotificationDismissReceiver>())
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setStyle(MediaStyleNotificationHelper.MediaStyle(session))
             .addAction(R.drawable.play_skip_back, "Skip back", prevIntent)
             .addAction(
-                if (player.isPlaying) R.drawable.pause else R.drawable.play,
-                if (player.isPlaying) "Pause" else "Play",
-                if (player.isPlaying) pauseIntent else playIntent
+                if (sessionPlayer.isPlaying) R.drawable.pause else R.drawable.play,
+                if (sessionPlayer.isPlaying) "Pause" else "Play",
+                if (sessionPlayer.isPlaying) pauseIntent else playIntent
             )
             .addAction(R.drawable.play_skip_forward, "Skip forward", nextIntent)
 
@@ -1328,7 +1625,7 @@ QuickPicksRepository.refreshIfNeeded()
                             player.shuffleModeEnabled
                         ),
                         appContext().resources.getString( it.textId ),
-                        it.pendingIntent
+                        it.pendingIntent()
                     )
                 }
         }
@@ -1346,7 +1643,7 @@ QuickPicksRepository.refreshIfNeeded()
                             player.shuffleModeEnabled
                         ),
                         appContext().resources.getString( it.textId ),
-                        it.pendingIntent
+                        it.pendingIntent()
                     )
                 }
         }
@@ -1364,7 +1661,7 @@ QuickPicksRepository.refreshIfNeeded()
                             player.shuffleModeEnabled
                         ),
                         appContext().resources.getString( it.textId ),
-                        it.pendingIntent
+                        it.pendingIntent()
                     )
                 }
         }
@@ -1399,6 +1696,47 @@ QuickPicksRepository.refreshIfNeeded()
 
     }
 
+    private fun requestPlaybackSurfaceRefresh(
+        mediaItem: MediaItem? = displayedMediaItem(),
+        includeWidgets: Boolean = true,
+        minIntervalMs: Long = 250L,
+    ) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastPlaybackSurfaceRefreshMs < minIntervalMs) return
+        lastPlaybackSurfaceRefreshMs = now
+
+        currentMediaItem.value = mediaItem ?: currentMediaItem.value
+        updateDefaultNotification()
+        if (includeWidgets) {
+            updateWidgets()
+        }
+    }
+
+    private fun requestArtworkPlaybackSurfaceRefresh(
+        mediaItem: MediaItem? = displayedMediaItem(),
+        includeWidgets: Boolean = true,
+        minIntervalMs: Long = 250L,
+    ) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastPlaybackSurfaceRefreshMs < minIntervalMs) return
+        lastPlaybackSurfaceRefreshMs = now
+
+        if (::bitmapProvider.isInitialized) {
+            bitmapProvider.load(mediaItem?.mediaMetadata?.artworkUri) {
+                updateDefaultNotification()
+                if (includeWidgets) {
+                    updateWidgets()
+                }
+            }
+            return
+        }
+
+        updateDefaultNotification()
+        if (includeWidgets) {
+            updateWidgets()
+        }
+    }
+
     fun toggleLike() {
         binder.toggleLike()
     }
@@ -1419,14 +1757,20 @@ QuickPicksRepository.refreshIfNeeded()
         player.currentMediaItem?.let( binder::startRadio )
     }
 
-    private fun showSmartMessage( message: String ) = Toaster.i(message)
+    private fun showSmartMessage( message: String ) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastSmartMessageMs < 1_500L) return
+        lastSmartMessageMs = now
+        Toaster.i(message)
+    }
 
     @MainThread
     fun updateWidgets() {
+        val displayMediaMetadata = displayedMediaItem()?.mediaMetadata ?: binder.player.mediaMetadata
         val status = Triple(
-            binder.player.mediaMetadata.title.toString(),
-            binder.player.mediaMetadata.artist.toString(),
-            binder.player.isPlaying
+            cleanPrefix(cleanPrefix(displayMediaMetadata.title.toString())),
+            cleanPrefix(cleanPrefix(displayMediaMetadata.artist.toString())),
+            binder.player.isPlaying || crossFadeMediaPlayer.uiState.value.isActive
         )
 
         val actions = Triple(
@@ -1475,31 +1819,68 @@ QuickPicksRepository.refreshIfNeeded()
         binder.actionSearch()
     }
 
+    private fun displayedMediaItem(): MediaItem? {
+        val crossfadeState = if (::crossFadeMediaPlayer.isInitialized) crossFadeMediaPlayer.uiState.value else null
+        return if (crossfadeState?.isEnabled == true) {
+            crossfadeState.displayMediaItem ?: player.currentMediaItem
+        } else {
+            player.currentMediaItem
+        }
+    }
+
+    private data class PresenceSnapshot(
+        val mediaItem: MediaItem?,
+        val isPlaying: Boolean,
+        val position: Long,
+        val duration: Long,
+    )
+
+    private fun currentPresenceSnapshot(): PresenceSnapshot {
+        val crossfadeState = if (::crossFadeMediaPlayer.isInitialized) crossFadeMediaPlayer.uiState.value else null
+        val displayMediaItem = displayedMediaItem()
+        val duration = when {
+            crossfadeState?.isEnabled == true && crossfadeState.displayDuration > 0L -> crossfadeState.displayDuration
+            sessionPlayer.duration > 0L -> sessionPlayer.duration
+            player.duration > 0L -> player.duration
+            else -> 0L
+        }
+        val position = when {
+            crossfadeState?.isEnabled == true -> crossfadeState.displayPosition.coerceAtLeast(0L)
+            sessionPlayer.currentPosition >= 0L -> sessionPlayer.currentPosition
+            else -> player.currentPosition.coerceAtLeast(0L)
+        }.coerceIn(0L, duration.coerceAtLeast(1L))
+        val isPlaying = crossfadeState?.isActive == true || sessionPlayer.isPlaying || player.isPlaying
+
+        return PresenceSnapshot(
+            mediaItem = displayMediaItem,
+            isPlaying = isPlaying,
+            position = position,
+            duration = duration
+        )
+    }
+
     override fun onPositionDiscontinuity(
         oldPosition: Player.PositionInfo,
         newPosition: Player.PositionInfo,
         reason: Int
     ) {
+        crossFadeMediaPlayer.onPrimaryPositionDiscontinuity(reason)
        Timber.d("PlayerServiceModern onPositionDiscontinuity oldPosition ${oldPosition.mediaItemIndex} newPosition ${newPosition.mediaItemIndex} reason $reason")
         // Discord presence: update on seek/skip
         if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SKIP) {
             if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
                 val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
                 if (token?.isNotEmpty() == true) {
-                    // Capture current values to avoid thread safety issues
-                    val currentMediaItem = player.currentMediaItem
-                    val isPlaying = player.isPlaying
-                    val currentPosition = player.currentPosition
-                    val duration = player.duration
+                    val presenceSnapshot = currentPresenceSnapshot()
                     val now = System.currentTimeMillis()
                     discordPresenceManager?.onPlayingStateChanged(
-                        currentMediaItem,
-                        isPlaying,
-                        currentPosition,
-                        duration,
+                        presenceSnapshot.mediaItem,
+                        presenceSnapshot.isPlaying,
+                        presenceSnapshot.position,
+                        presenceSnapshot.duration,
                         now,
-                        getCurrentPosition = { currentPosition },
-                        isPlayingProvider = { isPlaying }
+                        getCurrentPosition = { currentPresenceSnapshot().position },
+                        isPlayingProvider = { currentPresenceSnapshot().isPlaying }
                     )
                 }
             }
@@ -1519,20 +1900,16 @@ QuickPicksRepository.refreshIfNeeded()
                     )
                 }
                 
-                val currentMediaItem = player.currentMediaItem
-                val isPlaying = player.isPlaying
-                val currentPosition = player.currentPosition
-                val duration = player.duration
+                val presenceSnapshot = currentPresenceSnapshot()
                 val now = System.currentTimeMillis()
-                
                 cubicJamManager?.onPlayingStateChanged(
-                    mediaItem = currentMediaItem,
-                    isPlaying = isPlaying,
-                    position = currentPosition,
-                    duration = duration,
+                    mediaItem = presenceSnapshot.mediaItem,
+                    isPlaying = presenceSnapshot.isPlaying,
+                    position = presenceSnapshot.position,
+                    duration = presenceSnapshot.duration,
                     now = now,
-                    getCurrentPosition = { currentPosition },
-                    isPlayingProvider = { isPlaying }
+                    getCurrentPosition = { currentPresenceSnapshot().position },
+                    isPlayingProvider = { currentPresenceSnapshot().isPlaying }
                 )
             }
         }
@@ -1786,9 +2163,13 @@ QuickPicksRepository.refreshIfNeeded()
 
     }
 
-    open inner class Binder : AndroidBinder() {
-        val service: PlayerServiceModern
-            get() = this@PlayerServiceModern
+   open inner class Binder : AndroidBinder() {
+    // ADD THIS FLAG RIGHT HERE
+    var isManuallyShuffled = false
+        internal set
+    
+    val service: PlayerServiceModern
+        get() = this@PlayerServiceModern
 
         /*
         fun setBitmapListener(listener: ((Bitmap?) -> Unit)?) {
@@ -1803,6 +2184,9 @@ QuickPicksRepository.refreshIfNeeded()
         val player: ExoPlayer
             get() = this@PlayerServiceModern.player
 
+        val sessionPlayer: ExoPlayer
+            get() = this@PlayerServiceModern.sessionPlayer
+
         val cache: Cache
             get() = this@PlayerServiceModern.cache
 
@@ -1811,6 +2195,26 @@ QuickPicksRepository.refreshIfNeeded()
 
         val sleepTimerMillisLeft: StateFlow<Long?>?
             get() = timerJob?.millisLeft
+
+        val crossfadeUiState: StateFlow<CrossfadeUiState>
+            get() = crossFadeMediaPlayer.uiState
+
+        val displayedMediaItem: MediaItem?
+            get() = this@PlayerServiceModern.displayedMediaItem()
+
+        val displayedPositionAndDuration: Pair<Long, Long>
+            get() {
+                val crossfadeState = crossFadeMediaPlayer.uiState.value
+                return if (crossfadeState.isEnabled && crossfadeState.displayDuration > 0L) {
+                    val duration = crossfadeState.displayDuration.coerceAtLeast(1L)
+                    val position = crossfadeState.displayPosition.coerceIn(0L, duration)
+                    position to duration
+                } else {
+                    val duration = player.duration.coerceAtLeast(1L)
+                    val position = player.currentPosition.coerceIn(0L, duration)
+                    position to duration
+                }
+            }
 
         fun startSleepTimer(delayMillis: Long) {
             timerJob?.cancel()
@@ -1949,6 +2353,7 @@ QuickPicksRepository.refreshIfNeeded()
          */
         @MainThread
         fun gracefulPause() {
+            crossFadeMediaPlayer.pauseForUiInteraction()
             val duration = preferences.getEnum( playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled )
             player.fadeOutEffect( duration.asMillis )
         }
@@ -1958,6 +2363,7 @@ QuickPicksRepository.refreshIfNeeded()
          */
         @MainThread
         fun gracefulPlay() {
+            crossFadeMediaPlayer.playForUiInteraction()
             val duration = preferences.getEnum( playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled )
             player.fadeInEffect( duration.asMillis )
         }
@@ -1972,16 +2378,15 @@ QuickPicksRepository.refreshIfNeeded()
 
         @kotlin.OptIn(FlowPreview::class)
         fun toggleLike() {
-            Database.asyncTransaction {
-                currentSong.value?.let {
-                    songTable.rotateLikeState( it.id )
-                }.also {
-                    currentSong.debounce(1000).collect(coroutineScope) { updateDefaultNotification() }
+            coroutineScope.launch(Dispatchers.IO) {
+                currentMediaItem.value?.let { mediaItem ->
+                    app.kreate.android.me.knighthat.sync.YouTubeSync.toggleSongLike(
+                        this@PlayerServiceModern,
+                        mediaItem
+                    )
+                    updateDefaultNotification()
                 }
             }
-
-            currentSong.value
-                ?.let { MyDownloadHelper.autoDownloadWhenLiked(this@PlayerServiceModern, it.asMediaItem) }
         }
 
         fun toggleDownload() {

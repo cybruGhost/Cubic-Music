@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
+@Suppress("UNCHECKED_CAST")
 fun <T> persist(tag: String, initialValue: T): MutableState<T> {
     val context = LocalContext.current
 

@@ -335,7 +335,7 @@ class MainActivity :
         )
         monet.updateMonetColors()
 
-        monet.invokeOnReady {
+        monet.invokeOnReady(this) {
             startApp()
         }
 
@@ -1130,8 +1130,6 @@ class MainActivity :
                             if (preferences.getBoolean(keepPlayerMinimizedKey, false))
                                 showPlayer = false
                             else showPlayer = true
-                        } else {
-                            showPlayer = false
                         }
                     }
 

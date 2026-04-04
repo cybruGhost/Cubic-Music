@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -69,15 +70,20 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import app.kreate.android.R
+import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
+import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.ytAccountName
 import app.it.fast4x.rimusic.utils.getWeatherEmoji
 
 // Key constants
 private const val KEY_USERNAME = "username"
 private const val KEY_CITY = "weather_city"
+private const val KEY_NAME_SOURCE = "welcome_name_source"
 private const val PREF_TEMP_UNIT = "temperature_unit"
 private const val DEFAULT_TEMP_UNIT = "celsius"
+private const val NAME_SOURCE_CUSTOM = "custom"
+private const val NAME_SOURCE_YT = "yt"
 
 // Temperature unit management
 private fun getSavedTemperatureUnit(context: Context): String {
@@ -98,10 +104,25 @@ private fun formatTemperature(temp: Double, isCelsius: Boolean): String {
     return "${displayTemp.roundToInt()}$unit"
 }
 
+private fun sanitizedYouTubeAccountName(): String? {
+    val value = ytAccountName()?.trim().orEmpty()
+    if (value.isBlank()) return null
+    if (value.length > 80) return null
+    if (value.contains(';')) return null
+    if (value.contains("SAPISID=", ignoreCase = true)) return null
+    if (value.contains("SID=", ignoreCase = true)) return null
+    if (value.contains("__Secure-", ignoreCase = true)) return null
+    if (value.contains("LOGIN_INFO", ignoreCase = true)) return null
+    return value
+}
+
+private fun joinedSinceLabel(): String = "Joined 17th March 2024 - today"
+
 @Composable
 fun WelcomeMessage() {
     val context = LocalContext.current
     var username by remember { mutableStateOf("") }
+    var nameSource by remember { mutableStateOf(NAME_SOURCE_CUSTOM) }
     var city by remember { mutableStateOf("") }
     var showInputPage by remember { mutableStateOf(true) }
     var showChangeDialog by remember { mutableStateOf(false) }
@@ -116,6 +137,7 @@ fun WelcomeMessage() {
     // Load username and city on composition
     LaunchedEffect(Unit) {
         username = DataStoreUtils.getStringBlocking(context, KEY_USERNAME)
+        nameSource = DataStoreUtils.getStringBlocking(context, KEY_NAME_SOURCE).ifBlank { NAME_SOURCE_CUSTOM }
         city = DataStoreUtils.getStringBlocking(context, KEY_CITY)
         showInputPage = username.isBlank()
         
@@ -124,6 +146,13 @@ fun WelcomeMessage() {
             city = getLocationFromIP() ?: "Nairobi"
             DataStoreUtils.saveStringBlocking(context, KEY_CITY, city)
         }
+    }
+
+    val youtubeAccountName = sanitizedYouTubeAccountName()
+    val displayName = if (nameSource == NAME_SOURCE_YT && !youtubeAccountName.isNullOrBlank()) {
+        youtubeAccountName
+    } else {
+        username.ifBlank { youtubeAccountName.orEmpty() }
     }
     
     // Fetch weather when city is available
@@ -148,7 +177,7 @@ fun WelcomeMessage() {
     } else {
         Column {
             GreetingMessage(
-                username = username,
+                username = displayName,
                 weatherData = weatherData,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
@@ -162,10 +191,14 @@ fun WelcomeMessage() {
         if (showChangeDialog) {
             ChangeUsernameDialog(
                 currentUsername = username,
+                currentNameSource = nameSource,
+                youtubeAccountName = youtubeAccountName,
                 onDismiss = { showChangeDialog = false },
-                onUsernameChanged = { newUsername ->
+                onUsernameChanged = { newUsername, newSource ->
                     DataStoreUtils.saveStringBlocking(context, KEY_USERNAME, newUsername)
+                    DataStoreUtils.saveStringBlocking(context, KEY_NAME_SOURCE, newSource)
                     username = newUsername
+                    nameSource = newSource
                     showChangeDialog = false
                 }
             )
@@ -194,7 +227,7 @@ fun WelcomeMessage() {
         if (showWeatherPopup && weatherData != null) {
             WeatherForecastPopup(
                 weatherData = weatherData!!,
-                username = username,
+                username = displayName,
                 onDismiss = { showWeatherPopup = false },
                 onCityChange = { showCityDialog = true },
                 temperatureUnit = temperatureUnit
@@ -214,6 +247,8 @@ private fun GreetingMessage(
     onCityClick: () -> Unit,
     isCelsius: Boolean
 ) {
+    val palette = colorPalette()
+    val type = typography()
     val hour = remember {
         val date = Calendar.getInstance().time
         val formatter = SimpleDateFormat("HH", Locale.getDefault())
@@ -226,7 +261,7 @@ private fun GreetingMessage(
         in 17..20 -> stringResource(R.string.good_evening)
         else -> stringResource(R.string.good_night)
     }.let {
-        val baseMessage = if (isYouTubeLoggedIn()) "$it, ${ytAccountName()}" else it
+        val baseMessage = it
         "$baseMessage, "
     }
 
@@ -259,20 +294,20 @@ private fun GreetingMessage(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = message,
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium
+                color = palette.text,
+                style = type.s
             )
             Text(
                 text = username,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFFBB86FC),
+                style = type.s.copy(fontWeight = FontWeight.SemiBold),
+                color = palette.accent,
                 modifier = Modifier
                     .clickable(onClick = onUsernameClick)
                     .drawWithContent {
                         drawContent()
                         if (underlineProgress > 0) {
                             drawLine(
-                                color = Color(0xFFBB86FC),
+                                color = palette.accent,
                                 start = Offset(0f, size.height),
                                 end = Offset(size.width * underlineProgress, size.height),
                                 strokeWidth = 2f,
@@ -288,7 +323,7 @@ private fun GreetingMessage(
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
-                    color = Color(0xFF4FC3F7)
+                    color = palette.accent
                 )
             } else if (errorMessage != null) {
                 Text(
@@ -302,8 +337,8 @@ private fun GreetingMessage(
                 weatherData?.let { weather ->
                     Text(
                         text = "${formatTemperature(weather.temp, isCelsius)} ${getWeatherEmoji(weather.condition)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF4FC3F7),
+                        style = type.s.copy(fontWeight = FontWeight.Medium),
+                        color = palette.accent,
                         modifier = Modifier
                             .clickable(onClick = onWeatherClick)
                             .padding(horizontal = 4.dp)
@@ -316,8 +351,8 @@ private fun GreetingMessage(
         weatherData?.let { weather ->
             Text(
                 text = weather.city,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFFB0BEC5),
+                style = type.xxs,
+                color = palette.textSecondary,
                 modifier = Modifier
                     .clickable(onClick = onCityClick)
                     .padding(top = 2.dp)
@@ -630,31 +665,182 @@ private fun UsernameInputPage(onUsernameSubmitted: (String) -> Unit) {
 @Composable
 private fun ChangeUsernameDialog(
     currentUsername: String,
+    currentNameSource: String,
+    youtubeAccountName: String?,
     onDismiss: () -> Unit,
-    onUsernameChanged: (String) -> Unit
+    onUsernameChanged: (String, String) -> Unit
 ) {
     var newUsername by remember { mutableStateOf(currentUsername) }
+    var selectedSource by remember { mutableStateOf(currentNameSource) }
     val maxChars = 14
+    val hasYouTubeAccount = !youtubeAccountName.isNullOrBlank()
+    val isYouTubeConnected = isYouTubeLoggedIn()
+    val palette = colorPalette()
+    val type = typography()
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = palette.background1,
+        titleContentColor = palette.text,
+        textContentColor = palette.text,
+        shape = RoundedCornerShape(28.dp),
         title = {
             Text(
                 text = stringResource(R.string.change_username_title),
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.SemiBold
+                style = type.l.copy(fontWeight = FontWeight.SemiBold),
+                color = palette.text
             )
         },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = stringResource(
-                        R.string.change_username_prompt,
-                        maxChars
-                    ),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    text = stringResource(R.string.change_username_subtitle),
+                    style = type.xs,
+                    color = palette.textSecondary
                 )
+
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = palette.accent.copy(alpha = if (palette.isDark) 0.18f else 0.10f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            androidx.compose.material3.Icon(
+                                painter = painterResource(R.drawable.ytmusic),
+                                contentDescription = null,
+                                tint = palette.accent,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.change_username_source_title),
+                                    style = type.s.copy(fontWeight = FontWeight.SemiBold),
+                                    color = palette.text
+                                )
+                                Text(
+                                    text = if (hasYouTubeAccount) {
+                                        stringResource(R.string.change_username_source_connected)
+                                    } else {
+                                        stringResource(R.string.change_username_source_disconnected)
+                                    },
+                                    style = type.xxs,
+                                    color = palette.textSecondary
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = joinedSinceLabel(),
+                            style = type.xxs,
+                            color = palette.textSecondary
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = if (selectedSource == NAME_SOURCE_CUSTOM) {
+                                    palette.accent.copy(alpha = if (palette.isDark) 0.24f else 0.16f)
+                                } else {
+                                    palette.background2.copy(alpha = 0.92f)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedSource = NAME_SOURCE_CUSTOM }
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.name_source_custom),
+                                        style = type.xs.copy(fontWeight = FontWeight.SemiBold),
+                                        color = palette.text
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.name_source_custom_description),
+                                        style = type.xxs,
+                                        color = palette.textSecondary
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = if (selectedSource == NAME_SOURCE_YT && hasYouTubeAccount) {
+                                    palette.accent.copy(alpha = if (palette.isDark) 0.24f else 0.16f)
+                                } else {
+                                    palette.background2.copy(alpha = 0.92f)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        if (hasYouTubeAccount) selectedSource = NAME_SOURCE_YT
+                                    }
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.name_source_yt_account),
+                                        style = type.xs.copy(fontWeight = FontWeight.SemiBold),
+                                        color = palette.text
+                                    )
+                                    Text(
+                                        text = if (hasYouTubeAccount) {
+                                            youtubeAccountName.orEmpty()
+                                        } else {
+                                            stringResource(R.string.change_username_try_ytm_login)
+                                        },
+                                        style = type.xxs,
+                                        color = palette.textSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = if (selectedSource == NAME_SOURCE_YT && hasYouTubeAccount) {
+                        stringResource(R.string.using_youtube_name, youtubeAccountName.orEmpty())
+                    } else {
+                        stringResource(R.string.using_custom_name)
+                    },
+                    style = type.xxs,
+                    color = palette.textSecondary
+                )
+
+                if (!isYouTubeConnected) {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = palette.background2,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            androidx.compose.material3.Icon(
+                                painter = painterResource(R.drawable.ytmusic),
+                                contentDescription = null,
+                                tint = palette.accent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.change_username_try_ytm_login),
+                                style = type.xs,
+                                color = palette.text
+                            )
+                        }
+                    }
+                }
 
                 OutlinedTextField(
                     value = newUsername,
@@ -664,7 +850,7 @@ private fun ChangeUsernameDialog(
                     label = {
                         Text(
                             text = stringResource(R.string.username_label),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = palette.textSecondary
                         )
                     },
                     keyboardOptions = KeyboardOptions(
@@ -672,8 +858,13 @@ private fun ChangeUsernameDialog(
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        focusedTextColor = palette.text,
+                        unfocusedTextColor = palette.text,
+                        focusedContainerColor = palette.background0,
+                        unfocusedContainerColor = palette.background0,
+                        focusedBorderColor = palette.accent,
+                        unfocusedBorderColor = palette.background3,
+                        cursorColor = palette.accent
                     )
                 )
 
@@ -683,11 +874,11 @@ private fun ChangeUsernameDialog(
                         newUsername.length,
                         maxChars
                     ),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = type.xxs,
                     color = if (newUsername.length >= maxChars)
-                        Color.Red
+                        palette.red
                     else
-                        MaterialTheme.colorScheme.outline,
+                        palette.textSecondary,
                     modifier = Modifier
                         .align(Alignment.End)
                         .padding(top = 4.dp)
@@ -697,11 +888,13 @@ private fun ChangeUsernameDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (newUsername.isNotBlank()) {
-                        onUsernameChanged(newUsername.trim())
+                    if (selectedSource == NAME_SOURCE_YT && hasYouTubeAccount) {
+                        onUsernameChanged(newUsername.trim(), selectedSource)
+                    } else if (newUsername.isNotBlank()) {
+                        onUsernameChanged(newUsername.trim(), selectedSource)
                     }
                 },
-                enabled = newUsername.isNotBlank()
+                enabled = (selectedSource == NAME_SOURCE_YT && hasYouTubeAccount) || newUsername.isNotBlank()
             ) {
                 Text(stringResource(R.string.save))
             }

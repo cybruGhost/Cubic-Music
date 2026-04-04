@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,7 @@ import app.it.fast4x.rimusic.EXPLICIT_PREFIX
 import app.it.fast4x.rimusic.LocalPlayerAwareWindowInsets
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.MONTHLY_PREFIX
+import app.it.fast4x.rimusic.cleanPrefix
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.Countries
 import app.it.fast4x.rimusic.enums.NavRoutes
@@ -82,6 +85,9 @@ import app.it.fast4x.rimusic.isVideoEnabled
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.service.MyDownloadHelper
 import app.it.fast4x.rimusic.typography
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeRequestThrottler
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.ui.components.ButtonsRow
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.ShimmerHost
 import app.it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
@@ -112,6 +118,7 @@ import app.it.fast4x.rimusic.utils.center
 import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.forcePlay
+import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.isNowPlaying
 import app.it.fast4x.rimusic.utils.loadedDataKey
@@ -137,15 +144,21 @@ import app.it.fast4x.rimusic.utils.showRelatedAlbumsKey
 import app.it.fast4x.rimusic.utils.showSearchTabKey
 import app.it.fast4x.rimusic.utils.showSimilarArtistsKey
 import app.it.fast4x.rimusic.utils.showTipsKey
+import app.it.fast4x.rimusic.utils.ytCookieKey
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.ColorFilter
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
@@ -181,7 +194,7 @@ data class NotificationData(
     val isUpdate: Boolean,
     val imageUrl: String? = null
 )
-// ===== END NOTIFICATION DATA CLASS ===== 
+// ===== END NOTIFICATION DATA CLASS =====
 
 // ===== VERSION COMPARISON =====
 fun isNewerVersion(jsonVersion: String, appVersion: String): Boolean {
@@ -189,20 +202,20 @@ fun isNewerVersion(jsonVersion: String, appVersion: String): Boolean {
         // Remove 'v' prefix and any suffixes (like -beta, -release)
         val cleanJson = jsonVersion.removePrefix("v").split("-").first()
         val cleanApp = appVersion.removePrefix("v").split("-").first()
-        
+
         // Split by dots
         val jsonParts = cleanJson.split(".").map { it.toIntOrNull() ?: 0 }
         val appParts = cleanApp.split(".").map { it.toIntOrNull() ?: 0 }
-        
+
         // Compare each part
         for (i in 0 until maxOf(jsonParts.size, appParts.size)) {
             val jsonPart = jsonParts.getOrElse(i) { 0 }
             val appPart = appParts.getOrElse(i) { 0 }
-            
+
             if (jsonPart > appPart) return true
             if (jsonPart < appPart) return false
         }
-        
+
         return false  // Versions are equal
     } catch (e: Exception) {
         Timber.e("Error comparing versions: $e")
@@ -210,6 +223,97 @@ fun isNewerVersion(jsonVersion: String, appVersion: String): Boolean {
     }
 }
 // ===== END VERSION COMPARISON =====
+
+@Composable
+private fun YtmHomeCard(
+    title: String,
+    subtitle: String?,
+    thumbnailUrl: String?,
+    modifier: Modifier = Modifier,
+    imageWidth: androidx.compose.ui.unit.Dp = 116.dp,
+    imageHeight: androidx.compose.ui.unit.Dp = imageWidth,
+    rounded: Boolean = true
+) {
+    Column(
+        modifier = modifier
+            .width(imageWidth)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(thumbnailUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(imageHeight)
+                .clip(if (rounded) RoundedCornerShape(20.dp) else CircleShape),
+        )
+        BasicText(
+            text = cleanPrefix(title),
+            style = typography().xs.semiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (!subtitle.isNullOrBlank()) {
+            BasicText(
+                text = cleanPrefix(subtitle),
+                style = typography().xxs.secondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private fun ytmHomeItemKey(item: Any?): String =
+    when (item) {
+        is Innertube.SongItem -> listOf(item.key, item.info?.name, item.authors?.joinToString(",") { it.name ?: "" })
+            .firstOrNull { !it.isNullOrBlank() }
+            ?.let { "song_$it" }
+            ?: "song_fallback_${item.hashCode()}"
+        is Innertube.AlbumItem -> listOf(item.key, item.info?.name, item.authors?.joinToString(",") { it.name ?: "" })
+            .firstOrNull { !it.isNullOrBlank() }
+            ?.let { "album_$it" }
+            ?: "album_fallback_${item.hashCode()}"
+        is Innertube.ArtistItem -> listOf(item.key, item.info?.name, item.subscribersCountText)
+            .firstOrNull { !it.isNullOrBlank() }
+            ?.let { "artist_$it" }
+            ?: "artist_fallback_${item.hashCode()}"
+        is Innertube.PlaylistItem -> listOf(item.key, item.info?.name, item.channel?.name)
+            .firstOrNull { !it.isNullOrBlank() }
+            ?.let { "playlist_$it" }
+            ?: "playlist_fallback_${item.hashCode()}"
+        is Innertube.VideoItem -> listOf(item.key, item.info?.name, item.authors?.joinToString(",") { it.name ?: "" })
+            .firstOrNull { !it.isNullOrBlank() }
+            ?.let { "video_$it" }
+            ?: "video_fallback_${item.hashCode()}"
+        null -> "null_item"
+        else -> "item_${item.hashCode()}"
+    }
+
+private fun homeQuickSongKey(song: Innertube.SongItem?, index: Int): String =
+    song?.key?.takeIf { it.isNotBlank() }
+        ?: "quick_song_${song?.info?.name.orEmpty()}_${index}"
+
+private fun homeQuickArtistKey(artist: Innertube.ArtistItem?, index: Int): String =
+    artist?.key?.takeIf { it.isNotBlank() }
+        ?: "quick_artist_${artist?.info?.name.orEmpty()}_${index}"
+
+private fun homeQuickVideoKey(video: Innertube.VideoItem?, index: Int): String =
+    video?.key?.takeIf { it.isNotBlank() }
+        ?: "quick_video_${video?.info?.name.orEmpty()}_${index}"
+
+private fun homeQuickPlaylistKey(playlist: Innertube.PlaylistItem?): String =
+    playlist?.key?.takeIf { it.isNotBlank() }
+        ?: "quick_playlist_${playlist?.info?.name.orEmpty()}_${playlist?.channel?.name.orEmpty()}"
+
+private fun homeQuickAlbumKey(album: Innertube.AlbumItem?): String =
+    album?.key?.takeIf { it.isNotBlank() }
+        ?: "quick_album_${album?.info?.name.orEmpty()}_${album?.authors?.joinToString(",") { it.name.orEmpty() }.orEmpty()}"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalTextApi
@@ -232,7 +336,8 @@ fun HomeQuickPicks(
     val menuState = LocalMenuState.current
     val windowInsets = LocalPlayerAwareWindowInsets.current
     var playEventType by rememberPreference(playEventsTypeKey, PlayEventsType.CasualPlayed)
-// ===== ADDEED THE REWIND SECTION HERE =====
+
+    // ===== REWIND SECTION =====
     // Check if current date is between Dec 6th and Dec 31st
     val calendar = java.util.Calendar.getInstance()
     val currentMonth = calendar.get(java.util.Calendar.MONTH) // 0-11, where 11=December
@@ -258,17 +363,104 @@ fun HomeQuickPicks(
     var homePageResult by persist<Result<HomePage?>>("home/quickpicks/homePageResult")
     var homePageInit by persist<HomePage?>("home/quickpicks/homePageInit")
     var homePagePreference by rememberPreference(quickPicsHomePageKey, homePageInit)
+    var homePageSessionId by rememberPreference("quickPicsHomePageSessionId", "")
+    var selectedHomeChipTitle by rememberPreference("quickPicsHomePageChipTitle", "")
+    var selectedHomeChipParams by rememberPreference("quickPicsHomePageChipParams", "")
 
     var chartsPageResult by persist<Result<Innertube.ChartsPage?>>("home/quickpicks/chartsPageResult")
     var chartsPageInit by persist<Innertube.ChartsPage>("home/quickpicks/chartsPageInit")
-//    var chartsPagePreference by rememberPreference(quickPicsChartsPageKey, chartsPageInit)
+    //    var chartsPagePreference by rememberPreference(quickPicsChartsPageKey, chartsPageInit)
+
+    // ===== FIX: localCount declared early so buildCasualMix can use it =====
+    val localRecommandationsNumber by rememberPreference(
+        key = "LocalRecommandationsNumber",
+        defaultValue = app.it.fast4x.rimusic.enums.LocalRecommandationsNumber.SixQ
+    )
+    val localCount = localRecommandationsNumber.value
+    // ===== END FIX =====
+
+    fun homePersonalizedSongs(): List<Song> =
+        (homePageResult?.getOrNull() ?: homePageInit)
+            ?.sections
+            ?.flatMap { section ->
+                section.items.mapNotNull { item ->
+                    when (item) {
+                        is Innertube.SongItem -> item.asSong
+                        is Innertube.VideoItem -> item.asSong
+                        else -> null
+                    }
+                }
+            }
+            ?.map { song -> song.copy(title = cleanPrefix(song.title)) }
+            ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
+            ?.distinctBy { song -> song.id }
+            ?: emptyList()
+
+    fun casualFallbackSongs(personalizedHomeSongs: List<Song>): List<Song> =
+        personalizedHomeSongs.ifEmpty {
+            chartsPageResult?.getOrNull()?.songs
+                ?.map { it.asSong }
+                .orEmpty()
+        }
+            .filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
+            .distinctBy { it.id }
+
+    suspend fun buildCasualMix(
+        personalizedHomeSongs: List<Song>,
+        favoriteSongs: List<Song>
+    ): Pair<List<Song>, Result<Innertube.RelatedPage?>?> {
+        val ytmPool = casualFallbackSongs(personalizedHomeSongs)
+        val preferredSeed = when {
+            personalizedHomeSongs.isNotEmpty() -> personalizedHomeSongs.randomOrNull()
+            favoriteSongs.isNotEmpty() -> favoriteSongs.randomOrNull()
+            else -> ytmPool.randomOrNull()
+        }
+
+        mostPopularSong = preferredSeed ?: favoriteSongs.firstOrNull()
+        if (preferredSeed == null) return ytmPool.shuffled().take(localCount) to null
+
+        val relatedResult = runCatching {
+            Innertube.relatedPage(NextBody(videoId = preferredSeed.id))
+        }.getOrNull()
+
+        val relatedSongs = relatedResult
+            ?.getOrNull()
+            ?.songs
+            ?.map { it.asSong }
+            ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
+            .orEmpty()
+
+        val ytmQuota = if (personalizedHomeSongs.isNotEmpty()) {
+            (localCount * 0.65f).toInt().coerceAtLeast(1)
+        } else {
+            (localCount * 0.35f).toInt().coerceAtLeast(1)
+        }
+
+        val favoriteQuota = if (favoriteSongs.isNotEmpty() && personalizedHomeSongs.isEmpty()) {
+            (localCount * 0.3f).toInt().coerceAtLeast(1)
+        } else {
+            0
+        }
+
+        val mixedSongs = (
+            ytmPool.shuffled().take(ytmQuota) +
+                favoriteSongs.shuffled().take(favoriteQuota) +
+                relatedSongs
+            )
+            .distinctBy { it.id }
+            .shuffled()
+            .take(localCount)
+
+        return mixedSongs to relatedResult
+    }
 
     var downloadState by remember {
         mutableStateOf(Download.STATE_STOPPED)
     }
 
     val context = LocalContext.current
-
+    val activeYouTubeCookie by rememberPreference(ytCookieKey, "")
+    val activeYouTubeSessionId = YouTubeSessionStore.getCurrentSession(context)?.sessionId.orEmpty()
 
     val showRelatedAlbums by rememberPreference(showRelatedAlbumsKey, true)
     val showSimilarArtists by rememberPreference(showSimilarArtistsKey, true)
@@ -282,21 +474,19 @@ fun HomeQuickPicks(
     )
     val showTips by rememberPreference(showTipsKey, true)
     val showCharts by rememberPreference(showChartsKey, true)
-    
 
     val isCubicJamLoggedIn = remember {
-    val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
-    val token = prefs.getString("bearer_token", null)
-    val loggedIn = token != null
-    Timber.d("HomeQuickPicks - CubicJam logged in: $loggedIn")
-    loggedIn
-}
+        val prefs = context.getSharedPreferences("cubic_jam_prefs", Context.MODE_PRIVATE)
+        val token = prefs.getString("bearer_token", null)
+        val loggedIn = token != null
+        Timber.d("HomeQuickPicks - CubicJam logged in: $loggedIn")
+        loggedIn
+    }
 
-// ===== NOTIFICATION MESSAGE =====
-// CHANGE THESE LINES (remove persist):
-var notificationResult by remember { mutableStateOf<Result<NotificationData?>?>(null) }
-var notificationInit by remember { mutableStateOf<NotificationData?>(null) }
-// ===== END NOTIFICATION MESSAGE =====
+    // ===== NOTIFICATION MESSAGE =====
+    var notificationResult by remember { mutableStateOf<Result<NotificationData?>?>(null) }
+    var notificationInit by remember { mutableStateOf<NotificationData?>(null) }
+    // ===== END NOTIFICATION MESSAGE =====
 
     val refreshScope = rememberCoroutineScope()
     val last50Year: Duration = 18250.days
@@ -306,76 +496,161 @@ var notificationInit by remember { mutableStateOf<NotificationData?>(null) }
 
     val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
 
-    //var loadedData by rememberSaveable { mutableStateOf(false) }
     var loadedData by rememberPreference(loadedDataKey, false)
 
-    val localRecommandationsNumber by rememberPreference(
-        key = "LocalRecommandationsNumber",
-        defaultValue = app.it.fast4x.rimusic.enums.LocalRecommandationsNumber.SixQ
-    )
-    val localCount = localRecommandationsNumber.value
-
-   suspend fun loadData(forceReload: Boolean = false) {
-
-//Used to refresh chart when country change - only if needed
-if (showCharts && (chartsPageResult == null || forceReload))
-    chartsPageResult =
-        Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
-  // ===== FETCH NOTIFICATION =====
-if (notificationResult == null || forceReload) {
-    notificationResult = runCatching {
-        // Replace with your JSON URL
-        val url = "https://raw.githubusercontent.com/cybruGhost/waigwe/main/storex/notification.json"
-        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 5000
-        connection.readTimeout = 5000
-        
-        if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
-            val response = connection.inputStream.bufferedReader().use { it.readText() }
-            
-            // Simple JSON parsing
-            val json = org.json.JSONObject(response)
-            val notificationJson = json.getJSONObject("notification")
-            
-            NotificationData(
-                version = notificationJson.getString("version"),
-                url = notificationJson.getString("url"),
-                title = notificationJson.getString("title"),
-                contents = notificationJson.getString("contents"),
-                show = notificationJson.getBoolean("show"),
-                is_force = notificationJson.getBoolean("is_force"),
-                force_update = notificationJson.getBoolean("force_update"),
-                isUpdate = notificationJson.getBoolean("isUpdate"),
-                imageUrl = notificationJson.optString("imageUrl", null)
-            )
+    suspend fun preferredCachedSong(fallbackSong: Song): Song = withContext(Dispatchers.IO) {
+        val storedSong = Database.songTable.findById(fallbackSong.id).first()
+        if (storedSong == null) {
+            fallbackSong
         } else {
-            null
+            val mergedSong = storedSong.copy(
+                title = storedSong.title.ifBlank { fallbackSong.title },
+                artistsText = storedSong.artistsText ?: fallbackSong.artistsText,
+                durationText = storedSong.durationText ?: fallbackSong.durationText,
+                thumbnailUrl = storedSong.thumbnailUrl ?: fallbackSong.thumbnailUrl
+            )
+
+            if (mergedSong != storedSong) {
+                Database.upsert(mergedSong)
+            }
+
+            mergedSong
         }
     }
-}
-    // ===== END FETCH NOTIFICATION =====
 
-if ((showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) && (discoverPageResult == null || forceReload)) {
-    discoverPageResult = Innertube.discoverPage()
-}
+    suspend fun preferredCachedMediaItem(songItem: Innertube.SongItem) =
+        preferredCachedSong(songItem.asSong).asMediaItem
 
-// Load homepage if logged in - only if needed
-if (isYouTubeLoggedIn() && (homePageResult == null || forceReload)) {
-    homePageResult = YtMusic.getHomePage()
-}
+    suspend fun playHomeSectionItems(
+        items: List<Any?>,
+        clickedItem: Any
+    ) {
+        val playableItems = items.mapNotNull { sectionItem ->
+            when (sectionItem) {
+                is Innertube.SongItem -> preferredCachedMediaItem(sectionItem)
+                is Innertube.VideoItem -> sectionItem.asSong.asMediaItem
+                else -> null
+            }
+        }
+        if (playableItems.isEmpty()) return
 
-if (loadedData && !forceReload) return
+        val targetMediaId = when (clickedItem) {
+            is Innertube.SongItem -> clickedItem.key
+            is Innertube.VideoItem -> clickedItem.key
+            else -> ""
+        }
 
-refreshScope.launch(Dispatchers.IO) {
-    runCatching {
-        when (playEventType) {
-            PlayEventsType.MostPlayed -> {
-                // Collect the first value from the Flow
-                Database.eventTable
-                    .findSongsMostPlayedBetween(from = from, limit = localCount)
-                    .distinctUntilChanged()
-                    .collect { songs ->  // Collect the Flow
+        val startIndex = playableItems.indexOfFirst { it.mediaId == targetMediaId }.coerceAtLeast(0)
+        binder?.stopRadio()
+        binder?.player?.forcePlayAtIndex(playableItems, startIndex)
+    }
+
+    suspend fun loadData(forceReload: Boolean = false) {
+        coroutineScope {
+            val chartsDeferred = async(Dispatchers.IO) {
+                if (showCharts && (chartsPageResult == null || forceReload)) {
+                    Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
+                } else {
+                    chartsPageResult
+                }
+            }
+
+            val notificationDeferred = async(Dispatchers.IO) {
+                if (notificationResult == null || forceReload) {
+                    runCatching {
+                        val url = "https://raw.githubusercontent.com/cybruGhost/Waigwe/main/storex/notification.json"
+                        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                        connection.requestMethod = "GET"
+                        connection.connectTimeout = 2500
+                        connection.readTimeout = 2500
+
+                        if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                            val response = connection.inputStream.bufferedReader().use { it.readText() }
+                            val json = org.json.JSONObject(response)
+                            val notificationJson = json.getJSONObject("notification")
+
+                            NotificationData(
+                                version = notificationJson.getString("version"),
+                                url = notificationJson.getString("url"),
+                                title = notificationJson.getString("title"),
+                                contents = notificationJson.getString("contents"),
+                                show = notificationJson.getBoolean("show"),
+                                is_force = notificationJson.getBoolean("is_force"),
+                                force_update = notificationJson.getBoolean("force_update"),
+                                isUpdate = notificationJson.getBoolean("isUpdate"),
+                                imageUrl = notificationJson.optString("imageUrl").takeUnless {
+                                    it.isBlank() || it.equals("null", ignoreCase = true)
+                                }
+                            )
+                        } else {
+                            null
+                        }
+                    }
+                } else {
+                    notificationResult
+                }
+            }
+
+            val discoverDeferred = async(Dispatchers.IO) {
+                if ((showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) && (discoverPageResult == null || forceReload)) {
+                    Innertube.discoverPage()
+                } else {
+                    discoverPageResult
+                }
+            }
+
+            val homeDeferred = async(Dispatchers.IO) {
+                if (isYouTubeLoggedIn() && (homePageResult == null || forceReload)) {
+                    YouTubeSessionStore.applyCurrentSession(context)
+                    YouTubeRequestThrottler.run {
+                        YtMusic.getHomePage(
+                            setLogin = true,
+                            params = selectedHomeChipParams.ifBlank { null }
+                        )
+                    }
+                } else {
+                    homePageResult
+                }
+            }
+
+            chartsPageResult = chartsDeferred.await()
+            notificationResult = notificationDeferred.await()
+            discoverPageResult = discoverDeferred.await()
+            homePageResult = homeDeferred.await()
+        }
+
+        if (!forceReload) {
+            if (relatedInit == null) {
+                relatedInit = relatedPreference ?: relatedPageResult?.getOrNull()
+            }
+            if (discoverPageInit == null) {
+                discoverPageInit = discoverPagePreference ?: discoverPageResult?.getOrNull() ?: discoverPageInit
+            }
+            if (chartsPageInit == null) {
+                chartsPageInit = chartsPageResult?.getOrNull() ?: chartsPageInit
+            }
+            if (isYouTubeLoggedIn() && homePageInit == null && activeYouTubeSessionId == homePageSessionId) {
+                homePageInit = homePagePreference ?: homePageResult?.getOrNull()
+            }
+        }
+
+        val isUiHydrated =
+            relatedInit != null &&
+                discoverPageInit != null &&
+                (!showCharts || chartsPageInit != null) &&
+                (!isYouTubeLoggedIn() || homePageInit != null || homePageResult != null)
+
+        if (loadedData && !forceReload && isUiHydrated) return
+
+        refreshScope.launch(Dispatchers.IO) {
+            runCatching {
+                when (playEventType) {
+                    PlayEventsType.MostPlayed -> {
+                        val songs = Database.eventTable
+                            .findSongsMostPlayedBetween(from = from, limit = localCount)
+                            .distinctUntilChanged()
+                            .first()
+
                         trendingList = songs.distinctBy { it.id }.take(localCount)
                         trending = trendingList.firstOrNull()
                         mostPopularSong = trending
@@ -387,17 +662,14 @@ refreshScope.launch(Dispatchers.IO) {
                                 NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
                             )
                         }
-                        // BREAK out of the collect after first value
-                        return@collect
                     }
-            }
-            
-            PlayEventsType.LastPlayed -> {
-                // Collect the first value from the Flow
-                Database.eventTable
-                    .findSongsLastPlayed(limit = localCount)
-                    .distinctUntilChanged()
-                    .collect { songs ->
+
+                    PlayEventsType.LastPlayed -> {
+                        val songs = Database.eventTable
+                            .findSongsLastPlayed(limit = localCount)
+                            .distinctUntilChanged()
+                            .first()
+
                         trendingList = songs.distinctBy { it.id }.take(localCount)
                         trending = trendingList.firstOrNull()
                         mostPopularSong = trending
@@ -409,277 +681,216 @@ refreshScope.launch(Dispatchers.IO) {
                                 NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
                             )
                         }
-                        // BREAK out of the collect after first value
-                        return@collect
                     }
-            }
 
-            PlayEventsType.CasualPlayed -> {
-                // Collect the first value from the Flow
-                Database.eventTable
-                    .findSongsMostPlayedBetween(from = 0, limit = 10)
-                    .distinctUntilChanged()
-                    .collect { favoriteSongs ->
-                        if (favoriteSongs.isNotEmpty()) {
-                            showNewUserMessage = false
-                            val seedSong = favoriteSongs.random()
-                            mostPopularSong = seedSong
+                    PlayEventsType.CasualPlayed -> {
+                        val favoriteSongs = Database.eventTable
+                            .findSongsMostPlayedBetween(from = 0, limit = 10)
+                            .distinctUntilChanged()
+                            .first()
+                        val personalizedHomeSongs = if (isYouTubeLoggedIn()) homePersonalizedSongs() else emptyList()
+                        val casualSongs = casualFallbackSongs(personalizedHomeSongs)
+                        showNewUserMessage = personalizedHomeSongs.isEmpty() && favoriteSongs.isEmpty() && casualSongs.isEmpty()
 
-                            runCatching {
-                                val relatedResult = Innertube.relatedPage(
-                                    NextBody(videoId = seedSong.id)
-                                )
+                        val (mixedSongs, relatedResult) = buildCasualMix(
+                            personalizedHomeSongs = personalizedHomeSongs,
+                            favoriteSongs = favoriteSongs
+                        )
 
-                                val relatedSongs = relatedResult
-                                    ?.getOrNull()
-                                    ?.songs
-                                    ?.map { it.asSong }
-                                    ?: emptyList()
+                        trendingList = mixedSongs.ifEmpty { casualSongs.shuffled().take(localCount) }
+                        trending = trendingList.firstOrNull()
+                        relatedPageResult = relatedResult
 
-                                val trendingResult = Innertube.chartsPageComplete(
-                                    countryCode = selectedCountryCode.name
-                                )
-
-                                val trendingSongs = trendingResult.getOrNull()?.songs
-                                    ?.map { it.asSong }
-                                    ?: emptyList()
-
-                                val mixedSongs = (
-                                    relatedSongs.take((localCount * 0.7).toInt()) +
-                                    trendingSongs.take((localCount * 0.3).toInt())
-                                )
-                                    .distinctBy { it.id }
-                                    .shuffled()
-                                    .take(localCount)
-
-                                trendingList = mixedSongs
-                                trending = mixedSongs.firstOrNull()
-                                relatedPageResult = relatedResult
-
-                            }.onFailure {
-                                val chartsResult = Innertube.chartsPageComplete(
-                                    countryCode = selectedCountryCode.name
-                                )
-
-                                val chartSongs = chartsResult.getOrNull()?.songs
-                                    ?.map { it.asSong }
-                                    ?: emptyList()
-
-                                trendingList = chartSongs.shuffled().take(localCount)
-                                trending = trendingList.firstOrNull()
-                            }
-
-                        } else {
-                            showNewUserMessage = true
-                            
-                            val chartsResult = Innertube.chartsPageComplete(
-                                countryCode = selectedCountryCode.name
+                        if (relatedPageResult == null && trending != null) {
+                            relatedPageResult = Innertube.relatedPage(
+                                NextBody(videoId = trending!!.id)
                             )
-
-                            val chartSongs = chartsResult.getOrNull()?.songs
-                                ?.map { it.asSong }
-                                ?: emptyList()
-
-                            trendingList = chartSongs.shuffled().take(localCount)
-                            trending = trendingList.firstOrNull()
-
-                            trending?.let { song ->
-                                relatedPageResult = Innertube.relatedPage(
-                                    NextBody(videoId = song.id)
-                                )
-                            }
                         }
-                        // BREAK out of the collect after first value
-                        return@collect
                     }
-            }
-        }
-    }.onFailure {
-        Timber.e("Failed loadData in QuickPicsModern ${it.stackTraceToString()}")
-        loadedData = false
-    }.onSuccess {
-        Timber.d("Success loadData in QuickPicsModern")
-        loadedData = true
-    }
-}
-}
-LaunchedEffect(playEventType) {
-    // Only reset trending-related data
-    trendingList = emptyList()
-    trending = null
-    relatedPageResult = null
-    relatedInit = null
-    mostPopularSong = null
-    showNewUserMessage = false
-    
-    refreshScope.launch(Dispatchers.IO) {
-        runCatching {
-            when (playEventType) {
-                PlayEventsType.MostPlayed -> {
-                    Database.eventTable
-                        .findSongsMostPlayedBetween(from = from, limit = localCount)
-                        .distinctUntilChanged()
-                        .collect { songs ->
-                            trendingList = songs.distinctBy { it.id }.take(localCount)
-                            trending = trendingList.firstOrNull()
-                            mostPopularSong = trending
-
-                            if (relatedPageResult == null ||
-                                trending?.id != trendingList.firstOrNull()?.id
-                            ) {
-                                relatedPageResult = Innertube.relatedPage(
-                                    NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
-                                )
-                            }
-                            return@collect
-                        }
                 }
-                
-                PlayEventsType.LastPlayed -> {
-                    Database.eventTable
-                        .findSongsLastPlayed(limit = localCount)
-                        .distinctUntilChanged()
-                        .collect { songs ->
-                            trendingList = songs.distinctBy { it.id }.take(localCount)
-                            trending = trendingList.firstOrNull()
-                            mostPopularSong = trending
+            }.onFailure {
+                Timber.e("Failed loadData in QuickPicsModern ${it.stackTraceToString()}")
+                loadedData = false
+            }.onSuccess {
+                Timber.d("Success loadData in QuickPicsModern")
+                trendingPreference = trending
+                relatedInit = relatedPageResult?.getOrNull()
+                relatedPreference = relatedInit
+                discoverPageInit = discoverPageResult?.getOrNull() ?: discoverPageInit
+                discoverPagePreference = discoverPageInit
+                chartsPageInit = chartsPageResult?.getOrNull() ?: chartsPageInit
+                notificationInit = notificationResult?.getOrNull() ?: notificationInit
 
-                            if (relatedPageResult == null ||
-                                trending?.id != trendingList.firstOrNull()?.id
-                            ) {
-                                relatedPageResult = Innertube.relatedPage(
-                                    NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
-                                )
-                            }
-                            return@collect
-                        }
+                homePageResult?.getOrNull()?.let { fetchedHomePage ->
+                    homePageInit = fetchedHomePage
+                    homePagePreference = fetchedHomePage
+                    if (activeYouTubeSessionId.isNotBlank()) {
+                        homePageSessionId = activeYouTubeSessionId
+                    }
                 }
-                
-                PlayEventsType.CasualPlayed -> {
-                    Database.eventTable
-                        .findSongsMostPlayedBetween(from = 0, limit = 10)
-                        .distinctUntilChanged()
-                        .collect { favoriteSongs ->
-                            if (favoriteSongs.isNotEmpty()) {
-                                showNewUserMessage = false
-                                val seedSong = favoriteSongs.random()
-                                mostPopularSong = seedSong
 
-                                runCatching {
-                                    val relatedResult = Innertube.relatedPage(
-                                        NextBody(videoId = seedSong.id)
-                                    )
-
-                                    val relatedSongs = relatedResult
-                                        ?.getOrNull()
-                                        ?.songs
-                                        ?.map { it.asSong }
-                                        ?: emptyList()
-
-                                    val trendingResult = Innertube.chartsPageComplete(
-                                        countryCode = selectedCountryCode.name
-                                    )
-
-                                    val trendingSongs = trendingResult.getOrNull()?.songs
-                                        ?.map { it.asSong }
-                                        ?: emptyList()
-
-                                    val mixedSongs = (
-                                        relatedSongs.take((localCount * 0.7).toInt()) +
-                                        trendingSongs.take((localCount * 0.3).toInt())
-                                    )
-                                        .distinctBy { it.id }
-                                        .shuffled()
-                                        .take(localCount)
-
-                                    trendingList = mixedSongs
-                                    trending = mixedSongs.firstOrNull()
-                                    relatedPageResult = relatedResult
-
-                                }.onFailure {
-                                    val chartsResult = Innertube.chartsPageComplete(
-                                        countryCode = selectedCountryCode.name
-                                    )
-
-                                    val chartSongs = chartsResult.getOrNull()?.songs
-                                        ?.map { it.asSong }
-                                        ?: emptyList()
-
-                                    trendingList = chartSongs.shuffled().take(localCount)
-                                    trending = trendingList.firstOrNull()
-                                }
-                            } else {
-                                showNewUserMessage = true
-                                
-                                val chartsResult = Innertube.chartsPageComplete(
-                                    countryCode = selectedCountryCode.name
-                                )
-
-                                val chartSongs = chartsResult.getOrNull()?.songs
-                                    ?.map { it.asSong }
-                                    ?: emptyList()
-
-                                trendingList = chartSongs.shuffled().take(localCount)
-                                trending = trendingList.firstOrNull()
-
-                                trending?.let { song ->
-                                    relatedPageResult = Innertube.relatedPage(
-                                        NextBody(videoId = song.id)
-                                    )
-                                }
-                            }
-                            return@collect
-                        }
-                }
+                loadedData = true
             }
         }
     }
-}
-    LaunchedEffect(selectedCountryCode) {
-        if (showCharts) {
-            chartsPageResult = Innertube.chartsPageComplete(
-                countryCode = selectedCountryCode.name
-            )
-        }
-    }
-    // Add this after LaunchedEffect(selectedCountryCode) and before var refreshing
-LaunchedEffect(Unit) {
-    if (!loadedData) {
-        loadData()
-    }
-}
 
-    var refreshing by remember { mutableStateOf(false) }
-
-   fun refresh() {
-    if (refreshing) return
-    
-    refreshScope.launch(Dispatchers.IO) {
-        refreshing = true
-        
-        // Clear trending data
+    LaunchedEffect(playEventType) {
+        // Only reset trending-related data
         trendingList = emptyList()
         trending = null
         relatedPageResult = null
         relatedInit = null
         mostPopularSong = null
-        
-        // DON'T reset loaded flag
-        
-        // Reload with force=true (only refreshes what's needed)
-        loadData(forceReload = true)
-        
-        delay(500)
-        refreshing = false
+        showNewUserMessage = false
+
+        refreshScope.launch(Dispatchers.IO) {
+            runCatching {
+                when (playEventType) {
+                    PlayEventsType.MostPlayed -> {
+                        Database.eventTable
+                            .findSongsMostPlayedBetween(from = from, limit = localCount)
+                            .distinctUntilChanged()
+                            .collect { songs ->
+                                trendingList = songs.distinctBy { it.id }.take(localCount)
+                                trending = trendingList.firstOrNull()
+                                mostPopularSong = trending
+
+                                if (relatedPageResult == null ||
+                                    trending?.id != trendingList.firstOrNull()?.id
+                                ) {
+                                    relatedPageResult = Innertube.relatedPage(
+                                        NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
+                                    )
+                                }
+                                return@collect
+                            }
+                    }
+
+                    PlayEventsType.LastPlayed -> {
+                        Database.eventTable
+                            .findSongsLastPlayed(limit = localCount)
+                            .distinctUntilChanged()
+                            .collect { songs ->
+                                trendingList = songs.distinctBy { it.id }.take(localCount)
+                                trending = trendingList.firstOrNull()
+                                mostPopularSong = trending
+
+                                if (relatedPageResult == null ||
+                                    trending?.id != trendingList.firstOrNull()?.id
+                                ) {
+                                    relatedPageResult = Innertube.relatedPage(
+                                        NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
+                                    )
+                                }
+                                return@collect
+                            }
+                    }
+
+                    PlayEventsType.CasualPlayed -> {
+                        Database.eventTable
+                            .findSongsMostPlayedBetween(from = 0, limit = 10)
+                            .distinctUntilChanged()
+                            .collect { favoriteSongs ->
+                                val personalizedHomeSongs = if (isYouTubeLoggedIn()) homePersonalizedSongs() else emptyList()
+                                val casualSongs = casualFallbackSongs(personalizedHomeSongs)
+                                showNewUserMessage = personalizedHomeSongs.isEmpty() && favoriteSongs.isEmpty() && casualSongs.isEmpty()
+
+                                val (mixedSongs, relatedResult) = buildCasualMix(
+                                    personalizedHomeSongs = personalizedHomeSongs,
+                                    favoriteSongs = favoriteSongs
+                                )
+
+                                trendingList = mixedSongs.ifEmpty { casualSongs.shuffled().take(localCount) }
+                                trending = trendingList.firstOrNull()
+                                relatedPageResult = relatedResult
+
+                                if (relatedPageResult == null && trending != null) {
+                                    relatedPageResult = Innertube.relatedPage(
+                                        NextBody(videoId = trending!!.id)
+                                    )
+                                }
+                                return@collect
+                            }
+                    }
+                }
+            }
+        }
     }
-}
-    val songThumbnailSizeDp = Dimensions.thumbnails.song
+
+    LaunchedEffect(activeYouTubeCookie, activeYouTubeSessionId) {
+        if (!YouTubeSessionStore.hasAuthCookies(activeYouTubeCookie)) {
+            homePageResult = null
+            homePageInit = null
+            homePagePreference = null
+            homePageSessionId = ""
+            selectedHomeChipTitle = ""
+            selectedHomeChipParams = ""
+            return@LaunchedEffect
+        }
+
+        if (activeYouTubeSessionId.isNotBlank() && homePageSessionId != activeYouTubeSessionId) {
+            homePageResult = null
+            homePageInit = null
+            homePagePreference = null
+            homePageSessionId = activeYouTubeSessionId
+            selectedHomeChipTitle = ""
+            selectedHomeChipParams = ""
+            loadData(forceReload = false)
+        }
+    }
+
+    LaunchedEffect(selectedCountryCode) {
+        if (showCharts) {
+            chartsPageResult = Innertube.chartsPageComplete(
+                countryCode = selectedCountryCode.name
+            )
+            chartsPageInit = chartsPageResult?.getOrNull() ?: chartsPageInit
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val shouldLoad =
+            !loadedData ||
+                relatedInit == null ||
+                discoverPageInit == null ||
+                (showCharts && chartsPageInit == null) ||
+                (isYouTubeLoggedIn() && homePageInit == null)
+
+        if (shouldLoad) loadData(forceReload = false)
+    }
+
+    var refreshing by remember { mutableStateOf(false) }
+
+    fun refresh() {
+        if (refreshing) return
+
+        refreshScope.launch(Dispatchers.IO) {
+            refreshing = true
+
+            // Clear trending data
+            trendingList = emptyList()
+            trending = null
+            relatedPageResult = null
+            relatedInit = null
+            mostPopularSong = null
+
+            // DON'T reset loaded flag
+
+            // Reload with force=true (only refreshes what's needed)
+            loadData(forceReload = true)
+
+            delay(500)
+            refreshing = false
+        }
+    }
+
+    val songThumbnailSizeDp = 92.dp
     val songThumbnailSizePx = songThumbnailSizeDp.px
-    val albumThumbnailSizeDp = 108.dp
+    val albumThumbnailSizeDp = 92.dp
     val albumThumbnailSizePx = albumThumbnailSizeDp.px
-    val artistThumbnailSizeDp = 92.dp
+    val artistThumbnailSizeDp = 80.dp
     val artistThumbnailSizePx = artistThumbnailSizeDp.px
-    val playlistThumbnailSizeDp = 108.dp
+    val playlistThumbnailSizeDp = 92.dp
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
 
     val scrollState = rememberScrollState()
@@ -723,18 +934,17 @@ LaunchedEffect(Unit) {
                     else
                         1f
                 )
-
         ) {
             val quickPicksLazyGridItemWidthFactor =
                 if (isLandscape && maxWidth * 0.475f >= 320.dp) {
-                    0.375f
+                    0.34f
                 } else {
-                    0.7f
+                    0.58f
                 }
             val itemInHorizontalGridWidth = maxWidth * quickPicksLazyGridItemWidthFactor
 
             val moodItemWidthFactor =
-                if (isLandscape && maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
+                if (isLandscape && maxWidth * 0.475f >= 320.dp) 0.42f else 0.78f
             val itemWidth = maxWidth * moodItemWidthFactor
 
             Column(
@@ -743,75 +953,6 @@ LaunchedEffect(Unit) {
                     .fillMaxHeight()
                     .verticalScroll(scrollState)
             ) {
-
-                /*   Load data from url or from saved preference   */
-                if (trendingPreference != null) {
-                    when (loadedData) {
-                        true -> trending = trendingPreference
-                        else -> trendingPreference = trending
-                    }
-                } else trendingPreference = trending
-
-                if (relatedPreference != null) {
-                    when (loadedData) {
-                        true -> {
-                            relatedPageResult = Result.success(relatedPreference)
-                            relatedInit = relatedPageResult?.getOrNull()
-                        }
-                        else -> {
-                            relatedInit = relatedPageResult?.getOrNull()
-                            relatedPreference = relatedInit
-                        }
-                    }
-                } else {
-                    relatedInit = relatedPageResult?.getOrNull()
-                    relatedPreference = relatedInit
-                }
-
-                if (discoverPagePreference != null) {
-                    when (loadedData) {
-                        true -> {
-                            discoverPageResult = Result.success(discoverPagePreference)
-                            discoverPageInit = discoverPageResult?.getOrNull()
-                        }
-                        else -> {
-                            discoverPageInit = discoverPageResult?.getOrNull()
-                            discoverPagePreference = discoverPageInit
-                        }
-
-                    }
-                } else {
-                    discoverPageInit = discoverPageResult?.getOrNull()
-                    discoverPagePreference = discoverPageInit
-                }
-
-                // Not saved/cached to preference
-                chartsPageInit = chartsPageResult?.getOrNull()
-                
-// ===== INITIALIZE NOTIFICATION =====
-notificationInit = notificationResult?.getOrNull()
-// ===== END INITIALIZE NOTIFICATION =====
-
-
-                if (homePagePreference != null) {
-                    when (loadedData) {
-                        true -> {
-                            homePageResult = Result.success(homePagePreference)
-                            homePageInit = homePageResult?.getOrNull()
-                        }
-                        else -> {
-                            homePageInit = homePageResult?.getOrNull()
-                            homePagePreference = homePageInit
-                        }
-
-                    }
-                } else {
-                    homePageInit = homePageResult?.getOrNull()
-                    homePagePreference = homePageInit
-                }
-
-                /*   Load data from url or from saved preference   */
-
 
                 if (UiType.ViMusic.isCurrent())
                     HeaderWithIcon(
@@ -826,187 +967,189 @@ notificationInit = notificationResult?.getOrNull()
 
                 WelcomeMessage()
 
-if (showTips) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Tips title + dropdown button (grouped together on left)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable {
-                menuState.display {
-                    Menu {
-                        MenuEntry(
-                            icon = R.drawable.chevron_up,
-                            text = stringResource(R.string.by_most_played_song),
-                            onClick = {
-                                playEventType = PlayEventsType.MostPlayed
-                                menuState.hide()
+                if (showTips) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Tips title + dropdown button (grouped together on left)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable {
+                                menuState.display {
+                                    Menu {
+                                        MenuEntry(
+                                            icon = R.drawable.chevron_up,
+                                            text = stringResource(R.string.by_most_played_song),
+                                            onClick = {
+                                                playEventType = PlayEventsType.MostPlayed
+                                                menuState.hide()
+                                            }
+                                        )
+                                        MenuEntry(
+                                            icon = R.drawable.chevron_down,
+                                            text = stringResource(R.string.by_last_played_song),
+                                            onClick = {
+                                                playEventType = PlayEventsType.LastPlayed
+                                                menuState.hide()
+                                            }
+                                        )
+                                        MenuEntry(
+                                            icon = R.drawable.random,
+                                            text = stringResource(R.string.by_casual_played_song),
+                                            onClick = {
+                                                playEventType = PlayEventsType.CasualPlayed
+                                                menuState.hide()
+                                            }
+                                        )
+                                    }
+                                }
                             }
-                        )
-                        MenuEntry(
-                            icon = R.drawable.chevron_down,
-                            text = stringResource(R.string.by_last_played_song),
-                            onClick = {
-                                playEventType = PlayEventsType.LastPlayed
-                                menuState.hide()
+                        ) {
+                            BasicText(
+                                text = stringResource(R.string.tips),
+                                style = typography().l.semiBold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                painter = painterResource(R.drawable.chevron_down),
+                                contentDescription = "Play events type",
+                                tint = colorPalette().text,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Spacer to push icons to the right
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // CubicJam + Play icons (grouped together on right)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // CubicJam icon with teal color
+                            IconButton(
+                                onClick = {
+                                    navController.navigate(NavRoutes.cubicjam.name)
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.multipage),
+                                    contentDescription = "Cubic Jam",
+                                    tint = Color(0xFF00BFA5) // Teal color
+                                )
                             }
-                        )
-                        MenuEntry(
-                            icon = R.drawable.random,
-                            text = stringResource(R.string.by_casual_played_song),
-                            onClick = {
-                                playEventType = PlayEventsType.CasualPlayed
-                                menuState.hide()
+
+                            // Play icon
+                            IconButton(
+                                onClick = {
+                                    val queue = buildList {
+                                        trending?.let { add(it.asMediaItem) }
+                                        addAll(relatedInit?.songs?.map { it.asMediaItem }.orEmpty())
+                                    }.distinctBy { it.mediaId }
+                                    binder?.stopRadio()
+                                    binder?.player?.forcePlayAtIndex(queue, 0)
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.play),
+                                    contentDescription = "Play",
+                                    tint = colorPalette().text
+                                )
                             }
-                        )
+                        }
                     }
-                }
-            }
-        ) {
-            BasicText(
-                text = stringResource(R.string.tips),
-                style = typography().l.semiBold
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                painter = painterResource(R.drawable.chevron_down),
-                contentDescription = "Play events type",
-                tint = colorPalette().text,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-        
-        // Spacer to push icons to the right
-        Spacer(modifier = Modifier.weight(1f))
-        
-        // CubicJam + Play icons (grouped together on right)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // CubicJam icon
-        // CubicJam icon with teal color
-        IconButton(
-            onClick = {
-                navController.navigate(NavRoutes.cubicjam.name)
-            },
-            modifier = Modifier.size(24.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.multipage),
-                contentDescription = "Cubic Jam",
-                tint = Color(0xFF00BFA5) // Teal color
-            )
-        }
-            
-            // Play icon
-            IconButton(
-                onClick = {
-                    binder?.stopRadio()
-                    trending?.let { binder?.player?.forcePlay(it.asMediaItem) }
-                    binder?.player?.addMediaItems(relatedInit?.songs?.map { it.asMediaItem }
-                        ?: emptyList())
-                },
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.play),
-                    contentDescription = "Play",
-                    tint = colorPalette().text
-                )
-            }
-        }
-    }
 
                     BasicText(
-                text = playEventType.text,
-                style = typography().xxs.secondary,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 8.dp)
-            )
+                        text = playEventType.text,
+                        style = typography().xxs.secondary,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 8.dp)
+                    )
 
-            if (relatedPageResult != null) {
-                // Prepare the final list : 6 locals (or less depending on the local recommandations number) + 14 YT recommendations (or less), then shuffle to show max 21 songs
-                
-                // KEEP the persistList for persistence
-                var recommendations by persistList<Song>("home/quickpicks/recommendations_list")
-                
-                // Use LaunchedEffect to update recommendations when source data changes
-                LaunchedEffect(trendingList, relatedInit, localCount, playEventType) {
-                    val mainIds = trendingList.map { it.id }.toSet()
-                    
-                    // Create a stable seed based on the content IDs for consistent shuffling
-                    val seed = (trendingList.joinToString { it.id } + 
+                    if (relatedPageResult != null) {
+                        // Prepare the final list: localCount locals + YT recommendations, then shuffle to show max 21 songs
+
+                        // KEEP the persistList for persistence
+                        var recommendations by persistList<Song>("home/quickpicks/recommendations_list")
+
+                        // Use LaunchedEffect to update recommendations when source data changes
+                        LaunchedEffect(trendingList, relatedInit, localCount, playEventType) {
+                            val mainIds = trendingList.map { it.id }.toSet()
+
+                            // Create a stable seed based on the content IDs for consistent shuffling
+                            val seed = (trendingList.joinToString { it.id } +
                                 (relatedInit?.songs?.joinToString { it.key } ?: "")).hashCode()
-                    val random = kotlin.random.Random(seed)
-                    
-                    val newRecommendations = if (playEventType == PlayEventsType.MostPlayed || 
-                                                playEventType == PlayEventsType.LastPlayed) {
-                        val first = trendingList.firstOrNull()
-                        val others = trendingList.drop(1)
-                        val relatedSongs = relatedInit?.songs
-                            ?.map { it.asSong }
-                            ?.filter { it.id !in mainIds }
-                            ?.distinctBy { it.id }
-                            ?.take(21 - (1 + others.size))
-                            .orEmpty()
-                        val total = (others + relatedSongs)
-                        val extra = if (total.size < 21) {
-                            relatedInit?.songs
-                                ?.map { it.asSong }
-                                ?.filter { it.id !in (others.map { s -> s.id } + (first?.id ?: "")) }
-                                ?.distinctBy { it.id }
-                                ?.take(21 - total.size)
-                                .orEmpty()
-                        } else emptyList()
-                        
-                        // Use seeded random for consistent shuffling
-                        (listOfNotNull(first) + (total + extra)).shuffled(random).distinctBy { it.id }
-                    } else {
-                        // Random Mode will randomize the list : all mixed
-                        val locals = trendingList.take(localCount)
-                        val relatedSongs = relatedInit?.songs
-                            ?.map { it.asSong }
-                            ?.filter { it.id !in locals.map { it.id } }
-                            ?.distinctBy { it.id }
-                            ?.take(21 - locals.size)
-                            .orEmpty()
-                        val total = (locals + relatedSongs)
-                        val extra = if (total.size < 21) {
-                            relatedInit?.songs
-                                ?.map { it.asSong }
-                                ?.filter { it.id !in total.map { s -> s.id } }
-                                ?.distinctBy { it.id }
-                                ?.take(21 - total.size)
-                                .orEmpty()
-                        } else emptyList()
-                        
-                        // Use seeded random for consistent shuffling
-                        (total + extra).shuffled(random).distinctBy { it.id }
-                    }
-                    
-                    // Update the persisted recommendations
-                    recommendations = newRecommendations
-                }
-                
+                            val random = kotlin.random.Random(seed)
+
+                            val newRecommendations = if (playEventType == PlayEventsType.MostPlayed ||
+                                playEventType == PlayEventsType.LastPlayed) {
+                                val first = trendingList.firstOrNull()
+                                val others = trendingList.drop(1)
+                                val relatedSongs = relatedInit?.songs
+                                    ?.map { it.asSong }
+                                    ?.filter { it.id !in mainIds }
+                                    ?.distinctBy { it.id }
+                                    ?.take(21 - (1 + others.size))
+                                    .orEmpty()
+                                val total = (others + relatedSongs)
+                                val extra = if (total.size < 21) {
+                                    relatedInit?.songs
+                                        ?.map { it.asSong }
+                                        ?.filter { it.id !in (others.map { s -> s.id } + (first?.id ?: "")) }
+                                        ?.distinctBy { it.id }
+                                        ?.take(21 - total.size)
+                                        .orEmpty()
+                                } else emptyList()
+
+                                // Use seeded random for consistent shuffling
+                                (listOfNotNull(first) + (total + extra)).shuffled(random).distinctBy { it.id }
+                            } else {
+                                // Random Mode will randomize the list: all mixed
+                                val locals = trendingList.take(localCount)
+                                val relatedSongs = relatedInit?.songs
+                                    ?.map { it.asSong }
+                                    ?.filter { it.id !in locals.map { it.id } }
+                                    ?.distinctBy { it.id }
+                                    ?.take(21 - locals.size)
+                                    .orEmpty()
+                                val total = (locals + relatedSongs)
+                                val extra = if (total.size < 21) {
+                                    relatedInit?.songs
+                                        ?.map { it.asSong }
+                                        ?.filter { it.id !in total.map { s -> s.id } }
+                                        ?.distinctBy { it.id }
+                                        ?.take(21 - total.size)
+                                        .orEmpty()
+                                } else emptyList()
+
+                                // Use seeded random for consistent shuffling
+                                (total + extra).shuffled(random).distinctBy { it.id }
+                            }
+
+                            // Update the persisted recommendations
+                            recommendations = newRecommendations
+                        }
+
                         LazyHorizontalGrid(
                             state = quickPicksLazyGridState,
                             rows = GridCells.Fixed(if (relatedInit != null) 3 else 1),
                             flingBehavior = ScrollableDefaults.flingBehavior(),
                             contentPadding = endPaddingValues,
-                            modifier = Modifier.fillMaxWidth()
-                                           .height(
-                                               if ( relatedInit != null)
-                                                   Dimensions.itemsVerticalPadding * 3 * 9
-                                               else
-                                                   Dimensions.itemsVerticalPadding * 9
-                                           )
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(
+                                    if (relatedInit != null)
+                                        Dimensions.itemsVerticalPadding * 3 * 9
+                                    else
+                                        Dimensions.itemsVerticalPadding * 9
+                                )
                         ) {
                             items(recommendations, key = { it.id }) { song ->
                                 app.kreate.android.me.knighthat.component.SongItem(
@@ -1015,8 +1158,8 @@ if (showTips) {
                                     onClick = { binder?.startRadio(song, true) },
                                     modifier = Modifier.width(itemInHorizontalGridWidth),
                                     thumbnailOverlay = {
-                                        if (playEventType != PlayEventsType.CasualPlayed && 
-                                            mostPopularSong != null && 
+                                        if (playEventType != PlayEventsType.CasualPlayed &&
+                                            mostPopularSong != null &&
                                             song.id == mostPopularSong!!.id) {
                                             Image(
                                                 painter = painterResource(R.drawable.star_brilliant),
@@ -1036,161 +1179,165 @@ if (showTips) {
 
                     if (relatedPageResult == null) Loader()
                 }
-                                // Add this message for new users
-if (showNewUserMessage && playEventType == PlayEventsType.CasualPlayed) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = 8.dp, bottom = 8.dp)
-            .background(
-                color = colorPalette().background1.copy(alpha = 0.8f),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        BasicText(
-            text = "First listen to some songs to get personalized recommendations",
-            style = typography().s.center.color(colorPalette().textSecondary),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-// ===== FRIEND NOW PLAYING SECTION =====
-FriendNowPlayingSection(navController = navController)
-// ===== END FRIEND NOW PLAYING SECTION =====
-// ===== NOTIFICATION MESSAGE SECTION =====
-notificationInit?.let { notification ->
-    // Get current app version
-    val currentVersion = BuildConfig.VERSION_NAME  // e.g., "v1.7.4"
-    
-    // DEBUG: Print versions to log
-    Timber.d("JSON Version: ${notification.version}, App Version: $currentVersion")
-    
-    // Check if JSON version is NEWER than app version
-    val hasNewUpdate = isNewerVersion(notification.version, currentVersion)
-    
-    // DEBUG: Print comparison result
-    Timber.d("isNewerVersion result: $hasNewUpdate")
-    
-    // ONLY show emergency emoji if force_update is true
-    val showEmergency = notification.force_update && hasNewUpdate
-    
-    if (notification.show) {
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    // Use accent color ONLY for emergency force updates
-                    if (showEmergency) 
-                        colorPalette().accent.copy(alpha = 0.1f)
-                    else 
-                        colorPalette().background1
-                )
-                .clickable {
-                    val intent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(notification.url)
-                    )
-                    context.startActivity(intent)
-                }
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // IMAGE (only if exists and not blank)
-                notification.imageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(imageUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = notification.title,
+
+                // Add this message for new users
+                if (showNewUserMessage && playEventType == PlayEventsType.CasualPlayed) {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-                
-                // TITLE
-                BasicText(
-                    text = notification.title,
-                    style = typography().m.bold.color(
-                        // Red color ONLY for emergency updates
-                        if (showEmergency) 
-                            Color(0xFFD32F2F)  // Red color
-                        else 
-                            colorPalette().text
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // MESSAGE
-                BasicText(
-                    text = notification.contents,
-                    style = typography().s.color(
-                        if (showEmergency) 
-                            Color(0xFFD32F2F)  // Red color
-                        else 
-                            colorPalette().text
-                    ),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                // VERSION INFO (SMALL TEXT at bottom)
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                if (hasNewUpdate) {
-                    // NEW UPDATE AVAILABLE
-                    BasicText(
-                        text = "Update available: ${notification.version} (You have: $currentVersion)",
-                        style = typography().xs.secondary,
-                        maxLines = 1
-                    )
-                    
-                    // EMERGENCY WARNING (only if force_update = true)
-                    if (showEmergency) {
-                        Spacer(modifier = Modifier.height(4.dp))
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp, bottom = 8.dp)
+                            .background(
+                                color = colorPalette().background1.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
                         BasicText(
-                            text = "⚠️ URGENT: This update fixes critical issues",
-                            style = typography().xxs.bold.color(Color(0xFFD32F2F)),
-                            maxLines = 1
+                            text = "First listen to some songs to get personalized recommendations",
+                            style = typography().s.center.color(colorPalette().textSecondary),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-                } else {
-                // YOU HAVE LATEST VERSION
-                BasicText(
-                    text = "Latest version: $currentVersion",
-                    style = typography().xs.secondary.copy(
-                        color = Color(0xFF4CAF50) // Material Green
-                    ),
-                    maxLines = 1
-                )
                 }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-    }
-}
-// ===== END NOTIFICATION MESSAGE SECTION =====
+
+                // ===== FRIEND NOW PLAYING SECTION =====
+                FriendNowPlayingSection(navController = navController)
+                // ===== END FRIEND NOW PLAYING SECTION =====
+
+                // ===== NOTIFICATION MESSAGE SECTION =====
+                notificationInit?.let { notification ->
+                    // Get current app version
+                    val currentVersion = BuildConfig.VERSION_NAME  // e.g., "v1.7.4"
+
+                    // DEBUG: Print versions to log
+                    Timber.d("JSON Version: ${notification.version}, App Version: $currentVersion")
+
+                    // Check if JSON version is NEWER than app version
+                    val hasNewUpdate = isNewerVersion(notification.version, currentVersion)
+
+                    // DEBUG: Print comparison result
+                    Timber.d("isNewerVersion result: $hasNewUpdate")
+
+                    // ONLY show emergency emoji if force_update is true
+                    val showEmergency = notification.force_update && hasNewUpdate
+
+                    if (notification.show) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    // Use accent color ONLY for emergency force updates
+                                    if (showEmergency)
+                                        colorPalette().accent.copy(alpha = 0.1f)
+                                    else
+                                        colorPalette().background1
+                                )
+                                .clickable {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(notification.url)
+                                    )
+                                    context.startActivity(intent)
+                                }
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                // IMAGE (only if exists and not blank)
+                                notification.imageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(imageUrl)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = notification.title,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+
+                                // TITLE
+                                BasicText(
+                                    text = notification.title,
+                                    style = typography().m.bold.color(
+                                        // Red color ONLY for emergency updates
+                                        if (showEmergency)
+                                            Color(0xFFD32F2F)  // Red color
+                                        else
+                                            colorPalette().text
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // MESSAGE
+                                BasicText(
+                                    text = notification.contents,
+                                    style = typography().s.color(
+                                        if (showEmergency)
+                                            Color(0xFFD32F2F)  // Red color
+                                        else
+                                            colorPalette().text
+                                    ),
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                // VERSION INFO (SMALL TEXT at bottom)
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                if (hasNewUpdate) {
+                                    // NEW UPDATE AVAILABLE
+                                    BasicText(
+                                        text = "Update available: ${notification.version} (You have: $currentVersion)",
+                                        style = typography().xs.secondary,
+                                        maxLines = 1
+                                    )
+
+                                    // EMERGENCY WARNING (only if force_update = true)
+                                    if (showEmergency) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        BasicText(
+                                            text = "⚠️ URGENT: This update fixes critical issues",
+                                            style = typography().xxs.bold.color(Color(0xFFD32F2F)),
+                                            maxLines = 1
+                                        )
+                                    }
+                                } else {
+                                    // YOU HAVE LATEST VERSION
+                                    BasicText(
+                                        text = "Latest version: $currentVersion",
+                                        style = typography().xs.secondary.copy(
+                                            color = Color(0xFF4CAF50) // Material Green
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+                // ===== END NOTIFICATION MESSAGE SECTION =====
+
                 discoverPageInit?.let { page ->
                     val artists by remember {
                         Database.artistTable
-                                .sortFollowingByName()
-                                .distinctUntilChanged()
-                    }.collectAsState( emptyList(), Dispatchers.IO )
+                            .sortFollowingByName()
+                            .distinctUntilChanged()
+                    }.collectAsState(emptyList(), Dispatchers.IO)
 
-                     var newReleaseAlbumsFiltered by persistList<Innertube.AlbumItem>("home/shared/newalbumsartist")
+                    var newReleaseAlbumsFiltered by persistList<Innertube.AlbumItem>("home/shared/newalbumsartist")
                     page.newReleaseAlbums.forEach { album ->
                         artists.forEach { artist ->
                             if (artist.name == album.authors?.first()?.name) {
@@ -1211,7 +1358,7 @@ notificationInit?.let { notification ->
                             LazyRow(contentPadding = endPaddingValues) {
                                 items(
                                     items = newReleaseAlbumsFiltered.distinctBy { it.key },
-                                    key = { it.key }) {
+                                    key = { homeQuickAlbumKey(it) }) {
                                     AlbumItem(
                                         album = it,
                                         thumbnailSizePx = albumThumbnailSizePx,
@@ -1224,20 +1371,18 @@ notificationInit?.let { notification ->
                                     )
                                 }
                             }
-
                         }
 
                     if (showNewAlbums) {
                         Title(
                             title = stringResource(R.string.new_albums),
                             onClick = { navController.navigate(NavRoutes.newAlbums.name) },
-                            //modifier = Modifier.fillMaxWidth(0.7f)
                         )
 
                         LazyRow(contentPadding = endPaddingValues) {
                             items(
                                 items = page.newReleaseAlbums.distinctBy { it.key },
-                                key = { it.key }) {
+                                key = { homeQuickAlbumKey(it) }) {
                                 AlbumItem(
                                     album = it,
                                     thumbnailSizePx = albumThumbnailSizePx,
@@ -1253,72 +1398,71 @@ notificationInit?.let { notification ->
                     }
                 }
 
-// Show only from December 6th (month=11, day>=6) to December 31st (month=11, day<=31)
-if (currentMonth == 11 && currentDay in 6..31) {
-    val currentYear = calendar.get(java.util.Calendar.YEAR)
-    
-    // Randomly select between BlackCherryCosmos and GoldenMagma
-    val selectedShader = remember { 
-        if (Random.nextBoolean()) BlackCherryCosmos else GoldenMagma
-    }
-    
-    Spacer(modifier = Modifier.height(16.dp))
+                // Show only from December 6th (month=11, day>=6) to December 31st (month=11, day<=31)
+                if (currentMonth == 11 && currentDay in 6..31) {
+                    val currentYear = calendar.get(java.util.Calendar.YEAR)
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(80.dp) // Slightly taller for better proportions
-            .clip(RoundedCornerShape(20.dp)) // Curvy edges with 20dp radius
-            .shaderBackground(selectedShader) // Use the randomly selected shader
-            .clickable {
-                // Navigate to Rewind screen
-                navController.navigate("rewind")
-            }
-    ) {
-        // Subtle overlay for better text readability on both shaders
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    if (selectedShader == BlackCherryCosmos) 
-                        Color.Black.copy(alpha = 0.15f)  // Darker overlay for dark cosmic background
-                    else 
-                        Color.Black.copy(alpha = 0.1f)   // Lighter overlay for golden magma
-                )
-        )
-        
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            BasicText(
-                text = "REWIND",
-                style = typography().m.bold.color(Color.White),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            Spacer(modifier = Modifier.height(6.dp)) // Slightly more spacing
-            
-            BasicText(
-                text = "$currentYear",
-                style = typography().s.semiBold.color(
-                    if (selectedShader == BlackCherryCosmos)
-                        Color.LightGray  // Light gray for dark background
-                    else
-                        Color.White.copy(alpha = 0.9f)  // White with transparency for golden background
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
+                    // Randomly select between BlackCherryCosmos and GoldenMagma
+                    val selectedShader = remember {
+                        if (Random.nextBoolean()) BlackCherryCosmos else GoldenMagma
+                    }
 
-    Spacer(modifier = Modifier.height(12.dp))
-}
-// ===== END REWIND SECTION =====
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .shaderBackground(selectedShader)
+                            .clickable {
+                                navController.navigate("rewind")
+                            }
+                    ) {
+                        // Subtle overlay for better text readability on both shaders
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    if (selectedShader == BlackCherryCosmos)
+                                        Color.Black.copy(alpha = 0.15f)
+                                    else
+                                        Color.Black.copy(alpha = 0.1f)
+                                )
+                        )
+
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            BasicText(
+                                text = "REWIND",
+                                style = typography().m.bold.color(Color.White),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            BasicText(
+                                text = "$currentYear",
+                                style = typography().s.semiBold.color(
+                                    if (selectedShader == BlackCherryCosmos)
+                                        Color.LightGray
+                                    else
+                                        Color.White.copy(alpha = 0.9f)
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                // ===== END REWIND SECTION =====
 
                 if (showRelatedAlbums)
                     relatedInit?.albums?.let { albums ->
@@ -1331,7 +1475,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                         LazyRow(contentPadding = endPaddingValues) {
                             items(
                                 items = albums.distinctBy { it.key },
-                                key = Innertube.AlbumItem::key
+                                key = { homeQuickAlbumKey(it) }
                             ) { album ->
                                 AlbumItem(
                                     album = album,
@@ -1357,7 +1501,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                         LazyRow(contentPadding = endPaddingValues) {
                             items(
                                 items = artists.distinctBy { it.key },
-                                key = Innertube.ArtistItem::key,
+                                key = { artist -> artist.key.takeIf { it.isNotBlank() } ?: "artist_${artist.info?.name.orEmpty()}" },
                             ) { artist ->
                                 ArtistItem(
                                     artist = artist,
@@ -1385,7 +1529,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                         LazyRow(contentPadding = endPaddingValues) {
                             items(
                                 items = playlists.distinctBy { it.key },
-                                key = Innertube.PlaylistItem::key,
+                                key = { homeQuickPlaylistKey(it) },
                             ) { playlist ->
                                 PlaylistItem(
                                     playlist = playlist,
@@ -1403,8 +1547,6 @@ if (currentMonth == 11 && currentDay in 6..31) {
                         }
                     }
 
-
-
                 if (showMoodsAndGenres)
                     discoverPageInit?.let { page ->
 
@@ -1413,18 +1555,15 @@ if (currentMonth == 11 && currentDay in 6..31) {
                             Title(
                                 title = stringResource(R.string.moods_and_genres),
                                 onClick = { navController.navigate(NavRoutes.moodsPage.name) },
-                                //modifier = Modifier.fillMaxWidth(0.7f)
                             )
 
                             LazyHorizontalGrid(
                                 state = moodAngGenresLazyGridState,
                                 rows = GridCells.Fixed(4),
                                 flingBehavior = ScrollableDefaults.flingBehavior(),
-                                //flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
                                 contentPadding = endPaddingValues,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    //.height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 8) * 8)
                                     .height(Dimensions.itemsVerticalPadding * 4 * 8)
                             ) {
                                 items(
@@ -1435,25 +1574,23 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                         mood = it,
                                         onClick = { it.endpoint.browseId?.let { _ -> onMoodClick(it) } },
                                         modifier = Modifier
-                                            //.width(itemWidth)
                                             .padding(4.dp)
                                     )
                                 }
                             }
-
                         }
                     }
 
                 val monthlyPlaylists by remember {
                     Database.playlistTable
-                            .allAsPreview()
-                            .distinctUntilChanged()
-                            .map { list ->
-                                list.filter {
-                                    it.playlist.name.startsWith( MONTHLY_PREFIX, true )
-                                }
+                        .allAsPreview()
+                        .distinctUntilChanged()
+                        .map { list ->
+                            list.filter {
+                                it.playlist.name.startsWith(MONTHLY_PREFIX, true)
                             }
-                }.collectAsState( emptyList(), Dispatchers.IO )
+                        }
+                }.collectAsState(emptyList(), Dispatchers.IO)
 
                 if (showMonthlyPlaylistInQuickPicks)
                     monthlyPlaylists.let { playlists ->
@@ -1491,7 +1628,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                             }
                         }
                     }
-                    
+
                 if (showCharts) {
 
                     chartsPageInit?.let { page ->
@@ -1515,20 +1652,10 @@ if (currentMonth == 11 && currentDay in 6..31) {
                         )
 
                         page.playlists?.let { playlists ->
-                            /*
-                           BasicText(
-                               text = stringResource(R.string.playlists),
-                               style = typography().l.semiBold,
-                               modifier = Modifier
-                                   .padding(horizontal = 16.dp)
-                                   .padding(top = 24.dp, bottom = 8.dp)
-                           )
-                             */
-
                             LazyRow(contentPadding = endPaddingValues) {
                                 items(
                                     items = playlists.distinctBy { it.key },
-                                    key = Innertube.PlaylistItem::key,
+                                    key = { homeQuickPlaylistKey(it) },
                                 ) { playlist ->
                                     PlaylistItem(
                                         playlist = playlist,
@@ -1554,7 +1681,6 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                         .padding(top = 24.dp, bottom = 8.dp)
                                 )
 
-
                                 LazyHorizontalGrid(
                                     rows = GridCells.Fixed(2),
                                     modifier = Modifier
@@ -1566,12 +1692,10 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                     itemsIndexed(
                                         items = if (parentalControlEnabled)
                                             songs.filter {
-                                                !it.asSong.title.startsWith(
-                                                    EXPLICIT_PREFIX
-                                                )
+                                                !it.asSong.title.startsWith(EXPLICIT_PREFIX)
                                             }.distinctBy { it.key }
                                         else songs.distinctBy { it.key },
-                                        key = { _, song -> song.key }
+                                        key = { index, song -> homeQuickSongKey(song, index) }
                                     ) { index, song ->
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1594,16 +1718,51 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                                 thumbnailSizeDp = songThumbnailSizeDp,
                                                 modifier = Modifier
                                                     .clickable(onClick = {
-                                                        val mediaItem = song.asMediaItem
-                                                        binder?.stopRadio()
-                                                        binder?.player?.forcePlay(mediaItem)
-                                                        binder?.player?.addMediaItems(songs.map { it.asMediaItem })
+                                                        refreshScope.launch {
+                                                            val mediaItems = songs.map { preferredCachedMediaItem(it) }
+                                                            val mediaItemIndex = mediaItems.indexOfFirst { it.mediaId == song.key }
+                                                            binder?.stopRadio()
+                                                            binder?.player?.forcePlayAtIndex(
+                                                                mediaItems,
+                                                                mediaItemIndex.takeIf { it >= 0 } ?: 0
+                                                            )
+                                                        }
                                                     })
                                                     .width(itemWidth),
                                                 disableScrollingText = disableScrollingText,
                                                 isNowPlaying = binder?.player?.isNowPlaying(song.key) ?: false
                                             )
                                         }
+                                    }
+                                }
+                            }
+                        }
+
+                        page.videos?.let { videos ->
+                            if (videos.isNotEmpty()) {
+                                BasicText(
+                                    text = "Top music videos",
+                                    style = typography().l.semiBold,
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
+                                        .padding(top = 24.dp, bottom = 8.dp)
+                                )
+
+                                LazyRow(contentPadding = endPaddingValues) {
+                                    itemsIndexed(
+                                        items = videos.distinctBy { it.key },
+                                        key = { index, video -> homeQuickVideoKey(video, index) }
+                                    ) { _, video ->
+                                        VideoItem(
+                                            video = video,
+                                            thumbnailHeightDp = playlistThumbnailSizeDp,
+                                            thumbnailWidthDp = playlistThumbnailSizeDp * 1.45f,
+                                            disableScrollingText = disableScrollingText,
+                                            modifier = Modifier.clickable(onClick = {
+                                                binder?.stopRadio()
+                                                binder?.player?.forcePlay(video.asSong.asMediaItem)
+                                            })
+                                        )
                                     }
                                 }
                             }
@@ -1619,7 +1778,6 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                         .padding(top = 24.dp, bottom = 8.dp)
                                 )
 
-
                                 LazyHorizontalGrid(
                                     rows = GridCells.Fixed(2),
                                     modifier = Modifier
@@ -1630,7 +1788,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                 ) {
                                     itemsIndexed(
                                         items = artists.distinctBy { it.key },
-                                        key = { _, artist -> artist.key }
+                                        key = { index, artist -> homeQuickArtistKey(artist, index) }
                                     ) { index, artist ->
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1663,62 +1821,118 @@ if (currentMonth == 11 && currentDay in 6..31) {
                     }
                 }
 
-
                 homePageInit?.let { page ->
+                    page.chips
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { chips ->
+                            val currentChipTitle = selectedHomeChipTitle.ifBlank {
+                                chips.firstOrNull { it.isSelected }?.title.orEmpty()
+                            }
+                            ButtonsRow(
+                                chips = chips.map { chip -> chip.title to chip.title },
+                                currentValue = currentChipTitle,
+                                onValueUpdate = { chipTitle ->
+                                    val chip = chips.firstOrNull { it.title == chipTitle } ?: return@ButtonsRow
+                                    val isSameChip = currentChipTitle == chipTitle
+                                    val targetParams = if (isSameChip) {
+                                        chip.deselectEndPoint?.params.orEmpty()
+                                    } else {
+                                        chip.endpoint?.params.orEmpty()
+                                    }
+
+                                    selectedHomeChipTitle = if (isSameChip && targetParams.isBlank()) "" else chipTitle
+                                    selectedHomeChipParams = targetParams
+                                    homePageResult = null
+                                    homePageInit = null
+                                    homePagePreference = null
+                                    refreshScope.launch {
+                                        loadData(forceReload = false)
+                                    }
+                                },
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                        }
 
                     page.sections.forEach {
                         if (it.items.isEmpty() || it.items.firstOrNull()?.key == null) return@forEach
-                        println("homePage() in HomeYouTubeMusic sections: ${it.title} ${it.items.size}")
-                        println("homePage() in HomeYouTubeMusic sections items: ${it.items}")
-
                         TitleMiniSection(it.label ?: "", modifier = Modifier.padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 4.dp))
 
-                        BasicText(
-                            text = it.title,
-                            style = typography().l.semiBold.color(colorPalette().text),
-                            modifier = Modifier.padding(horizontal = 16.dp).padding(vertical = 4.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(vertical = 4.dp)
+                        ) {
+                            val sectionLabel = it.label
+                            it.thumbnail?.takeIf { thumbnail -> thumbnail.isNotBlank() }?.let { thumbnail ->
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(thumbnail)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                BasicText(
+                                    text = it.title,
+                                    style = typography().l.semiBold.color(colorPalette().text),
+                                )
+                                if (!sectionLabel.isNullOrBlank()) {
+                                    BasicText(
+                                        text = sectionLabel,
+                                        style = typography().xs.secondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
                         LazyRow(contentPadding = endPaddingValues) {
-                            items(it.items) { item ->
+                            itemsIndexed(
+                                items = it.items,
+                                key = { _, item -> ytmHomeItemKey(item) }
+                            ) { _, item ->
                                 when (item) {
                                     is Innertube.SongItem -> {
-                                        println("Innertube homePage SongItem: ${item.info?.name}")
-                                        SongItem(
-                                            song = item,
-                                            thumbnailSizePx = albumThumbnailSizePx,
-                                            thumbnailSizeDp = albumThumbnailSizeDp,
-                                            onDownloadClick = {},
-                                            downloadState = Download.STATE_STOPPED,
-                                            disableScrollingText = disableScrollingText,
-                                            isNowPlaying = false,
+                                        YtmHomeCard(
+                                            title = item.info?.name.orEmpty(),
+                                            subtitle = item.authors?.joinToString(", ") { author -> author.name ?: "" },
+                                            thumbnailUrl = item.thumbnail?.url,
                                             modifier = Modifier.clickable(onClick = {
-                                                binder?.player?.forcePlay(item.asMediaItem)
+                                                refreshScope.launch {
+                                                    playHomeSectionItems(it.items, item)
+                                                }
                                             })
                                         )
                                     }
 
                                     is Innertube.AlbumItem -> {
-                                        println("Innertube homePage AlbumItem: ${item.info?.name}")
-                                        AlbumItem(
-                                            album = item,
-                                            alternative = true,
-                                            thumbnailSizePx = albumThumbnailSizePx,
-                                            thumbnailSizeDp = albumThumbnailSizeDp,
-                                            disableScrollingText = disableScrollingText,
+                                        YtmHomeCard(
+                                            title = item.info?.name.orEmpty(),
+                                            subtitle = item.authors?.joinToString(", ") { author -> author.name ?: "" },
+                                            thumbnailUrl = item.thumbnail?.url,
                                             modifier = Modifier.clickable(onClick = {
                                                 navController.navigate("${NavRoutes.album.name}/${item.key}")
                                             })
-
                                         )
                                     }
 
                                     is Innertube.ArtistItem -> {
-                                        println("Innertube homePage ArtistItem: ${item.info?.name}")
-                                        ArtistItem(
-                                            artist = item,
-                                            thumbnailSizePx = artistThumbnailSizePx,
-                                            thumbnailSizeDp = artistThumbnailSizeDp,
-                                            disableScrollingText = disableScrollingText,
+                                        YtmHomeCard(
+                                            title = item.info?.name.orEmpty(),
+                                            subtitle = item.subscribersCountText,
+                                            thumbnailUrl = item.thumbnail?.url,
+                                            imageWidth = 104.dp,
+                                            imageHeight = 104.dp,
+                                            rounded = false,
                                             modifier = Modifier.clickable(onClick = {
                                                 navController.navigate("${NavRoutes.artist.name}/${item.key}")
                                             })
@@ -1726,13 +1940,10 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                     }
 
                                     is Innertube.PlaylistItem -> {
-                                        println("Innertube homePage PlaylistItem: ${item.info?.name}")
-                                        PlaylistItem(
-                                            playlist = item,
-                                            alternative = true,
-                                            thumbnailSizePx = playlistThumbnailSizePx,
-                                            thumbnailSizeDp = playlistThumbnailSizeDp,
-                                            disableScrollingText = disableScrollingText,
+                                        YtmHomeCard(
+                                            title = item.info?.name.orEmpty(),
+                                            subtitle = item.channel?.name ?: item.songCount?.toString(),
+                                            thumbnailUrl = item.thumbnail?.url,
                                             modifier = Modifier.clickable(onClick = {
                                                 navController.navigate("${NavRoutes.playlist.name}/${item.key}")
                                             })
@@ -1740,25 +1951,22 @@ if (currentMonth == 11 && currentDay in 6..31) {
                                     }
 
                                     is Innertube.VideoItem -> {
-                                        println("Innertube homePage VideoItem: ${item.info?.name}")
-                                        VideoItem(
-                                            video = item,
-                                            thumbnailHeightDp = playlistThumbnailSizeDp,
-                                            thumbnailWidthDp = playlistThumbnailSizeDp,
-                                            disableScrollingText = disableScrollingText,
+                                        YtmHomeCard(
+                                            title = item.info?.name.orEmpty(),
+                                            subtitle = item.authors?.joinToString(", ") { author -> author.name ?: "" },
+                                            thumbnailUrl = item.thumbnail?.url,
+                                            imageWidth = 136.dp,
+                                            imageHeight = 94.dp,
                                             modifier = Modifier.clickable(onClick = {
-                                                binder?.stopRadio()
-                                                if (isVideoEnabled())
-                                                    binder?.player?.playVideo(item.asMediaItem)
-                                                else
-                                                    binder?.player?.forcePlay(item.asMediaItem)
+                                                refreshScope.launch {
+                                                    playHomeSectionItems(it.items, item)
+                                                }
                                             })
                                         )
                                     }
 
                                     null -> {}
                                 }
-
                             }
                         }
                     }
@@ -1803,15 +2011,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                     }
                 }
 
-
-
-
-
-
                 Spacer(modifier = Modifier.height(Dimensions.bottomSpacer))
-
-
-                //} ?:
 
                 relatedPageResult?.exceptionOrNull()?.let {
                     BasicText(
@@ -1823,53 +2023,7 @@ if (currentMonth == 11 && currentDay in 6..31) {
                     )
                 }
 
-                /*
-                if (related == null)
-                    ShimmerHost {
-                        repeat(3) {
-                            SongItemPlaceholder(
-                                thumbnailSizeDp = songThumbnailSizeDp,
-                            )
-                        }
-
-                        TextPlaceholder(modifier = sectionTextModifier)
-
-                        Row {
-                            repeat(2) {
-                                AlbumItemPlaceholder(
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true
-                                )
-                            }
-                        }
-
-                        TextPlaceholder(modifier = sectionTextModifier)
-
-                        Row {
-                            repeat(2) {
-                                ArtistItemPlaceholder(
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true
-                                )
-                            }
-                        }
-
-                        TextPlaceholder(modifier = sectionTextModifier)
-
-                        Row {
-                            repeat(2) {
-                                PlaylistItemPlaceholder(
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true
-                                )
-                            }
-                        }
-                    }
-                 */
-
-
             }
-
 
             val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if (UiType.ViMusic.isCurrent() && showFloatingIcon)
@@ -1879,9 +2033,6 @@ if (currentMonth == 11 && currentDay in 6..31) {
                     onClickSettings = onSettingsClick,
                     onClickSearch = onSearchClick
                 )
-
         }
-
     }
 }
-

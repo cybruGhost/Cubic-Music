@@ -67,6 +67,7 @@ import app.it.fast4x.rimusic.ui.screens.donate.DonateScreen
 import app.it.fast4x.rimusic.ui.screens.search.SearchScreen
 import app.it.fast4x.rimusic.ui.screens.searchresult.SearchResultScreen
 import app.it.fast4x.rimusic.ui.screens.settings.SettingsScreen
+import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyLoginWebView
 import app.it.fast4x.rimusic.ui.screens.statistics.StatisticsScreen
 import app.it.fast4x.rimusic.utils.clearPreference
 import app.it.fast4x.rimusic.utils.homeScreenTabIndexKey
@@ -80,6 +81,7 @@ import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamManager
 import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamScreen
 import androidx.compose.runtime.remember
 import android.content.Context
+import app.it.fast4x.rimusic.ui.styling.LocalAppearance
 // i should add this import at the top of your AppNavigation.kt file
 import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamWebView
 import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamSwipeScreen
@@ -103,6 +105,7 @@ fun AppNavigation(
     openTabFromShortcut: Int
 ) {
     val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
+     val appearance = app.it.fast4x.rimusic.ui.styling.LocalAppearance.current
 
     @Composable
     fun modalBottomSheetPage(content: @Composable () -> Unit) {
@@ -188,10 +191,13 @@ fun AppNavigation(
         }
 
         composable(route = NavRoutes.gameSnake.name) {
-            modalBottomSheetPage {
-                SnakeGame()
-            }
-        }
+    modalBottomSheetPage {
+        SnakeGame(
+            colorPalette = appearance.colorPalette,
+            typography = appearance.typography
+        )
+    }
+}
 
         composable(route = NavRoutes.queue.name) {
             modalBottomSheetPage {
@@ -287,6 +293,18 @@ fun AppNavigation(
             SettingsScreen(
                 navController = navController,
                 miniPlayer = miniPlayer,
+            )
+        }
+
+        composable(route = NavRoutes.spotifyLogin.name) {
+            SpotifyLoginWebView(
+                onLoginSuccess = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("spotify_login_success", true)
+                    navController.popBackStack()
+                },
+                onDismiss = { navController.popBackStack() }
             )
         }
 

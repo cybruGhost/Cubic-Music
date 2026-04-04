@@ -280,7 +280,7 @@ fun DonateSlide(onNext: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             )
             
-            Divider(
+            HorizontalDivider(
                 color = Color.White.copy(alpha = 0.1f),
                 thickness = 1.dp,
                 modifier = Modifier

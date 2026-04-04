@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package app.kreate.android.me.knighthat.updater
 
 import androidx.compose.animation.AnimatedVisibility

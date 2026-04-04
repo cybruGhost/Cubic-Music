@@ -1,6 +1,9 @@
 package app.kreate.android.me.knighthat.component.menu.song
 
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -26,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.Player
 import androidx.navigation.NavController
 import app.kreate.android.R
 import it.fast4x.innertube.Innertube
@@ -57,6 +61,7 @@ import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.saveImageToInternalStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -74,6 +79,7 @@ import app.kreate.android.me.knighthat.component.tab.DeleteSongDialog
 import app.kreate.android.me.knighthat.component.tab.LikeComponent
 import app.kreate.android.me.knighthat.component.tab.Radio
 import app.kreate.android.me.knighthat.sync.YouTubeSync
+import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import java.util.Optional
 
@@ -121,6 +127,57 @@ class SongItemMenu private constructor(
         val context = LocalContext.current
         val binder = LocalPlayerServiceBinder.current
 
+        fun refreshQueuedArtwork(player: Player, updatedMediaItem: androidx.media3.common.MediaItem) {
+            val updatedArtwork = updatedMediaItem.mediaMetadata.artworkUri
+            for (index in 0 until player.mediaItemCount) {
+                val queueItem = player.getMediaItemAt(index)
+                val queueSongId = queueItem.mediaId.substringAfterLast("/")
+                if (queueSongId == song.id) {
+                    player.replaceMediaItem(
+                        index,
+                        queueItem.buildUpon()
+                            .setMediaMetadata(
+                                queueItem.mediaMetadata.buildUpon()
+                                    .setArtworkUri(updatedArtwork)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+
+        val uploadCoverLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            if (uri == null) {
+                Toaster.w(R.string.thumbnail_not_selected)
+                return@rememberLauncherForActivityResult
+            }
+
+            val safeSongId = song.id.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val savedUri = saveImageToInternalStorage(
+                context = context,
+                imageUri = uri,
+                dirPath = "thumbnail/song",
+                thumbnailName = "song_${safeSongId}_${System.currentTimeMillis()}"
+            )
+
+            if (savedUri != null) {
+                val updatedSong = song.copy(thumbnailUrl = savedUri.toString())
+                CoroutineScope(Dispatchers.IO).launch {
+                    Database.songTable.updateReplace(updatedSong)
+                }
+                binder?.player?.let { player: Player ->
+                    refreshQueuedArtwork(player, updatedSong.asMediaItem)
+                }
+                menuState.hide()
+                Toaster.s(R.string.cover_saved)
+            } else {
+                Toaster.e(R.string.cover_save_failed)
+            }
+        }
+
         /*
          * This big chunk of code is currently running as singleton.
          * While it may not have a big impact on performance but
@@ -165,10 +222,25 @@ class SongItemMenu private constructor(
         }
         val resetDialog = ResetSongDialog( song )
         val exportCacheDialog = ExportCacheDialog( binder ) { song }
+        val uploadSongCover = remember {
+            object : MenuIcon, Descriptive, Clickable {
+                override val iconId: Int = R.drawable.pencil
+                override val messageId: Int = R.string.upload_cover
+                @get:Composable
+                override val menuIconTitle: String get() = stringResource(messageId)
+
+                override fun onShortClick() {
+                    uploadCoverLauncher.launch("image/*")
+                }
+
+                override fun onLongClick() {}
+            }
+        }
 
         buttons = mutableListOf<Button>().apply {
             add( renameSong )
             add( changeAuthor )
+            add( uploadSongCover )
             add( startRadio )
             add( playNext )
             add( enqueue )

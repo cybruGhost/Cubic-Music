@@ -38,16 +38,27 @@ object YouTubeSync {
         assert( Looper.myLooper() != Looper.getMainLooper() ) {
             "Cannot run YouTubeSync.toggleSongLike on main thread"
         }
+        val normalizedMediaId = mediaItem.mediaId.substringAfterLast("/").trim()
+        val localMediaId = normalizedMediaId.ifBlank { mediaItem.mediaId.trim() }
+        if (localMediaId.isBlank() || localMediaId.startsWith("search:")) {
+            Toaster.w(R.string.songs_liked_yt_failed)
+            return
+        }
+        val localMediaItem = if (localMediaId == mediaItem.mediaId) {
+            mediaItem
+        } else {
+            mediaItem.buildUpon().setMediaId(localMediaId).build()
+        }
 
         // TODO: Encapsulate this block in a transaction
         // Always ensure song in database before proceed
-        Database.insertIgnore( mediaItem )
-        Database.songTable.toggleLike( mediaItem.mediaId )
+        Database.insertIgnore( localMediaItem )
+        Database.songTable.toggleLike( localMediaId )
 
         val likeState = runBlocking {
-            Database.songTable.likeState( mediaItem.mediaId ).first()
+            Database.songTable.likeState( localMediaId ).first()
         }
-        MyDownloadHelper.downloadOnLike( mediaItem, likeState, context )
+        MyDownloadHelper.downloadOnLike( localMediaItem, likeState, context )
 
 
         // Stop here if it's not enabled
@@ -75,9 +86,9 @@ object YouTubeSync {
 
         val response =
             if( likeState == true )
-                likeVideoOrSong( mediaItem.mediaId )
+                likeVideoOrSong( localMediaId )
             else
-                removelikeVideoOrSong( mediaItem.mediaId )
+                removelikeVideoOrSong( localMediaId )
         val messageId = when {
             likeState == true && response.isSuccess -> R.string.songs_liked_yt
             likeState == true && response.isFailure -> R.string.songs_liked_yt_failed

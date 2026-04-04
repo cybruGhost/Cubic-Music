@@ -127,7 +127,9 @@ fun MedleyMode(binder: PlayerServiceModern.Binder?, seconds: Int) {
 @MainThread
 fun ExoPlayer.fadeInEffect(duration: Long) {
     if (isPlaying) return
+    val targetVolume = getGlobalVolume()
     if (duration <= 0L) {
+        volume = targetVolume
         if (playbackState == Player.STATE_IDLE) {
             prepare()
         }
@@ -135,7 +137,7 @@ fun ExoPlayer.fadeInEffect(duration: Long) {
         return
     }
 
-    val animator = ValueAnimator.ofFloat(0f, getGlobalVolume())
+    val animator = ValueAnimator.ofFloat(0f, targetVolume)
     animator.duration = duration
     animator.addUpdateListener {
         volume = it.animatedValue as Float
@@ -154,6 +156,7 @@ fun ExoPlayer.fadeOutEffect(duration: Long) {
     if( !isPlaying && !playWhenReady && playbackState != Player.STATE_BUFFERING ) return
     if( duration == 0L || !isPlaying ) {
         pause()
+        restoreGlobalVolume()
         return
     }
 
@@ -171,9 +174,9 @@ fun ExoPlayer.fadeOutEffect(duration: Long) {
 
 // Helper extension functions for global volume management
 private fun ExoPlayer.getGlobalVolume(): Float {
-    return volume
+    return GlobalVolume
 }
 
 private fun ExoPlayer.restoreGlobalVolume() {
-    volume = 1f // Restore to full volume
+    volume = GlobalVolume
 }

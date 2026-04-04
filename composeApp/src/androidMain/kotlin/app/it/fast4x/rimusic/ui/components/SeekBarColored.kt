@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
@@ -43,7 +44,8 @@ fun SeekBarColored(
     barHeight: Dp = 3.dp,
     scrubberColor: Color = color,
     scrubberRadius: Dp = 6.dp,
-    shape: Shape = RectangleShape
+    shape: Shape = RectangleShape,
+    crossfadePalette: List<Color>? = null,
 ) {
 
     val (colorPalette, typography) = LocalAppearance.current
@@ -56,13 +58,26 @@ fun SeekBarColored(
     val currentBarHeight by transition.animateDp(label = "") { if (it) scrubberRadius else barHeight }
     val currentScrubberRadius by transition.animateDp(label = "") { if (it) 0.dp else scrubberRadius }
 
-    val barColor = when {
+    val progressFraction = if (maximumValue > minimumValue) {
+        ((value.toFloat() - minimumValue) / (maximumValue - minimumValue)).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val barColor = if (!crossfadePalette.isNullOrEmpty()) {
+        val paletteIndex = ((crossfadePalette.size - 1) * progressFraction).toInt().coerceIn(0, crossfadePalette.lastIndex)
+        crossfadePalette[paletteIndex]
+    } else when {
         value >= 0 && value <= maximumValue / 5 -> colorPalette.text
         value >= maximumValue / 5 && value <= maximumValue / 4 -> colorPalette.background0
         value >= maximumValue / 4 && value <= maximumValue / 3 -> colorPalette.textDisabled
         value >= maximumValue / 3 && value <= maximumValue / 2 -> colorPalette.background2
         value >= maximumValue / 2 && value <= maximumValue -> colorPalette.accent
         else -> colorPalette.text
+    }
+    val crossfadeBrush = if (!crossfadePalette.isNullOrEmpty()) {
+        Brush.horizontalGradient(crossfadePalette)
+    } else {
+        null
     }
 
     Box(
@@ -132,17 +147,27 @@ fun SeekBarColored(
             modifier = Modifier
                 .height(currentBarHeight)
                 .fillMaxWidth()
-                .background(color = barColor, shape = shape)
+                .background(color = backgroundColor, shape = shape)
                 .align(Alignment.Center)
         )
 
-        Spacer(
-            modifier = Modifier
-                .height(currentBarHeight)
-                .fillMaxWidth((value.toFloat() - minimumValue) / (maximumValue - minimumValue))
-                .background(color = backgroundColor, shape = shape)
-                .align(Alignment.CenterStart)
-        )
+        if (crossfadeBrush != null) {
+            Spacer(
+                modifier = Modifier
+                    .height(currentBarHeight)
+                    .fillMaxWidth(progressFraction)
+                    .background(brush = crossfadeBrush, shape = shape)
+                    .align(Alignment.CenterStart)
+            )
+        } else {
+            Spacer(
+                modifier = Modifier
+                    .height(currentBarHeight)
+                    .fillMaxWidth(progressFraction)
+                    .background(color = barColor, shape = shape)
+                    .align(Alignment.CenterStart)
+            )
+        }
     }
 
 

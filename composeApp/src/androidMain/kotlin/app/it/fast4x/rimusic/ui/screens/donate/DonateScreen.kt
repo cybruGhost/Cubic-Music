@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package app.it.fast4x.rimusic.ui.screens.donate
 
 import androidx.compose.animation.core.*
@@ -101,7 +103,7 @@ fun DonateScreen(
                         .background(colorPalette.background2.copy(alpha = 0.5f))
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.Outlined.ArrowBack,
                         contentDescription = "Back",
                         tint = colorPalette.text
                     )
@@ -194,7 +196,7 @@ fun DonateScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
-                                imageVector = Icons.Default.OpenInNew,
+                                imageVector = Icons.Outlined.OpenInNew,
                                 contentDescription = null,
                                 tint = colorPalette.accent,
                                 modifier = Modifier.size(16.dp)

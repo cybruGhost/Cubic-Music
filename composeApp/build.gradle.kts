@@ -32,6 +32,7 @@ kotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
             freeCompilerArgs.add("-Xcontext-receivers")
+            freeCompilerArgs.add("-Xexpect-actual-classes")
         }
     }
 
@@ -142,7 +143,7 @@ android {
         minSdk = 23
         targetSdk = 36
         versionCode = 108
-        versionName = "1.8.0"
+        versionName = "1.7.9"
 
         /*
                 UNIVERSAL VARIABLES

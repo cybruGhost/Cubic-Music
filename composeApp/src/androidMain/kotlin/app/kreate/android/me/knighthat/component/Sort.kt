@@ -84,8 +84,9 @@ open class Sort<T: Enum<T>> (
 
     @Composable
     override fun ListMenu() = ListMenu.Menu {
+        val enumConstants = sortBy.javaClass.enumConstants?.map { it as T }.orEmpty()
         // Ignore error "Cannot access 'java. lang. constant. Constable' which is a supertype of 'java. lang. Class'"
-        sortBy.javaClass.enumConstants.forEach {
+        enumConstants.forEach {
             ListMenu.Entry(
                 text = if (it is TextView) it.text else it.name,
                 icon = {
@@ -110,9 +111,9 @@ open class Sort<T: Enum<T>> (
 
     @Composable
     override fun GridMenu() = GridMenu.Menu {
+        val enumConstants = sortBy.javaClass.enumConstants?.map { it as T }.orEmpty()
         items(
-            // Ignore error "Cannot access 'java. lang. constant. Constable' which is a supertype of 'java. lang. Class'"
-            items = sortBy.javaClass.enumConstants,
+            items = enumConstants,
             key = Enum<T>::ordinal
         ) {
             GridMenu.Entry(

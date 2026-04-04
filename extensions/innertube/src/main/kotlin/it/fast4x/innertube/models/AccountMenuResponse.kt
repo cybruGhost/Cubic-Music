@@ -47,9 +47,9 @@ data class AccountMenuResponse(
                                     accountInfo.add(
                                         AccountInfo(
                                             name = run.text,
-                                            email = email?.runs?.get(index)?.text,
-                                            channelHandle = channelHandle?.runs?.get(index)?.text,
-                                            thumbnailUrl = accountPhoto?.thumbnails?.get(index)?.url?.substringBefore("=")
+                                            email = email?.runs?.getOrNull(index)?.text,
+                                            channelHandle = channelHandle?.runs?.getOrNull(index)?.text,
+                                            thumbnailUrl = accountPhoto?.thumbnails?.getOrNull(index)?.url?.substringBefore("=")
                                         )
                                     )
                                 }

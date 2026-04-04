@@ -299,9 +299,7 @@ object MyDownloadHelper {
             .setData("${mediaItem.mediaMetadata.artist ?: ""} - ${mediaItem.mediaMetadata.title ?: ""}".encodeToByteArray()) // Title in notification
             .build()
 
-        Database.asyncTransaction {
-            insertIgnore(mediaItem)
-        }
+        Database.upsert(mediaItem)
 
          val imageUrl = mediaItem.mediaMetadata.artworkUri?.toString()?.thumbnail(1000)?.toUri()
 
@@ -312,7 +310,7 @@ object MyDownloadHelper {
                 println("MyDownloadHelper scheduleDownload exception ${it.stackTraceToString()}")
             }
             downloadSyncedLyrics(mediaItem.asSong)
-            ImageCacheFactory.preloadImage(mediaItem.mediaMetadata.artworkUri.toString())
+            ImageCacheFactory.preloadImage(mediaItem.mediaMetadata.artworkUri?.toString())
         }
     }
 

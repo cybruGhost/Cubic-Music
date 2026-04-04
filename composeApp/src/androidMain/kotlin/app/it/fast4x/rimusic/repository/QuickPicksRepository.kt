@@ -6,6 +6,8 @@ import app.it.fast4x.rimusic.appContext
 import app.it.fast4x.rimusic.enums.PlayEventsType
 import app.it.fast4x.rimusic.enums.Countries
 import app.it.fast4x.rimusic.enums.LocalRecommandationsNumber
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeRequestThrottler
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
 import app.it.fast4x.rimusic.utils.*
@@ -45,6 +47,7 @@ object QuickPicksRepository {
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
     private var lastLoadTime = 0L
+    private var lastHomeSessionId: String? = null
     private const val CACHE_EXPIRATION = 1000 * 60 * 30 // 30 minutes
 
     private val json = Json { 
@@ -152,8 +155,19 @@ object QuickPicksRepository {
                     _discoverPage.value = Innertube.discoverPage()?.getOrNull()
                 }
 
-                if (isYouTubeLoggedIn()) {
-                    _homePage.value = YtMusic.getHomePage(setLogin = true)?.getOrNull()
+                val currentSession = YouTubeSessionStore.applyCurrentSession()
+                val currentSessionId = currentSession?.sessionId
+                if (lastHomeSessionId != currentSessionId) {
+                    _homePage.value = null
+                    lastHomeSessionId = currentSessionId
+                }
+
+                if (isYouTubeLoggedIn() && currentSession != null) {
+                    _homePage.value = YouTubeRequestThrottler.run {
+                        YtMusic.getHomePage(setLogin = true)
+                    }?.getOrNull()
+                } else {
+                    _homePage.value = null
                 }
 
                 lastLoadTime = System.currentTimeMillis()

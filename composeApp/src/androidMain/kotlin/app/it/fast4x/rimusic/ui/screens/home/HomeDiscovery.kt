@@ -81,6 +81,10 @@ import app.it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+private fun homeDiscoveryAlbumKey(album: Innertube.AlbumItem, index: Int): String =
+    album.key.takeIf { it.isNotBlank() }
+        ?: "discover_album_${album.info?.name.orEmpty()}_${index}"
+
 @SuppressLint("SuspiciousIndentation")
 @UnstableApi
 @OptIn(ExperimentalAnimationApi::class, ExperimentalFoundationApi::class)
@@ -185,7 +189,10 @@ fun HomeDiscovery(
                     )
 
                     LazyRow(contentPadding = endPaddingValues) {
-                        items(items = newReleaseAlbumsFiltered.distinct(), key = { it.key }) {
+                        items(
+                            items = newReleaseAlbumsFiltered.distinct(),
+                            key = { album -> album.key.takeIf { it.isNotBlank() } ?: "new_release_${album.title.orEmpty()}" }
+                        ) {
                               //preferitesArtists.forEach { artist ->
                               //      if (artist.name == it.authors?.first()?.name)
                                         AlbumItem(
@@ -215,7 +222,10 @@ fun HomeDiscovery(
                     )
 
                     LazyRow(contentPadding = endPaddingValues) {
-                        items(items = page.newReleaseAlbums, key = { it.key }) {
+                        items(
+                            items = page.newReleaseAlbums,
+                            key = { album -> album.key.takeIf { it.isNotBlank() } ?: "release_${album.title.orEmpty()}" }
+                        ) {
                             AlbumItem(
                                 album = it,
                                 thumbnailSizePx = thumbnailPx,

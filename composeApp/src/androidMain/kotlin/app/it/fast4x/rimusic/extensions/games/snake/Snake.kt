@@ -28,7 +28,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,76 +39,69 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.random.Random
-import kotlin.math.cos
-import kotlin.math.sin
 
+// --- Data Classes & Enums ---
 data class Cell(val x: Int, val y: Int)
 
-enum class Direction {
-    UP, DOWN, LEFT, RIGHT, NONE
-}
+enum class Direction { UP, DOWN, LEFT, RIGHT, NONE }
+enum class GameState { PLAYING, PAUSED, GAME_OVER }
 
-data class Villager(val position: Cell, val type: VillagerType, val movementPattern: MovementPattern)
-
-enum class VillagerType(val color: Color, val emoji: String, val points: Int) {
-    FARMER(Color(0xFF8B4513), "👨‍🌾", 20),      // Brown
-    MERCHANT(Color(0xFF4682B4), "👨‍💼", 30),   // Steel Blue
-    BLACKSMITH(Color(0xFF2F4F4F), "👨‍🏭", 40), // Dark Slate Gray
-    BAKER(Color(0xFFFFD700), "👨‍🍳", 50)       // Gold
-}
-
-enum class MovementPattern {
-    RANDOM, CIRCULAR, FLEEING, PATROL
-}
-
-enum class GameState {
-    PLAYING, PAUSED, GAME_OVER, LEVEL_COMPLETE
-}
-
+// --- Main Game Composable ---
 @Composable
-fun SnakeGame() {
+fun SnakeGame(
+    modifier: Modifier = Modifier,
+    colorPalette: app.it.fast4x.rimusic.ui.styling.ColorPalette,
+    typography: app.it.fast4x.rimusic.ui.styling.Typography
+) {
     val gridSize = 20
     var direction by remember { mutableStateOf(Direction.RIGHT) }
     var nextDirection by remember { mutableStateOf(Direction.RIGHT) }
-    var snake by remember { mutableStateOf(listOf(Cell(5, 5), Cell(4, 5), Cell(3, 5))) }
+    var snake by remember { mutableStateOf(listOf(Cell(10, 10), Cell(9, 10), Cell(8, 10))) }
     var food by remember { mutableStateOf(generateFood(snake, gridSize)) }
-    var specialFood by remember { mutableStateOf<Cell?>(null) }
-    var specialFoodTimer by remember { mutableStateOf(0) }
-    var villagers by remember { mutableStateOf(generateVillagers(gridSize, 3)) }
+    var starFood by remember { mutableStateOf<Cell?>(null) }
+    var starFoodTimer by remember { mutableStateOf(0) }
     var gameState by remember { mutableStateOf(GameState.PLAYING) }
     var score by remember { mutableStateOf(0) }
     var highScore by remember { mutableStateOf(getCachedHighScore()) }
-    var level by remember { mutableStateOf(1) }
     var snakeSpeed by remember { mutableStateOf(150L) }
     var lastMoveTime by remember { mutableStateOf(0L) }
-    var lastVillagerMoveTime by remember { mutableStateOf(0L) }
-    var lastSpecialFoodTime by remember { mutableStateOf(0L) }
+    var lastStarFoodTime by remember { mutableStateOf(0L) }
     var invincible by remember { mutableStateOf(false) }
     var invincibleTimer by remember { mutableStateOf(0) }
-    var snakeColor by remember { mutableStateOf(Color(0xFF27AE60)) }
-    var snakeBodyColor by remember { mutableStateOf(Color(0xFF2ECC71)) }
+
+    // Dynamic colors using app's color palette
+    val cellBorder = colorPalette.textDisabled.copy(alpha = 0.3f)
+    val emptyCellColor = colorPalette.background2
+    val snakeHeadColor = if (invincible) colorPalette.accent else colorPalette.accent.copy(alpha = 0.9f)
+    val snakeBodyColor = if (invincible) colorPalette.accent.copy(alpha = 0.7f) else colorPalette.accent.copy(alpha = 0.6f)
+    val foodColor = colorPalette.red
+    val starColor = Color(0xFFFFD700) // Gold color for star
+    val textColor = colorPalette.text
 
     // Game loop
     LaunchedEffect(key1 = gameState) {
         if (gameState == GameState.PLAYING) {
             while (gameState == GameState.PLAYING) {
                 val currentTime = System.currentTimeMillis()
-                
+
                 // Move snake
                 if (currentTime - lastMoveTime >= snakeSpeed) {
                     direction = nextDirection
                     val newSnake = moveSnake(snake, direction, gridSize)
-                    
-                    // Check collisions
+
+                    // Check self-collision - GAME OVER if snake hits itself
                     val head = newSnake.first()
-                    if (head in newSnake.drop(1) && !invincible) {
+                    if (head in newSnake.drop(1)) {
                         gameState = GameState.GAME_OVER
                         if (score > highScore) {
                             highScore = score
@@ -117,387 +109,279 @@ fun SnakeGame() {
                         }
                         break
                     }
-                    
+
                     snake = newSnake
                     lastMoveTime = currentTime
-                    
-                    // Check food collection
+
+                    // Check normal food collection
                     if (head == food) {
-                        food = generateFood(snake + villagers.map { it.position }, gridSize)
+                        food = generateFood(snake, gridSize)
                         snake = growSnake(snake)
                         score += 10
-                        // Occasionally spawn special food
-                        if (Random.nextInt(100) < 30) {
-                            specialFood = generateFood(snake + villagers.map { it.position } + listOf(food), gridSize)
-                            specialFoodTimer = 100 // Special food disappears after 100 moves
-                            lastSpecialFoodTime = currentTime
-                        }
-                        // Level up after collecting certain amount of food
-                        if (score >= level * 100) {
-                            level++
-                            snakeSpeed = (snakeSpeed * 0.9).toLong().coerceAtLeast(80L)
-                            villagers = generateVillagers(gridSize, 3 + level.coerceAtMost(5))
+                        
+                        // Spawn star food occasionally (beneficial)
+                        if (Random.nextInt(100) < 20 && starFood == null) {
+                            starFood = generateFood(snake + listOf(food), gridSize)
+                            starFoodTimer = 80
+                            lastStarFoodTime = currentTime
                         }
                     }
-                    
-                    // Check special food collection
-                    if (specialFood != null && head == specialFood) {
-                        specialFood = null
-                        score += 50
+
+                    // Check star food collection - BENEFICIAL: extra points + invincibility
+                    if (starFood != null && head == starFood) {
+                        starFood = null
+                        score += 50  // Bonus points
                         invincible = true
-                        invincibleTimer = 50 // Invincibility for 50 moves
-                        snakeColor = Color(0xFF9B59B6) // Change snake color when invincible
-                        snakeBodyColor = Color(0xFF8E44AD)
-                    }
-                    
-                    // Check villager collection
-                    val caughtVillager = villagers.find { it.position == head }
-                    if (caughtVillager != null) {
-                        villagers = villagers.filter { it != caughtVillager }
-                        score += caughtVillager.type.points
-                        // Add new villager if below max
-                        if (villagers.size < 5 + level) {
-                            villagers = villagers + generateVillagers(gridSize, 1)
-                        }
+                        invincibleTimer = 40  // Invincibility for 40 moves
                     }
                 }
-                
-                // Move villagers every 600ms
-                if (currentTime - lastVillagerMoveTime >= 600) {
-                    villagers = moveVillagers(villagers, snake.first(), gridSize)
-                    lastVillagerMoveTime = currentTime
-                }
-                
-                // Update special food timer
-                if (specialFood != null && currentTime - lastSpecialFoodTime >= snakeSpeed) {
-                    specialFoodTimer--
-                    lastSpecialFoodTime = currentTime
-                    if (specialFoodTimer <= 0) {
-                        specialFood = null
+
+                // Update star food timer
+                if (starFood != null && currentTime - lastStarFoodTime >= snakeSpeed) {
+                    starFoodTimer--
+                    lastStarFoodTime = currentTime
+                    if (starFoodTimer <= 0) {
+                        starFood = null
                     }
                 }
-                
+
                 // Update invincibility timer
                 if (invincible && currentTime - lastMoveTime >= snakeSpeed) {
                     invincibleTimer--
                     if (invincibleTimer <= 0) {
                         invincible = false
-                        snakeColor = Color(0xFF27AE60) // Reset snake color
-                        snakeBodyColor = Color(0xFF2ECC71)
                     }
                 }
-                
-                delay(16) // ~60 FPS
+
+                delay(16)
             }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF2C3E50))) {
+    Box(modifier = modifier.fillMaxSize().background(colorPalette.background0)) {
         when (gameState) {
             GameState.GAME_OVER -> {
-                GameOverScreen(score, highScore, onRestart = {
-                    snake = listOf(Cell(5, 5), Cell(4, 5), Cell(3, 5))
-                    direction = Direction.RIGHT
-                    nextDirection = Direction.RIGHT
-                    food = generateFood(snake, gridSize)
-                    villagers = generateVillagers(gridSize, 3)
-                    gameState = GameState.PLAYING
-                    score = 0
-                    level = 1
-                    snakeSpeed = 150L
-                    specialFood = null
-                    invincible = false
-                    snakeColor = Color(0xFF27AE60)
-                    snakeBodyColor = Color(0xFF2ECC71)
-                }, onClearHighScore = {
-                    clearHighScore()
-                    highScore = 0
-                })
+                GameOverScreen(
+                    score = score,
+                    highScore = highScore,
+                    onRestart = {
+                        snake = listOf(Cell(10, 10), Cell(9, 10), Cell(8, 10))
+                        direction = Direction.RIGHT
+                        nextDirection = Direction.RIGHT
+                        food = generateFood(snake, gridSize)
+                        starFood = null
+                        gameState = GameState.PLAYING
+                        score = 0
+                        snakeSpeed = 150L
+                        invincible = false
+                        invincibleTimer = 0
+                    },
+                    onClearHighScore = {
+                        clearHighScore()
+                        highScore = 0
+                    },
+                    colorPalette = colorPalette,
+                    typography = typography
+                )
             }
             else -> {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Score, level and controls
+                    // Score header
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
                             Text(
                                 text = "Score: $score",
-                                color = Color.White,
-                                fontSize = 18.sp
+                                color = textColor,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "High: $highScore",
-                                color = Color.LightGray,
+                                text = "Best: $highScore",
+                                color = textColor.copy(alpha = 0.7f),
                                 fontSize = 14.sp
                             )
                         }
-                        
-                        Text(
-                            text = "Level: $level",
-                            color = Color.White,
-                            fontSize = 18.sp
-                        )
-                        
-                        Row {
-                            Button(
-                                onClick = { 
-                                    gameState = if (gameState == GameState.PLAYING) 
-                                        GameState.PAUSED 
-                                    else 
-                                        GameState.PLAYING 
-                                },
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            ) {
-                                Text(if (gameState == GameState.PAUSED) "Resume" else "Pause")
-                            }
+
+                        if (invincible) {
+                            Text(
+                                text = "⭐ INVINCIBLE ⭐",
+                                color = starColor,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                gameState = if (gameState == GameState.PLAYING)
+                                    GameState.PAUSED
+                                else
+                                    GameState.PLAYING
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorPalette.background2,
+                                contentColor = textColor
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(if (gameState == GameState.PAUSED) "Resume" else "Pause")
                         }
                     }
-                    
+
                     // Game board
                     GameBoard(
-                        snake, 
-                        food, 
-                        specialFood,
-                        villagers, 
-                        gridSize, 
-                        direction,
-                        invincible,
-                        snakeColor,
-                        snakeBodyColor,
-                        { if (gameState == GameState.PLAYING) nextDirection = it }
+                        snake = snake,
+                        food = food,
+                        starFood = starFood,
+                        gridSize = gridSize,
+                        currentDirection = direction,
+                        invincible = invincible,
+                        snakeHeadColor = snakeHeadColor,
+                        snakeBodyColor = snakeBodyColor,
+                        foodColor = foodColor,
+                        starColor = starColor,
+                        emptyCellColor = emptyCellColor,
+                        cellBorderColor = cellBorder
                     )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Controls
-                    Controls(currentDirection = nextDirection, onDirectionChange = { 
-                        if (gameState == GameState.PLAYING) nextDirection = it 
-                    })
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Directional controls
+                    Controls(
+                        currentDirection = nextDirection,
+                        onDirectionChange = { if (gameState == GameState.PLAYING) nextDirection = it },
+                        colorPalette = colorPalette
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
     }
 }
 
-// High score management functions
-private const val HIGH_SCORE_PREF = "snake_high_score"
-
-private fun getCachedHighScore(): Int {
-    // In a real app, you would use SharedPreferences or DataStore
-    // For now, we'll simulate it with a mutable variable
-    return 0
-}
-
-private fun saveHighScore(score: Int) {
-    // In a real app: SharedPreferences or DataStore implementation
-    // For now, we'll just simulate the behavior
-}
-
-private fun clearHighScore() {
-    // In a real app: SharedPreferences or DataStore implementation
-    // For now, we'll just simulate the behavior
-}
-
-fun moveSnake(snake: List<Cell>, direction: Direction, gridSize: Int): List<Cell> {
-    if (direction == Direction.NONE) return snake
-    
-    val head = snake.first()
-    val newHead = when (direction) {
-        Direction.UP -> Cell(head.x, (head.y - 1).takeIf { it >= 0 } ?: (gridSize - 1))
-        Direction.DOWN -> Cell(head.x, (head.y + 1) % gridSize)
-        Direction.LEFT -> Cell((head.x - 1).takeIf { it >= 0 } ?: (gridSize - 1), head.y)
-        Direction.RIGHT -> Cell((head.x + 1) % gridSize, head.y)
-        else -> head
-    }
-    
-    return listOf(newHead) + snake.dropLast(1)
-}
-
-@Composable
-fun GameOverScreen(score: Int, highScore: Int, onRestart: () -> Unit, onClearHighScore: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "GAME OVER",
-            color = Color.Red,
-            fontSize = 32.sp,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        
-        Text(
-            text = "Final Score: $score",
-            color = Color.White,
-            fontSize = 24.sp,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        
-        if (score == highScore && score > 0) {
-            Text(
-                text = "New High Score!",
-                color = Color.Yellow,
-                fontSize = 20.sp,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-        
-        Button(
-            onClick = onRestart,
-            modifier = Modifier.padding(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27AE60))
-        ) {
-            Text("Play Again", fontSize = 18.sp)
-        }
-        
-        Button(
-            onClick = onClearHighScore,
-            modifier = Modifier.padding(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE74C3C))
-        ) {
-            Text("Clear High Score", fontSize = 18.sp)
-        }
-    }
-}
-
+// --- Game Board ---
 @Composable
 fun GameBoard(
     snake: List<Cell>,
     food: Cell,
-    specialFood: Cell?,
-    villagers: List<Villager>,
+    starFood: Cell?,
     gridSize: Int,
     currentDirection: Direction,
     invincible: Boolean,
-    snakeColor: Color,
+    snakeHeadColor: Color,
     snakeBodyColor: Color,
-    onDirectionChange: (Direction) -> Unit
+    foodColor: Color,
+    starColor: Color,
+    emptyCellColor: Color,
+    cellBorderColor: Color
 ) {
-    val cellSize = 20.dp
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val maxBoardSize = screenWidth - 32.dp
+    val cellSize = (maxBoardSize / gridSize).coerceAtLeast(12.dp)
+
     val pulseAnim = remember { Animatable(1f) }
-    
     LaunchedEffect(food) {
-        pulseAnim.animateTo(1.2f, tween(500, easing = LinearEasing))
-        pulseAnim.animateTo(1f, tween(500, easing = LinearEasing))
+        pulseAnim.animateTo(1.2f, tween(300, easing = LinearEasing))
+        pulseAnim.animateTo(1f, tween(300, easing = LinearEasing))
     }
 
-    Column(
+    val starPulseAnim = remember { Animatable(1f) }
+    LaunchedEffect(starFood) {
+        if (starFood != null) {
+            starPulseAnim.animateTo(1.3f, tween(200, easing = LinearEasing))
+            starPulseAnim.animateTo(1f, tween(200, easing = LinearEasing))
+        }
+    }
+
+    Box(
         modifier = Modifier
-            .background(Color(0xFF34495E), RoundedCornerShape(12.dp))
+            .fillMaxWidth()
             .padding(8.dp)
+            .background(emptyCellColor, RoundedCornerShape(24.dp))
+            .border(1.dp, cellBorderColor, RoundedCornerShape(24.dp))
+            .padding(8.dp),
+        contentAlignment = Alignment.Center
     ) {
-        for (y in 0 until gridSize) {
-            Row {
-                for (x in 0 until gridSize) {
-                    val cell = Cell(x, y)
-                    val isSnakeHead = cell == snake.first()
-                    val isSnakeBody = cell in snake.drop(1)
-                    val villager = villagers.find { it.position == cell }
-                    
-                    Box(
-                        modifier = Modifier
-                            .size(cellSize)
-                            .border(BorderStroke(0.5.dp, Color(0xFF7F8C8D)))
-                            .background(
-                                when {
-                                    isSnakeHead -> if (invincible) Color(0xFF9B59B6) else snakeColor
-                                    isSnakeBody -> if (invincible) Color(0xFF8E44AD) else snakeBodyColor
-                                    villager != null -> villager.type.color
-                                    cell == food -> Color(0xFFE74C3C)
-                                    cell == specialFood -> Color(0xFF9B59B6) // Purple for special food
-                                    else -> Color(0xFF2C3E50)
-                                }
-                            )
-                            .graphicsLayer {
-                                scaleX = if (cell == food) pulseAnim.value else 1f
-                                scaleY = if (cell == food) pulseAnim.value else 1f
-                            }
-                    ) {
-                        if (villager != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(2.dp)
-                                    .background(Color.White, CircleShape)
-                                    .clip(CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = villager.type.emoji,
-                                    fontSize = (cellSize.value / 2).sp
+        Column(
+            modifier = Modifier
+                .width(cellSize * gridSize)
+                .background(emptyCellColor, RoundedCornerShape(12.dp))
+        ) {
+            for (y in 0 until gridSize) {
+                Row {
+                    for (x in 0 until gridSize) {
+                        val cell = Cell(x, y)
+                        val isSnakeHead = cell == snake.first()
+                        val isSnakeBody = cell in snake.drop(1)
+
+                        Box(
+                            modifier = Modifier
+                                .size(cellSize)
+                                .border(BorderStroke(0.5.dp, cellBorderColor))
+                                .background(
+                                    when {
+                                        isSnakeHead -> snakeHeadColor
+                                        isSnakeBody -> snakeBodyColor
+                                        cell == food -> foodColor
+                                        cell == starFood -> starColor
+                                        else -> emptyCellColor
+                                    }
                                 )
-                            }
-                        } else if (isSnakeHead) {
-                            // Snake eyes
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(4.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Draw eyes based on direction
-                                val eyeOffset = when (currentDirection) {
-                                    Direction.UP -> Pair(0.3f to 0.2f, 0.7f to 0.2f)
-                                    Direction.DOWN -> Pair(0.3f to 0.8f, 0.7f to 0.8f)
-                                    Direction.LEFT -> Pair(0.2f to 0.3f, 0.2f to 0.7f)
-                                    Direction.RIGHT -> Pair(0.8f to 0.3f, 0.8f to 0.7f)
-                                    else -> Pair(0.3f to 0.2f, 0.7f to 0.2f)
-                                }
-                                
-                                Box(
-                                    modifier = Modifier
-                                        .size(cellSize / 5)
-                                        .align(Alignment.TopStart)
-                                        .graphicsLayer {
-                                            translationX = eyeOffset.first.first * cellSize.value
-                                            translationY = eyeOffset.first.second * cellSize.value
+                                .graphicsLayer {
+                                    scaleX = when {
+                                        cell == food -> pulseAnim.value
+                                        cell == starFood -> starPulseAnim.value
+                                        else -> 1f
+                                    }
+                                    scaleY = when {
+                                        cell == food -> pulseAnim.value
+                                        cell == starFood -> starPulseAnim.value
+                                        else -> 1f
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                isSnakeHead -> {
+                                    // Snake eyes based on direction
+                                    val eyeOffset = when (currentDirection) {
+                                        Direction.UP -> listOf(Offset(0.3f, 0.25f), Offset(0.7f, 0.25f))
+                                        Direction.DOWN -> listOf(Offset(0.3f, 0.75f), Offset(0.7f, 0.75f))
+                                        Direction.LEFT -> listOf(Offset(0.25f, 0.3f), Offset(0.25f, 0.7f))
+                                        Direction.RIGHT -> listOf(Offset(0.75f, 0.3f), Offset(0.75f, 0.7f))
+                                        else -> listOf(Offset(0.3f, 0.25f), Offset(0.7f, 0.25f))
+                                    }
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        eyeOffset.forEach { offset ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(cellSize * 0.2f)
+                                                    .align(Alignment.TopStart)
+                                                    .graphicsLayer {
+                                                        translationX = offset.x * cellSize.value
+                                                        translationY = offset.y * cellSize.value
+                                                    }
+                                                    .background(Color.White, CircleShape)
+                                                    .border(1.dp, Color.Black, CircleShape)
+                                            )
                                         }
-                                        .background(Color.Black, CircleShape)
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(cellSize / 5)
-                                        .align(Alignment.TopStart)
-                                        .graphicsLayer {
-                                            translationX = eyeOffset.second.first * cellSize.value
-                                            translationY = eyeOffset.second.second * cellSize.value
-                                        }
-                                        .background(Color.Black, CircleShape)
-                                )
-                            }
-                        } else if (cell == specialFood) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(2.dp)
-                                    .background(Color.White, CircleShape)
-                                    .clip(CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "⭐",
-                                    fontSize = (cellSize.value / 2).sp
-                                )
-                            }
-                        } else if (cell == food) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(2.dp)
-                                    .background(Color.White, CircleShape)
-                                    .clip(CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "🍑",
-                                    fontSize = (cellSize.value / 2).sp
-                                )
+                                    }
+                                }
+                                cell == starFood -> {
+                                    Text("⭐", fontSize = (cellSize.value * 0.6f).sp)
+                                }
+                                cell == food -> {
+                                    Text("🍎", fontSize = (cellSize.value * 0.6f).sp)
+                                }
                             }
                         }
                     }
@@ -507,51 +391,50 @@ fun GameBoard(
     }
 }
 
+// --- Controls ---
 @Composable
-fun Controls(currentDirection: Direction, onDirectionChange: (Direction) -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Up button
+fun Controls(
+    currentDirection: Direction,
+    onDirectionChange: (Direction) -> Unit,
+    colorPalette: app.it.fast4x.rimusic.ui.styling.ColorPalette
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(8.dp)
+    ) {
         ControlButton(
             imageVector = Icons.Default.KeyboardArrowUp,
             contentDescription = "Up",
-            enabled = currentDirection != Direction.DOWN
-        ) {
-            onDirectionChange(Direction.UP)
-        }
-        
+            enabled = currentDirection != Direction.DOWN,
+            onClick = { onDirectionChange(Direction.UP) },
+            colorPalette = colorPalette
+        )
         Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(32.dp),
             modifier = Modifier.padding(vertical = 4.dp)
         ) {
-            // Left button
             ControlButton(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = "Left",
-                enabled = currentDirection != Direction.RIGHT
-            ) {
-                onDirectionChange(Direction.LEFT)
-            }
-
-            Spacer(modifier = Modifier.width(60.dp))
-
-            // Right button
+                enabled = currentDirection != Direction.RIGHT,
+                onClick = { onDirectionChange(Direction.LEFT) },
+                colorPalette = colorPalette
+            )
             ControlButton(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Right",
-                enabled = currentDirection != Direction.LEFT
-            ) {
-                onDirectionChange(Direction.RIGHT)
-            }
+                enabled = currentDirection != Direction.LEFT,
+                onClick = { onDirectionChange(Direction.RIGHT) },
+                colorPalette = colorPalette
+            )
         }
-        
-        // Down button
         ControlButton(
             imageVector = Icons.Default.KeyboardArrowDown,
             contentDescription = "Down",
-            enabled = currentDirection != Direction.UP
-        ) {
-            onDirectionChange(Direction.DOWN)
-        }
+            enabled = currentDirection != Direction.UP,
+            onClick = { onDirectionChange(Direction.DOWN) },
+            colorPalette = colorPalette
+        )
     }
 }
 
@@ -559,116 +442,116 @@ fun Controls(currentDirection: Direction, onDirectionChange: (Direction) -> Unit
 fun ControlButton(
     imageVector: ImageVector,
     contentDescription: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit
+    enabled: Boolean,
+    onClick: () -> Unit,
+    colorPalette: app.it.fast4x.rimusic.ui.styling.ColorPalette
 ) {
     IconButton(
         modifier = Modifier
-            .size(60.dp)
+            .size(56.dp)
             .clip(CircleShape)
-            .background(if (enabled) Color(0xFF3498DB) else Color.Gray),
+            .background(if (enabled) colorPalette.background3 else colorPalette.textDisabled.copy(alpha = 0.3f)),
         onClick = onClick,
         enabled = enabled
     ) {
         Icon(
             imageVector = imageVector,
             contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.size(40.dp)
+            tint = if (enabled) colorPalette.text else colorPalette.textDisabled,
+            modifier = Modifier.size(32.dp)
         )
     }
 }
 
-fun generateVillagers(gridSize: Int, count: Int): List<Villager> {
-    return List(count) {
-        val x = Random.nextInt(2, gridSize - 2)
-        val y = Random.nextInt(2, gridSize - 2)
-        val type = VillagerType.values().random()
-        val pattern = MovementPattern.values().random()
-        Villager(Cell(x, y), type, pattern)
-    }
-}
-
-fun moveVillagers(villagers: List<Villager>, snakeHead: Cell, gridSize: Int): List<Villager> {
-    return villagers.map { villager ->
-        val newPosition = when (villager.movementPattern) {
-            MovementPattern.RANDOM -> moveRandom(villager.position, gridSize)
-            MovementPattern.CIRCULAR -> moveCircular(villager.position, gridSize, System.currentTimeMillis())
-            MovementPattern.FLEEING -> moveFleeing(villager.position, snakeHead, gridSize)
-            MovementPattern.PATROL -> movePatrol(villager.position, gridSize, System.currentTimeMillis())
+// --- Game Over Screen ---
+@Composable
+fun GameOverScreen(
+    score: Int,
+    highScore: Int,
+    onRestart: () -> Unit,
+    onClearHighScore: () -> Unit,
+    colorPalette: app.it.fast4x.rimusic.ui.styling.ColorPalette,
+    typography: app.it.fast4x.rimusic.ui.styling.Typography
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "GAME OVER",
+            color = colorPalette.red,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+        Text(
+            text = "Score: $score",
+            color = colorPalette.text,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        if (score == highScore && score > 0) {
+            Text(
+                text = "🏆 New High Score! 🏆",
+                color = colorPalette.accent,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
         }
-        villager.copy(position = newPosition)
+        Button(
+            onClick = onRestart,
+            modifier = Modifier.padding(8.dp).width(160.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = colorPalette.accent),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Text("Play Again", fontSize = 18.sp, color = colorPalette.onAccent)
+        }
+        Button(
+            onClick = onClearHighScore,
+            modifier = Modifier.padding(8.dp).width(160.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = colorPalette.background3),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Text("Clear High Score", fontSize = 18.sp, color = colorPalette.text)
+        }
     }
 }
 
-fun moveRandom(position: Cell, gridSize: Int): Cell {
-    val directions = listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)
-    val (dx, dy) = directions.random()
-    return Cell(
-        (position.x + dx).coerceIn(0, gridSize - 1),
-        (position.y + dy).coerceIn(0, gridSize - 1)
-    )
-}
-
-fun moveFleeing(position: Cell, snakeHead: Cell, gridSize: Int): Cell {
-    // Move away from snake
-    val dx = if (position.x < snakeHead.x) -1 else if (position.x > snakeHead.x) 1 else 0
-    val dy = if (position.y < snakeHead.y) -1 else if (position.y > snakeHead.y) 1 else 0
-    
-    return Cell(
-        (position.x - dx).coerceIn(0, gridSize - 1),
-        (position.y - dy).coerceIn(0, gridSize - 1)
-    )
-}
-
-fun moveCircular(position: Cell, gridSize: Int, time: Long): Cell {
-    // Circular pattern based on time
-    val angle = time / 1000.0
-    val radius = 2.0
-    val centerX = gridSize / 2
-    val centerY = gridSize / 2
-    
-    val newX = (centerX + radius * cos(angle)).toInt().coerceIn(0, gridSize - 1)
-    val newY = (centerY + radius * sin(angle)).toInt().coerceIn(0, gridSize - 1)
-    
-    return Cell(newX, newY)
-}
-
-fun movePatrol(position: Cell, gridSize: Int, time: Long): Cell {
-    // Patrol pattern that moves back and forth
-    val step = ((time / 1000) % 8).toInt()
-    val baseX = position.x
-    val baseY = position.y
-    
-    return when (step) {
-        0, 1, 2 -> Cell((baseX + 1).coerceAtMost(gridSize - 1), baseY)
-        3, 4 -> Cell(baseX, (baseY + 1).coerceAtMost(gridSize - 1))
-        5, 6, 7 -> Cell((baseX - 1).coerceAtLeast(0), baseY)
-        else -> Cell(baseX, (baseY - 1).coerceAtLeast(0))
+// --- Game Logic Functions ---
+fun moveSnake(snake: List<Cell>, direction: Direction, gridSize: Int): List<Cell> {
+    if (direction == Direction.NONE) return snake
+    val head = snake.first()
+    val newHead = when (direction) {
+        Direction.UP -> Cell(head.x, if (head.y - 1 < 0) gridSize - 1 else head.y - 1)
+        Direction.DOWN -> Cell(head.x, (head.y + 1) % gridSize)
+        Direction.LEFT -> Cell(if (head.x - 1 < 0) gridSize - 1 else head.x - 1, head.y)
+        Direction.RIGHT -> Cell((head.x + 1) % gridSize, head.y)
+        else -> head
     }
+    return listOf(newHead) + snake.dropLast(1)
+}
+
+fun growSnake(snake: List<Cell>): List<Cell> {
+    val tail = snake.last()
+    val secondLast = snake.dropLast(1).last()
+    val dx = tail.x - secondLast.x
+    val dy = tail.y - secondLast.y
+    val newTail = Cell(tail.x + dx, tail.y + dy)
+    return snake + newTail
 }
 
 fun generateFood(occupiedCells: List<Cell>, gridSize: Int): Cell {
     val emptyCells = (0 until gridSize).flatMap { x ->
         (0 until gridSize).map { y -> Cell(x, y) }
     }.filter { it !in occupiedCells }
-    
-    return if (emptyCells.isNotEmpty()) {
-        emptyCells[Random.nextInt(emptyCells.size)]
-    } else {
-        // Fallback if no empty cells (shouldn't happen in normal gameplay)
-        Cell(Random.nextInt(gridSize), Random.nextInt(gridSize))
-    }
+    return if (emptyCells.isNotEmpty()) emptyCells[Random.nextInt(emptyCells.size)]
+    else Cell(Random.nextInt(gridSize), Random.nextInt(gridSize))
 }
 
-fun growSnake(snake: List<Cell>): List<Cell> {
-    val tail = snake.last()
-    val secondLast = snake.dropLast(1).last()
-    
-    // Determine growth direction based on the last two segments
-    val dx = tail.x - secondLast.x
-    val dy = tail.y - secondLast.y
-    
-    val newTail = Cell(tail.x + dx, tail.y + dy)
-    return snake + newTail
-}
+// --- High Score Management ---
+private fun getCachedHighScore(): Int = 0
+private fun saveHighScore(score: Int) {}
+private fun clearHighScore() {}

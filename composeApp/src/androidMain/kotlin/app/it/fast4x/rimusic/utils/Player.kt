@@ -107,7 +107,20 @@ fun Player.playAtMedia(mediaItems: List<MediaItem>, mediaId: String) {
 }
 
 fun Player.forcePlay(mediaItem: MediaItem) {
-    setMediaItem(mediaItem.cleaned, true)
+    val cleanedMediaItem = mediaItem.cleaned
+    val existingIndex = findMediaItemIndexById(cleanedMediaItem.mediaId)
+
+    if (existingIndex >= 0 && mediaItemCount > 0) {
+        val remainingQueue = (existingIndex until mediaItemCount)
+            .map(::getMediaItemAt)
+            .map(MediaItem::cleaned)
+            .fastDistinctBy(MediaItem::mediaId)
+
+        setMediaItems(remainingQueue, 0, C.TIME_UNSET)
+    } else {
+        setMediaItem(cleanedMediaItem, true)
+    }
+
     prepare()
     restoreGlobalVolume()
     playWhenReady = true
@@ -183,7 +196,7 @@ fun Player.addNext(mediaItem: MediaItem, context: Context? = null) {
     if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
         forcePlay(mediaItem)
     } else {
-        addMediaItem(currentMediaItemIndex + 1, mediaItem.cleaned)
+        addMediaItem((currentMediaItemIndex + 1).coerceAtMost(mediaItemCount), mediaItem.cleaned)
     }
 }
 
@@ -213,6 +226,9 @@ fun Player.addNext(mediaItems: List<MediaItem>, context: Context? = null) {
 
 fun Player.enqueue(mediaItem: MediaItem, context: Context? = null) {
      if (context != null && excludeMediaItem(mediaItem, context)) return
+
+    val itemIndex = findMediaItemIndexById(mediaItem.mediaId)
+    if (itemIndex >= 0) removeMediaItem(itemIndex)
 
     if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
         forcePlay(mediaItem)

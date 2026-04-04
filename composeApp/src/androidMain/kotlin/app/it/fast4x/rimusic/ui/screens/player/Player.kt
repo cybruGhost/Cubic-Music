@@ -110,7 +110,9 @@ import androidx.compose.ui.util.fastZip
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.ColorUtils.colorToHSL
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
@@ -155,6 +157,7 @@ import app.it.fast4x.rimusic.enums.ThumbnailRoundness
 import app.it.fast4x.rimusic.enums.ThumbnailType
 import app.it.fast4x.rimusic.models.Info
 import app.it.fast4x.rimusic.models.ui.toUiMedia
+import app.it.fast4x.rimusic.service.modern.isLocal
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
@@ -167,6 +170,10 @@ import app.it.fast4x.rimusic.ui.components.themed.NowPlayingSongIndicator
 import app.it.fast4x.rimusic.ui.components.themed.PlayerMenu
 import app.it.fast4x.rimusic.ui.components.themed.RotateThumbnailCoverAnimationModern
 import app.it.fast4x.rimusic.ui.components.themed.SecondaryTextButton
+import org.json.JSONArray
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import app.it.fast4x.rimusic.ui.components.themed.ThumbnailOffsetDialog
 import app.it.fast4x.rimusic.ui.components.themed.animateBrushRotation
 import app.it.fast4x.rimusic.ui.styling.Dimensions
@@ -179,6 +186,7 @@ import app.it.fast4x.rimusic.utils.VerticalfadingEdge2
 import app.it.fast4x.rimusic.utils.VinylSizeKey
 import app.it.fast4x.rimusic.utils.albumCoverRotationKey
 import app.it.fast4x.rimusic.utils.animatedGradientKey
+import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.backgroundProgressKey
 import app.it.fast4x.rimusic.utils.blackgradientKey
 import app.it.fast4x.rimusic.utils.bottomgradientKey
@@ -250,6 +258,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import app.kreate.android.me.knighthat.component.player.BlurAdjuster
 import app.kreate.android.me.knighthat.utils.Toaster
+import it.fast4x.innertube.Innertube
+import it.fast4x.innertube.models.bodies.SearchBody
+import it.fast4x.innertube.requests.searchPage
+import it.fast4x.innertube.utils.from
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import kotlin.math.absoluteValue
 import kotlin.math.sqrt
@@ -257,9 +269,6 @@ import kotlin.math.sqrt
 import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasWorker
 import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasState
 import androidx.compose.ui.viewinterop.AndroidView
-// waigwe fallback api
-import app.it.fast4x.rimusic.utils.WaigweApi
-import app.it.fast4x.rimusic.utils.WaigweSearchResponse
 import app.it.fast4x.rimusic.utils.FadeAdjuster
 import app.it.fast4x.rimusic.enums.DurationInMilliseconds
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -309,6 +318,23 @@ import androidx.compose.material3.CircularProgressIndicator
 @UnstableApi
 @Composable
 fun Player(
+    navController: NavController,
+    onDismiss: () -> Unit,
+) {
+    PlayerContent(
+        navController = navController,
+        onDismiss = onDismiss,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@ExperimentalTextApi
+@SuppressLint("SuspiciousIndentation", "RememberReturnType", "NewApi")
+@ExperimentalFoundationApi
+@ExperimentalAnimationApi
+@UnstableApi
+@Composable
+private fun PlayerContent(
     navController: NavController,
     onDismiss: () -> Unit,
 ) {
@@ -371,8 +397,8 @@ fun Player(
     val spotifyCanvasEnabled by rememberPreference("spotifyCanvasEnabled", false)
     val showSpotifyCanvasLogs by rememberPreference("showSpotifyCanvasLogs", false)
     
-    // WAIGWE FALLBACK
-    val waigweFallbackEnabled by rememberPreference("waigweFallbackKey", true)
+    // Alternate source retry
+    val alternateSourceRetryEnabled by rememberPreference("alternateSourceRetryKey", true)
 
     // AUDIO FADE 
     val playbackFadeAudioDuration by rememberPreference("playbackFadeAudioDurationKey", DurationInMilliseconds.Disabled)
@@ -386,14 +412,9 @@ fun Player(
         fadeAdjuster.setDuration(playbackFadeAudioDuration.milliSeconds)
     }
     if (binder.player.currentTimeline.windowCount == 0) return
-
-    var nullableMediaItem by remember {
-        mutableStateOf(binder.player.currentMediaItem, neverEqualPolicy())
-    }
-
-    var shouldBePlaying by remember {
-        mutableStateOf(binder.player.shouldBePlaying)
-    }
+    val displayedPlayerState = rememberDisplayedPlayerState(binder)
+    val crossfadeUiState = displayedPlayerState.crossfadeUiState
+    val shouldBePlaying = displayedPlayerState.shouldBePlaying
 
     val rotateState = rememberSaveable { mutableStateOf( false ) }
     var isRotated by rotateState
@@ -475,6 +496,13 @@ fun Player(
     var playerError by remember {
         mutableStateOf<PlaybackException?>(binder.player.playerError)
     }
+    var retryWithAlternateSourcesNonce by remember { mutableIntStateOf(0) }
+    var lastSearchFallbackMediaId by remember {
+        mutableStateOf<String?>(null)
+    }
+    var playbackErrorMessage by remember {
+        mutableStateOf<String?>(null)
+    }
 
     fun PagerState.offsetForPage(page: Int) = (currentPage - page) + currentPageOffsetFraction
 
@@ -513,16 +541,14 @@ fun Player(
 binder.player.DisposableListener {
     object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            nullableMediaItem = mediaItem
-        }
-
-        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            shouldBePlaying = playerError == null && binder.player.shouldBePlaying
+            playbackErrorMessage = null
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             playerError = binder.player.playerError
-            shouldBePlaying = playerError == null && binder.player.shouldBePlaying
+            if (playerError == null && playbackState == Player.STATE_READY) {
+                playbackErrorMessage = null
+            }
         }
         
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -531,102 +557,191 @@ binder.player.DisposableListener {
         
         override fun onPlayerError(playbackException: PlaybackException) {
             playerError = playbackException
+            playbackErrorMessage = playbackExceptionMessage(
+                context = context,
+                error = playbackException,
+                isLocal = binder.player.currentWindow?.mediaItem?.isLocal == true,
+            )
         }
     }
 }
 
-//LaunchedEffect outside the Player.Listener to handle waigwe fallback
-LaunchedEffect(playerError, waigweFallbackEnabled) {
-    if (waigweFallbackEnabled && playerError != null) {
+// LaunchedEffect outside the Player.Listener to handle search-based fallback
+LaunchedEffect(playerError, alternateSourceRetryEnabled, retryWithAlternateSourcesNonce) {
+    if (alternateSourceRetryEnabled && playerError != null) {
         try {
             val currentItem = binder.player.currentMediaItem ?: return@LaunchedEffect
             val currentMediaId = currentItem.mediaId
-            
-            // Check if already using waigwe (prevents infinite loops)
-            if (WaigweApi.isWaigweMedia(currentMediaId)) {
+
+            if (currentMediaId == lastSearchFallbackMediaId) {
                 return@LaunchedEffect
             }
             
-            // Check if current URL is already from waigwe
-            val currentUri = currentItem.localConfiguration?.uri?.toString()
-            if (WaigweApi.isWaigweUrl(currentUri)) {
-                return@LaunchedEffect
-            }
-            
-            // Get song info
-            val title = currentItem.mediaMetadata.title?.toString() ?: ""
-            val artist = currentItem.mediaMetadata.artist?.toString() ?: ""
-            
+            val title = cleanPrefix(currentItem.mediaMetadata.title?.toString().orEmpty()).trim()
+            val artist = cleanPrefix(currentItem.mediaMetadata.artist?.toString().orEmpty()).trim()
+
             if (title.isBlank()) {
-                Toaster.n("Cannot fallback: No title")
                 return@LaunchedEffect
             }
-            
-            val query = if (artist.isNotBlank()) "$artist - $title" else title
-            
-            try {
-                // Call waigwe API with retry mechanism
-                var result: Result<WaigweSearchResponse>? = null
-                
-                for (attempt in 0..2) { // Try up to 3 times
-                    result = WaigweApi.search(query)
-                    
-                    if (result.isSuccess) {
-                        break
-                    }
-                    
-                    if (attempt < 2) {
-                        // Exponential backoff: 1s, then 3s
-                        delay(if (attempt == 0) 1000L else 3000L)
+
+            fun normalizeMatchText(value: String): String =
+                cleanPrefix(value)
+                    .lowercase()
+                    .replace(Regex("\\b(official|music video|video|audio|lyrics|visualizer|topic|vevo|hd|4k)\\b"), " ")
+                    .replace(Regex("[^a-z0-9]+"), " ")
+                    .trim()
+                    .replace(Regex("\\s+"), " ")
+
+            fun scoreCandidate(candidateTitle: String, candidateArtist: String): Int {
+                val expectedTitle = normalizeMatchText(title)
+                val expectedArtist = normalizeMatchText(artist)
+                val normalizedCandidateTitle = normalizeMatchText(candidateTitle)
+                val normalizedCandidateArtist = normalizeMatchText(candidateArtist)
+
+                if (normalizedCandidateTitle.isBlank()) return Int.MIN_VALUE
+                if (
+                    normalizedCandidateTitle.contains("mix") ||
+                    normalizedCandidateTitle.contains("playlist") ||
+                    normalizedCandidateTitle.contains("full album")
+                ) return Int.MIN_VALUE
+
+                var score = 0
+                if (normalizedCandidateTitle == expectedTitle) score += 120
+                else if (
+                    normalizedCandidateTitle.contains(expectedTitle) ||
+                    expectedTitle.contains(normalizedCandidateTitle)
+                ) score += 80
+                else {
+                    val expectedTokens = expectedTitle.split(" ").filter { it.length > 1 }.toSet()
+                    val candidateTokens = normalizedCandidateTitle.split(" ").filter { it.length > 1 }.toSet()
+                    score += expectedTokens.intersect(candidateTokens).size * 18
+                }
+
+                if (expectedArtist.isNotBlank()) {
+                    if (normalizedCandidateArtist == expectedArtist) score += 70
+                    else if (
+                        normalizedCandidateArtist.contains(expectedArtist) ||
+                        expectedArtist.contains(normalizedCandidateArtist)
+                    ) score += 45
+                    else {
+                        val expectedArtistTokens = expectedArtist.split(" ").filter { it.length > 1 }.toSet()
+                        val candidateArtistTokens = normalizedCandidateArtist.split(" ").filter { it.length > 1 }.toSet()
+                        score += expectedArtistTokens.intersect(candidateArtistTokens).size * 14
                     }
                 }
-                
-                if (result != null && result.isSuccess) {
-                    val response = result.getOrThrow()
-                    if (response.videos.isNotEmpty()) {
-                        val firstVideo = response.videos.first()
-                        val streamUrl = WaigweApi.getStreamUrl(firstVideo.videoId)
-                        
-                        // Save current playback state
-                        val wasPlaying = binder.player.isPlaying
-                        val currentPosition = binder.player.currentPosition
-                        
-                        // Create new MediaItem with waigwe stream
-                        val newMediaItem = currentItem.buildUpon()
-                            .setUri(streamUrl)
-                            .setMimeType(MimeTypes.AUDIO_MP4)
-                            .setMediaId("waigwe_${currentMediaId}") // Mark as waigwe
-                            .build()
-                        
-                        // Mark this media ID as using waigwe
-                        WaigweApi.markAsWaigweMedia("waigwe_${currentMediaId}")
-                        
-                        // Replace and play, preserving position
-                        binder.player.setMediaItem(newMediaItem)
-                        binder.player.prepare()
-                        binder.player.seekTo(currentPosition)
-                        
-                        if (wasPlaying) {
-                            binder.player.play()
-                        }
-                        
-                        Toaster.n("Playing via waigwe API")
-                    } else {
-                        Toaster.n("No results from waigwe")
-                    }
-                } else {
-                    Toaster.n("Waigwe API failed")
-                }
-            } catch (e: Exception) {
-                Toaster.n("Waigwe fallback failed")
+
+                return score
             }
+
+            val queries = buildList {
+                add(title)
+                if (artist.isNotBlank()) add("$title $artist")
+                if (artist.isNotBlank()) add("$artist - $title")
+            }.distinct()
+
+            suspend fun findReplacement(): MediaItem? {
+                var bestCandidate: Pair<MediaItem, Int>? = null
+
+                for (query in queries) {
+                    val songPage = Innertube.searchPage(
+                        body = SearchBody(query = query, params = Innertube.SearchFilter.Song.value),
+                        fromMusicShelfRendererContent = { content -> Innertube.SongItem.from(content) }
+                    )?.getOrNull()
+
+                    songPage?.items
+                        ?.filterIsInstance<Innertube.SongItem>()
+                        ?.forEach { item ->
+                            if (item.key.isBlank() || item.key == currentMediaId) return@forEach
+                            val score = scoreCandidate(
+                                candidateTitle = item.info?.name.orEmpty(),
+                                candidateArtist = item.authors?.joinToString(", ") { it.name.orEmpty() }.orEmpty()
+                            )
+                            if (score > (bestCandidate?.second ?: Int.MIN_VALUE)) {
+                                bestCandidate = item.asMediaItem to score
+                            }
+                        }
+
+                    val videoPage = Innertube.searchPage(
+                        body = SearchBody(query = query, params = Innertube.SearchFilter.Video.value),
+                        fromMusicShelfRendererContent = { content -> Innertube.VideoItem.from(content) }
+                    )?.getOrNull()
+
+                    videoPage?.items
+                        ?.filterIsInstance<Innertube.VideoItem>()
+                        ?.forEach { item ->
+                            if (item.key.isBlank() || item.key == currentMediaId) return@forEach
+                            val score = scoreCandidate(
+                                candidateTitle = item.info?.name.orEmpty(),
+                                candidateArtist = item.authors?.joinToString(", ") { it.name.orEmpty() }.orEmpty()
+                            )
+                            if (score > (bestCandidate?.second ?: Int.MIN_VALUE)) {
+                                bestCandidate = item.asMediaItem to score
+                            }
+                        }
+                }
+
+                bestCandidate?.takeIf { it.second >= 70 }?.let { return it.first }
+
+                for (query in queries) {
+                    val encodedQuery = URLEncoder.encode(query, "UTF-8")
+                    val connection = URL("https://yt.omada.cafe/api/v1/search?q=$encodedQuery")
+                        .openConnection() as HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 8000
+                    connection.readTimeout = 8000
+
+                    if (connection.responseCode != HttpURLConnection.HTTP_OK) continue
+
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val results = JSONArray(response)
+                    for (index in 0 until results.length()) {
+                        val item = results.optJSONObject(index) ?: continue
+                        if (item.optString("type") != "video") continue
+
+                        val candidateVideoId = item.optString("videoId").trim()
+                        if (candidateVideoId.isBlank() || candidateVideoId == currentMediaId) continue
+
+                        val score = scoreCandidate(
+                            candidateTitle = item.optString("title"),
+                            candidateArtist = item.optString("author")
+                        )
+                        if (score < 60) continue
+
+                        val metadata = MediaMetadata.Builder()
+                            .setTitle(currentItem.mediaMetadata.title)
+                            .setArtist(currentItem.mediaMetadata.artist)
+                            .setAlbumTitle(currentItem.mediaMetadata.albumTitle)
+                            .setArtworkUri(currentItem.mediaMetadata.artworkUri?.toString()?.toUri())
+                            .setExtras(currentItem.mediaMetadata.extras)
+                            .build()
+
+                        return MediaItem.Builder()
+                            .setMediaId(candidateVideoId)
+                            .setUri(candidateVideoId)
+                            .setCustomCacheKey(candidateVideoId)
+                            .setMediaMetadata(metadata)
+                            .build()
+                    }
+                }
+
+                return null
+            }
+
+            val replacementItem = findReplacement() ?: return@LaunchedEffect
+            lastSearchFallbackMediaId = currentMediaId
+
+            val wasPlaying = binder.player.isPlaying
+            binder.player.setMediaItem(replacementItem)
+            binder.player.prepare()
+            if (wasPlaying) {
+                binder.player.play()
+            }
+            Toaster.n("Retrying with alternate YouTube source")
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 }
-    val mediaItem = nullableMediaItem ?: return
-
     val pagerState = rememberPagerState(pageCount = { mediaItems.size })
     val pagerStateFS = rememberPagerState(pageCount = { mediaItems.size })
     val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
@@ -640,12 +755,23 @@ LaunchedEffect(playerError, waigweFallbackEnabled) {
         ?: flowOf(null))
         .collectAsState(initial = null)
 
-    val positionAndDuration by binder.player.positionAndDurationState()
+    val displayedPositionAndDuration = displayedPlayerState.position to displayedPlayerState.duration
+    val mediaItem = displayedPlayerState.mediaItem ?: return
+    val displayedMediaItemIndex = remember(mediaItems, mediaItem.mediaId, crossfadeUiState.isEnabled) {
+        mediaItems.indexOfFirst { queuedItem -> queuedItem.mediaId == mediaItem.mediaId }
+            .takeIf { it >= 0 }
+            ?: binder.player.currentMediaItemIndex.coerceAtLeast(0)
+    }
+    val displayedArtworkUrl = mediaItem.mediaMetadata.artworkUri?.toString().orEmpty()
+    fun queuedMediaItemAt(index: Int): MediaItem {
+        return mediaItems.getOrNull(index)
+            ?: if (index in 0 until binder.player.mediaItemCount) binder.player.getMediaItemAt(index) else mediaItem
+    }
 
     val playbackState by binder.player.playbackStateState()
     val isBuffering = playbackState == Player.STATE_BUFFERING
     var timeRemaining by remember { mutableIntStateOf(0) }
-    timeRemaining = positionAndDuration.second.toInt() - positionAndDuration.first.toInt()
+    timeRemaining = displayedPositionAndDuration.second.toInt() - displayedPositionAndDuration.first.toInt()
 
     if (sleepTimerMillisLeft != null)
         if (sleepTimerMillisLeft!! < timeRemaining.toLong() && !delayedSleepTimer)  {
@@ -849,6 +975,18 @@ LaunchedEffect(playerError, waigweFallbackEnabled) {
     }
 
     val color = colorPalette()
+    val progressOverlayBrush = if (crossfadeUiState.isHighlightActive) {
+        Brush.horizontalGradient(
+            listOf(
+                Color(0xFF2EE59D),
+                Color(0xFF8B5CF6),
+                Color(0xFFF472B6),
+                Color(0xFFFB7185),
+            )
+        )
+    } else {
+        null
+    }
     var dynamicColorPalette by remember { mutableStateOf( color ) }
     var dominant by remember{ mutableStateOf(0) }
     var vibrant by remember{ mutableStateOf(0) }
@@ -1317,7 +1455,7 @@ LaunchedEffect(shouldBePlaying) {
             albumId = albumId,
             shouldBePlaying = shouldBePlaying,
             isBuffering = isBuffering,
-            positionAndDuration = positionAndDuration,
+            positionAndDuration = displayedPositionAndDuration,
             modifier = modifier,
         )
     }
@@ -1353,7 +1491,7 @@ SpotifyCanvasWorker()
         Box { 
 
         // CANVAS PLAYER FOR LANDSCAPE MODE
-        val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
+        val currentMediaItemId = mediaItem.mediaId
         val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
         val shouldShowCanvas = spotifyCanvasEnabled && 
             SpotifyCanvasState.currentCanvasUrl != null && 
@@ -1380,13 +1518,13 @@ SpotifyCanvasWorker()
                      state = pagerStateFS,
                      snapPositionalThreshold = 0.20f
                  )
-                 pagerStateFS.LaunchedEffectScrollToPage(binder.player.currentMediaItemIndex)
+                 pagerStateFS.LaunchedEffectScrollToPage(displayedMediaItemIndex)
 
                  LaunchedEffect(pagerStateFS) {
                      var previousPage = pagerStateFS.settledPage
                      snapshotFlow { pagerStateFS.settledPage }.distinctUntilChanged().collect {
                          if (previousPage != it) {
-                             if (it != binder.player.currentMediaItemIndex) binder.player.playAtIndex(it)
+                            if (it != displayedMediaItemIndex) binder.player.playAtIndex(it)
                          }
                          previousPage = it
                      }
@@ -1435,7 +1573,7 @@ SpotifyCanvasWorker()
                      }
 
                      BlurredCover(
-                         thumbnailUrl = binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString(),
+                        thumbnailUrl = queuedMediaItemAt(it).mediaMetadata.artworkUri.toString(),
                          blurAdjuster = blurAdjuster,
                          showThumbnail = showthumbnail,
                          noBlur = noblur,
@@ -1490,7 +1628,7 @@ SpotifyCanvasWorker()
              }
 
              BlurredCover(
-                 thumbnailUrl = binder.player.mediaMetadata.artworkUri.toString(),
+                thumbnailUrl = displayedArtworkUrl,
                  blurAdjuster = blurAdjuster,
                  showThumbnail = showthumbnail,
                  noBlur = noblur,
@@ -1510,15 +1648,24 @@ SpotifyCanvasWorker()
             .padding(top = if (extraspace) 10.dp else 0.dp)
             .drawBehind {
                 if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
-                    drawRect(
-                        color = color.favoritesOverlay,
-                        topLeft = Offset.Zero,
-                        size = Size(
-                            width = positionAndDuration.first.toFloat() /
-                                    positionAndDuration.second.absoluteValue * size.width,
-                            height = size.maxDimension
-                        )
+                    val progressSize = Size(
+                        width = displayedPositionAndDuration.first.toFloat() /
+                                displayedPositionAndDuration.second.absoluteValue * size.width,
+                        height = size.maxDimension
                     )
+                    if (progressOverlayBrush != null) {
+                        drawRect(
+                            brush = progressOverlayBrush,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    } else {
+                        drawRect(
+                            color = color.favoritesOverlay,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    }
                 }
             }
             .zIndex(1f)
@@ -1529,15 +1676,24 @@ SpotifyCanvasWorker()
             .padding(top = if (extraspace) 10.dp else 0.dp)
             .drawBehind {
                 if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
-                    drawRect(
-                        color = color.favoritesOverlay,
-                        topLeft = Offset.Zero,
-                        size = Size(
-                            width = positionAndDuration.first.toFloat() /
-                                    positionAndDuration.second.absoluteValue * size.width,
-                            height = size.maxDimension
-                        )
+                    val progressSize = Size(
+                        width = displayedPositionAndDuration.first.toFloat() /
+                                displayedPositionAndDuration.second.absoluteValue * size.width,
+                        height = size.maxDimension
                     )
+                    if (progressOverlayBrush != null) {
+                        drawRect(
+                            brush = progressOverlayBrush,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    } else {
+                        drawRect(
+                            color = color.favoritesOverlay,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    }
                 }
             }
             .zIndex(1f)
@@ -1655,18 +1811,18 @@ SpotifyCanvasWorker()
                                  val fling = PagerDefaults.flingBehavior(state = pagerState,snapPositionalThreshold = 0.25f)
                                  val pageSpacing = thumbnailSpacingL.toInt()*0.01*(screenWidth) - (2.5*playerThumbnailSizeL.size.dp)
 
-                                 LaunchedEffect(pagerState, binder.player.currentMediaItemIndex) {
+                                 LaunchedEffect(pagerState, displayedMediaItemIndex) {
                                      if (appRunningInBackground || isShowingLyrics) {
-                                         pagerState.scrollToPage(binder.player.currentMediaItemIndex)
+                                         pagerState.scrollToPage(displayedMediaItemIndex)
                                      } else {
-                                         pagerState.animateScrollToPage(binder.player.currentMediaItemIndex)
+                                         pagerState.animateScrollToPage(displayedMediaItemIndex)
                                      }
                                  }
 
                                  LaunchedEffect(pagerState) {
                                      var previousPage = pagerState.settledPage
                                      snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
-                                         if ( previousPage != it && it != binder.player.currentMediaItemIndex )
+                                         if ( previousPage != it && it != displayedMediaItemIndex )
                                              binder.player.playAtIndex(it)
                                          previousPage = it
                                      }
@@ -1689,7 +1845,7 @@ SpotifyCanvasWorker()
                                      ) {
 
                                     val coverPainter = ImageCacheFactory.Painter(
-                                         thumbnailUrl = binder.player.getMediaItemAt( it ).mediaMetadata.artworkUri.toString()
+                                        thumbnailUrl = queuedMediaItemAt(it).mediaMetadata.artworkUri.toString()
                                      )
 
                                      val coverModifier = Modifier
@@ -1776,15 +1932,15 @@ SpotifyCanvasWorker()
                                                  contentScale = ContentScale.Fit,
                                                  modifier = coverModifier
                                              )
-                                             if (isDragged && it == binder.player.currentMediaItemIndex) {
+                                             if (isDragged && it == displayedMediaItemIndex) {
                                                  Box(modifier = Modifier
                                                      .align(Alignment.Center)
                                                      .matchParentSize()
                                                  ) {
                                                      NowPlayingSongIndicator(
-                                                         binder.player.getMediaItemAt(
-                                                             binder.player.currentMediaItemIndex
-                                                         ).mediaId, binder.player,
+                                                        queuedMediaItemAt(
+                                                            displayedMediaItemIndex
+                                                        ).mediaId, binder.player,
                                                          Dimensions.thumbnails.album
                                                      )
                                                  }
@@ -1847,7 +2003,7 @@ SpotifyCanvasWorker()
                         ).coerceIn( 0, player.mediaItemCount - 1 )
 
                         Controller(
-                            player.getMediaItemAt(index),
+                            queuedMediaItemAt(index),
                             Modifier.padding( vertical = 8.dp ),
                             isBuffering = isBuffering
                         )
@@ -1866,7 +2022,7 @@ SpotifyCanvasWorker()
         } else {
                     Box {
                //  CANVAS PLAYER HERE
-               val currentMediaItemId = binder?.player?.currentMediaItem?.mediaId
+               val currentMediaItemId = mediaItem.mediaId
                val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
                val shouldShowCanvas = spotifyCanvasEnabled && 
                    SpotifyCanvasState.currentCanvasUrl != null && 
@@ -1896,7 +2052,7 @@ SpotifyCanvasWorker()
                    val scaleAnimationFloat by animateFloatAsState(
                        if (isDraggedFS) 0.85f else 1f, label = ""
                    )
-                   pagerStateFS.LaunchedEffectScrollToPage(binder.player.currentMediaItemIndex)
+                   pagerStateFS.LaunchedEffectScrollToPage(displayedMediaItemIndex)
 
                     LaunchedEffect(pagerStateFS) {
                         var previousPage = pagerStateFS.settledPage
@@ -1904,7 +2060,7 @@ SpotifyCanvasWorker()
                             if (previousPage != it) {
                                 delay(if (swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Fade) 0
                                       else 400)
-                                if (it != binder.player.currentMediaItemIndex) binder.player.playAtIndex(it)
+                                if (it != displayedMediaItemIndex) binder.player.playAtIndex(it)
                             }
                             previousPage = it
                         }
@@ -1974,7 +2130,7 @@ SpotifyCanvasWorker()
                                 }
                         ) {
                             BlurredCover(
-                                thumbnailUrl = binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString(),
+                                thumbnailUrl = queuedMediaItemAt(it).mediaMetadata.artworkUri.toString(),
                                 blurAdjuster = blurAdjuster,
                                 showThumbnail = showthumbnail,
                                 noBlur = noblur,
@@ -2076,16 +2232,16 @@ SpotifyCanvasWorker()
                                             timelineExpanded = timelineExpanded,
                                             controlsExpanded = controlsExpanded,
                                             isShowingLyrics = isShowingLyrics,
-                                            media = mediaItem.toUiMedia(positionAndDuration.second),
+                                            media = mediaItem.toUiMedia(displayedPositionAndDuration.second),
                                             mediaId = mediaItem.mediaId,
-                                            title = cleanPrefix( player.getMediaItemAt(it).mediaMetadata.title.toString() ),
-                                            artist = cleanPrefix( player.getMediaItemAt(it).mediaMetadata.artist.toString() ),
+                                            title = cleanPrefix( queuedMediaItemAt(it).mediaMetadata.title.toString() ),
+                                            artist = cleanPrefix( queuedMediaItemAt(it).mediaMetadata.artist.toString() ),
                                             artistIds = artistInfos,
                                             albumId = albumId,
                                             shouldBePlaying = shouldBePlaying,
                                             isBuffering = isBuffering,
-                                            position = positionAndDuration.first,
-                                            duration = positionAndDuration.second,
+                                            position = displayedPositionAndDuration.first,
+                                            duration = displayedPositionAndDuration.second,
                                             modifier = Modifier
                                                 .padding(vertical = 4.dp)
                                                 .fillMaxWidth(),
@@ -2117,7 +2273,7 @@ SpotifyCanvasWorker()
                 }
 
                BlurredCover(
-                   thumbnailUrl = binder.player.mediaMetadata.artworkUri.toString(),
+                   thumbnailUrl = displayedArtworkUrl,
                    blurAdjuster = blurAdjuster,
                    showThumbnail = showthumbnail,
                    noBlur = noblur,
@@ -2132,15 +2288,24 @@ Column(
         containerModifier // ← Use background ONLY when NO canvas
             .drawBehind {
                 if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
-                    drawRect(
-                        color = color.favoritesOverlay,
-                        topLeft = Offset.Zero,
-                        size = Size(
-                            width = positionAndDuration.first.toFloat() /
-                                    positionAndDuration.second.absoluteValue * size.width,
-                            height = size.maxDimension
-                        )
+                    val progressSize = Size(
+                        width = displayedPositionAndDuration.first.toFloat() /
+                                displayedPositionAndDuration.second.absoluteValue * size.width,
+                        height = size.maxDimension
                     )
+                    if (progressOverlayBrush != null) {
+                        drawRect(
+                            brush = progressOverlayBrush,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    } else {
+                        drawRect(
+                            color = color.favoritesOverlay,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    }
                 }
             }
     } else {
@@ -2148,15 +2313,24 @@ Column(
         Modifier
             .drawBehind {
                 if (backgroundProgress == BackgroundProgress.Both || backgroundProgress == BackgroundProgress.Player) {
-                    drawRect(
-                        color = color.favoritesOverlay,
-                        topLeft = Offset.Zero,
-                        size = Size(
-                            width = positionAndDuration.first.toFloat() /
-                                    positionAndDuration.second.absoluteValue * size.width,
-                            height = size.maxDimension
-                        )
+                    val progressSize = Size(
+                        width = displayedPositionAndDuration.first.toFloat() /
+                                displayedPositionAndDuration.second.absoluteValue * size.width,
+                        height = size.maxDimension
                     )
+                    if (progressOverlayBrush != null) {
+                        drawRect(
+                            brush = progressOverlayBrush,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    } else {
+                        drawRect(
+                            color = color.favoritesOverlay,
+                            topLeft = Offset.Zero,
+                            size = progressSize
+                        )
+                    }
                 }
             }
     }
@@ -2268,12 +2442,12 @@ Column(
             if (playerType == PlayerType.Modern) {
                 val fling = PagerDefaults.flingBehavior(state = pagerState,snapPositionalThreshold = 0.25f)
 
-                pagerState.LaunchedEffectScrollToPage(binder.player.currentMediaItemIndex)
+                pagerState.LaunchedEffectScrollToPage(displayedMediaItemIndex)
 
                 LaunchedEffect(pagerState) {
                     var previousPage = pagerState.settledPage
                     snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
-                        if ( previousPage != it && it != binder.player.currentMediaItemIndex )
+                        if ( previousPage != it && it != displayedMediaItemIndex )
                             binder.player.playAtIndex(it)
                         previousPage = it
                     }
@@ -2311,7 +2485,7 @@ Column(
                                  ){
 
                                     val coverPainter = ImageCacheFactory.Painter(
-                                         thumbnailUrl = binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString()
+                                         thumbnailUrl = queuedMediaItemAt(it).mediaMetadata.artworkUri.toString()
                                      )
                                      
                                      val coverModifier = Modifier
@@ -2401,15 +2575,15 @@ Column(
                                                  contentScale = ContentScale.Fit,
                                                  modifier = coverModifier
                                              )
-                                             if (isDragged && expandedplayer && it == binder.player.currentMediaItemIndex) {
+                                             if (isDragged && expandedplayer && it == displayedMediaItemIndex) {
                                                  Box(modifier = Modifier
                                                      .align(Alignment.Center)
                                                      .matchParentSize()
                                                  ) {
                                                      NowPlayingSongIndicator(
-                                                         binder.player.getMediaItemAt(
-                                                             binder.player.currentMediaItemIndex
-                                                         ).mediaId, binder.player,
+                                                        queuedMediaItemAt(
+                                                            displayedMediaItemIndex
+                                                        ).mediaId, binder.player,
                                                          Dimensions.thumbnails.album
                                                      )
                                                  }
@@ -2552,7 +2726,7 @@ Column(
                         ).coerceIn( 0, player.mediaItemCount - 1 )
 
                         Controller(
-                            player.getMediaItemAt(index),
+                            queuedMediaItemAt(index),
                             Modifier.padding( vertical = 4.dp )
                                       .fillMaxWidth(),
                             isBuffering = isBuffering
@@ -2628,6 +2802,21 @@ Column(
                 disableScrollingText = disableScrollingText
             )
         }
+
+        PlaybackError(
+            isDisplayed = playbackErrorMessage != null,
+            messageProvider = { playbackErrorMessage.orEmpty() },
+            onDismiss = { playbackErrorMessage = null },
+            actionLabel = if (playerError != null) stringResource(R.string.retry_with_other_sources) else null,
+            actionHint = if (playerError != null) stringResource(R.string.retry_with_other_sources_hint) else null,
+            onAction = if (playerError != null) {
+                {
+                    playbackErrorMessage = null
+                    lastSearchFallbackMediaId = null
+                    retryWithAlternateSourcesNonce++
+                }
+            } else null,
+        )
 
     }
 }
@@ -3192,4 +3381,3 @@ fun PagerState.LaunchedEffectScrollToPage(
         }
     }
 }
-

@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -47,7 +46,6 @@ import app.it.fast4x.rimusic.utils.DURATION_INDICATOR_HEIGHT
 import app.it.fast4x.rimusic.utils.colorPaletteModeKey
 import app.it.fast4x.rimusic.utils.formatAsDuration
 import app.it.fast4x.rimusic.utils.pauseBetweenSongsKey
-import app.it.fast4x.rimusic.utils.positionAndDurationState
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showRemainingSongTimeKey
@@ -195,13 +193,11 @@ fun DurationIndicator(
                                    .height( DURATION_INDICATOR_HEIGHT.dp ),
                 contentAlignment = Alignment.Center
             ) {
-               val positionAndDurationState = binder.player.positionAndDurationState()
-               val timeRemainingState = remember {
-                    derivedStateOf {
-                       (positionAndDurationState.value.second - positionAndDurationState.value.first).coerceAtLeast( 0 )
-                    }
+                val safeDuration = duration.coerceAtLeast(1L)
+                val displayPosition = (scrubbingPosition ?: position).coerceIn(0L, safeDuration)
+                val timeRemaining by remember(displayPosition, safeDuration) {
+                    derivedStateOf { (safeDuration - displayPosition).coerceAtLeast(0L) }
                 }
-                val timeRemaining by timeRemainingState
                 var isPaused by remember { mutableStateOf(false) }
 
                 val pauseBetweenSongs by rememberPreference(pauseBetweenSongsKey, PauseBetweenSongs.`0`)
@@ -218,7 +214,7 @@ fun DurationIndicator(
 
                 if(isPaused) return@Box
 
-                val toDisplay by remember {
+                val toDisplay by remember(timeRemaining) {
                     derivedStateOf { formatAsDuration(timeRemaining) }
                 }
                 OutlinedText( toDisplay, outlineColor )

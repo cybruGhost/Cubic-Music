@@ -244,7 +244,7 @@ fun OnDeviceSong(
 
         itemsIndexed(
             items = itemsOnDisplay,
-            key = { _, song -> song.id }
+            key = { index, song -> song.id.ifBlank { "device_song_$index" } }
         ) { index, song ->
             val mediaItem = song.asMediaItem
 

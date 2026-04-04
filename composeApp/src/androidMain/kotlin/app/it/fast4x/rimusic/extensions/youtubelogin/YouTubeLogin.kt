@@ -3,7 +3,6 @@ package app.it.fast4x.rimusic.extensions.youtubelogin
 import android.annotation.SuppressLint
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
-import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -20,16 +19,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import app.it.fast4x.rimusic.extensions.youtubelogin.AccountInfoFetcher 
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import it.fast4x.innertube.Innertube
-import it.fast4x.innertube.utils.parseCookieString
 import app.it.fast4x.rimusic.LocalPlayerAwareWindowInsets
-import app.kreate.android.R
 import app.it.fast4x.rimusic.ui.components.themed.Title
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.delay
@@ -40,7 +35,8 @@ import timber.log.Timber
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YouTubeLogin(
-    onLogin: (String) -> Unit
+    autoCompleteExistingSession: Boolean = true,
+    onLogin: (YoutubeSession) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -53,9 +49,20 @@ fun YouTubeLogin(
     var webView: WebView? by remember { mutableStateOf(null) }
     var isLoading by remember { mutableStateOf(false) }
     var hasLoggedIn by remember { mutableStateOf(false) }
+    var baselineCookie by remember { mutableStateOf("") }
+    var baselineDataSyncId by remember { mutableStateOf("") }
 
     // Restore cookies and data before WebView loads
     LaunchedEffect(Unit) {
+        val restoredSession = YouTubeSessionStore.applyCurrentSession(context)
+        if (restoredSession != null) {
+            cookie = restoredSession.cookie
+            visitorData = restoredSession.visitorData
+            dataSyncId = restoredSession.dataSyncId
+            baselineCookie = restoredSession.cookie
+            baselineDataSyncId = restoredSession.dataSyncId
+        }
+
         if (cookie.isNotEmpty()) {
             Timber.d("Restoring saved cookies")
             val cm = CookieManager.getInstance()
@@ -71,11 +78,25 @@ fun YouTubeLogin(
         modifier = Modifier.fillMaxSize().windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
     ) {
         Title(
-            title = "Login to YouTube Music",
+            title = "Connect YouTube Music",
             icon = app.kreate.android.R.drawable.chevron_down,
             onClick = {
-                if (cookie.contains("SAPISID")) {
-                    onLogin(cookie)
+                if (YouTubeSessionStore.hasAuthCookies(cookie)) {
+                    val existingSession = YouTubeSessionStore.getCurrentSession(context)
+                    if (existingSession != null) {
+                        onLogin(existingSession)
+                    } else {
+                        val session = YouTubeSessionStore.saveSession(
+                            context = context,
+                            session = YoutubeSession(
+                                cookie = cookie,
+                                visitorData = visitorData,
+                                dataSyncId = dataSyncId
+                            ),
+                            makePreferred = true
+                        )
+                        onLogin(session)
+                    }
                 } else {
                     android.widget.Toast.makeText(context, "Please complete login first", android.widget.Toast.LENGTH_SHORT).show()
                 }
@@ -94,45 +115,6 @@ fun YouTubeLogin(
                             scope.launch {
                                 delay(1500) // Wait for cookies and JS to set
 
-                                val cm = CookieManager.getInstance()
-                                val ytCookies = cm.getCookie("https://youtube.com") ?: ""
-                                val ytmCookies = cm.getCookie("https://music.youtube.com") ?: ""
-                                val combinedCookies = listOf(ytCookies, ytmCookies)
-                                    .filter { it.isNotBlank() }
-                                    .joinToString("; ")
-                                    .replace(";;", ";")
-                                    .trim()
-                                cookie = combinedCookies
-
-                                if (combinedCookies.contains("SAPISID") && !hasLoggedIn) {
-                                    Timber.d("Auto-login detected with SAPISID!")
-
-                                    // Inject saved VISITOR_DATA & DATASYNC_ID
-                                    if (visitorData.isNotEmpty() && dataSyncId.isNotEmpty()) {
-                                        loadUrl(
-                                            "javascript:ytcfg.set('VISITOR_DATA','$visitorData');" +
-                                                    "ytcfg.set('DATASYNC_ID','$dataSyncId');"
-                                        )
-                                        delay(500)
-                                    }
-
-                                    // Fetch account info
-                                    try {
-                                        isLoading = true
-                                        val accountInfo = AccountInfoFetcher.fetchAccountInfo(cookie)
-                                        accountInfo?.let {
-                                            android.widget.Toast.makeText(context, "Logged in as ${it.name}", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    } catch (e: Exception) {
-                                        Timber.e("Error fetching account info: ${e.message}")
-                                    } finally {
-                                        isLoading = false
-                                        hasLoggedIn = true
-                                        onLogin(cookie)
-                                    }
-                                }
-
-                                // Always retrieve VISITOR_DATA & DATASYNC_ID
                                 loadUrl(
                                     "javascript:(function() {" +
                                             "try {" +
@@ -144,6 +126,77 @@ fun YouTubeLogin(
                                             "} catch(e) {}" +
                                             "})()"
                                 )
+                                delay(400)
+
+                                val cm = CookieManager.getInstance()
+                                val ytCookies = cm.getCookie("https://youtube.com") ?: ""
+                                val ytmCookies = cm.getCookie("https://music.youtube.com") ?: ""
+                                val combinedCookies = YouTubeSessionStore.mergeCookieStrings(
+                                    primary = ytmCookies,
+                                    secondary = ytCookies
+                                )
+                                cookie = combinedCookies
+
+                                val sessionChanged = combinedCookies.isNotBlank() && (
+                                    combinedCookies != baselineCookie ||
+                                        dataSyncId != baselineDataSyncId
+                                    )
+                                if (YouTubeSessionStore.hasAuthCookies(combinedCookies) &&
+                                    !hasLoggedIn &&
+                                    (autoCompleteExistingSession || sessionChanged)
+                                ) {
+                                    Timber.d("Auto-login detected with authenticated YouTube cookies")
+
+                                    try {
+                                        isLoading = true
+                                        val accountInfo = YtmSessionApi.fetchAccountInfo(
+                                            cookies = combinedCookies
+                                        ).getOrThrow()
+                                        val savedSession = YouTubeSessionStore.saveSession(
+                                            context = context,
+                                            session = YoutubeSession(
+                                                cookie = combinedCookies,
+                                                visitorData = visitorData,
+                                                dataSyncId = dataSyncId,
+                                                accountName = accountInfo.accountName,
+                                                accountEmail = accountInfo.accountEmail,
+                                                accountChannelHandle = accountInfo.accountChannelHandle,
+                                                accountThumbnail = accountInfo.accountThumbnail,
+                                                lastAccountRefreshAt = if (accountInfo.hasSession) {
+                                                    System.currentTimeMillis()
+                                                } else {
+                                                    0L
+                                                }
+                                            ),
+                                            makePreferred = true
+                                        )
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Logged in as ${savedSession.accountName.ifBlank { "YouTube Music" }}",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                        baselineCookie = savedSession.cookie
+                                        baselineDataSyncId = savedSession.dataSyncId
+                                        onLogin(savedSession)
+                                    } catch (e: Exception) {
+                                        Timber.e("Error fetching account info: ${e.message}")
+                                        val savedSession = YouTubeSessionStore.saveSession(
+                                            context = context,
+                                            session = YoutubeSession(
+                                                cookie = combinedCookies,
+                                                visitorData = visitorData,
+                                                dataSyncId = dataSyncId
+                                            ),
+                                            makePreferred = true
+                                        )
+                                        baselineCookie = savedSession.cookie
+                                        baselineDataSyncId = savedSession.dataSyncId
+                                        onLogin(savedSession)
+                                    } finally {
+                                        isLoading = false
+                                        hasLoggedIn = true
+                                    }
+                                }
                             }
                         }
                     }

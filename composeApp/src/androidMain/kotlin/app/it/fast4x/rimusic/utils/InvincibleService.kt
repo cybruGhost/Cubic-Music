@@ -139,7 +139,7 @@ abstract class InvincibleService : Service() {
                         Timber.e("Failed startForeground in InvincibleService run ${it.stackTraceToString()}")
                     }
                     runCatching {
-                        stopForeground(false)
+                        ServiceCompat.stopForeground(this@InvincibleService, ServiceCompat.STOP_FOREGROUND_DETACH)
                     }.onFailure {
                         Timber.e("Failed stopForeground in InvincibleService run ${it.stackTraceToString()}")
                     }

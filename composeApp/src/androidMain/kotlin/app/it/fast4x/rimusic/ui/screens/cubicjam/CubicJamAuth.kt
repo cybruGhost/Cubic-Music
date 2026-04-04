@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package app.it.fast4x.rimusic.ui.screens.cubicjam
 
 import androidx.compose.animation.*
@@ -559,7 +561,7 @@ fun CubicJamAuth(
                             )
                         } else {
                             Icon(
-                                imageVector = if (isLoginMode) Icons.Default.Login else Icons.Default.PersonAdd,
+            imageVector = if (isLoginMode) Icons.Outlined.Login else Icons.Default.PersonAdd,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -638,7 +640,7 @@ fun CubicJamAuth(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+        imageVector = Icons.Outlined.ArrowBack,
                             contentDescription = "Back",
                             modifier = Modifier.size(20.dp)
                         )

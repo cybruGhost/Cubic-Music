@@ -490,7 +490,7 @@ private fun RankingCard(
                 
                 // Progress bar
                 LinearProgressIndicator(
-                    progress = 0.75f,
+                    progress = { 0.75f },
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
                         .height(6.dp)
@@ -616,7 +616,7 @@ private fun AdditionalStatRow(
         }
         
         if (showDivider) {
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier.padding(start = 48.dp),
                 color = colorPalette.background2.copy(alpha = 0.3f),
                 thickness = 1.dp

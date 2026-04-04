@@ -2,188 +2,253 @@ package app.kreate.android.me.knighthat.utils.csv
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import app.it.fast4x.rimusic.appContext
 import org.json.JSONObject
 
-/**
- * 🔹 CSV Locale Manager - Handles multilingual CSV headers
- */
 object CSVLocaleManager {
-    
+
+    private val canonicalHeaders = linkedMapOf(
+        "PlaylistBrowseId" to setOf(
+            "playlistbrowseid", "playlist browse id", "playlist id", "id playlist", "id de playlist",
+            "id de la playlist", "id playlista", "id playlisti", "playlist-id", "playlist_id"
+        ),
+        "PlaylistName" to setOf(
+            "playlistname", "playlist name", "name playlist", "nome playlist", "nombre playlist",
+            "naam playlist", "nome da playlist", "namn spellista", "nama playlist",
+            "プレイリスト名", "اسم قائمة التشغيل", "çalma listesi adı"
+        ),
+        "MediaId" to setOf(
+            "mediaid", "media id", "videoid", "video id", "youtube id", "yt id", "track id",
+            "id media", "id video", "id de video", "id de mídia", "id video youtube", "medya kimligi"
+        ),
+        "Title" to setOf(
+            "title", "track name", "song name", "track title", "song title", "titel", "titolo",
+            "titulo", "título", "titre", "naam nummer", "tracknaam", "sangtitel", "judul",
+            "başlık", "cancion", "canción", "曲名", "العنوان"
+        ),
+        "Artists" to setOf(
+            "artists", "artist", "artist name", "artist name(s)", "artist names", "song artist",
+            "artists name", "künstler", "interprete", "artista", "artistas", "artiste",
+            "artiest", "artiesten", "konstnär", "pengarang", "sanatçı", "アーティスト", "الفنان"
+        ),
+        "Duration" to setOf(
+            "duration", "track duration", "track duration (ms)", "duration ms", "duration (ms)",
+            "length", "runtime", "duracion", "duración", "durée", "dauer", "durata", "duração",
+            "speltid", "süre", "durasi", "再生時間", "المدة"
+        ),
+        "ThumbnailUrl" to setOf(
+            "thumbnailurl", "thumbnail url", "image url", "cover url", "album image url",
+            "artwork url", "thumbnail", "cover", "miniatura", "miniatur", "capa", "afbeelding url",
+            "bild url", "resim url", "gambar", "サムネイル", "رابط الصورة"
+        ),
+        "AlbumId" to setOf(
+            "albumid", "album id", "id album", "id de album", "id de l'album", "álbum id", "album-id"
+        ),
+        "AlbumTitle" to setOf(
+            "albumtitle", "album title", "album name", "album", "álbum", "albumnaam",
+            "albumtitel", "nome do álbum", "titulo del album", "titre de l'album", "アルバム", "الألبوم"
+        ),
+        "ArtistIds" to setOf(
+            "artistids", "artist ids", "artists ids", "artist id list", "ids artista", "ids artistas"
+        ),
+        "Track URI" to setOf(
+            "track uri", "spotify track uri", "uri", "trackuri"
+        ),
+        "Track Name" to setOf(
+            "track name", "song name", "track title", "title", "titel", "titolo", "titulo",
+            "título", "titre", "tracknaam", "judul", "başlık", "曲名", "العنوان"
+        ),
+        "Artist Name(s)" to setOf(
+            "artist name(s)", "artist names", "artist name", "artists", "artist", "künstler",
+            "interprete", "artista", "artistas", "artiste", "artiest", "artiesten", "pengarang",
+            "sanatçı", "アーティスト", "الفنان"
+        ),
+        "Explicit" to setOf(
+            "explicit", "explicit track", "explicit content", "eksplizit", "esplicito", "explícito",
+            "explicite", "expliciet", "açık", "eksplisit"
+        )
+    )
+
+    private val localeHints = mapOf(
+        "de" to setOf("künstler", "dauer", "titel", "wiedergabeliste"),
+        "en" to setOf("track name", "artist name(s)", "playlist name"),
+        "es" to setOf("duración", "artistas", "lista de reproducción", "título"),
+        "fr" to setOf("durée", "artiste", "titre", "playlist"),
+        "it" to setOf("durata", "artista", "titolo", "playlist"),
+        "nl" to setOf("afspeellijst", "duur", "artiest", "titel"),
+        "pt" to setOf("duração", "artista", "playlist", "título"),
+        "sv" to setOf("spellista", "speltid", "artist", "titel"),
+        "ar" to setOf("قائمة التشغيل", "المدة", "الفنان", "العنوان"),
+        "ja" to setOf("プレイリスト", "アーティスト", "曲名", "再生時間"),
+        "tr" to setOf("çalma listesi", "sanatçı", "başlık", "süre"),
+        "id" to setOf("playlist", "durasi", "artis", "judul")
+    )
+
+    private var initialized = false
     private var localeMappings: Map<String, Map<String, String>> = emptyMap()
-    private var isInitialized = false
-    
-    /** 🔹 Initialize with locales from assets */
+
     fun initialize(context: Context = appContext()) {
-        if (isInitialized) return
-        
-        try {
-            // List of supported locales from your i18n setup
-            val locales = listOf("de", "en", "es", "fr", "it", "nl", "pt", "sv", "ar", "ja", "tr")
-            val mappings = mutableMapOf<String, Map<String, String>>()
-            
-            locales.forEach { locale ->
-                try {
-                    // Load locale file from assets
-                    val inputStream = context.assets.open("csv_locales/$locale.json")
+        if (initialized) return
+
+        val locales = listOf("de", "en", "es", "fr", "it", "nl", "pt", "sv", "ar", "ja", "tr")
+        val mappings = mutableMapOf<String, Map<String, String>>()
+
+        locales.forEach { locale ->
+            runCatching {
+                context.assets.open("csv_locales/$locale.json").use { inputStream ->
                     val jsonString = inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(jsonString)
                     val headers = mutableMapOf<String, String>()
-                    
                     json.keys().forEach { key ->
                         headers[key] = json.getString(key)
                     }
-                    
                     mappings[locale] = headers
-                    println("✅ Loaded CSV locale: $locale")
-                } catch (e: Exception) {
-                    // If locale file doesn't exist, skip it
-                    println("⚠️ CSV locale $locale not found: ${e.message}")
                 }
             }
-            
-            localeMappings = mappings
-            isInitialized = true
-            println("✅ CSVLocaleManager initialized with ${mappings.size} locales")
-        } catch (e: Exception) {
-            println("❌ Error loading CSV locales: ${e.message}")
         }
+
+        localeMappings = mappings
+        initialized = true
     }
-    
-    /** 🔹 Normalize headers to English using locale detection */
+
     fun normalizeRow(row: Map<String, String>): Map<String, String> {
-        if (!isInitialized) {
-            initialize()
-        }
-        
-        val normalized = mutableMapOf<String, String>()
-        
-        // First, copy all original headers and values
-        row.forEach { (key, value) ->
-            normalized[key] = value
-        }
-        
-        // Skip if no locales loaded
-        if (localeMappings.isEmpty()) {
-            return normalized
-        }
-        
-        // Detect language by checking if any header matches any locale
-        var detectedLocale: String? = null
-        
-        for ((locale, mapping) in localeMappings) {
-            // Check if any header matches this locale's values
-            val matches = mapping.values.any { localizedHeader ->
-                row.keys.any { rowHeader ->
-                    rowHeader.equals(localizedHeader, ignoreCase = true) ||
-                    rowHeader.contains(localizedHeader, ignoreCase = true)
-                }
-            }
-            
-            if (matches) {
-                detectedLocale = locale
-                println("📝 Detected CSV locale: $locale")
-                break
-            }
-        }
-        
-        // If we detected a locale, map localized headers to English
-        if (detectedLocale != null) {
-            val mapping = localeMappings[detectedLocale] ?: return normalized
-            
-            mapping.forEach { (englishHeader, localizedHeader) ->
-                // Find the row header that matches the localized header
-                row.keys.find { rowHeader ->
-                    rowHeader.equals(localizedHeader, ignoreCase = true) ||
-                    rowHeader.contains(localizedHeader, ignoreCase = true)
-                }?.let { matchingHeader ->
-                    // Add English header with the value from localized header
-                    normalized[englishHeader] = row[matchingHeader] ?: ""
-                    println("🔀 Mapped '$matchingHeader' -> '$englishHeader'")
+        if (!initialized) initialize()
+
+        val normalized = row.toMutableMap()
+
+        if (localeMappings.isNotEmpty()) {
+            val detectedLocale = detectLocale(row.keys)
+            val assetMapping = detectedLocale?.let(localeMappings::get)
+            if (assetMapping != null) {
+                assetMapping.forEach { (englishHeader, localizedHeader) ->
+                    row.keys.find { rowHeader ->
+                        val normalizedRowHeader = normalizeHeader(rowHeader)
+                        val normalizedLocalizedHeader = normalizeHeader(localizedHeader)
+                        normalizedRowHeader == normalizedLocalizedHeader ||
+                            normalizedRowHeader.contains(normalizedLocalizedHeader)
+                    }?.let { match ->
+                        normalized[englishHeader] = row[match].orEmpty()
+                    }
                 }
             }
         }
-        
+
+        val lookup = row.entries.associateBy { normalizeHeader(it.key) }
+
+        canonicalHeaders.forEach { (canonical, aliases) ->
+            val matchedEntry = lookup[normalizeHeader(canonical)]
+                ?: aliases.firstNotNullOfOrNull { alias -> lookup[normalizeHeader(alias)] }
+                ?: lookup.entries.firstOrNull { (normalizedHeader, _) ->
+                    headerLooksLikeCanonical(normalizedHeader, canonical)
+                }?.value
+
+            if (matchedEntry != null) {
+                normalized[canonical] = matchedEntry.value
+            }
+        }
+
         return normalized
     }
-    /** 🔹 Detect locale from CSV headers */
-fun detectLocale(headers: Set<String>): String? {
-    for ((locale, mapping) in localeMappings) {
-        // Check if any header matches this locale's mapping
-        val matched = mapping.values.any { localizedHeader ->
-            headers.any { header ->
-                header.equals(localizedHeader, ignoreCase = true) ||
-                header.contains(localizedHeader, ignoreCase = true)
+
+    fun detectLocale(headers: Set<String>): String? {
+        if (!initialized) initialize()
+
+        if (localeMappings.isNotEmpty()) {
+            localeMappings.forEach { (locale, mapping) ->
+                val matched = mapping.values.any { localizedHeader ->
+                    val normalizedLocalizedHeader = normalizeHeader(localizedHeader)
+                    headers.any { header ->
+                        val normalizedHeader = normalizeHeader(header)
+                        normalizedHeader == normalizedLocalizedHeader ||
+                            normalizedHeader.contains(normalizedLocalizedHeader)
+                    }
+                }
+                if (matched) return locale
             }
         }
-        
-        if (matched) {
-            return locale
+
+        val normalizedHeaders = headers.map(::normalizeHeader)
+        val bestMatch = localeHints.entries.maxByOrNull { (_, hints) ->
+            hints.count { hint ->
+                val normalizedHint = normalizeHeader(hint)
+                normalizedHeaders.any { header ->
+                    header == normalizedHint || header.contains(normalizedHint)
+                }
+            }
         }
+
+        return bestMatch?.key
     }
-    return null
-}
-    
-    /** 🔹 Check if CSV has Spotify/Exportify format headers (in any language) */
+
     fun isSpotifyFormat(headers: Set<String>): Boolean {
-        if (!isInitialized) {
-            initialize()
-        }
-        
-        // Check for standard English headers first
-        val englishHeaders = setOf("Track Name", "Artist Name(s)", "Track URI")
-        val hasEnglishHeaders = englishHeaders.any { header -> headers.contains(header) }
-        if (hasEnglishHeaders) return true
-        
-        // Check if any header matches localized versions
-        for ((_, mapping) in localeMappings) {
-            val trackNameLocalized = mapping["Track Name"] ?: continue
-            val artistNameLocalized = mapping["Artist Name(s)"]
-            
-            val hasLocalizedHeaders = headers.any { header ->
-                header.equals(trackNameLocalized, ignoreCase = true)
-            } && (artistNameLocalized == null || headers.any { header ->
-                header.equals(artistNameLocalized, ignoreCase = true)
-            })
-            
-            if (hasLocalizedHeaders) {
-                return true
-            }
-        }
-        
-        return false
+        val normalized = normalizeRow(headers.associateWith { "" }).keys
+        return normalized.contains("Track Name") && normalized.contains("Artist Name(s)")
     }
-    
-    /** 🔹 Check if CSV has custom format headers */
+
     fun isCustomFormat(headers: Set<String>): Boolean {
-        val customHeaders = setOf(
-            "PlaylistBrowseId", "PlaylistName", "MediaId", "Title", 
-            "Artists", "Duration", "ThumbnailUrl", "AlbumId", 
-            "AlbumTitle", "ArtistIds"
+        val normalized = normalizeRow(headers.associateWith { "" }).keys
+        return normalized.containsAll(
+            setOf("PlaylistBrowseId", "PlaylistName", "MediaId", "Title", "Artists", "Duration")
         )
-        return customHeaders.any { header -> headers.contains(header) }
     }
-    
-    /** 🔹 Get supported locales */
-    fun getSupportedLocales(): List<String> = localeMappings.keys.toList()
-    
-    /** 🔹 Get locale name for display */
+
+    fun getSupportedLocales(): List<String> = localeHints.keys.toList()
+
     @Composable
-    fun getLocaleDisplayName(locale: String): String {
-        return when (locale) {
-            "de" -> "Deutsch"
-            "en" -> "English"
-            "es" -> "Español"
-            "fr" -> "Français"
-            "it" -> "Italiano"
-            "nl" -> "Nederlands"
-            "pt" -> "Português"
-            "sv" -> "Svenska"
-            "ar" -> "العربية"
-            "ja" -> "日本語"
-            "tr" -> "Türkçe"
-            else -> locale
-        }
+    fun getLocaleDisplayName(locale: String): String = getSimpleLocaleName(locale)
+
+    fun getSimpleLocaleName(locale: String): String = when (locale) {
+        "de" -> "German"
+        "en" -> "English"
+        "es" -> "Spanish"
+        "fr" -> "French"
+        "it" -> "Italian"
+        "nl" -> "Dutch"
+        "pt" -> "Portuguese"
+        "sv" -> "Swedish"
+        "ar" -> "Arabic"
+        "ja" -> "Japanese"
+        "tr" -> "Turkish"
+        "id" -> "Indonesian"
+        else -> locale
     }
+
+    private fun normalizeHeader(value: String): String =
+        value.lowercase()
+            .replace("&", "and")
+            .replace(Regex("[^\\p{L}\\p{Nd}]+"), " ")
+            .trim()
+            .replace(Regex("\\s+"), " ")
+
+    private fun headerLooksLikeCanonical(normalizedHeader: String, canonical: String): Boolean =
+        when (canonical) {
+            "PlaylistBrowseId" -> normalizedHeader.contains("playlist") && normalizedHeader.contains("id")
+            "PlaylistName" -> normalizedHeader.contains("playlist") &&
+                (normalizedHeader.contains("name") ||
+                    normalizedHeader.contains("title") ||
+                    normalizedHeader.contains("list"))
+            "MediaId" -> (normalizedHeader.contains("video") || normalizedHeader.contains("media") || normalizedHeader.contains("track")) &&
+                normalizedHeader.contains("id")
+            "Title", "Track Name" -> normalizedHeader.contains("title") ||
+                (normalizedHeader.contains("track") && normalizedHeader.contains("name")) ||
+                (normalizedHeader.contains("song") && normalizedHeader.contains("name"))
+            "Artists", "Artist Name(s)" -> normalizedHeader.contains("artist") ||
+                normalizedHeader.contains("artists") ||
+                normalizedHeader.contains("author")
+            "Duration" -> normalizedHeader.contains("duration") ||
+                normalizedHeader.contains("length") ||
+                normalizedHeader.contains("runtime") ||
+                normalizedHeader.contains("time")
+            "ThumbnailUrl" -> normalizedHeader.contains("thumbnail") ||
+                normalizedHeader.contains("cover") ||
+                normalizedHeader.contains("image") ||
+                normalizedHeader.contains("artwork")
+            "AlbumId" -> normalizedHeader.contains("album") && normalizedHeader.contains("id")
+            "AlbumTitle" -> normalizedHeader.contains("album") &&
+                (normalizedHeader.contains("title") || normalizedHeader.contains("name"))
+            "ArtistIds" -> normalizedHeader.contains("artist") && normalizedHeader.contains("id")
+            "Track URI" -> normalizedHeader.contains("track") && normalizedHeader.contains("uri")
+            "Explicit" -> normalizedHeader.contains("explicit")
+            else -> false
+        }
 }

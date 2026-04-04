@@ -212,7 +212,7 @@ fun HomeArtists(
                 }
 
                 // Sticky tab's tool bar
-                TabToolBar.Buttons( sort, search, randomizer, shuffle, itemSize )
+                TabToolBar.Buttons( sort, search, sync, randomizer, shuffle, itemSize )
 
 
                 // Sticky search bar

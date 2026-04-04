@@ -464,9 +464,16 @@ fun OtherSettings() {
                         text = "",
                         icon = R.drawable.copy,
                         onClick = {
-                            val file = File(context.filesDir.resolve("logs"), "Cubic-Music_log.txt")
-                            if (file.exists()) {
-                                text = file.readText()
+                            val logDir = context.filesDir.resolve("logs")
+                            val file = File(logDir, "Cubic-Music_log.txt")
+                            val legacyFile = File(logDir, "N-Zik_log.txt")
+                            val selectedFile = when {
+                                file.exists() -> file
+                                legacyFile.exists() -> legacyFile
+                                else -> null
+                            }
+                            if (selectedFile != null) {
+                                text = selectedFile.readText()
                                 text?.let {
                                     textCopyToClipboard(it, context)
                                 }

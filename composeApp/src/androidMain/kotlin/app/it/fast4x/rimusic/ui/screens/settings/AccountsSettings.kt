@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,8 +72,11 @@ import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.ThumbnailRoundness
 import app.it.fast4x.rimusic.extensions.discord.DiscordLoginAndGetToken
 import app.it.fast4x.rimusic.extensions.discord.DiscordPresenceManager
-import app.it.fast4x.rimusic.extensions.youtubelogin.AccountInfoFetcher
 import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeLogin
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmLinkedAccount
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YoutubeSession
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
@@ -84,7 +88,6 @@ import app.it.fast4x.rimusic.ui.components.themed.MenuEntry
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import app.it.fast4x.rimusic.utils.enableYouTubeLoginKey
-import app.it.fast4x.rimusic.utils.enableYouTubeSyncKey
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid7
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid81
 import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
@@ -100,10 +103,20 @@ import app.it.fast4x.rimusic.utils.rememberEncryptedPreference
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.restartActivityKey
 import app.it.fast4x.rimusic.utils.thumbnailRoundnessKey
+import app.it.fast4x.rimusic.utils.syncSelectedYtmAccountData
+import app.it.fast4x.rimusic.utils.ytAccountChannelHandleKey
+import app.it.fast4x.rimusic.utils.ytAccountEmailKey
+import app.it.fast4x.rimusic.utils.ytAccountNameKey
+import app.it.fast4x.rimusic.utils.ytAccountThumbnailKey
+import app.it.fast4x.rimusic.utils.ytCookieKey
+import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
+import app.it.fast4x.rimusic.utils.ytVisitorDataKey
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import app.kreate.android.R
 import androidx.compose.material3.Card
 import androidx.compose.ui.graphics.Color
+import androidx.core.content.edit
 
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.IconButton
@@ -175,8 +188,8 @@ AnimatedVisibility(
          content = {
         // ⚠️ Warning message
         Text(
-            text = "⚠️ This feature is unstable. Logging in may cause data loss. Use at your own risk I advice not to use it till a fix is found.",
-            color = Color.Red,
+            text = "Connect once to load your YouTube Music account details, saved sessions, and sync options. Raw cookies are kept out of this screen.",
+            color = colorPalette().textSecondary,
             fontSize = 12.sp,
             modifier = Modifier
                 .fillMaxWidth()
@@ -185,64 +198,181 @@ AnimatedVisibility(
         )
 
             var isYouTubeLoginEnabled by rememberPreference(enableYouTubeLoginKey, false)
-            var isYouTubeSyncEnabled by rememberPreference(enableYouTubeSyncKey, false)
             var loginYouTube by remember { mutableStateOf(false) }
-            var cookie by rememberPreference(key = "yt_cookie", defaultValue = "")
-            var visitorData by rememberPreference(key = "yt_visitor_data", defaultValue = "")
-            var dataSyncId by rememberPreference(key = "yt_data_sync_id", defaultValue = "")
+            var cookie by rememberPreference(key = ytCookieKey, defaultValue = "")
+            var visitorData by rememberPreference(key = ytVisitorDataKey, defaultValue = "")
+            var dataSyncId by rememberPreference(key = ytDataSyncIdKey, defaultValue = "")
+            var storedAccountName by rememberPreference(key = ytAccountNameKey, defaultValue = "")
+            var storedAccountEmail by rememberPreference(key = ytAccountEmailKey, defaultValue = "")
+            var storedAccountChannelHandle by rememberPreference(key = ytAccountChannelHandleKey, defaultValue = "")
+            var storedAccountThumbnail by rememberPreference(key = ytAccountThumbnailKey, defaultValue = "")
             var isRefreshingAccountInfo by remember { mutableStateOf(false) }
-            
-            // Get account info from shared preferences
-            val accountPrefs = remember { 
-                context.getSharedPreferences("youtube_account", android.content.Context.MODE_PRIVATE)
-            }
-            
-            var accountName by remember { 
-                mutableStateOf(accountPrefs.getString("account_name", "") ?: "") 
-            }
-            var accountEmail by remember { 
-                mutableStateOf(accountPrefs.getString("account_email", "") ?: "") 
-            }
-            var accountChannelHandle by remember { 
-                mutableStateOf(accountPrefs.getString("account_channel_handle", "") ?: "") 
-            }
-            var accountThumbnail by remember { 
-                mutableStateOf(accountPrefs.getString("account_thumbnail", "") ?: "") 
+            var savedSessions by remember { mutableStateOf(YouTubeSessionStore.getSessions(context)) }
+            var linkedAccounts by remember { mutableStateOf(emptyList<YtmLinkedAccount>()) }
+
+            var accountName by remember { mutableStateOf(storedAccountName) }
+            var accountEmail by remember { mutableStateOf(storedAccountEmail) }
+            var accountChannelHandle by remember { mutableStateOf(storedAccountChannelHandle) }
+            var accountThumbnail by remember { mutableStateOf(storedAccountThumbnail) }
+            var currentSessionId by remember {
+                mutableStateOf(YouTubeSessionStore.getCurrentSession(context)?.sessionId.orEmpty())
             }
             
             var isLoggedIn = remember(cookie) {
-                parseCookieString(cookie).containsKey("SAPISID")
+                YouTubeSessionStore.hasAuthCookies(cookie)
+            }
+
+            fun applySession(session: YoutubeSession?) {
+                cookie = session?.cookie.orEmpty()
+                visitorData = session?.visitorData.orEmpty()
+                dataSyncId = session?.dataSyncId.orEmpty()
+                accountName = session?.accountName.orEmpty()
+                accountEmail = session?.accountEmail.orEmpty()
+                accountChannelHandle = session?.accountChannelHandle.orEmpty()
+                accountThumbnail = session?.accountThumbnail.orEmpty()
+                storedAccountName = accountName
+                storedAccountEmail = accountEmail
+                storedAccountChannelHandle = accountChannelHandle
+                storedAccountThumbnail = accountThumbnail
+                currentSessionId = session?.sessionId.orEmpty()
+                savedSessions = YouTubeSessionStore.getSessions(context)
+            }
+
+            fun clearAccountScopedUiCaches() {
+                appContext().preferences.edit()
+                    .putString("quickPicsHomePageSessionId", "")
+                    .putString("quickPicsHomePageChipTitle", "")
+                    .putString("quickPicsHomePageChipParams", "")
+                    .apply()
+            }
+
+            suspend fun refreshSessionFromApi(showToast: Boolean = false): Boolean {
+                if (!YouTubeSessionStore.hasAuthCookies(cookie)) {
+                    linkedAccounts = emptyList()
+                    if (showToast) Toaster.i("Connect YouTube Music first")
+                    return false
+                }
+                isRefreshingAccountInfo = true
+                return try {
+                    val accountInfo = YtmSessionApi.fetchAccountInfo(cookie).getOrThrow()
+                    val accounts = YtmSessionApi.listAccounts(cookie).getOrDefault(emptyList())
+                    val selectedAccount = accounts.firstOrNull { it.isSelected }
+
+                    applySession(
+                        YouTubeSessionStore.saveSession(
+                            context = context,
+                            session = YoutubeSession(
+                                cookie = cookie,
+                                visitorData = visitorData,
+                                dataSyncId = dataSyncId,
+                                authUser = selectedAccount?.authUser.orEmpty(),
+                                pageId = selectedAccount?.pageId.orEmpty(),
+                                accountName = accountInfo.accountName,
+                                accountEmail = accountInfo.accountEmail,
+                                accountChannelHandle = accountInfo.accountChannelHandle,
+                                accountThumbnail = accountInfo.accountThumbnail,
+                                lastAccountRefreshAt = if (accountInfo.hasSession) {
+                                    System.currentTimeMillis()
+                                } else {
+                                    0L
+                                }
+                            ),
+                            makePreferred = true
+                        )
+                    )
+
+                    linkedAccounts = accounts
+                    if (showToast) Toaster.i("YouTube Music account refreshed")
+                    true
+                } catch (e: Exception) {
+                    if (showToast) Toaster.e(e.message ?: "Failed to query YouTube Music account")
+                    false
+                } finally {
+                    isRefreshingAccountInfo = false
+                }
+            }
+
+            suspend fun switchLinkedAccount(linkedAccount: YtmLinkedAccount) {
+                if (!YouTubeSessionStore.hasAuthCookies(cookie)) {
+                    Toaster.i("Connect YouTube Music first")
+                    return
+                }
+
+                isRefreshingAccountInfo = true
+                runCatching {
+                    val switched = YtmSessionApi.switchAccount(
+                        cookies = cookie,
+                        authUser = linkedAccount.authUser,
+                        pageId = linkedAccount.pageId.ifBlank { null }
+                    ).getOrThrow()
+
+                    val nextSession = YouTubeSessionStore.saveSession(
+                        context = context,
+                        session = YoutubeSession(
+                            cookie = switched.cookie.ifBlank { cookie },
+                            visitorData = switched.visitorData.ifBlank { visitorData },
+                            dataSyncId = switched.dataSyncId.ifBlank { dataSyncId },
+                            authUser = switched.authUser.ifBlank { linkedAccount.authUser },
+                            pageId = switched.pageId.ifBlank { linkedAccount.pageId },
+                            accountName = switched.accountName.ifBlank { linkedAccount.accountName },
+                            accountEmail = switched.accountEmail.ifBlank { linkedAccount.accountEmail },
+                            accountChannelHandle = switched.accountChannelHandle.ifBlank { linkedAccount.channelHandle },
+                            accountThumbnail = switched.accountThumbnail.ifBlank { linkedAccount.accountThumbnail },
+                            lastAccountRefreshAt = System.currentTimeMillis()
+                        ),
+                        makePreferred = true
+                    )
+
+                    applySession(nextSession)
+                    clearAccountScopedUiCaches()
+                    linkedAccounts = YtmSessionApi.listAccounts(nextSession.cookie).getOrDefault(emptyList())
+                    Toaster.i("${linkedAccount.accountName.ifBlank { "YouTube account" }} is now active")
+                    scope.launch(Dispatchers.IO) {
+                        syncSelectedYtmAccountData()
+                    }
+                    restartService = true
+                }.onFailure {
+                    Timber.w(it, "AccountsSettings: switch_account failed")
+                    Toaster.e(it.message ?: "Failed to switch YouTube Music account")
+                }
+                isRefreshingAccountInfo = false
+            }
+
+            LaunchedEffect(Unit) {
+                applySession(YouTubeSessionStore.applyCurrentSession(context))
+            }
+
+            LaunchedEffect(
+                storedAccountName,
+                storedAccountEmail,
+                storedAccountChannelHandle,
+                storedAccountThumbnail
+            ) {
+                val session = YouTubeSessionStore.getCurrentSession(context)
+                if (session == null) {
+                    accountName = storedAccountName
+                    accountEmail = storedAccountEmail
+                    accountChannelHandle = storedAccountChannelHandle
+                    accountThumbnail = storedAccountThumbnail
+                } else {
+                    applySession(session)
+                }
             }
 
             // Auto-fetch account info when logged in
             LaunchedEffect(isLoggedIn) {
-                if (isLoggedIn && (accountName.isEmpty() || accountEmail.isEmpty())) {
-                    isRefreshingAccountInfo = true
+                val currentSession = YouTubeSessionStore.applyCurrentSession(context)
+                applySession(currentSession)
+                if (isLoggedIn && YouTubeSessionStore.shouldRefreshAccount(currentSession)) {
                     scope.launch {
-                        try {
-                            val accountInfo = AccountInfoFetcher.fetchAccountInfo(cookie)
-                            accountInfo?.let {
-                                accountName = it.name.orEmpty()
-                                accountEmail = it.email.orEmpty()
-                                accountChannelHandle = it.channelHandle.orEmpty()
-                                accountThumbnail = it.thumbnailUrl.orEmpty()
-                                
-                                // Save to shared preferences
-                                accountPrefs.edit()
-                                    .putString("account_name", accountName)
-                                    .putString("account_email", accountEmail)
-                                    .putString("account_channel_handle", accountChannelHandle)
-                                    .putString("account_thumbnail", accountThumbnail)
-                                    .apply()
-                                    
-                                Timber.d("AccountsSettings: Auto-fetched account info")
-                            }
-                        } catch (e: Exception) {
-                            Timber.e("AccountsSettings: Error auto-fetching account info: ${e.message}")
-                        } finally {
-                            isRefreshingAccountInfo = false
-                        }
+                        refreshSessionFromApi(showToast = false)
                     }
+                } else if (isLoggedIn && linkedAccounts.isEmpty()) {
+                    scope.launch {
+                        linkedAccounts = YtmSessionApi.listAccounts(cookie).getOrDefault(emptyList())
+                    }
+                } else if (!isLoggedIn) {
+                    linkedAccounts = emptyList()
                 }
             }
 
@@ -254,6 +384,7 @@ AnimatedVisibility(
                         onCheckedChange = {
                             isYouTubeLoginEnabled = it
                             if (!it) {
+                                YouTubeSessionStore.clearAllSessions(context)
                                 visitorData = ""
                                 dataSyncId = ""
                                 cookie = ""
@@ -261,6 +392,8 @@ AnimatedVisibility(
                                 accountChannelHandle = ""
                                 accountEmail = ""
                                 accountThumbnail = ""
+                                savedSessions = emptyList()
+                                currentSessionId = ""
                             }
                         },
                         icon = R.drawable.ytmusic
@@ -268,6 +401,25 @@ AnimatedVisibility(
 
                     AnimatedVisibility(visible = isYouTubeLoginEnabled) {
                         Column {
+                            OtherSettingsEntry(
+                                title = if (isLoggedIn) "Query account details from API" else stringResource(R.string.youtube_connect),
+                                text = if (isLoggedIn) {
+                                    "Use the captured YouTube Music cookies to fetch your active account and linked accounts"
+                                } else {
+                                    "Log in once with the YouTube Music WebView to capture your session cookies"
+                                },
+                                icon = R.drawable.person,
+                                onClick = {
+                                    if (isLoggedIn) {
+                                        scope.launch {
+                                            refreshSessionFromApi(showToast = true)
+                                        }
+                                    } else {
+                                        loginYouTube = true
+                                    }
+                                }
+                            )
+
                             // Display account info card when logged in
                             if (isLoggedIn) {
                                 Card(
@@ -300,14 +452,14 @@ AnimatedVisibility(
                                                         .build(),
                                                     contentDescription = "Profile picture",
                                                     modifier = Modifier
-                                                        .size(50.dp)
-                                                        .clip(thumbnailShape())
+                                                        .size(40.dp)
+                                                        .clip(CircleShape)
                                                 )
                                             } else if (accountName.isNotEmpty()) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(50.dp)
-                                                        .clip(thumbnailShape())
+                                                        .size(40.dp)
+                                                        .clip(CircleShape)
                                                         .background(colorPalette().accent),
                                                     contentAlignment = Alignment.Center
                                                 ) {
@@ -320,8 +472,8 @@ AnimatedVisibility(
                                             } else {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(50.dp)
-                                                        .clip(thumbnailShape())
+                                                        .size(40.dp)
+                                                        .clip(CircleShape)
                                                         .background(colorPalette().accent),
                                                     contentAlignment = Alignment.Center
                                                 ) {
@@ -382,26 +534,8 @@ AnimatedVisibility(
                                             // Refresh button
                                             IconButton(
                                                 onClick = {
-                                                    isRefreshingAccountInfo = true
                                                     scope.launch {
-                                                        try {
-                                                            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
-                                                            accountInfo?.let {
-                                                                accountName = it.name.orEmpty()
-                                                                accountEmail = it.email.orEmpty()
-                                                                accountChannelHandle = it.channelHandle.orEmpty()
-                                                                accountThumbnail = it.thumbnailUrl.orEmpty()
-                                                                Timber.d("AccountsSettings: Manually refreshed account info")
-                                                                Toaster.i("Account info refreshed")
-                                                            } ?: run {
-                                                                Toaster.e("Failed to refresh account info")
-                                                            }
-                                                        } catch (e: Exception) {
-                                                            Timber.e("AccountsSettings: Error refreshing account info: ${e.message}")
-                                                            Toaster.e("Failed to refresh account info")
-                                                        } finally {
-                                                            isRefreshingAccountInfo = false
-                                                        }
+                                                        refreshSessionFromApi(showToast = true)
                                                     }
                                                 },
                                                 modifier = Modifier.size(24.dp),
@@ -432,9 +566,70 @@ AnimatedVisibility(
                                                 color = colorPalette().textDisabled
                                             )
                                         }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Session connected securely on this device",
+                                            style = typography().xxs,
+                                            color = colorPalette().textSecondary,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
                                 }
                             }
+
+                            linkedAccounts.forEach { linkedAccount ->
+                                    OtherSettingsEntry(
+                                        title = buildString {
+                                            append(linkedAccount.accountName.ifBlank { "YouTube account" })
+                                            if (linkedAccount.isSelected) append(" (active)")
+                                        },
+                                        text = listOf(
+                                            linkedAccount.accountEmail,
+                                            linkedAccount.channelHandle,
+                                            linkedAccount.subscribers
+                                        )
+                                            .filter { it.isNotBlank() }
+                                            .joinToString(" • ")
+                                            .ifBlank {
+                                                if (linkedAccount.pageId.isNotBlank()) {
+                                                    "Brand account available in this session"
+                                                } else {
+                                                    "Linked account available in this session"
+                                                }
+                                            },
+                                        icon = R.drawable.person,
+                                        onClick = {
+                                            if (!linkedAccount.isSelected) {
+                                                scope.launch {
+                                                    switchLinkedAccount(linkedAccount)
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+
+                            savedSessions
+                                .filter { it.sessionId != currentSessionId }
+                                .forEach { savedSession ->
+                                    OtherSettingsEntry(
+                                        title = "Reuse ${savedSession.accountName.ifBlank { "saved session" }}",
+                                        text = listOf(savedSession.accountEmail, savedSession.accountChannelHandle)
+                                            .filter { it.isNotBlank() }
+                                            .joinToString(" • "),
+                                        icon = R.drawable.person,
+                                        onClick = {
+                                            applySession(
+                                                YouTubeSessionStore.switchToSession(
+                                                    context = context,
+                                                    sessionId = savedSession.sessionId
+                                                )
+                                            )
+                                            Toaster.i("Reused saved YouTube session")
+                                        }
+                                    )
+                                }
 
                             // Login/Logout button
                             Row(
@@ -447,35 +642,58 @@ AnimatedVisibility(
                                         thumbnailUrl = accountThumbnail,
                                         contentDescription = null,
                                         modifier = Modifier
-                                            .height(50.dp)
-                                            .clip(thumbnailShape())
+                                            .size(36.dp)
+                                            .clip(CircleShape)
                                     )
 
                                 Column {
                                     OtherSettingsEntry(
-                                        title = if (isLoggedIn) stringResource(R.string.youtube_disconnect) else stringResource(R.string.youtube_connect),
-                                        text = if (isLoggedIn) "$accountName ${accountChannelHandle}" else "",
+                                        title = if (isLoggedIn) "Reconnect YouTube Music" else stringResource(R.string.youtube_connect),
+                                        text = "Use the YouTube web login once, then reuse that saved session everywhere in the app",
                                         icon = R.drawable.person,
                                         onClick = {
-                                            if (isLoggedIn) {
-                                                cookie = ""
-                                                accountName = ""
-                                                accountChannelHandle = ""
-                                                accountEmail = ""
-                                                accountThumbnail = ""
-                                                visitorData = ""
-                                                dataSyncId = ""
+                                            loginYouTube = true
+                                        }
+                                    )
+
+                                    if (isLoggedIn) {
+                                        OtherSettingsEntry(
+                                            title = stringResource(R.string.youtube_disconnect),
+                                            text = "Disconnect the current session and stop reusing it until you choose a saved one",
+                                            icon = R.drawable.logout,
+                                            onClick = {
+                                                YouTubeSessionStore.clearCurrentSession(context, removeStored = true)
+                                                applySession(null)
                                                 loginYouTube = false
-                                                //Delete cookies after logout
                                                 val cookieManager = CookieManager.getInstance()
                                                 cookieManager.removeAllCookies(null)
                                                 cookieManager.flush()
                                                 WebStorage.getInstance().deleteAllData()
+                                                linkedAccounts = emptyList()
                                                 restartService = true
-                                            } else
-                                                loginYouTube = true
-                                        }
-                                    )
+                                            }
+                                        )
+
+                                        OtherSettingsEntry(
+                                            title = "Clear all saved YouTube sessions",
+                                            text = "Wipe all stored cookies, saved sessions, and current YouTube login data",
+                                            icon = R.drawable.trash,
+                                            onClick = {
+                                                YouTubeSessionStore.clearAllSessions(context)
+                                                applySession(null)
+                                                loginYouTube = false
+                                                val cookieManager = CookieManager.getInstance()
+                                                cookieManager.removeAllCookies(null)
+                                                cookieManager.flush()
+                                                WebStorage.getInstance().deleteAllData()
+                                                savedSessions = emptyList()
+                                                linkedAccounts = emptyList()
+                                                currentSessionId = ""
+                                                restartService = true
+                                                Toaster.i("Cleared all saved YouTube sessions")
+                                            }
+                                        )
+                                    }
 
                                     CustomModalBottomSheet(
                                         showSheet = loginYouTube,
@@ -496,27 +714,14 @@ AnimatedVisibility(
                                         shape = thumbnailRoundness.shape
                                     ) {
                                         YouTubeLogin(
-                                            onLogin = { cookieRetrieved ->
-                                                if (cookieRetrieved.contains("SAPISID")) {
-                                                    // Try to fetch account info after login
+                                            autoCompleteExistingSession = !isLoggedIn,
+                                            onLogin = { session ->
+                                                if (YouTubeSessionStore.hasAuthCookies(session.cookie)) {
+                                                    applySession(session)
                                                     scope.launch {
-                                                        isRefreshingAccountInfo = true
-                                                        try {
-                                                            val accountInfo = AccountInfoFetcher.fetchAccountInfo()
-                                                            accountInfo?.let {
-                                                                accountName = it.name.orEmpty()
-                                                                accountEmail = it.email.orEmpty()
-                                                                accountChannelHandle = it.channelHandle.orEmpty()
-                                                                accountThumbnail = it.thumbnailUrl.orEmpty()
-                                                                Timber.d("AccountsSettings: Got account info after login")
-                                                            }
-                                                        } catch (e: Exception) {
-                                                            Timber.e("AccountsSettings: Error getting account info after login: ${e.message}")
-                                                        } finally {
-                                                            isRefreshingAccountInfo = false
-                                                        }
+                                                        linkedAccounts = YtmSessionApi.listAccounts(session.cookie)
+                                                            .getOrDefault(emptyList())
                                                     }
-                                                    
                                                     loginYouTube = false
                                                     Toaster.i( context.getString(R.string.youtube_login_successful) )
                                                     restartService = true
@@ -526,16 +731,6 @@ AnimatedVisibility(
                                     }
                                 }
                             }
-
-                            OtherSwitchSettingEntry(
-                                title = "Sync data with YTM account",
-                                text = "Playlists, albums, artists, history, like, etc.",
-                                isChecked = isYouTubeSyncEnabled,
-                                onCheckedChange = {
-                                    isYouTubeSyncEnabled = it
-                                },
-                                icon = R.drawable.sync
-                            )
                         }
                     }
                 }
@@ -992,12 +1187,10 @@ fun isYouTubeLoginEnabled(): Boolean {
 }
 
 fun isYouTubeSyncEnabled(): Boolean {
-    val isYouTubeSyncEnabled = appContext().preferences.getBoolean(enableYouTubeSyncKey, false)
-    return isYouTubeSyncEnabled && isYouTubeLoggedIn() && isYouTubeLoginEnabled()
+    return isYouTubeLoggedIn() && isYouTubeLoginEnabled()
 }
 
 fun isYouTubeLoggedIn(): Boolean {
-   val cookie = appContext().preferences.getString("yt_cookie", "")
-    val isLoggedIn = cookie?.let { parseCookieString(it) }?.contains("SAPISID") == true
-    return isLoggedIn
+    val session = YouTubeSessionStore.applyCurrentSession()
+    return YouTubeSessionStore.hasAuthCookies(session?.cookie)
 }

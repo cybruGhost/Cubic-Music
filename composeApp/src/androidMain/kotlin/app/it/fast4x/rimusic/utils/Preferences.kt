@@ -147,15 +147,12 @@ const val playbackVolumeKey = "playbackVolume"
 const val playbackDeviceVolumeKey = "playbackDeviceVolume"
 const val playbackDurationKey = "playbackDuration"
 const val blurStrengthKey = "blurScale"
-
-// CrossFade preferences
-const val crossFadeEnabledKey = "crossFadeEnabled"
-const val crossFadeDurationKey = "crossFadeDuration"
-
 //const val blurStrength2Key = "blurScale"
 const val blurDarkenFactorKey = "blurDarkenFactor"
 const val playerBackdropKey = "playerBackdrop"
 const val playbackFadeAudioDurationKey = "playbackFadeAudioDuration"
+const val crossfadeEnabledKey = "crossfadeEnabled"
+const val crossfadeDurationSecondsKey = "crossfadeDurationSeconds"
 const val showTotalTimeQueueKey = "showTotalTimeQueue"
 const val backgroundProgressKey = "backgroundProgress"
 const val maxSongsInQueueKey = "maxSongsInQueue"

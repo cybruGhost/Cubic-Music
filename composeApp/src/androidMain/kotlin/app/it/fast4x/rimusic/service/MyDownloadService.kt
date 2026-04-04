@@ -2,6 +2,7 @@ package app.it.fast4x.rimusic.service
 
 import android.app.Notification
 import android.content.Context
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.util.NotificationUtil
 import androidx.media3.common.util.UnstableApi
@@ -43,7 +44,7 @@ class MyDownloadService : DownloadService(
     }
 
     override fun getScheduler(): PlatformScheduler? {
-        return if(Util.SDK_INT >= 21) PlatformScheduler(this, JOB_ID) else null
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) PlatformScheduler(this, JOB_ID) else null
     }
 
     override fun getForegroundNotification(

@@ -3,14 +3,39 @@ package it.fast4x.innertube.requests
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.BrowseEndpoint
 import it.fast4x.innertube.models.MusicCarouselShelfRenderer
+import it.fast4x.innertube.models.MusicResponsiveListItemRenderer
 import it.fast4x.innertube.models.MusicTwoRowItemRenderer
+import it.fast4x.innertube.models.NavigationEndpoint
 import it.fast4x.innertube.models.oddElements
+import it.fast4x.innertube.models.splitBySeparator
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class HomePage(
+    val chips: List<Chip>? = null,
     val sections: List<Section>,
+    val continuation: String? = null,
 ) {
+    @Serializable
+    data class Chip(
+        val title: String,
+        val endpoint: NavigationEndpoint.Endpoint.Browse?,
+        val deselectEndPoint: NavigationEndpoint.Endpoint.Browse?,
+        val isSelected: Boolean = false,
+    ) {
+        companion object {
+            fun fromChipCloudChipRenderer(renderer: it.fast4x.innertube.models.SectionListRenderer.Header.ChipCloudRenderer.Chip): Chip? {
+                val chipRenderer = renderer.chipCloudChipRenderer
+                return Chip(
+                    title = chipRenderer.text?.runs?.firstOrNull()?.text ?: return null,
+                    endpoint = chipRenderer.navigationEndpoint.browseEndpoint,
+                    deselectEndPoint = chipRenderer.onDeselectedCommand?.browseEndpoint,
+                    isSelected = chipRenderer.isSelected
+                )
+            }
+        }
+    }
+
     @Serializable
     data class Section(
         val title: String,
@@ -21,133 +46,257 @@ data class HomePage(
     ) {
         companion object {
             fun fromMusicCarouselShelfRenderer(renderer: MusicCarouselShelfRenderer): Section? {
-                println("getHomePage() fromMusicCarouselShelfRenderer musicTwoRowItemRenderer: section title ${renderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text}")
-                println("getHomePage() fromMusicCarouselShelfRenderer musicTwoRowItemRenderer: section items ${renderer.contents.map { it.musicTwoRowItemRenderer?.title?.runs?.firstOrNull()?.text }}")
+                val header = renderer.header?.musicCarouselShelfBasicHeaderRenderer ?: return null
+                val title = header.title?.runs?.firstOrNull()?.text ?: return null
+
+                val items = buildList {
+                    renderer.contents.mapNotNull { fromMusicTwoRowItemRenderer(it.musicTwoRowItemRenderer) }.let(::addAll)
+                    renderer.contents.mapNotNull { fromMusicResponsiveListItemRenderer(it.musicResponsiveListItemRenderer) }.let(::addAll)
+                }
+
+                if (items.isEmpty()) return null
+
                 return Section(
-                    title = renderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text
-                        ?: "",
-                    label = renderer.header?.musicCarouselShelfBasicHeaderRenderer?.strapline?.runs?.firstOrNull()?.text,
-                    thumbnail = renderer.header?.musicCarouselShelfBasicHeaderRenderer?.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl(),
-
-                    endpoint = BrowseEndpoint(
-                        browseId = renderer.header?.musicCarouselShelfBasicHeaderRenderer?.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint?.browseId
-                            ?: "",
-                    ),
-                    items = renderer.contents
-                        .map {
-                            fromMusicTwoRowItemRenderer(
-                                it.musicTwoRowItemRenderer,
-                                renderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text
-                            )
-                        } //.filter { it?.title?.isNotEmpty() == true }
-
+                    title = title,
+                    label = header.strapline?.runs?.firstOrNull()?.text,
+                    thumbnail = header.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl(),
+                    endpoint = header.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint?.let {
+                        BrowseEndpoint(
+                            browseId = it.browseId ?: return@let null,
+                            params = it.params,
+                        )
+                    },
+                    items = items,
                 )
             }
 
-            private fun fromMusicTwoRowItemRenderer(renderer: MusicTwoRowItemRenderer?, sectionTitle: String? = null): Innertube.Item? {
-                println("getHomePage() fromMusicTwoRowItemRenderer for section $sectionTitle: ${renderer?.title?.runs?.firstOrNull()?.text}")
+            private fun fromMusicTwoRowItemRenderer(renderer: MusicTwoRowItemRenderer?): Innertube.Item? {
+                renderer ?: return null
+
                 return when {
-                    renderer?.isSong == true -> {
-                        println("getHomePage() fromMusicTwoRowItemRenderer isSong: ${renderer.title?.runs?.firstOrNull()?.text}")
+                    renderer.isSong -> {
+                        val subtitleRuns = renderer.subtitle?.runs?.splitBySeparator().orEmpty()
                         Innertube.SongItem(
                             info = Innertube.Info(
                                 renderer.title?.runs?.firstOrNull()?.text,
                                 renderer.navigationEndpoint?.watchEndpoint
                             ),
-                            authors = renderer.subtitle?.runs?.map {
+                            authors = subtitleRuns.firstOrNull()?.oddElements()?.map {
+                                Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint)
+                            },
+                            album = subtitleRuns.getOrNull(1)?.firstOrNull()?.navigationEndpoint?.browseEndpoint?.let { endpoint ->
                                 Innertube.Info(
-                                    name = it.text,
-                                    endpoint = it.navigationEndpoint?.browseEndpoint
+                                    name = subtitleRuns.getOrNull(1)?.firstOrNull()?.text,
+                                    endpoint = endpoint
                                 )
                             },
-                            album = null,
-                            durationText = null,
+                            durationText = subtitleRuns.lastOrNull()?.firstOrNull()?.text,
                             thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
-                            explicit = renderer.subtitleBadges?.find {
+                            explicit = renderer.subtitleBadges?.any {
                                 it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                            } != null
+                            } == true
                         )
                     }
 
-                    renderer?.isAlbum == true -> {
-                        println("getHomePage() fromMusicTwoRowItemRenderer isAlbum: ${renderer.title?.runs?.firstOrNull()?.text}")
-                        Innertube.AlbumItem(
-                            info = Innertube.Info(
-                                renderer.title?.runs?.firstOrNull()?.text,
-                                renderer.navigationEndpoint?.browseEndpoint
-                            ),
-//                            playlistId = renderer.thumbnailOverlay?.musicItemThumbnailOverlayRenderer?.content
-//                                ?.musicPlayButtonRenderer?.playNavigationEndpoint
-//                                ?.watchPlaylistEndpoint?.playlistId ?: return null,
-//                            title = renderer.title.runs?.firstOrNull()?.text ?: return null,
-                            authors = renderer.subtitle?.runs?.oddElements()?.drop(1)?.map {
-                                Innertube.Info(
-                                    name = it.text,
-                                    endpoint = it.navigationEndpoint?.browseEndpoint
-                                )
-                            },
-                            year = renderer.subtitle?.runs?.lastOrNull()?.text,
-                            thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
-//                            explicit = renderer.subtitleBadges?.find {
-//                                it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-//                            } != null
-                        )
-                    }
-
-                    renderer?.isPlaylist == true -> {
-                        println("getHomePage() fromMusicTwoRowItemRenderer isPlaylist: ${renderer.title?.runs?.firstOrNull()?.text}")
-                        Innertube.PlaylistItem(
-                            info = Innertube.Info(
-                                renderer.title?.runs?.firstOrNull()?.text,
-                                renderer.navigationEndpoint?.browseEndpoint
-                            ),
-                            songCount = null,
-                            thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
-                            channel = null,
-                            isEditable = false
-                        )
-                    }
-
-                    renderer?.isArtist == true -> {
-                        println("getHomePage() fromMusicTwoRowItemRenderer isArtist: ${renderer.title?.runs?.firstOrNull()?.text}")
-                        Innertube.ArtistItem(
-                            info = Innertube.Info(
-                                renderer.title?.runs?.firstOrNull()?.text,
-                                renderer.navigationEndpoint?.browseEndpoint
-                            ),
-                            thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
-                            subscribersCountText = null
-                        )
-                    }
-
-                    renderer?.isVideo == true -> {
-                        println("getHomePage() fromMusicTwoRowItemRenderer isVideo: ${renderer.title?.runs?.firstOrNull()?.text}")
+                    renderer.isVideo -> {
+                        val subtitleRuns = renderer.subtitle?.runs?.splitBySeparator().orEmpty()
                         Innertube.VideoItem(
                             info = Innertube.Info(
                                 renderer.title?.runs?.firstOrNull()?.text,
                                 renderer.navigationEndpoint?.watchEndpoint
                             ),
-                            authors = renderer.subtitle?.runs?.map {
-                                Innertube.Info(
-                                    name = it.text,
-                                    endpoint = it.navigationEndpoint?.browseEndpoint
-                                )
+                            authors = subtitleRuns.firstOrNull()?.oddElements()?.map {
+                                Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint)
                             },
+                            viewsText = subtitleRuns.lastOrNull()?.firstOrNull()?.text,
                             durationText = null,
-                            thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
-                            viewsText = null
+                            thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
                         )
-
                     }
 
-                    else -> {
-                        println("getHomePage() fromMusicTwoRowItemRenderer else renderer: ${renderer}")
-                        null
-                    }
+                    renderer.isAlbum -> Innertube.AlbumItem(
+                        info = Innertube.Info(
+                            renderer.title?.runs?.firstOrNull()?.text,
+                            renderer.navigationEndpoint?.browseEndpoint
+                        ),
+                        authors = renderer.subtitle?.runs?.oddElements()?.drop(1)?.map {
+                            Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint)
+                        },
+                        year = renderer.subtitle?.runs?.lastOrNull()?.text,
+                        thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
+                    )
+
+                    renderer.isPlaylist -> Innertube.PlaylistItem(
+                        info = Innertube.Info(
+                            renderer.title?.runs?.firstOrNull()?.text,
+                            renderer.navigationEndpoint?.browseEndpoint
+                        ),
+                        channel = renderer.subtitle?.runs?.firstOrNull()?.let {
+                            Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint)
+                        },
+                        songCount = null,
+                        isEditable = false,
+                        thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
+                    )
+
+                    renderer.isArtist -> Innertube.ArtistItem(
+                        info = Innertube.Info(
+                            renderer.title?.runs?.firstOrNull()?.text,
+                            renderer.navigationEndpoint?.browseEndpoint
+                        ),
+                        subscribersCountText = renderer.subtitle?.runs?.lastOrNull()?.text,
+                        thumbnail = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
+                    )
+
+                    else -> null
                 }
             }
 
+            private fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer?): Innertube.Item? {
+                renderer ?: return null
+
+                return when {
+                    renderer.isVideo -> {
+                        val secondaryRuns = renderer.flexColumns.getOrNull(1)
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.splitBySeparator()
+                            .orEmpty()
+
+                        Innertube.VideoItem(
+                            info = Innertube.Info(
+                                renderer.flexColumns.firstOrNull()
+                                    ?.musicResponsiveListItemFlexColumnRenderer
+                                    ?.text
+                                    ?.runs
+                                    ?.firstOrNull()
+                                    ?.text,
+                                renderer.navigationEndpoint?.watchEndpoint
+                            ),
+                            authors = secondaryRuns.firstOrNull()?.oddElements()?.map {
+                                Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint)
+                            },
+                            viewsText = secondaryRuns.lastOrNull()?.firstOrNull()?.text,
+                            durationText = renderer.fixedColumns?.firstOrNull()
+                                ?.musicResponsiveListItemFlexColumnRenderer
+                                ?.text
+                                ?.runs
+                                ?.firstOrNull()
+                                ?.text,
+                            thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
+                        )
+                    }
+
+                    renderer.isSong -> {
+                        val secondaryRuns = renderer.flexColumns.getOrNull(1)
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.splitBySeparator()
+                            ?: return null
+
+                        Innertube.SongItem(
+                            info = Innertube.Info(
+                                renderer.flexColumns.firstOrNull()
+                                    ?.musicResponsiveListItemFlexColumnRenderer
+                                    ?.text
+                                    ?.runs
+                                    ?.firstOrNull()
+                                    ?.text,
+                                renderer.navigationEndpoint?.watchEndpoint
+                            ),
+                            authors = secondaryRuns.firstOrNull()?.oddElements()?.map {
+                                Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint)
+                            },
+                            album = secondaryRuns.getOrNull(1)?.firstOrNull()?.navigationEndpoint?.browseEndpoint?.let { endpoint ->
+                                Innertube.Info(
+                                    name = secondaryRuns.getOrNull(1)?.firstOrNull()?.text,
+                                    endpoint = endpoint
+                                )
+                            },
+                            durationText = renderer.fixedColumns?.firstOrNull()
+                                ?.musicResponsiveListItemFlexColumnRenderer
+                                ?.text
+                                ?.runs
+                                ?.firstOrNull()
+                                ?.text ?: secondaryRuns.lastOrNull()?.firstOrNull()?.text,
+                            thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull(),
+                            explicit = renderer.badges?.any {
+                                it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                            } == true,
+                            setVideoId = renderer.playlistItemData?.playlistSetVideoId
+                        )
+                    }
+
+                    renderer.isAlbum -> Innertube.AlbumItem(
+                        info = Innertube.Info(
+                            renderer.flexColumns.firstOrNull()
+                                ?.musicResponsiveListItemFlexColumnRenderer
+                                ?.text
+                                ?.runs
+                                ?.firstOrNull()
+                                ?.text,
+                            renderer.navigationEndpoint?.browseEndpoint
+                        ),
+                        authors = renderer.flexColumns.getOrNull(1)
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.oddElements()
+                            ?.map { Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint) },
+                        year = renderer.flexColumns.getOrNull(2)
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.lastOrNull()
+                            ?.text,
+                        thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
+                    )
+
+                    renderer.isPlaylist -> Innertube.PlaylistItem(
+                        info = Innertube.Info(
+                            renderer.flexColumns.firstOrNull()
+                                ?.musicResponsiveListItemFlexColumnRenderer
+                                ?.text
+                                ?.runs
+                                ?.firstOrNull()
+                                ?.text,
+                            renderer.navigationEndpoint?.browseEndpoint
+                        ),
+                        channel = renderer.flexColumns.getOrNull(1)
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.firstOrNull()
+                            ?.let { Innertube.Info(name = it.text, endpoint = it.navigationEndpoint?.browseEndpoint) },
+                        songCount = null,
+                        isEditable = false,
+                        thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
+                    )
+
+                    renderer.isArtist -> Innertube.ArtistItem(
+                        info = Innertube.Info(
+                            renderer.flexColumns.firstOrNull()
+                                ?.musicResponsiveListItemFlexColumnRenderer
+                                ?.text
+                                ?.runs
+                                ?.firstOrNull()
+                                ?.text,
+                            renderer.navigationEndpoint?.browseEndpoint
+                        ),
+                        subscribersCountText = renderer.flexColumns.getOrNull(1)
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.firstOrNull()
+                            ?.text,
+                        thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()
+                    )
+
+                    else -> null
+                }
+            }
         }
     }
 }
-

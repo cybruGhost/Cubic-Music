@@ -183,6 +183,7 @@ fun Queue(
                 player.clearMediaItems()
             } else
                 itemSelector.map( items::indexOf )
+                            .filter { it >= 0 && it < player.mediaItemCount }
                             .sorted()
                             // Goes backward to prevent item from being skipped
                             // due to the previous element is removed and the indices
@@ -272,10 +273,12 @@ fun Queue(
                         SwipeableQueueItem(
                             mediaItem = mediaItem,
                             onPlayNext = {
-                                binder.player.moveMediaItem(index, binder.player.currentMediaItemIndex)
-                                binder.player.seekToDefaultPosition(binder.player.currentMediaItemIndex - 1)
-                                binder.player.prepare()
-                                binder.player.playWhenReady = true
+                                val currentIndex = binder.player.currentMediaItemIndex
+                                val actualIndex = binder.player.findMediaItemIndexById(song.id)
+                                val targetIndex = (currentIndex + 1).coerceAtMost(binder.player.mediaItemCount - 1)
+                                if (actualIndex != targetIndex && actualIndex in 0 until binder.player.mediaItemCount) {
+                                    binder.player.moveMediaItem(actualIndex, targetIndex)
+                                }
                             },
                             onDownload = {
                                 binder.cache.removeResource(song.id)
@@ -296,12 +299,14 @@ fun Queue(
 
                                      To bypass it, pass another function that requires
                                      computation to extract data.
-                                 */
+                                */
                                 val actualIndex = player.findMediaItemIndexById( song.id )
-                                player.removeMediaItem( actualIndex )
-                                Toaster.s(
-                                    "${context.resources.getString(R.string.deleted)} ${song.cleanTitle()}"
-                                )
+                                if (actualIndex in 0 until player.mediaItemCount) {
+                                    player.removeMediaItem( actualIndex )
+                                    Toaster.s(
+                                        "${context.resources.getString(R.string.deleted)} ${song.cleanTitle()}"
+                                    )
+                                }
                             },
                             onEnqueue = {
                                 binder.player.enqueue(

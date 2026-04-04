@@ -89,6 +89,25 @@ object Database {
 
     //**********************************************
 
+    fun upsert(song: Song) = asyncTransaction {
+        val dbSong = runBlocking {
+            songTable.findById(song.id).first()
+        }
+
+        songTable.upsert(
+            song.copy(
+                title = PropUtils.retainIfModified(dbSong?.title, song.title).orEmpty(),
+                artistsText = PropUtils.retainIfModified(dbSong?.artistsText, song.artistsText),
+                durationText = song.durationText ?: dbSong?.durationText,
+                thumbnailUrl = PropUtils.retainIfModified(dbSong?.thumbnailUrl, song.thumbnailUrl),
+                likedAt = dbSong?.likedAt ?: song.likedAt,
+                totalPlayTimeMs = dbSong?.totalPlayTimeMs ?: song.totalPlayTimeMs
+            )
+        )
+    }
+
+    fun upsert(mediaItem: MediaItem) = upsert(mediaItem.asSong)
+
     fun upsert( songItem: Innertube.SongItem ) = asyncTransaction {
         val song =  songItem.asSong
 

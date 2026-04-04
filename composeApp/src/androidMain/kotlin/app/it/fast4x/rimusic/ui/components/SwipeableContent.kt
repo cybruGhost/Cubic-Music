@@ -69,6 +69,7 @@ import app.kreate.android.me.knighthat.sync.YouTubeSync
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("DEPRECATION")
 fun SwipeableContent(
     swipeToLeftIcon: Int? = null,
     swipeToRightIcon: Int? = null,

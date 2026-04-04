@@ -137,6 +137,7 @@ import app.it.fast4x.rimusic.utils.colorPaletteNameKey
 import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.effectRotationKey
 import app.it.fast4x.rimusic.utils.expandedplayerKey
+import app.it.fast4x.rimusic.utils.fetchSimpMusicLyrics
 import app.cubic.android.core.network.NetworkClientFactory
 import app.it.fast4x.rimusic.utils.isShowingSynchronizedLyricsKey
 import app.it.fast4x.rimusic.utils.jumpPreviousKey
@@ -243,7 +244,7 @@ fun Lyrics(
             mutableStateOf(false)
         }
 
-        var lyrics by remember {
+        var lyrics by remember(mediaId) {
             mutableStateOf<Lyrics?>(null)
         }
 
@@ -345,24 +346,24 @@ fun Lyrics(
         )
         var expandedplayer by rememberPreference(expandedplayerKey, false)
 
-        var checkedLyricsLrc by remember {
+        var checkedLyricsLrc by remember(mediaId) {
             mutableStateOf(false)
         }
-        var checkedLyricsKugou by remember {
+        var checkedLyricsKugou by remember(mediaId) {
             mutableStateOf(false)
         }
-        var checkedLyricsInnertube by remember {
+        var checkedLyricsInnertube by remember(mediaId) {
             mutableStateOf(false)
         }
-        var checkLyrics by remember {
+        var checkLyrics by remember(mediaId) {
             mutableStateOf(false)
         }
         var lyricsHighlight by rememberPreference(lyricsHighlightKey, LyricsHighlight.None)
         var lyricsAlignment by rememberPreference(lyricsAlignmentKey, LyricsAlignment.Center)
         var lyricsSizeAnimate by rememberPreference(lyricsSizeAnimateKey, true)
         val mediaMetadata = mediaMetadataProvider()
-        var artistName by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.artist?.toString().orEmpty()))}
-        var title by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.title?.toString().orEmpty()))}
+        var artistName by rememberSaveable(mediaId) { mutableStateOf(cleanPrefix(mediaMetadata.artist?.toString().orEmpty()))}
+        var title by rememberSaveable(mediaId) { mutableStateOf(cleanPrefix(mediaMetadata.title?.toString().orEmpty()))}
         var lyricsSize by rememberPreference(lyricsSizeKey, 20f)
         var lyricsSizeL by rememberPreference(lyricsSizeLKey, 20f)
         var customSize = if (isLandscape) lyricsSizeL else lyricsSize
@@ -391,6 +392,17 @@ fun Lyrics(
         LaunchedEffect(mediaMetadata.title, mediaMetadata.artist) {
             artistName = mediaMetadata.artist?.toString().orEmpty()
             title = cleanPrefix(mediaMetadata.title?.toString().orEmpty())
+        }
+
+        LaunchedEffect(mediaId) {
+            lyrics = null
+            checkedLyricsLrc = false
+            checkedLyricsKugou = false
+            checkedLyricsInnertube = false
+            checkLyrics = false
+            invalidLrc = false
+            isError = false
+            isErrorSync = false
         }
 
         fun translateLyricsWithRomanization(output: MutableState<String>, textToTranslate: String, isSync: Boolean, destinationLanguage: Language = Language.AUTO) = @Composable{
@@ -563,16 +575,41 @@ fun Lyrics(
                                                 )
                                             }
                                         }?.onFailure {
-                                            if (playerEnableLyricsPopupMessage)
-                                                coroutineScope.launch {
-                                                    Toaster.e(
-                                                        R.string.info_lyrics_not_found_on_s,
-                                                        "KuGou.com",
-                                                        duration = Toast.LENGTH_LONG
-                                                    )
+                                            checkedLyricsKugou = true
+                                            val simpLyrics = fetchSimpMusicLyrics(mediaId)
+                                            if (!simpLyrics?.syncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
+                                                if (playerEnableLyricsPopupMessage) {
+                                                    coroutineScope.launch {
+                                                        Toaster.s(
+                                                            R.string.info_lyrics_found_on_s,
+                                                            "SimpMusic"
+                                                        )
+                                                    }
                                                 }
 
-                                            isError = true
+                                                Database.asyncTransaction {
+                                                    lyricsTable.upsert(
+                                                        Lyrics(
+                                                            songId = mediaId,
+                                                            fixed = simpLyrics?.plainLyrics ?: currentLyrics?.fixed,
+                                                            synced = simpLyrics?.syncedLyrics ?: currentLyrics?.synced
+                                                        )
+                                                    )
+                                                }
+                                                isError = false
+                                            } else {
+                                                if (playerEnableLyricsPopupMessage)
+                                                    coroutineScope.launch {
+                                                        Toaster.e(
+                                                            R.string.info_lyrics_not_found_on_s_try_on_s,
+                                                            "KuGou.com",
+                                                            "SimpMusic",
+                                                            duration = Toast.LENGTH_LONG
+                                                        )
+                                                    }
+
+                                                isError = true
+                                            }
                                         }
                                     }.onFailure {
                                         Timber.e("Lyrics Kugou get error ${it.stackTraceToString()}")
@@ -634,174 +671,242 @@ fun Lyrics(
             )
         }
 
-        @Composable
-        fun SelectLyricFromTrack(
-            tracks: List<Track>,
-            mediaId: String,
-            lyrics: Lyrics?
-        ) {
-            menuState.display {
-                Menu {
-                    MenuEntry(
-                        icon = R.drawable.chevron_back,
-                        text = stringResource(R.string.cancel),
-                        onClick = { menuState.hide() }
-                    )
-                    Row{
-                        TextField(
-                            value = title,
-                            onValueChange = {
-                                title = it
-                            },
-                            singleLine = true,
-                            colors = textFieldColors,
-                            modifier = Modifier
-                                .padding(horizontal = 6.dp)
-                                .weight(1f)
-                        )
-                        TextField(
-                            value = artistName,
-                            onValueChange = {
-                                artistName = it
-                            },
-                            singleLine = true,
-                            colors = textFieldColors,
-                            modifier = Modifier
-                                .padding(horizontal = 6.dp)
-                                .weight(1f)
-                        )
-                        IconButton(
-                            icon = R.drawable.search,
-                            color = Color.Black,
-                            onClick = {
-                                isPicking = false
-                                menuState.hide()
-                                isPicking = true
-                            },
-                            modifier = Modifier
-                                .background(shape = RoundedCornerShape(4.dp), color = Color.White)
-                                .padding(all = 4.dp)
-                                .size(24.dp)
-                                .align(Alignment.CenterVertically)
-                                .weight(0.2f)
-                        )
-                    }
-                    tracks.forEach {
-                        MenuEntry(
-                            icon = R.drawable.text,
-                            text = "${it.artistName} - ${it.trackName}",
-                            secondaryText = "(${stringResource(R.string.sort_duration)} ${
-                                it.duration.seconds.toComponents { minutes, seconds, _ ->
-                                    "$minutes:${seconds.toString().padStart(2, '0')}"
-                                }
-                            } ${stringResource(R.string.id)} ${it.id}) ",
-                            onClick = {
-                                menuState.hide()
-                                Database.asyncTransaction {
-                                    lyricsTable.upsert(
-                                        Lyrics(
-                                            songId = mediaId,
-                                            fixed = lyrics?.fixed,
-                                            synced = it.syncedLyrics.orEmpty()
-                                        )
+@Composable
+fun SelectLyricFromTrack(
+    tracks: List<Track>,
+    mediaId: String,
+    lyrics: Lyrics?
+) {
+    menuState.display {
+        Menu {
+            MenuEntry(
+                icon = R.drawable.chevron_back,
+                text = stringResource(R.string.cancel),
+                onClick = { menuState.hide() }
+            )
+            MenuEntry(
+                icon = R.drawable.text,
+                text = stringResource(R.string.fetch_lyrics_from_simpmusic),
+                onClick = {
+                    menuState.hide()
+                    coroutineScope.launch {
+                        val simpLyrics = fetchSimpMusicLyrics(mediaId)
+                        if (!simpLyrics?.syncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
+                            Database.asyncTransaction {
+                                lyricsTable.upsert(
+                                    Lyrics(
+                                        songId = mediaId,
+                                        fixed = simpLyrics?.plainLyrics ?: lyrics?.fixed,
+                                        synced = simpLyrics?.syncedLyrics ?: lyrics?.synced
                                     )
-                                }
-                            }
-                        )
-                    }
-                    MenuEntry(
-                        icon = R.drawable.chevron_back,
-                        text = stringResource(R.string.cancel),
-                        onClick = { menuState.hide() }
-                    )
-                }
-            }
-            isPicking = false
-        }
-
-
-        if (isPicking && isShowingSynchronizedLyrics) {
-            var loading by remember { mutableStateOf(true) }
-            val tracks = remember { mutableStateListOf<Track>() }
-            var error by remember { mutableStateOf(false) }
-
-            LaunchedEffect(Unit) {
-                kotlin.runCatching {
-                    LrcLib.lyrics(
-                        artist = artistName,
-                        title = title
-                    )?.onSuccess {
-                        if (it.isNotEmpty() && playerEnableLyricsPopupMessage)
-                            coroutineScope.launch {
-                                Toaster.e(
-                                    R.string.info_lyrics_tracks_found_on_s,
-                                    "LrcLib.net",
-                                    duration = Toast.LENGTH_LONG
                                 )
                             }
-                        else
-                            if (playerEnableLyricsPopupMessage)
-                                coroutineScope.launch {
-                                    Toaster.e(
-                                        R.string.info_lyrics_not_found_on_s,
-                                        "LrcLib.net",
-                                        duration = Toast.LENGTH_LONG
-                                    )
-                                }
-                        if (it.isEmpty()){
-                            menuState.display {
-                                Menu {
-                                    MenuEntry(
-                                        icon = R.drawable.chevron_back,
-                                        text = stringResource(R.string.cancel),
-                                        onClick = { menuState.hide() }
-                                    )
-                                    Row {
-                                        TextField(
-                                            value = title,
-                                            onValueChange = { it ->
-                                                title = it
-                                            },
-                                            singleLine = true,
-                                            colors = textFieldColors,
-                                            modifier = Modifier
-                                                .padding(horizontal = 6.dp)
-                                                .weight(1f)
-                                        )
-                                        TextField(
-                                            value = artistName,
-                                            onValueChange = { it ->
-                                                artistName = it
-                                            },
-                                            singleLine = true,
-                                            colors = textFieldColors,
-                                            modifier = Modifier
-                                                .padding(horizontal = 6.dp)
-                                                .weight(1f)
-                                        )
-                                        IconButton(
-                                            icon = R.drawable.search,
-                                            color = Color.Black,
-                                            onClick = {
-                                                isPicking = false
-                                                menuState.hide()
-                                                isPicking = true
-                                            },
-                                            modifier = Modifier
-                                                .background(
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    color = Color.White
-                                                )
-                                                .padding(all = 4.dp)
-                                                .size(24.dp)
-                                                .align(Alignment.CenterVertically)
-                                                .weight(0.2f)
-                                        )
-                                    }
-                                }
+                            if (playerEnableLyricsPopupMessage) {
+                                Toaster.s(
+                                    R.string.info_lyrics_found_on_s,
+                                    context.getString(R.string.lyrics_source_simpmusic)
+                                )
                             }
-                            isPicking = false
+                        } else if (playerEnableLyricsPopupMessage) {
+                            Toaster.e(
+                                R.string.info_lyrics_not_found_on_s,
+                                context.getString(R.string.lyrics_source_simpmusic),
+                                duration = Toast.LENGTH_LONG
+                            )
                         }
+                    }
+                }
+            )
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                TextField(
+                    value = title,
+                    onValueChange = {
+                        title = it
+                    },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        unfocusedTextColor = Color(0xFF008080), // Teal
+                        focusedTextColor = Color(0xFF008080), // Teal
+                        unfocusedIndicatorColor = colorPalette().text,
+                        focusedIndicatorColor = colorPalette().text,
+                        unfocusedContainerColor = colorPalette().background2,
+                        focusedContainerColor = colorPalette().background2,
+                        cursorColor = Color(0xFF008080)
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .weight(1f)
+                )
+                TextField(
+                    value = artistName,
+                    onValueChange = {
+                        artistName = it
+                    },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        unfocusedTextColor = Color(0xFF008080), // Teal
+                        focusedTextColor = Color(0xFF008080), // Teal
+                        unfocusedIndicatorColor = colorPalette().text,
+                        focusedIndicatorColor = colorPalette().text,
+                        unfocusedContainerColor = colorPalette().background2,
+                        focusedContainerColor = colorPalette().background2,
+                        cursorColor = Color(0xFF008080)
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .weight(1f)
+                )
+                IconButton(
+                    icon = R.drawable.search,
+                    color = Color.White,
+                    onClick = {
+                        isPicking = false
+                        menuState.hide()
+                        isPicking = true
+                    },
+                    modifier = Modifier
+                        .background(shape = RoundedCornerShape(4.dp), color = Color(0xFF008080))
+                        .padding(all = 4.dp)
+                        .size(28.dp)
+                        .align(Alignment.CenterVertically)
+                )
+            }
+            tracks.forEach {
+                MenuEntry(
+                    icon = R.drawable.text,
+                    text = "${it.artistName} - ${it.trackName}",
+                    secondaryText = "(${stringResource(R.string.sort_duration)} ${
+                        it.duration.seconds.toComponents { minutes, seconds, _ ->
+                            "$minutes:${seconds.toString().padStart(2, '0')}"
+                        }
+                    } ${stringResource(R.string.id)} ${it.id}) ",
+                    onClick = {
+                        menuState.hide()
+                        Database.asyncTransaction {
+                            lyricsTable.upsert(
+                                Lyrics(
+                                    songId = mediaId,
+                                    fixed = lyrics?.fixed,
+                                    synced = it.syncedLyrics.orEmpty()
+                                )
+                            )
+                        }
+                    }
+                )
+            }
+            MenuEntry(
+                icon = R.drawable.chevron_back,
+                text = stringResource(R.string.cancel),
+                onClick = { menuState.hide() }
+            )
+        }
+    }
+    isPicking = false
+}
+
+     if (isPicking && isShowingSynchronizedLyrics) {
+    var loading by remember { mutableStateOf(true) }
+    val tracks = remember { mutableStateListOf<Track>() }
+    var error by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        kotlin.runCatching {
+            LrcLib.lyrics(
+                artist = artistName,
+                title = title
+            )?.onSuccess {
+                if (it.isNotEmpty() && playerEnableLyricsPopupMessage)
+                    coroutineScope.launch {
+                        Toaster.e(
+                            R.string.info_lyrics_tracks_found_on_s,
+                            "LrcLib.net",
+                            duration = Toast.LENGTH_LONG
+                        )
+                    }
+                else
+                    if (playerEnableLyricsPopupMessage)
+                        coroutineScope.launch {
+                            Toaster.e(
+                                R.string.info_lyrics_not_found_on_s,
+                                "LrcLib.net",
+                                duration = Toast.LENGTH_LONG
+                            )
+                        }
+                if (it.isEmpty()){
+                    menuState.display {
+                        Menu {
+                            MenuEntry(
+                                icon = R.drawable.chevron_back,
+                                text = stringResource(R.string.cancel),
+                                onClick = { menuState.hide() }
+                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextField(
+                                    value = title,
+                                    onValueChange = { it ->
+                                        title = it
+                                    },
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        unfocusedTextColor = Color(0xFF008080), // Teal
+                                        focusedTextColor = Color(0xFF008080), // Teal
+                                        unfocusedIndicatorColor = colorPalette().text,
+                                        focusedIndicatorColor = colorPalette().text,
+                                        unfocusedContainerColor = colorPalette().background2,
+                                        focusedContainerColor = colorPalette().background2,
+                                        cursorColor = Color(0xFF008080)
+                                    ),
+                                    modifier = Modifier
+                                        .padding(horizontal = 6.dp)
+                                        .weight(1f)
+                                )
+                                TextField(
+                                    value = artistName,
+                                    onValueChange = { it ->
+                                        artistName = it
+                                    },
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        unfocusedTextColor = Color(0xFF008080), // Teal
+                                        focusedTextColor = Color(0xFF008080), // Teal
+                                        unfocusedIndicatorColor = colorPalette().text,
+                                        focusedIndicatorColor = colorPalette().text,
+                                        unfocusedContainerColor = colorPalette().background2,
+                                        focusedContainerColor = colorPalette().background2,
+                                        cursorColor = Color(0xFF008080)
+                                    ),
+                                    modifier = Modifier
+                                        .padding(horizontal = 6.dp)
+                                        .weight(1f)
+                                )
+                                IconButton(
+                                    icon = R.drawable.search,
+                                    color = Color.White,
+                                    onClick = {
+                                        isPicking = false
+                                        menuState.hide()
+                                        isPicking = true
+                                    },
+                                    modifier = Modifier
+                                        .background(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFF008080)
+                                        )
+                                        .padding(all = 4.dp)
+                                        .size(28.dp)
+                                        .align(Alignment.CenterVertically)
+                                )
+                            }
+                        }
+                    }
+                    isPicking = false
+                }
 
                         tracks.clear()
                         tracks.addAll(it)

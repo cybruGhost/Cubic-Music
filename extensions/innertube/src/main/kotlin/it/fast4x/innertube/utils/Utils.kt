@@ -107,10 +107,11 @@ infix operator fun <T : Innertube.Item> Innertube.ItemsPage<T>?.plus(other: Inne
     )
 
 fun parseCookieString(cookie: String): Map<String, String> =
-    cookie.split("; ")
-        .filter { it.isNotEmpty() }
+    cookie.split(";")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && it.contains("=") }
         .associate {
-            val (key, value) = it.split("=")
+            val (key, value) = it.split("=", limit = 2)
             key to value
         }
 

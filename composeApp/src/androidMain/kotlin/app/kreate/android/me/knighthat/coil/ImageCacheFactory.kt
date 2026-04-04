@@ -179,14 +179,14 @@ object ImageCacheFactory {
 
     val LOADER: ImageLoader by lazy {
         val httpClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
 
         ImageLoader.Builder(appContext())
-            .crossfade(true)
-            .memoryCache { MemoryCache.Builder().maxSizePercent(appContext(), 0.15).strongReferencesEnabled(true).build() }
+            .crossfade(false)
+            .memoryCache { MemoryCache.Builder().maxSizePercent(appContext(), 0.22).strongReferencesEnabled(true).build() }
             .diskCache(DISK_CACHE)
             .components {
                 add(OkHttpNetworkFetcherFactory(httpClient))
@@ -280,6 +280,27 @@ object ImageCacheFactory {
         return DownloadDecision(false, cachedQuality)
     }
 
+    private fun hasCachedImage(url: String?, quality: NetworkQuality): Boolean {
+        if (url.isNullOrBlank()) return false
+        val key = generateCacheKeySync(url, quality)
+        val inMemory = runCatching {
+            LOADER.memoryCache?.get(MemoryCache.Key(key)) != null
+        }.getOrDefault(false)
+        if (inMemory) return true
+
+        return runCatching {
+            DISK_CACHE.openSnapshot(key) != null
+        }.getOrDefault(false)
+    }
+
+    private fun resolveDisplayUrl(thumbnailUrl: String?, quality: NetworkQuality, useNetwork: Boolean): String? {
+        val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
+        if (validUrl == null) return null
+        if (validUrl.isLocalArtSource()) return validUrl
+        if (!useNetwork && hasCachedImage(validUrl, quality)) return validUrl
+        return validUrl.thumbnail(quality.size)
+    }
+
     @Composable
     fun Thumbnail(
         thumbnailUrl: String?,
@@ -290,7 +311,9 @@ object ImageCacheFactory {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
         val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
-        var currentUrl by remember(validUrl, version) { mutableStateOf(validUrl?.thumbnail(decision.quality.size)) }
+        var currentUrl by remember(validUrl, version) {
+            mutableStateOf(resolveDisplayUrl(validUrl, decision.quality, decision.useNetwork))
+        }
         
         
         val request = ImageRequest.Builder(appContext())
@@ -362,7 +385,9 @@ object ImageCacheFactory {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
         val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
-        var currentUrl by remember(validUrl, version) { mutableStateOf(validUrl?.thumbnail(decision.quality.size)) }
+        var currentUrl by remember(validUrl, version) {
+            mutableStateOf(resolveDisplayUrl(validUrl, decision.quality, decision.useNetwork))
+        }
         
         
         val request = ImageRequest.Builder(appContext())
@@ -434,7 +459,9 @@ object ImageCacheFactory {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
         val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
-        var currentUrl by remember(validUrl, version) { mutableStateOf(validUrl?.thumbnail(decision.quality.size)) }
+        var currentUrl by remember(validUrl, version) {
+            mutableStateOf(resolveDisplayUrl(validUrl, decision.quality, decision.useNetwork))
+        }
         
         val request = ImageRequest.Builder(appContext())
             .data(currentUrl)
@@ -508,7 +535,7 @@ object ImageCacheFactory {
         }
         
         val decision = getDownloadDecision(url)
-        var currentUrl = url.thumbnail(decision.quality.size)
+        var currentUrl = resolveDisplayUrl(url, decision.quality, decision.useNetwork)
         var lastError: String? = null
         
         while (currentUrl != null) {
@@ -568,7 +595,7 @@ object ImageCacheFactory {
         }
         
         val decision = getDownloadDecision(thumbnailUrl)
-        val finalUrl = thumbnailUrl.thumbnail(decision.quality.size)
+        val finalUrl = resolveDisplayUrl(thumbnailUrl, decision.quality, decision.useNetwork)
         
         fun enqueueWithFallback(url: String) {
             val request = ImageRequest.Builder(appContext())
@@ -745,6 +772,11 @@ private fun String?.getNextYouTubeFallback(): String? {
         else -> null
     }
 }
+
+private fun String.isLocalArtSource(): Boolean =
+    startsWith("content://") ||
+        startsWith("file://") ||
+        startsWith("/")
 
 fun String?.thumbnail(): String? = this
 

@@ -112,6 +112,9 @@ class ResetSongDialog private constructor(
         CoroutineScope( Dispatchers.IO ).launch {
             if( song.isEmpty ) return@launch
             var song = this@ResetSongDialog.song.get()
+            val shouldRefetchMetadata = items.fastAny {
+                it.selected && it.id in arrayOf(TITLE_CHECKBOX_ID, AUTHORS_CHECKBOX_ID, THUMBNAIL_CHECKBOX_ID)
+            }
 
             val fetchIds = arrayOf(TITLE_CHECKBOX_ID, AUTHORS_CHECKBOX_ID, THUMBNAIL_CHECKBOX_ID)
             if( items.fastAny { it.id in fetchIds && it.selected } ) {
@@ -141,6 +144,13 @@ class ResetSongDialog private constructor(
                 song = song.copy( totalPlayTimeMs = 0L )
 
             Database.asyncTransaction {
+                if( shouldRefetchMetadata ) {
+                    binder?.cache?.removeResource( song.id )
+                    binder?.downloadCache?.removeResource( song.id )
+                    formatTable.deleteBySongId( song.id )
+                    formatTable.updateContentLengthOf( song.id )
+                }
+
                 if( items.first { it.id == CACHE_CHECKBOX_ID }.selected ) {
                     binder?.cache?.removeResource( song.id )
                     binder?.downloadCache?.removeResource( song.id )

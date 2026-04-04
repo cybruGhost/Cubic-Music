@@ -22,7 +22,7 @@ fun MyStarTrek() {
     val myStarTrekShape = GenericShape { size, _ ->
         moveTo(size.width / 2f, 0f)
         lineTo(size.width, size.height)
-        quadraticBezierTo(
+        quadraticTo(
             size.width * 0.6f,
             size.height * 0.4f,
             0f,

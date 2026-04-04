@@ -19,6 +19,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.background
+import androidx.glance.color.ColorProvider
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
@@ -26,13 +27,16 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
+import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextStyle
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
 import app.kreate.android.drawable.APP_ICON_BITMAP
 import app.it.fast4x.rimusic.MainActivity
 import app.it.fast4x.rimusic.cleanPrefix
 import java.io.File
+import androidx.compose.ui.graphics.Color
 
 sealed class Widget : GlanceAppWidget() {
 
@@ -112,9 +116,7 @@ sealed class Widget : GlanceAppWidget() {
             it[songTitleKey] = cleanPrefix(status.first)
             it[songArtistKey] = cleanPrefix(status.second)
             it[isPlayingKey] = status.third
-
-            if (it[bitmapPath].isNullOrEmpty())
-                it[bitmapPath] = bitmapFile.absolutePath
+            it[bitmapPath] = bitmapFile.absolutePath
         }
 
         onPlayPauseAction = actions.first
@@ -137,15 +139,17 @@ sealed class Widget : GlanceAppWidget() {
             Row(
                 modifier = GlanceModifier
                     .fillMaxWidth()
-                    .background(GlanceTheme.colors.widgetBackground)
-                    .padding(8.dp),
+                    .background(ColorProvider(Color(0xFFF5EFE6), Color(0xFF1B2430)))
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.Start
             ) {
                 Thumbnail(
                     GlanceModifier
-                        .size(72.dp)
-                        .padding(end = 12.dp)
+                        .background(ColorProvider(Color(0x26D97706), Color(0x2600C2A8)))
+                        .padding(6.dp)
+                        .size(78.dp)
+                        .padding(end = 14.dp)
                 )
 
                 Column(
@@ -155,18 +159,39 @@ sealed class Widget : GlanceAppWidget() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalAlignment = Alignment.Start
                 ) {
-                    // Simple text without styling
                     Text(
-                        text = currentState(songTitleKey).orEmpty(),
+                        text = if ((currentState(isPlayingKey) ?: false)) "NOW PLAYING" else "READY",
+                        style = TextStyle(
+                            color = ColorProvider(Color(0xFFB45309), Color(0xFF5EEAD4)),
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = GlanceModifier.padding(bottom = 4.dp)
+                    )
+
+                    Text(
+                        text = currentState(songTitleKey).orEmpty().ifBlank { "Cubic Music" },
+                        style = TextStyle(
+                            color = ColorProvider(Color(0xFF111827), Color.White),
+                            fontWeight = FontWeight.Bold
+                        ),
                         modifier = GlanceModifier.padding(bottom = 2.dp)
                     )
 
                     Text(
-                        text = currentState(songArtistKey).orEmpty(),
+                        text = currentState(songArtistKey).orEmpty().ifBlank { "Tap to reopen your queue" },
+                        style = TextStyle(
+                            color = ColorProvider(Color(0xFF6B7280), Color(0xFFD1D5DB))
+                        ),
                         modifier = GlanceModifier.padding(bottom = 8.dp)
                     )
 
-                    Controller()
+                    Row(
+                        modifier = GlanceModifier
+                            .background(ColorProvider(Color(0x1FEAB308), Color(0x1F38BDF8)))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Controller()
+                    }
                 }
             }
         }
@@ -179,28 +204,52 @@ sealed class Widget : GlanceAppWidget() {
             Column(
                 modifier = GlanceModifier
                     .fillMaxWidth()
-                    .background(GlanceTheme.colors.widgetBackground)
-                    .padding(8.dp),
+                    .background(ColorProvider(Color(0xFFF8F3EC), Color(0xFF172033)))
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Text(
+                    text = if ((currentState(isPlayingKey) ?: false)) "CUBIC NOW PLAYING" else "CUBIC PLAYER",
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFFB45309), Color(0xFF67E8F9)),
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = GlanceModifier.padding(bottom = 6.dp)
+                )
+
                 Thumbnail(
                     GlanceModifier
-                        .size(80.dp)
-                        .padding(bottom = 8.dp)
+                        .background(ColorProvider(Color(0x26D97706), Color(0x2600C2A8)))
+                        .padding(6.dp)
+                        .size(96.dp)
+                        .padding(bottom = 10.dp)
                 )
 
                 Text(
-                    text = currentState(songTitleKey).orEmpty(),
+                    text = currentState(songTitleKey).orEmpty().ifBlank { "Cubic Music" },
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFF111827), Color.White),
+                        fontWeight = FontWeight.Bold
+                    ),
                     modifier = GlanceModifier.padding(bottom = 2.dp)
                 )
                 
                 Text(
-                    text = currentState(songArtistKey).orEmpty(),
+                    text = currentState(songArtistKey).orEmpty().ifBlank { "Tap to open your player" },
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFF6B7280), Color(0xFFD1D5DB))
+                    ),
                     modifier = GlanceModifier.padding(bottom = 8.dp)
                 )
 
-                Controller()
+                Row(
+                    modifier = GlanceModifier
+                        .background(ColorProvider(Color(0x1FEAB308), Color(0x1F38BDF8)))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Controller()
+                }
             }
         }
     }

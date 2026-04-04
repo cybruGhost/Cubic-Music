@@ -35,7 +35,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -92,10 +91,8 @@ import app.it.fast4x.rimusic.utils.isExplicit
 import app.it.fast4x.rimusic.utils.miniPlayerTypeKey
 import app.it.fast4x.rimusic.utils.playNext
 import app.it.fast4x.rimusic.utils.playPrevious
-import app.it.fast4x.rimusic.utils.positionAndDurationState
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
-import app.it.fast4x.rimusic.utils.shouldBePlaying
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -117,37 +114,18 @@ fun MiniPlayer(
     binder?.player ?: return
 
     val context = LocalContext.current
-
-    var nullableMediaItem by remember {
-        mutableStateOf(
-            binder.player.currentMediaItem,
-            neverEqualPolicy()
-        )
-    }
-    var shouldBePlaying by remember { mutableStateOf(binder.player.shouldBePlaying) }
+    val displayedPlayerState = rememberDisplayedPlayerState(binder)
+    val crossfadeUiState = displayedPlayerState.crossfadeUiState
     val hapticFeedback = LocalHapticFeedback.current
 
     var playerError by remember {
         mutableStateOf<PlaybackException?>(binder.player.playerError)
     }
-    var isBuffering by remember {
-        mutableStateOf(binder.player.playbackState == Player.STATE_BUFFERING)
-    }
 
     binder.player.DisposableListener {
         object : Player.Listener {
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                nullableMediaItem = mediaItem
-            }
-
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                shouldBePlaying = if (playerError == null) binder.player.shouldBePlaying else false
-            }
-
             override fun onPlaybackStateChanged(playbackState: Int) {
                 playerError = binder.player.playerError
-                shouldBePlaying = if (playerError == null) binder.player.shouldBePlaying else false
-                isBuffering = playbackState == Player.STATE_BUFFERING
             }
 
             override fun onPlayerError(playbackException: PlaybackException) {
@@ -156,7 +134,9 @@ fun MiniPlayer(
         }
     }
 
-    val mediaItem = nullableMediaItem ?: return
+    val mediaItem = displayedPlayerState.mediaItem ?: return
+    val shouldBePlaying = displayedPlayerState.shouldBePlaying && playerError == null
+    val isBuffering = displayedPlayerState.isBuffering
 
     playerError?.let { PlayerError(error = it) }
 
@@ -177,8 +157,9 @@ fun MiniPlayer(
         }
     }
 
-    val positionAndDuration by binder.player.positionAndDurationState()
+    val displayedPositionAndDuration = displayedPlayerState.position to displayedPlayerState.duration
 
+    @Suppress("DEPRECATION")
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.StartToEnd)
@@ -311,8 +292,8 @@ fun MiniPlayer(
                             color = colorPalette.favoritesOverlay,
                             topLeft = Offset.Zero,
                             size = Size(
-                                width = positionAndDuration.first.toFloat() /
-                                        positionAndDuration.second.absoluteValue * size.width,
+                                width = displayedPositionAndDuration.first.toFloat() /
+                                        displayedPositionAndDuration.second.absoluteValue * size.width,
                                 height = size.maxDimension
                             )
                         )

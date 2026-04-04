@@ -64,6 +64,7 @@ import app.it.fast4x.rimusic.utils.autoSyncToolbutton
 import app.it.fast4x.rimusic.utils.autosyncKey
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.enableCreateMonthlyPlaylistsKey
+import app.it.fast4x.rimusic.utils.importYTMLikedPlaylists
 import app.it.fast4x.rimusic.utils.playlistTypeKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
@@ -76,6 +77,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.component.Sort
 import app.kreate.android.me.knighthat.component.playlist.NewPlaylistDialog
+import app.kreate.android.me.knighthat.component.tab.CsvImportConversionHost
+import timber.log.Timber
+import android.widget.Toast
+import app.kreate.android.me.knighthat.utils.Toaster
+import kotlinx.coroutines.withContext
 import app.kreate.android.me.knighthat.component.tab.ImportSongsFromCSV
 import app.kreate.android.me.knighthat.component.tab.Search
 import app.kreate.android.me.knighthat.component.tab.SongShuffler
@@ -189,32 +195,66 @@ LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
     var refreshing by remember { mutableStateOf(false) }
     val refreshScope = rememberCoroutineScope()
 
-    fun refresh() {
-        if (refreshing) return
+ fun refresh() {
+    if (refreshing) return
+    refreshScope.launch(Dispatchers.IO) {
+        refreshing = true
+        justSynced = false
+        // Actually trigger sync on refresh
+        try {
+            importYTMLikedPlaylists()
+            withContext(Dispatchers.Main) {
+                justSynced = true
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Refresh sync failed")
+        }
+        delay(500)
+        refreshing = false
+    }
+}
+
+LaunchedEffect(justSynced, doAutoSync) {
+    if (!justSynced && doAutoSync) {
         refreshScope.launch(Dispatchers.IO) {
-            refreshing = true
-            justSynced = false
-            delay(500)
-            refreshing = false
+            try {
+                val result = importYTMLikedPlaylists()
+                withContext(Dispatchers.Main) {
+                    if (result) {
+                        justSynced = true
+                        Toaster.i("Playlists synced successfully")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to sync playlists")
+                withContext(Dispatchers.Main) {
+                   Toaster.n("Failed to sync playlists", Toast.LENGTH_LONG)
+                }
+            }
         }
     }
+}
 
-    PullToRefreshBox(
-        isRefreshing = refreshing,
-        onRefresh = ::refresh
+    Box(
+        modifier = Modifier
+            .background(colorPalette().background0)
+            .fillMaxHeight()
+            .fillMaxWidth(
+                if (NavigationBarPosition.Right.isCurrent())
+                    Dimensions.contentWidthRightBar
+                else
+                    1f
+            )
     ) {
-        Box(
-            modifier = Modifier
-                .background(colorPalette().background0)
-                //.fillMaxSize()
-                .fillMaxHeight()
-                .fillMaxWidth(
-                    if (NavigationBarPosition.Right.isCurrent())
-                        Dimensions.contentWidthRightBar
-                    else
-                        1f
-                )
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = ::refresh
         ) {
+            Box(
+                modifier = Modifier
+                    .background(colorPalette().background0)
+                    .fillMaxSize()
+            ) {
             Column( Modifier.fillMaxSize() ) {
                 // Sticky tab's title
                 TabHeader( R.string.playlists ) {
@@ -222,7 +262,7 @@ LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
                 }
 
                 // Sticky tab's tool bar
-                TabToolBar.Buttons( sort, search, shuffle, newPlaylistDialog, randomizer, importPlaylistDialog, itemSize )
+                TabToolBar.Buttons( sort, search, sync, shuffle, newPlaylistDialog, randomizer, importPlaylistDialog, itemSize )
 
                 // Sticky search bar
                 search.SearchBar( this )
@@ -319,6 +359,9 @@ LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
                     onClickSettings = onSettingsClick,
                     onClickSearch = onSearchClick
                 )
+            }
         }
+
+        CsvImportConversionHost()
     }
 }

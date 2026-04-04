@@ -1,5 +1,8 @@
 package app.kreate.android.me.knighthat.component.menu.album
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -62,10 +65,12 @@ import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.saveImageToInternalStorage
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -86,7 +91,7 @@ import app.kreate.android.me.knighthat.component.tab.DownloadAllSongsDialog
 import app.kreate.android.me.knighthat.component.tab.DeleteAllDownloadedSongsDialog
 
 @UnstableApi
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalFoundationApi::class)
 class AlbumItemMenu private constructor(
     private val navController: NavController,
     private val album: Album,
@@ -276,6 +281,31 @@ class AlbumItemMenu private constructor(
         var showChangeTitleDialog by remember { mutableStateOf(false) }
         var showChangeAuthorsDialog by remember { mutableStateOf(false) }
         var showChangeCoverDialog by remember { mutableStateOf(false) }
+        val context = LocalContext.current
+        val uploadCoverLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            if (uri == null) {
+                Toaster.w(R.string.thumbnail_not_selected)
+                return@rememberLauncherForActivityResult
+            }
+
+            val safeAlbumId = album.id.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val savedUri = saveImageToInternalStorage(
+                context = context,
+                imageUri = uri,
+                dirPath = "thumbnail/album",
+                thumbnailName = "album_${safeAlbumId}_${System.currentTimeMillis()}"
+            )
+
+            if (savedUri != null) {
+                onCoverChange(savedUri.toString())
+                menuState.hide()
+                Toaster.s(R.string.cover_saved)
+            } else {
+                Toaster.e(R.string.cover_save_failed)
+            }
+        }
 
         if (showChangeTitleDialog) {
             InputTextDialog(
@@ -375,6 +405,14 @@ class AlbumItemMenu private constructor(
             override fun onShortClick() { showChangeCoverDialog = true }
         }
 
+        val uploadCover = object : MenuIcon, Descriptive, Clickable {
+            override val iconId: Int = R.drawable.cover_edit
+            override val messageId: Int = R.string.upload_cover
+            @get:Composable
+            override val menuIconTitle: String get() = stringResource(messageId)
+            override fun onShortClick() { uploadCoverLauncher.launch("image/*") }
+        }
+
         buttons = mutableListOf<Button>().apply {
             add(playNext)
             add(enqueue)
@@ -397,6 +435,7 @@ class AlbumItemMenu private constructor(
 
             add(changeTitle)
             add(changeAuthors)
+            add(uploadCover)
             add(changeCover)
         }
 

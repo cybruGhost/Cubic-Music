@@ -35,13 +35,20 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
             if (it.exists()) return@also
             it.mkdir()
         }
+        val runtimeLogFile = File(dir, "Cubic-Music_log.txt").also {
+            if (!it.exists()) {
+                it.createNewFile()
+            }
+        }
         
         // Always set up crash handler regardless of debug mode
         Thread.setDefaultUncaughtExceptionHandler(CaptureCrash(dir.absolutePath))
         
         if (logEnabled) {
-            Timber.plant(FileLoggingTree(File(dir, "N-Zik_log.txt")))
-            Timber.d("Log enabled at ${dir.absolutePath}")
+            Timber.uprootAll()
+            Timber.plant(Timber.DebugTree())
+            Timber.plant(FileLoggingTree(runtimeLogFile))
+            Timber.d("Debug log enabled at ${runtimeLogFile.absolutePath}")
         } else {
             Timber.uprootAll()
             Timber.plant(Timber.DebugTree())

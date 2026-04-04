@@ -50,6 +50,7 @@ import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Button
 import app.it.fast4x.rimusic.ui.items.SongItemPlaceholder
+import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.ui.styling.onOverlay
 import app.it.fast4x.rimusic.ui.styling.overlay
@@ -66,6 +67,7 @@ import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.excludeSongsWithDurationLimitKey
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.includeLocalSongsKey
+import app.it.fast4x.rimusic.utils.importYTMLikedSongs
 import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
@@ -117,6 +119,7 @@ fun HomeSongs(
     //</editor-fold>
 
     var items by remember { mutableStateOf(emptyList<Song>()) }
+    var ytmFavoritesSynced by remember { mutableStateOf(false) }
 
     val songSort = Sort ( HOME_SONGS_SORT_BY, HOME_SONGS_SORT_ORDER )
     val topPlaylists = PeriodSelector( Preference.HOME_SONGS_TOP_PLAYLIST_PERIOD )
@@ -146,6 +149,13 @@ fun HomeSongs(
     var relatedSongsPositions by remember { mutableStateOf(emptyMap<Song, Int>()) }
     var isRecommendationsLoading by remember { mutableStateOf(false) }
     //</editor-fold>
+
+    LaunchedEffect(builtInPlaylist) {
+        if (builtInPlaylist == BuiltInPlaylist.Favorites && isYouTubeSyncEnabled() && !ytmFavoritesSynced) {
+            importYTMLikedSongs()
+            ytmFavoritesSynced = true
+        }
+    }
 
     // This phrase loads all songs across types into [items]
     // No filtration applied to this stage, only sort
@@ -353,7 +363,7 @@ fun HomeSongs(
 
         itemsIndexed(
             items = itemsOnDisplay,
-            key = { _, song -> song.id }
+            key = { index, song -> song.id.ifBlank { "home_song_$index" } }
         ) { index, song ->
             val mediaItem = song.asMediaItem
 

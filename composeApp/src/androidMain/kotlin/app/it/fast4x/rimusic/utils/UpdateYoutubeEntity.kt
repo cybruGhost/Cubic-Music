@@ -17,6 +17,7 @@ import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.models.Album
 import app.it.fast4x.rimusic.models.Artist
 import app.it.fast4x.rimusic.models.SongAlbumMap
+import app.it.fast4x.rimusic.cleanPrefix
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -95,18 +96,31 @@ fun UpdateYoutubeAlbum (browseId: String) {
                                             bookmarkedAt = album?.bookmarkedAt
                                         )
                                     )
-                                    currentAlbumPage.songsPage
-                                                    ?.items
-                                                    ?.map(Innertube.SongItem::asMediaItem)
-                                                    ?.onEach( Database::insertIgnore )
-                                                    ?.mapIndexed { position, mediaItem ->
-                                                        SongAlbumMap(
-                                                            songId = mediaItem.mediaId,
-                                                            albumId = browseId,
-                                                            position = position
-                                                        )
-                                                    }
-                                                   ?.also( Database.songAlbumMapTable::upsert )
+                                    val normalizedSongs = currentAlbumPage.songsPage
+                                        ?.items
+                                        ?.map { songItem ->
+                                            songItem.asSong.copy(
+                                                id = songItem.key.trim(),
+                                                title = cleanPrefix(songItem.asSong.title).trim(),
+                                                artistsText = songItem.asSong.artistsText?.trim(),
+                                                thumbnailUrl = currentAlbumPage.thumbnail?.url?.trim()
+                                                    ?: songItem.asSong.thumbnailUrl?.trim()
+                                            )
+                                        }
+                                        ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
+                                        ?.distinctBy { song -> song.id }
+                                        .orEmpty()
+
+                                    normalizedSongs.forEach(Database.songTable::insertIgnore)
+                                    normalizedSongs
+                                        .mapIndexed { position, song ->
+                                            SongAlbumMap(
+                                                songId = song.id,
+                                                albumId = browseId,
+                                                position = position
+                                            )
+                                        }
+                                        .also(Database.songAlbumMapTable::upsert)
                                 }
                         }
 

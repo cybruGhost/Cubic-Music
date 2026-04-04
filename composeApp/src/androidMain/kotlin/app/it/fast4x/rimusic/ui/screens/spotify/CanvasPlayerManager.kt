@@ -12,7 +12,6 @@ import timber.log.Timber
 
 object CanvasPlayerManager {
     private var currentPlayer: ExoPlayer? = null
-    private var currentPlayerView: PlayerView? = null
     private var currentCanvasUrl: String? = null
     private var currentMediaItemId: String? = null
     private var isPlayerActive = false
@@ -43,11 +42,11 @@ object CanvasPlayerManager {
                          (now - lastSetupTime) < PLAYER_RECYCLE_THRESHOLD &&
                          currentPlayer != null
         
-        if (shouldReuse && currentPlayerView != null) {
+        if (shouldReuse && currentPlayer != null) {
             Timber.d("CanvasPlayer: Reusing player for mediaId: ${mediaItemId?.take(8)}")
             currentPlayer?.playWhenReady = isPlaying
             currentPlayer?.repeatMode = if (isPlaying) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-            return currentPlayerView!!
+            return buildPlayerView(context, currentPlayer!!)
         }
         
         // Release old player if exists and not the same
@@ -57,7 +56,7 @@ object CanvasPlayerManager {
         
         Timber.d("CanvasPlayer: Creating new player for mediaId: ${mediaItemId?.take(8)}")
         
-        val player = ExoPlayer.Builder(context)
+        val player = ExoPlayer.Builder(context.applicationContext)
             .setSeekForwardIncrementMs(15000)
             .setSeekBackIncrementMs(5000)
             .build()
@@ -88,7 +87,26 @@ object CanvasPlayerManager {
             }
         })
         
-        // Create PlayerView with NO CONTROLS - FIXED VERSION
+        val playerView = buildPlayerView(context, player)
+
+        // Prepare but don't auto-start if not playing
+        player.prepare()
+        if (!isPlaying) {
+            player.pause()
+        }
+
+        currentPlayer = player
+        currentCanvasUrl = canvasUrl
+        currentMediaItemId = mediaItemId
+        isPlayerActive = true
+        lastSetupTime = now
+
+        Timber.d("CanvasPlayer: New player setup complete for: ${mediaItemId?.take(8)}")
+
+        return playerView
+    }
+
+    private fun buildPlayerView(context: Context, player: ExoPlayer): PlayerView {
         val playerView = PlayerView(context).apply {
             this.player = player
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -108,28 +126,10 @@ object CanvasPlayerManager {
             // This ensures no controls can appear even if user taps
         }
         
-        // IMPORTANT: For complete control hiding, we also need to prevent touch events
-        // We'll do this by adding a custom touch interceptor
         playerView.setOnTouchListener { _, _ ->
-            // Consume all touch events - this prevents any UI from appearing
             true
         }
-        
-        // Prepare but don't auto-start if not playing
-        player.prepare()
-        if (!isPlaying) {
-            player.pause()
-        }
-        
-        currentPlayer = player
-        currentPlayerView = playerView
-        currentCanvasUrl = canvasUrl
-        currentMediaItemId = mediaItemId
-        isPlayerActive = true
-        lastSetupTime = now
-        
-        Timber.d("CanvasPlayer: New player setup complete for: ${mediaItemId?.take(8)}")
-        
+
         return playerView
     }
     
@@ -142,7 +142,6 @@ object CanvasPlayerManager {
         }
         
         currentPlayer = null
-        currentPlayerView = null
         currentCanvasUrl = null
         currentMediaItemId = null
         isPlayerActive = false
@@ -159,7 +158,6 @@ object CanvasPlayerManager {
         }
         
         currentPlayer = null
-        currentPlayerView = null
         currentCanvasUrl = null
         currentMediaItemId = null
         isPlayerActive = false
@@ -202,12 +200,11 @@ object CanvasPlayerManager {
     
     // Function to ensure no controls are visible
     fun ensureNoControls() {
-        currentPlayerView?.let { playerView ->
+        currentPlayer?.let { player ->
+            val playerView = buildPlayerView(app.it.fast4x.rimusic.appContext(), player)
             playerView.useController = false
             playerView.hideController()
             playerView.setControllerAutoShow(false)
-            
-            // Double-check by setting touch listener to consume all events
             playerView.setOnTouchListener { _, _ -> true }
         }
     }

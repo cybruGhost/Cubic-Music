@@ -380,7 +380,7 @@ fun AlbumDetails(
 
                 itemsIndexed(
                     items = items,
-                    key = { _, song -> song.id }
+                    key = { index, song -> song.id.ifBlank { "album_song_$index" } }
                 ) { index, song ->
 
                     SwipeablePlaylistItem(
