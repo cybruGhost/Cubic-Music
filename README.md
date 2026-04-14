@@ -1,10 +1,6 @@
 ## Cubic Music
 ---
-IMPLEMENTING CROSSFADING
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/3a611dbc-8c0c-46cd-a9cd-726ce20142f9" width="600"/>
-</p>
 
 ---
 
