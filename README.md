@@ -3,7 +3,7 @@
 
 
 ---
-hope we will be back
+github getting on my nerves
 ## ❤️ Support the project❣️💓
 
 If you enjoy our work and want to support development, you can buy me a coffee ☕  
