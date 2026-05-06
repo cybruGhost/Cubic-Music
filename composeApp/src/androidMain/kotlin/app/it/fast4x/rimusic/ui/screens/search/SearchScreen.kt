@@ -47,6 +47,7 @@ import app.it.fast4x.rimusic.ui.styling.favoritesIcon
 import app.it.fast4x.rimusic.utils.Preference.enableVoiceInputKey
 import app.it.fast4x.rimusic.utils.SearchYoutubeEntity
 import app.it.fast4x.rimusic.utils.StartVoiceInput
+import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import kotlinx.coroutines.delay
@@ -67,6 +68,7 @@ fun SearchScreen(
     onDismiss: (() -> Unit)? = null,
 ) {
     val saveableStateHolder = rememberSaveableStateHolder()
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
     val (tabIndex, onTabChanged) = rememberSaveable {
         mutableStateOf(0)
@@ -414,7 +416,7 @@ fun SearchScreen(
                         navController = navController,
                         onDismiss = {},
                         query = textFieldValue.text,
-                        disableScrollingText = false
+                        disableScrollingText = disableScrollingText
                     )
                 }
             }
