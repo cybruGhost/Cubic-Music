@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -224,14 +225,40 @@ fun CommentsOverlay(
     var currentContinuation by remember { mutableStateOf<String?>(null) }
     var hasMoreComments by remember { mutableStateOf(true) }
     var isLoadingMore by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    
     // Pause rotation when user interacts with comments
     val isUserInteracting = selectedCommentId != null || expandedComments.isNotEmpty()
+
+    fun launchRotation() {
+        rotationJob?.cancel()
+        if (isVisible && comments.isNotEmpty() && isRotationRunning && !isUserInteracting) {
+            rotationJob = startRotation(
+                comments = comments,
+                currentIndex = currentIndex,
+                isRotationRunning = isRotationRunning,
+                isUserInteracting = isUserInteracting
+            ) { newIndex ->
+                currentIndex = newIndex.coerceIn(0, (comments.lastIndex).coerceAtLeast(0))
+            }
+        }
+    }
     
     // Load comments when overlay becomes visible
     LaunchedEffect(videoId, isVisible) {
-        if (isVisible && comments.isEmpty()) {
+        if (!isVisible) {
+            return@LaunchedEffect
+        }
+
+        comments = emptyList()
+        currentIndex = 0
+        selectedCommentId = null
+        expandedComments = emptySet()
+        currentContinuation = null
+        hasMoreComments = true
+        isLoadingMore = false
+
+        if (comments.isEmpty()) {
             isLoading = true
             errorMessage = null
             val response = fetchCommentsPage(videoId)
@@ -239,9 +266,8 @@ fun CommentsOverlay(
                 comments = response.comments
                 currentContinuation = response.continuation
                 hasMoreComments = response.continuation != null
-                startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
-                    currentIndex = newIndex
-                }
+                currentIndex = 0
+                launchRotation()
             } else {
                 errorMessage = "No comments available"
             }
@@ -253,31 +279,35 @@ fun CommentsOverlay(
     LaunchedEffect(isVisible, comments, isUserInteracting) {
         if (isVisible && comments.isNotEmpty()) {
             if (isRotationRunning && !isUserInteracting) {
-                rotationJob?.cancel()
-                startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
-                    currentIndex = newIndex
-                }
+                launchRotation()
             } else if (isUserInteracting) {
                 rotationJob?.cancel()
             }
         } else {
             rotationJob?.cancel()
             isRotationRunning = true
+            currentIndex = 0
             selectedCommentId = null
-            expandedComments = setOf()
+            expandedComments = emptySet()
         }
     }
     
     // Function to load more comments
-    val loadMoreComments = {
+    val loadMoreComments: (Boolean) -> Unit = { advanceToNewPage ->
         if (hasMoreComments && !isLoadingMore && currentContinuation != null) {
             isLoadingMore = true
-            CoroutineScope(Dispatchers.IO).launch {
+            scope.launch {
+                val oldCount = comments.size
                 val response = fetchCommentsPage(videoId, currentContinuation)
                 if (response.comments.isNotEmpty()) {
                     comments = comments + response.comments
                     currentContinuation = response.continuation
                     hasMoreComments = response.continuation != null
+                    if (advanceToNewPage) {
+                        currentIndex = oldCount.coerceAtMost(comments.lastIndex)
+                    }
+                } else {
+                    hasMoreComments = false
                 }
                 isLoadingMore = false
             }
@@ -374,16 +404,8 @@ fun CommentsOverlay(
                                 else Color.Transparent
                             )
                             .clickable {
-                                selectedCommentId = if (isSelected) null else currentComment.id
-                                // Pause rotation when user selects a comment
-                                if (!isSelected) {
-                                    rotationJob?.cancel()
-                                } else {
-                                    isRotationRunning = true
-                                    startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
-                                        currentIndex = newIndex
-                                    }
-                                }
+                                selectedCommentId = currentComment.id
+                                rotationJob?.cancel()
                             }
                     ) {
                         // Author info with profile picture
@@ -521,6 +543,7 @@ fun CommentsOverlay(
                                     onClick = {
                                         rotationJob?.cancel()
                                         isRotationRunning = false
+                                        selectedCommentId = comments.getOrNull((currentIndex - 1).coerceAtLeast(0))?.id
                                         if (currentIndex > 0) {
                                             currentIndex--
                                         }
@@ -571,9 +594,9 @@ fun CommentsOverlay(
                                         isRotationRunning = false
                                         if (currentIndex < comments.size - 1) {
                                             currentIndex++
+                                            selectedCommentId = comments.getOrNull(currentIndex)?.id
                                         } else if (hasMoreComments && !isLoadingMore) {
-                                            // Load more comments when reaching the end
-                                            loadMoreComments()
+                                            loadMoreComments(true)
                                         }
                                     },
                                     enabled = currentIndex < comments.size - 1 || (hasMoreComments && !isLoadingMore)
@@ -722,13 +745,10 @@ fun Thumbnail(
     showthumbnail: Boolean,
     modifier: Modifier = Modifier
 ) {
-    println("Thumbnail call")
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
     val player = binder?.player ?: return
     val displayedPlayerState = rememberDisplayedPlayerState(binder)
-
-    println("Thumbnail call after return")
 
     val (thumbnailSizeDp, thumbnailSizePx) = Dimensions.thumbnails.player.song.let {
         it to (it - 64.dp).px
@@ -960,7 +980,7 @@ fun Thumbnail(
                         onDismiss = {
                             onShowLyrics(false)
                         },
-                        ensureSongInserted = { Database.insertIgnore(currentDisplayedMediaItem) },
+                        ensureSongInserted = { insertIgnore(currentDisplayedMediaItem) },
                         size = thumbnailSizeDp,
                         mediaMetadataProvider = currentDisplayedMediaItem::mediaMetadata,
                         durationProvider = player::getDuration,

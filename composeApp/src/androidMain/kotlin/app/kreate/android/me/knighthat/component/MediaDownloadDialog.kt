@@ -8,6 +8,9 @@ import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.ConfirmDialog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @UnstableApi
 abstract class MediaDownloadDialog(
@@ -21,18 +24,21 @@ abstract class MediaDownloadDialog(
     abstract fun onAction( media: Song )
 
     override fun onConfirm() {
-        getSongs().forEach {
-            // binder has to be non-null for remove from cache to work
-            if( binder == null ) return
-            binder.cache.removeResource( it.id )
-
-            Database.asyncTransaction {
-                formatTable.deleteBySongId( it.id )
-            }
-
-            onAction( it )
-        }
-
+        val songs = getSongs()
         onDismiss()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            songs.forEach { song ->
+                // binder has to be non-null for remove from cache to work
+                val activeBinder = binder ?: return@launch
+                runCatching { activeBinder.cache.removeResource(song.id) }
+
+                Database.asyncTransaction {
+                    formatTable.deleteBySongId(song.id)
+                }
+
+                onAction(song)
+            }
+        }
     }
 }

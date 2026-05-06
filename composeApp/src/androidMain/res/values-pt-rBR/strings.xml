@@ -503,7 +503,7 @@
 <string name="info_reorder_is_possible_only_in_ascending_sort">Reorganizar é possível somente em ordem crescente</string>
 <string name="information">Informação</string>
 <string name="info_lyrics_found_on_s">Letras encontradas em %s</string>
-<string name="info_lyrics_not_found_on_s_try_on_s">Letras não encontradas em %s, tente em %s</string>
+<string name="info_lyrics_not_found_on_s_try_on_s">Letras não encontradas em %1$s, tente em %2$s</string>
 <string name="info_lyrics_not_found_on_s">Letras não encontradas em %s</string>
 <string name="info_lyrics_tracks_found_on_s">Músicas com letras encontradas em %s</string>
 <string name="info_lyrics_tracks_not_found_on_s">Músicas com letras não encontradas em %s</string>
@@ -1008,3 +1008,4 @@
     <string name="smart_recommendations_adaptive_description">Adaptive: Scales with playlist size (10-120 recommendations)</string>
     <string name="smart_recommendations_adaptive">Adaptive</string>
 </resources>
+

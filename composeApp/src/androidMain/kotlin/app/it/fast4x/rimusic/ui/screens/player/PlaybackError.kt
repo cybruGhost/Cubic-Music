@@ -58,6 +58,8 @@ fun playbackExceptionMessage(
     context: Context,
     error: PlaybackException,
     isLocal: Boolean,
+    isDownloaded: Boolean = false,
+    isNetworkAvailable: Boolean = true,
 ): String {
     val localMusicFileNotFoundError = context.getString(R.string.error_local_music_not_found)
     val playableFormatNotFoundError =
@@ -79,6 +81,9 @@ fun playbackExceptionMessage(
     }
 
     if (isLocal) return localMusicFileNotFoundError
+    if (!isNetworkAvailable && isDownloaded) {
+        return context.getString(R.string.downloaded_song_corrupt_offline_message)
+    }
 
     return when (deepestCause(error) ?: deepestCause(error.cause) ?: error.cause ?: error) {
         is PlayableFormatNotFoundException -> playableFormatNotFoundError

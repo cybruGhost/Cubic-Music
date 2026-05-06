@@ -35,13 +35,13 @@ class DeleteAllDownloadedSongsDialog(
     }
 
     override val messageId: Int = R.string.info_remove_all_downloaded_songs
-    override val iconId: Int = R.drawable.download
+    override val iconId: Int = R.drawable.trash
     override val dialogTitle: String
         @Composable
         get() = stringResource( R.string.do_you_really_want_to_delete_download)
     override val menuIconTitle: String
         @Composable
-        get() = stringResource( messageId )
+        get() = stringResource( R.string.delete_all_downloaded_songs )
 
     // Both [ConfirmDialog] and [Descriptive] require this function,
     // so it must be explicitly stated here to not confuse the compiler

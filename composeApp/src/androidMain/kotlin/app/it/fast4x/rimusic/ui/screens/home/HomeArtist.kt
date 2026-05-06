@@ -42,13 +42,14 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
 import app.it.fast4x.compose.persist.persistList
-import it.fast4x.innertube.YtMusic
 import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.ArtistsType
 import app.it.fast4x.rimusic.enums.FilterBy
 import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.UiType
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
 import app.it.fast4x.rimusic.models.Artist
 import app.it.fast4x.rimusic.ui.components.ButtonsRow
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
@@ -84,6 +85,7 @@ import kotlinx.coroutines.withContext
 import app.kreate.android.me.knighthat.component.Sort
 import app.kreate.android.me.knighthat.component.tab.Search
 import app.kreate.android.me.knighthat.component.tab.SongShuffler
+import app.kreate.android.me.knighthat.utils.Toaster
 
 @ExperimentalMaterial3Api
 @UnstableApi
@@ -158,11 +160,33 @@ fun HomeArtists(
     if (items.any{it.thumbnailUrl == null}) {
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO) {
+                val session = YouTubeSessionStore.applyCurrentSession()
                 items.filter { it.thumbnailUrl == null }.forEach { artist ->
                     coroutineScope.launch(Dispatchers.IO) {
-                        val artistThumbnail = YtMusic.getArtistPage(artist.id).getOrNull()?.artist?.thumbnail?.url
+                        val apiArtist = session
+                            ?.takeIf { it.cookie.isNotBlank() }
+                            ?.let {
+                                YtmSessionApi.fetchArtist(
+                                    cookies = it.cookie,
+                                    artistId = artist.id,
+                                    authUser = it.authUser.ifBlank { null },
+                                    pageId = it.pageId.ifBlank { null }
+                                ).getOrNull()
+                            }
+                            ?: YtmSessionApi.fetchArtist("", artist.id, guest = true).getOrNull()
+                        val artistThumbnail = apiArtist
+                            ?.thumbnailUrl
+                            ?.ifBlank { apiArtist.thumbnail }
+                            ?.takeIf { it.isNotBlank() }
                         Database.asyncTransaction {
-                            artistTable.update( artist.copy(thumbnailUrl = artistThumbnail) )
+                            if (artistThumbnail != null) {
+                                artistTable.update(
+                                    artist.copy(
+                                        name = artist.name ?: apiArtist?.name,
+                                        thumbnailUrl = artistThumbnail
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -170,19 +194,31 @@ fun HomeArtists(
         }
     }
 
-    val sync = autoSyncToolbutton(R.string.autosync_channels)
-
     val doAutoSync by rememberPreference(autosyncKey, false)
     var justSynced by rememberSaveable { mutableStateOf(!doAutoSync) }
 
     var refreshing by remember { mutableStateOf(false) }
     val refreshScope = rememberCoroutineScope()
 
+    val sync = autoSyncToolbutton(R.string.autosync_channels) {
+        refreshScope.launch(Dispatchers.IO) {
+            refreshing = true
+            justSynced = false
+            val synced = importYTMSubscribedChannels()
+            justSynced = synced
+            if (!synced) Toaster.i("No new YouTube Music artists were synced")
+            delay(500)
+            refreshing = false
+        }
+    }
+
     fun refresh() {
         if (refreshing) return
         refreshScope.launch(Dispatchers.IO) {
             refreshing = true
             justSynced = false
+            importYTMSubscribedChannels()
+            justSynced = true
             delay(500)
             refreshing = false
         }

@@ -210,6 +210,10 @@ object Database {
                     .also( songArtistMapTable::insertIgnore )
     }
 
+    fun insertIgnoreAsync(mediaItem: MediaItem) = asyncTransaction {
+        insertIgnore(mediaItem)
+    }
+
     /**
      * Attempt to map [Song] to [Album].
      *

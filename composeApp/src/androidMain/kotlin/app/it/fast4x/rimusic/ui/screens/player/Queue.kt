@@ -128,14 +128,30 @@ fun Queue(
        var items by remember(player.currentTimeline) {
             mutableStateOf(player.currentTimeline.mediaItems.map( MediaItem::asSong ))
         }
+        var currentMediaId by remember { mutableStateOf(player.currentMediaItem?.mediaId.orEmpty()) }
         player.DisposableListener {
             object : Player.Listener {
                 override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                     items = player.currentTimeline.mediaItems.map( MediaItem::asSong )
                 }
+
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    currentMediaId = mediaItem?.mediaId.orEmpty()
+                }
+
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int
+                ) {
+                    currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
+                }
             }
         }
         var itemsOnDisplay by persistList<Song>( "queue/on_display" )
+        val nowPlayingSong by remember(items, currentMediaId) {
+            derivedStateOf { items.firstOrNull { it.id == currentMediaId } }
+        }
 
         val lazyListState = rememberLazyListState()
         val reorderingState = rememberReorderingState(
@@ -165,6 +181,9 @@ fun Queue(
                     val containsArtist = it.cleanArtistsText().contains( search.inputValue, true )
 
                     containsTitle || containsArtist
+                }
+                .filterNot { song ->
+                    nowPlayingSong?.id == song.id
                 }
                 .let { itemsOnDisplay = it }
         }
@@ -231,6 +250,43 @@ fun Queue(
                                    )
 
             ) {
+                nowPlayingSong?.let { song ->
+                    item(key = "now_playing_pinned_${song.id}") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            BasicText(
+                                text = "Now playing",
+                                style = TextStyle(
+                                    color = colorPalette().textSecondary,
+                                    fontStyle = typography().s.fontStyle
+                                ),
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                            SongItem(
+                                song = song,
+                                itemSelector = itemSelector,
+                                navController = navController,
+                                trailingContent = { Box(Modifier.width(24.dp)) },
+                                onClick = {
+                                    if (player.isNowPlaying(song.id)) {
+                                        if (player.shouldBePlaying) player.pause() else player.play()
+                                    } else {
+                                        val actualIndex = player.findMediaItemIndexById(song.id)
+                                        if (actualIndex >= 0) {
+                                            player.seekToDefaultPosition(actualIndex)
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                        }
+                                    }
+                                    search.hideIfEmpty()
+                                }
+                            )
+                        }
+                    }
+                }
                 itemsIndexed(
                     items = itemsOnDisplay,
                   key = { index, song -> "${song.id}-$index" }
@@ -331,9 +387,12 @@ fun Queue(
                                         else
                                             player.play()
                                     } else {
-                                        player.seekToDefaultPosition(index)
-                                        player.prepare()
-                                        player.playWhenReady = true
+                                        val actualIndex = player.findMediaItemIndexById(song.id)
+                                        if (actualIndex >= 0) {
+                                            player.seekToDefaultPosition(actualIndex)
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                        }
                                     }
 
                                     /*

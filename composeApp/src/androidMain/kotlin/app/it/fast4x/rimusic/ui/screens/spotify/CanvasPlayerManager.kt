@@ -1,6 +1,8 @@
 package app.it.fast4x.rimusic.ui.screens.spotify
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -16,9 +18,14 @@ object CanvasPlayerManager {
     private var currentMediaItemId: String? = null
     private var isPlayerActive = false
     private var lastSetupTime = 0L
+    private val releaseHandler = Handler(Looper.getMainLooper())
+    private var pendingReleaseRunnable: Runnable? = null
+    private var releaseGeneration = 0L
     
     // Memory optimization
-    private const val PLAYER_RECYCLE_THRESHOLD = 2000L // Reduced for faster switching
+    private const val PLAYER_RECYCLE_THRESHOLD = 30_000L
+    private const val NORMAL_RELEASE_DELAY_MS = 8_000L
+    private const val NEW_SONG_RELEASE_DELAY_MS = 1_300L
     
     fun getCurrentCanvasUrl(): String? = currentCanvasUrl
     fun getCurrentMediaItemId(): String? = currentMediaItemId
@@ -33,6 +40,7 @@ object CanvasPlayerManager {
         isPlaying: Boolean,
         mediaItemId: String? = null
     ): PlayerView {
+        cancelPendingRelease()
         val now = System.currentTimeMillis()
         
         // Check if we can reuse existing player (same media and within threshold)
@@ -44,8 +52,13 @@ object CanvasPlayerManager {
         
         if (shouldReuse && currentPlayer != null) {
             Timber.d("CanvasPlayer: Reusing player for mediaId: ${mediaItemId?.take(8)}")
+            currentPlayer?.repeatMode = Player.REPEAT_MODE_ONE
             currentPlayer?.playWhenReady = isPlaying
-            currentPlayer?.repeatMode = if (isPlaying) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            if (isPlaying) {
+                currentPlayer?.play()
+            } else {
+                currentPlayer?.pause()
+            }
             return buildPlayerView(context, currentPlayer!!)
         }
         
@@ -68,8 +81,9 @@ object CanvasPlayerManager {
         
         player.setMediaItem(mediaItem)
         player.playWhenReady = isPlaying
+        player.volume = 0f
         player.videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-        player.repeatMode = if (isPlaying) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        player.repeatMode = Player.REPEAT_MODE_ONE
         
         // Error listener
         player.addListener(object : Player.Listener {
@@ -91,7 +105,9 @@ object CanvasPlayerManager {
 
         // Prepare but don't auto-start if not playing
         player.prepare()
-        if (!isPlaying) {
+        if (isPlaying) {
+            player.play()
+        } else {
             player.pause()
         }
 
@@ -107,62 +123,25 @@ object CanvasPlayerManager {
     }
 
     private fun buildPlayerView(context: Context, player: ExoPlayer): PlayerView {
-        val playerView = PlayerView(context).apply {
-            this.player = player
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            useController = false  // Disable all controls
-            setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)  // Don't show buffering
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            
-            // Disable all touch controls
-            setControllerAutoShow(false)  // Don't auto-show controller
-            setControllerHideOnTouch(false)  // Don't hide on touch
-            hideController()  // Ensure controller is hidden
-            
-            // For older ExoPlayer versions, we need to hide individual UI elements differently
-            // The following are safe methods that exist in all versions
-            
-            // IMPORTANT: Also override dispatchTouchEvent to prevent any touch handling
-            // This ensures no controls can appear even if user taps
-        }
-        
+        val playerView = PlayerView(context)
+        configurePlayerView(playerView, player)
         playerView.setOnTouchListener { _, _ ->
             true
         }
 
         return playerView
     }
+
+    fun bindPlayerView(playerView: PlayerView) {
+        configurePlayerView(playerView, currentPlayer)
+    }
     
     fun stopAndClear() {
-        Timber.d("CanvasPlayer: Stopping and clearing player")
-        
-        currentPlayer?.let { player ->
-            player.stop()
-            player.release()
-        }
-        
-        currentPlayer = null
-        currentCanvasUrl = null
-        currentMediaItemId = null
-        isPlayerActive = false
-        
-        Timber.d("CanvasPlayer: Cleanup complete")
+        scheduleRelease("CanvasPlayer: Stopping and clearing player", NORMAL_RELEASE_DELAY_MS)
     }
     
     fun stopAndClearForNewSong() {
-        Timber.d("CanvasPlayer: Clearing player for new song")
-        
-        currentPlayer?.let { player ->
-            player.stop()
-            player.release()
-        }
-        
-        currentPlayer = null
-        currentCanvasUrl = null
-        currentMediaItemId = null
-        isPlayerActive = false
-        
-        Timber.d("CanvasPlayer: Ready for new song")
+        scheduleRelease("CanvasPlayer: Clearing player for new song", NEW_SONG_RELEASE_DELAY_MS)
     }
     
     fun releasePlayer() {
@@ -172,7 +151,7 @@ object CanvasPlayerManager {
     fun updatePlayState(isPlaying: Boolean) {
         currentPlayer?.let { player ->
             player.playWhenReady = isPlaying
-            player.repeatMode = if (isPlaying) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            player.repeatMode = Player.REPEAT_MODE_ONE
             
             if (isPlaying && !player.isPlaying) {
                 player.play()
@@ -190,11 +169,21 @@ object CanvasPlayerManager {
             Timber.d("CanvasPlayer: Loop stopped")
         }
     }
+
+    fun pauseKeepingState() {
+        currentPlayer?.pause()
+        isPlayerActive = currentPlayer != null
+    }
     
     fun isActive(): Boolean = isPlayerActive
     
     fun forceCleanup() {
-        stopAndClear()
+        cancelPendingRelease()
+        performRelease(currentPlayer)
+        currentPlayer = null
+        currentCanvasUrl = null
+        currentMediaItemId = null
+        isPlayerActive = false
         Timber.d("CanvasPlayer: Force cleanup complete")
     }
     
@@ -206,6 +195,67 @@ object CanvasPlayerManager {
             playerView.hideController()
             playerView.setControllerAutoShow(false)
             playerView.setOnTouchListener { _, _ -> true }
+        }
+    }
+
+    private fun scheduleRelease(logMessage: String, delayMs: Long) {
+        Timber.d(logMessage)
+        cancelPendingRelease()
+
+        val playerToRelease = currentPlayer
+        if (playerToRelease == null) {
+            currentCanvasUrl = null
+            currentMediaItemId = null
+            isPlayerActive = false
+            return
+        }
+
+        currentPlayer = null
+        currentCanvasUrl = null
+        currentMediaItemId = null
+        isPlayerActive = false
+
+        val generation = ++releaseGeneration
+        pendingReleaseRunnable = Runnable {
+            if (generation != releaseGeneration) {
+                return@Runnable
+            }
+            runCatching {
+                performRelease(playerToRelease)
+            }.onFailure {
+                Timber.w(it, "CanvasPlayer: delayed release failed")
+            }
+            pendingReleaseRunnable = null
+            Timber.d("CanvasPlayer: Cleanup complete")
+        }.also { releaseHandler.postDelayed(it, delayMs) }
+    }
+
+    private fun cancelPendingRelease() {
+        pendingReleaseRunnable?.let(releaseHandler::removeCallbacks)
+        pendingReleaseRunnable = null
+        releaseGeneration++
+    }
+
+    private fun configurePlayerView(playerView: PlayerView, player: ExoPlayer?) {
+        playerView.player = player
+        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        playerView.useController = false
+        playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+        playerView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        playerView.setControllerAutoShow(false)
+        playerView.setControllerHideOnTouch(false)
+        playerView.hideController()
+    }
+
+    private fun performRelease(player: ExoPlayer?) {
+        player ?: return
+        runCatching {
+            player.pause()
+            player.clearMediaItems()
+            player.clearVideoSurface()
+            player.release()
+        }.onFailure {
+            Timber.w(it, "CanvasPlayer: release failed")
         }
     }
 }

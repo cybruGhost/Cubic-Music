@@ -74,6 +74,31 @@ private fun blacklistedPaths( context: Context ): Set<String> {
         emptySet()
 }
 
+private fun normalizeDeviceDirectory(path: String?): String {
+    val sanitizedPath = path
+        ?.replace('\\', '/')
+        ?.trim()
+        ?.trim('/')
+        .orEmpty()
+
+    if (sanitizedPath.isBlank()) return PathUtils.INTERNAL_STORAGE_ROOT
+
+    return if (isAtLeastAndroid10) {
+        listOf(PathUtils.INTERNAL_STORAGE_ROOT, sanitizedPath)
+            .filter { it.isNotBlank() }
+            .joinToString("/")
+    } else {
+        val parentDirectory = File(sanitizedPath).parent
+            ?.replace('\\', '/')
+            ?.substringAfter("/storage/emulated/0/", "")
+            ?.trim('/')
+            .orEmpty()
+
+        if (parentDirectory.isBlank()) PathUtils.INTERNAL_STORAGE_ROOT
+        else "${PathUtils.INTERNAL_STORAGE_ROOT}/$parentDirectory"
+    }
+}
+
 fun Context.getLocalSongs(
     sortBy: OnDeviceSongSortBy,
     sortOrder: SortOrder
@@ -107,10 +132,7 @@ fun Context.getLocalSongs(
         val dateModifiedColumn = cursor.getColumnIndex( MediaStore.Audio.Media.DATE_MODIFIED )
 
         while( cursor.moveToNext() ) {
-            val relPath = cursor.getString( pathColumn ).apply {
-                // Absolute paths always start with '/'
-                if( !isAtLeastAndroid10 ) substringAfterLast( "/" )
-            }
+            val relPath = normalizeDeviceDirectory(cursor.getString(pathColumn))
             if( blacklistedPaths.contains( relPath ) ) continue
 
             // Nullable so SongItem can display "✨"

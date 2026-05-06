@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">並べ替えは昇順のソートでのみ可能です</string>
   <string name="information">情報</string>
   <string name="info_lyrics_found_on_s">%1$s で歌詞を発見</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">%1$s に歌詞なし。%s をお試しください</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">%1$s に歌詞なし。%2$s をお試しください</string>
   <string name="info_lyrics_not_found_on_s">%1$s に歌詞なし</string>
   <string name="info_lyrics_tracks_found_on_s">%1$s で歌詞トラックを発見</string>
   <string name="info_lyrics_tracks_not_found_on_s">%1$s に歌詞トラックなし</string>
@@ -1055,3 +1055,5 @@
   <string name="cache_status">キャッシュの状態</string>
   <string name="cache_empty">キャッシュが空です</string>
 </resources>
+
+

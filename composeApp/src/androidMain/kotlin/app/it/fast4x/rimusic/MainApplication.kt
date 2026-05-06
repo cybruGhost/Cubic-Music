@@ -9,6 +9,7 @@ import coil3.SingletonImageLoader
 import coil3.ImageLoader
 
 import app.kreate.android.R
+import app.it.fast4x.rimusic.notifications.AppAnnouncementNotifier
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.service.MyDownloadHelper
 import app.it.fast4x.rimusic.utils.CaptureCrash
@@ -54,6 +55,8 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
             Timber.plant(Timber.DebugTree())
         }
         /**** LOG *********/
+
+        AppAnnouncementNotifier.maybeShow(this)
     }
 
     private fun createNotificationChannels() {
@@ -90,7 +93,18 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
                 setShowBadge(false)
             }
 
-            notificationManager.createNotificationChannels(listOf(playerChannel, sleepTimerChannel, downloadChannel))
+            val announcementChannel = NotificationChannel(
+                AppAnnouncementNotifier.CHANNEL_ID,
+                applicationContext.getString(R.string.app_announcements_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = applicationContext.getString(R.string.app_announcements_channel_description)
+                setShowBadge(true)
+            }
+
+            notificationManager.createNotificationChannels(
+                listOf(playerChannel, sleepTimerChannel, downloadChannel, announcementChannel)
+            )
         }
     }
 

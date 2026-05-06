@@ -30,6 +30,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -96,9 +97,28 @@ fun SettingsScreen(
 ) {
     //val context = LocalContext.current
     val saveableStateHolder = rememberSaveableStateHolder()
+    val requestedTabIndex = navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.get<Int>("settings_tab_index")
+        ?: navController.previousBackStackEntry
+            ?.savedStateHandle
+            ?.get<Int>("settings_tab_index")
+        ?: 0
 
     val (tabIndex, onTabChanged) = rememberSaveable {
-        mutableIntStateOf(0)
+        mutableIntStateOf(requestedTabIndex)
+    }
+
+    androidx.compose.runtime.LaunchedEffect(requestedTabIndex) {
+        if (requestedTabIndex != tabIndex) {
+            onTabChanged(requestedTabIndex)
+        }
+        navController.currentBackStackEntry
+            ?.savedStateHandle
+            ?.remove<Int>("settings_tab_index")
+        navController.previousBackStackEntry
+            ?.savedStateHandle
+            ?.remove<Int>("settings_tab_index")
     }
 
     Skeleton(

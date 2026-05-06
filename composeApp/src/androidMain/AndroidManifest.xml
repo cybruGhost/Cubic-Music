@@ -147,6 +147,13 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <activity
+            android:name="app.it.fast4x.rimusic.RescueCenterActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.RiMusic" />
+
         <receiver android:name=".widget.VerticalWidgetReceiver"
             android:exported="true">
             <intent-filter>
@@ -165,19 +172,39 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/player_horizontal_widget_info" />
         </receiver>
+        <receiver android:name=".widget.RescueWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/rescue_widget_info" />
+        </receiver>
+        <receiver
+    android:name=".widget.WidgetActionReceiver"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="it.fast4x.rimusic.play" />
+        <action android:name="it.fast4x.rimusic.pause" />
+        <action android:name="it.fast4x.rimusic.next" />
+        <action android:name="it.fast4x.rimusic.previous" />
+    </intent-filter>
+</receiver>
 
         <!-- NEW PLAYER SERVICE -->
-        <service
-            android:name="app.it.fast4x.rimusic.service.modern.PlayerServiceModern"
-            android:exported="true"
-            android:foregroundServiceType="mediaPlayback"
-            tools:ignore="ExportedService">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
-                <action android:name="androidx.media3.session.MediaLibraryService" />
-                <action android:name="android.media.browse.MediaBrowserService" />
-            </intent-filter>
-        </service>
+   <service
+    android:name="app.it.fast4x.rimusic.service.modern.PlayerServiceModern"
+    android:exported="true"
+    android:foregroundServiceType="mediaPlayback"
+    android:stopWithTask="false"
+    tools:ignore="ExportedService">
+    <intent-filter>
+        <action android:name="androidx.media3.session.MediaSessionService" />
+        <action android:name="androidx.media3.session.MediaLibraryService" />
+        <action android:name="android.media.browse.MediaBrowserService" />
+    </intent-filter>
+</service>
 
         <receiver android:name="androidx.media3.session.MediaButtonReceiver"
             android:exported="true">
@@ -225,5 +252,6 @@
 
         <meta-data android:name="com.google.android.gms.car.notification.SmallIcon"
             android:resource="@drawable/ic_launcher" />
+
     </application>
 </manifest>

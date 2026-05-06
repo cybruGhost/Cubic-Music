@@ -23,6 +23,7 @@ enum class NavRoutes {
     playlist,
     queue,
     search,
+    find,
     searchResults,
     spotifyLogin,
     browse,

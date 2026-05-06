@@ -1,12 +1,9 @@
 package app.it.fast4x.rimusic.service
 
-import android.app.Notification
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.media3.common.util.NotificationUtil
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
@@ -31,15 +28,6 @@ class MyDownloadService : DownloadService(
         // This will only happen once, because getDownloadManager is guaranteed to be called only once
         // in the life cycle of the process.
         val downloadManager: DownloadManager = MyDownloadHelper.getDownloadManager(this)
-        val downloadNotificationHelper: DownloadNotificationHelper =
-            MyDownloadHelper.getDownloadNotificationHelper(this)
-        downloadManager.addListener(
-            TerminalStateNotificationHelper(
-                this,
-                downloadNotificationHelper,
-                FOREGROUND_NOTIFICATION_ID + 1
-            )
-        )
         return downloadManager
     }
 
@@ -76,50 +64,4 @@ class MyDownloadService : DownloadService(
         )
         */
         .build()
-
-    /**
-     * Creates and displays notifications for downloads when they complete or fail.
-     *
-     *
-     * This helper will outlive the lifespan of a single instance of [MyDownloadService].
-     * It is static to avoid leaking the first [MyDownloadService] instance.
-     */
-    private class TerminalStateNotificationHelper(
-        private val context: Context,
-        private val notificationHelper: DownloadNotificationHelper,
-        firstNotificationId: Int
-    ) : DownloadManager.Listener {
-        private var nextNotificationId: Int = firstNotificationId
-
-        override fun onDownloadChanged(
-            downloadManager: DownloadManager,
-            download: Download,
-            finalException: Exception?
-        ) {
-            val notification: Notification = when (download.state) {
-                Download.STATE_COMPLETED -> {
-                    notificationHelper.buildDownloadCompletedNotification(
-                        context,
-                        R.drawable.downloaded,
-                        null,
-                        Util.fromUtf8Bytes(download.request.data)
-                    )
-                }
-                Download.STATE_FAILED -> {
-                    notificationHelper.buildDownloadFailedNotification(
-                        context,
-                        R.drawable.alert_circle_not_filled,
-                        null,
-                        Util.fromUtf8Bytes(download.request.data)
-                    )
-                }
-                else -> return
-            }
-            NotificationUtil.setNotification(context, nextNotificationId++, notification)
-
-        }
-
-
-    }
-
 }

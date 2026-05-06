@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Omsortering er bare mulig i stigende sortering</string>
   <string name="information">Informasjon</string>
   <string name="info_lyrics_found_on_s">Sangtekster funnet på %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Sangtekster ikke funnet på %s, prøv på %s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Sangtekster ikke funnet på %1$s, prøv på %2$s</string>
   <string name="info_lyrics_not_found_on_s">Sangtekster ikke funnet på %s</string>
   <string name="info_lyrics_tracks_found_on_s">Sangtekster funnet på %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Sangtekster ikke funnet på %s</string>
@@ -1055,3 +1055,5 @@
   <string name="cache_status">Mellomlager status</string>
   <string name="cache_empty">Cachen er tom</string>
 </resources>
+
+

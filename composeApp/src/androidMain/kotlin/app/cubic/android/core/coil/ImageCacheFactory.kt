@@ -30,7 +30,6 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
-import coil3.request.crossfade
 import coil3.request.SuccessResult
 import coil3.toBitmap
 import it.fast4x.innertube.models.Thumbnail
@@ -40,6 +39,7 @@ import app.it.fast4x.rimusic.enums.ExoPlayerCacheLocation
 import app.it.fast4x.rimusic.enums.ImageQualityFormat
 import app.it.fast4x.rimusic.thumbnailShape
 import app.cubic.android.core.network.isNetworkAvailable
+import app.cubic.android.core.network.isNetworkConnected
 import app.cubic.android.core.network.NetworkQualityHelper
 // import app.cubic.android.core.network.GlobalNetworkLogger
 import app.cubic.android.core.network.enum.NetworkQuality as cubicNetworkQuality
@@ -94,7 +94,7 @@ object ImageCacheFactory {
 
     data class DownloadDecision(val useNetwork: Boolean, val quality: NetworkQuality)
 
-    private const val COOLDOWN_MS = 10 * 1000L
+    private const val COOLDOWN_MS = 2_500L
     private val cooldownMap = ConcurrentHashMap<String, Long>()
     private val cacheKeyMap = ConcurrentHashMap<String, String>()
     private val storeVersion = MutableStateFlow(0)
@@ -188,7 +188,6 @@ object ImageCacheFactory {
 
     val LOADER: ImageLoader by lazy {
         ImageLoader.Builder(appContext())
-            .crossfade(true)
             .memoryCache { MemoryCache.Builder().maxSizePercent(appContext(), 0.15).strongReferencesEnabled(true).build() }
             .diskCache(DISK_CACHE)
             .components {
@@ -300,31 +299,47 @@ object ImageCacheFactory {
         }
 
         val decision = getDownloadDecision(validUrl)
+        val networkConnected = appContext().isNetworkConnected
         val networkAvailable = appContext().isNetworkAvailable
-        if (!decision.useNetwork && hasCachedImage(validUrl, decision.quality)) {
-            return ResolvedImageSource(
-                url = validUrl,
-                quality = decision.quality,
-                useNetwork = false,
-            )
-        }
-        if (networkAvailable) {
-            return ResolvedImageSource(
-                url = validUrl.thumbnail(decision.quality.size),
-                quality = decision.quality,
-                useNetwork = decision.useNetwork,
-            )
-        }
-
         val cachedSource = cachedVariantCandidates(validUrl, decision.quality)
             .firstOrNull { (candidateUrl, candidateQuality) ->
                 hasCachedImage(candidateUrl, candidateQuality)
             }
 
+        if (!decision.useNetwork) {
+            return if (cachedSource != null) {
+                ResolvedImageSource(
+                    url = cachedSource.first,
+                    quality = cachedSource.second,
+                    useNetwork = false,
+                )
+            } else {
+                ResolvedImageSource(
+                    url = validUrl.thumbnail(decision.quality.size),
+                    quality = decision.quality,
+                    useNetwork = false,
+                )
+            }
+        }
+
+        if (networkConnected) {
+            return ResolvedImageSource(
+                url = validUrl.thumbnail(decision.quality.size),
+                quality = decision.quality,
+                useNetwork = true,
+            )
+        }
+
         return if (cachedSource != null) {
             ResolvedImageSource(
                 url = cachedSource.first,
                 quality = cachedSource.second,
+                useNetwork = false,
+            )
+        } else if (networkAvailable) {
+            ResolvedImageSource(
+                url = validUrl,
+                quality = NetworkQuality.LOW,
                 useNetwork = false,
             )
         } else {
@@ -376,6 +391,10 @@ object ImageCacheFactory {
     fun getDownloadDecision(thumbnailUrl: String?): DownloadDecision {
         if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") {
             return DownloadDecision(false, NetworkQuality.LOW)
+        }
+
+        if (!appContext().isNetworkConnected) {
+            return DownloadDecision(false, CacheMetadataStore.get(thumbnailUrl) ?: getNetworkQuality())
         }
         
         val lastAttempt = cooldownMap[thumbnailUrl]

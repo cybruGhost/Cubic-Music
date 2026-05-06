@@ -6,24 +6,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.util.UnstableApi
-import app.kreate.android.R
+import app.cubic.android.core.network.isNetworkAvailable
+import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.appContext
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.service.MyDownloadHelper
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
+import app.it.fast4x.rimusic.service.modern.isLocal
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.it.fast4x.rimusic.utils.asMediaItem
-import app.cubic.android.core.network.isNetworkAvailable
+import app.kreate.android.R
 import app.kreate.android.me.knighthat.component.MediaDownloadDialog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @UnstableApi
 class DownloadAllSongsDialog(
     activeState: MutableState<Boolean>,
     getSongs: () -> List<Song>,
-    binder: PlayerServiceModern.Binder?
-) : MediaDownloadDialog(activeState, getSongs, binder), MenuIcon, Descriptive {
+    private val activeBinder: PlayerServiceModern.Binder?
+) : MediaDownloadDialog(activeState, getSongs, activeBinder), MenuIcon, Descriptive {
 
     companion object {
         @Composable
@@ -38,21 +45,51 @@ class DownloadAllSongsDialog(
 
     override val messageId: Int = R.string.info_download_all_songs
     override val iconId: Int = R.drawable.downloaded
+
     override val dialogTitle: String
         @Composable
-        get() = stringResource( R.string.do_you_really_want_to_download_all )
+        get() = stringResource(R.string.do_you_really_want_to_download_all)
+
     override val menuIconTitle: String
         @Composable
-        get() = stringResource( R.string.download )
+        get() = stringResource(R.string.download)
 
-    // Both [Confirm] and [Descriptive] require this function,
-    // so it must be explicitly stated here to not confuse the compiler
     override fun onShortClick() = super.onShortClick()
 
-    override fun onAction( media: Song ) {
-        // Starts download only when network is available
-        if( appContext().isNetworkAvailable )
-            MyDownloadHelper.addDownload( appContext(), media.asMediaItem )
+    override fun onConfirm() {
+        val songsToDownload = getSongs()
+            .distinctBy(Song::id)
+            .filterNot(Song::isLocal)
+
+        if (songsToDownload.isEmpty()) {
+            onDismiss()
+            return
+        }
+
+        MyDownloadHelper.startBulkDownloadSession(songsToDownload.map(Song::id))
+        onDismiss()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            if (!appContext().isNetworkAvailable) return@launch
+
+            songsToDownload.forEachIndexed { index, song ->
+                runCatching { activeBinder?.cache?.removeResource(song.id) }
+                Database.asyncTransaction {
+                    formatTable.deleteBySongId(song.id)
+                }
+
+                withContext(Dispatchers.Main) {
+                    MyDownloadHelper.addDownload(appContext(), song.asMediaItem)
+                }
+
+                if ((index + 1) % 5 == 0) delay(50)
+            }
+        }
+    }
+
+    override fun onAction(media: Song) {
+        if (appContext().isNetworkAvailable) {
+            MyDownloadHelper.addDownload(appContext(), media.asMediaItem)
+        }
     }
 }
-

@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerDefaults.windowInsets
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Text
@@ -82,12 +84,13 @@ fun PlaylistScreen(
     onAlbumClick: (String) -> Unit,
     onClosePage: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
     //val leftScrollState = rememberScrollState()
     //val rightScrollState = rememberScrollState()
-    var playlistPage by remember { mutableStateOf<Innertube.PlaylistOrAlbumPage?>(null) }
-    var playlistSongs by remember { mutableStateOf<List<Innertube.SongItem?>>(emptyList()) }
+    var playlistPage by remember(browseId) { mutableStateOf<Innertube.PlaylistOrAlbumPage?>(null) }
+    var playlistSongs by remember(browseId) { mutableStateOf<List<Innertube.SongItem?>>(emptyList()) }
     val parentalControlEnabled by remember{ mutableStateOf(false)}
-    LaunchedEffect(Unit) {
+    LaunchedEffect(browseId) {
         if (playlistPage != null && playlistPage!!.songsPage?.continuation == null) return@LaunchedEffect
 
         playlistPage = withContext(Dispatchers.IO) {
@@ -123,14 +126,13 @@ fun PlaylistScreen(
             verticalAlignment = Alignment.Top,
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
             Column(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .fillMaxHeight()
                     .fillMaxWidth(0.5f)
-                    //.verticalScroll(leftScrollState)
             ) {
                 /*
                 ExpandIcon(
@@ -290,10 +292,8 @@ fun PlaylistScreen(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .fillMaxHeight()
-                    //.fillMaxWidth(0.5f)
-                    .fillMaxSize()
-                    //.verticalScroll(rightScrollState)
+                    .fillMaxWidth()
+                    .padding(start = 16.dp)
             ) {
 
                 if (playlistPage != null) {
@@ -306,7 +306,7 @@ fun PlaylistScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title(
@@ -356,7 +356,7 @@ fun PlaylistScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title(

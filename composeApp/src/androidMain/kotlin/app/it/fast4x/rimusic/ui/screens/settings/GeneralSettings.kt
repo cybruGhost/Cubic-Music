@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import app.kreate.android.service.PlaybackSourceKind
+import app.kreate.android.service.PlaybackSourceMonitor
 import app.kreate.android.R
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.colorPalette
@@ -94,8 +97,6 @@ import app.it.fast4x.rimusic.utils.customThemeLight_accentKey
 import app.it.fast4x.rimusic.utils.customThemeLight_iconButtonPlayerKey
 import app.it.fast4x.rimusic.utils.customThemeLight_textDisabledKey
 import app.it.fast4x.rimusic.utils.customThemeLight_textSecondaryKey
-import app.it.fast4x.rimusic.utils.crossfadeDurationSecondsKey
-import app.it.fast4x.rimusic.utils.crossfadeEnabledKey
 import app.it.fast4x.rimusic.utils.disableClosingPlayerSwipingDownKey
 import app.it.fast4x.rimusic.utils.discoverKey
 import app.it.fast4x.rimusic.utils.enablePictureInPictureAutoKey
@@ -114,6 +115,7 @@ import app.it.fast4x.rimusic.utils.maxSongsInQueueKey
 import app.it.fast4x.rimusic.utils.minimumSilenceDurationKey
 import app.it.fast4x.rimusic.utils.navigationBarPositionKey
 import app.it.fast4x.rimusic.utils.navigationBarTypeKey
+import app.it.fast4x.rimusic.utils.newReleaseNotificationsEnabledKey
 import app.it.fast4x.rimusic.utils.notificationTypeKey
 import app.it.fast4x.rimusic.utils.nowPlayingIndicatorKey
 import app.it.fast4x.rimusic.utils.pauseBetweenSongsKey
@@ -127,6 +129,7 @@ import app.it.fast4x.rimusic.utils.resumePlaybackOnStartKey
 import app.it.fast4x.rimusic.utils.resumePlaybackWhenDeviceConnectedKey
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.shakeEventEnabledKey
+import app.it.fast4x.rimusic.utils.showLyricsSourceSwitcherKey
 import app.it.fast4x.rimusic.utils.skipMediaOnErrorKey
 import app.it.fast4x.rimusic.utils.skipSilenceKey
 import app.it.fast4x.rimusic.utils.useVolumeKeysToChangeSongKey
@@ -221,8 +224,6 @@ fun GeneralSettings(
     var resetCustomDarkThemeDialog  by rememberSaveable { mutableStateOf(false) }
 
     var playbackFadeAudioDuration    by rememberPreference(playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled)
-    var crossfadeEnabled             by rememberPreference(crossfadeEnabledKey, false)
-    var crossfadeDurationSeconds     by rememberPreference(crossfadeDurationSecondsKey, 21)
     var excludeSongWithDurationLimit by rememberPreference(excludeSongsWithDurationLimitKey, DurationInMinutes.Disabled)
     var playlistindicator            by rememberPreference(playlistindicatorKey, false)
     var nowPlayingIndicator          by rememberPreference(nowPlayingIndicatorKey, MusicAnimationType.Bubbles)
@@ -245,6 +246,7 @@ fun GeneralSettings(
     var pipModule              by rememberPreference(pipModuleKey, PipModule.Cover)
     var jumpPrevious           by rememberPreference(jumpPreviousKey, "3")
     var notificationType       by rememberPreference(notificationTypeKey, NotificationType.Default)
+    var newReleaseNotificationsEnabled by rememberPreference(newReleaseNotificationsEnabledKey, false)
     var showCommentsButton     by rememberPreference("show_comments_button", true)
 
     Column(
@@ -352,65 +354,22 @@ fun GeneralSettings(
                             onDismiss       = { showLanguageDialog = false }
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    DebugRescueCenterLauncher(
+                        onOpenDebugSettings = {
+                            navController.currentBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("settings_tab_index", 7)
+                            navController.navigate(app.it.fast4x.rimusic.enums.NavRoutes.settings.name)
+                        }
+                    )
                 }
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        val crossfadePresets = remember { listOf(8, 12, 15, 18, 21, 24, 30) }
-        AnimatedVisibility(
-            visible = search.inputValue.isBlank() ||
-                stringResource(R.string.crossfade_title).contains(search.inputValue, true) ||
-                stringResource(R.string.crossfade_duration_title).contains(search.inputValue, true),
-            enter = androidx.compose.animation.fadeIn(animationSpec = tween(660)) +
-                androidx.compose.animation.scaleIn(animationSpec = tween(660), initialScale = 0.9f)
-        ) {
-            SettingsSectionCard(
-                title = stringResource(R.string.crossfade_title),
-                icon = R.drawable.volume_up,
-                content = {
-                    OtherSwitchSettingEntry(
-                        title = stringResource(R.string.crossfade_title),
-                        text = stringResource(R.string.crossfade_description),
-                        isChecked = crossfadeEnabled,
-                        onCheckedChange = { crossfadeEnabled = it },
-                        icon = R.drawable.volume_up
-                    )
-
-                    AnimatedVisibility(visible = crossfadeEnabled) {
-                        Column(
-                            modifier = Modifier.padding(start = 25.dp, end = 12.dp, top = 4.dp, bottom = 8.dp)
-                        ) {
-                            OtherSettingsEntry(
-                                title = stringResource(R.string.crossfade_duration_title),
-                                text = stringResource(R.string.crossfade_duration_value, crossfadeDurationSeconds),
-                                onClick = {
-                                    val currentIndex = crossfadePresets.indexOf(crossfadeDurationSeconds)
-                                    val nextIndex = if (currentIndex == -1) 0 else (currentIndex + 1) % crossfadePresets.size
-                                    crossfadeDurationSeconds = crossfadePresets[nextIndex]
-                                },
-                                icon = R.drawable.time
-                            )
-
-                            Slider(
-                                value = crossfadeDurationSeconds.toFloat(),
-                                onValueChange = { crossfadeDurationSeconds = it.roundToInt() },
-                                valueRange = 5f..30f,
-                                steps = 24,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            SettingsDescription(
-                                text = stringResource(R.string.crossfade_duration_hint),
-                                modifier = Modifier.padding(start = 25.dp, top = 4.dp),
-                                textAlign = TextAlign.Start
-                            )
-                        }
-                    }
-                }
-            )
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1060,6 +1019,7 @@ fun GeneralSettings(
                 icon    = R.drawable.refresh,
                 content = {
                     var alternateSourceRetryEnabled by rememberPreference("alternateSourceRetryKey", true)
+                    val playbackSourceStatus by PlaybackSourceMonitor.status.collectAsState()
                     if (search.inputValue.isBlank() || "Alternate Source Retry".contains(search.inputValue, true)) {
                         OtherSwitchSettingEntry(
                             title           = "Alternate Source Retry",
@@ -1073,6 +1033,35 @@ fun GeneralSettings(
                             modifier  = Modifier.padding(start = 25.dp, top = 4.dp),
                             textAlign = TextAlign.Start
                         )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(start = 25.dp, top = 10.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                                .background(colorPalette().background2.copy(alpha = 0.5f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(androidx.compose.foundation.shape.CircleShape)
+                                    .background(
+                                        when (playbackSourceStatus.source) {
+                                            PlaybackSourceKind.Unknown -> colorPalette().textDisabled
+                                            else -> Color(0xFF34C759)
+                                        }
+                                    )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            BasicText(
+                                text = buildString {
+                                    append("Current source: ")
+                                    append(playbackSourceStatus.source.label)
+                                    if (playbackSourceStatus.isFallback) append(" fallback")
+                                },
+                                style = typography().xxs.copy(color = colorPalette().text)
+                            )
+                        }
                     }
                 }
             )
@@ -1091,6 +1080,7 @@ fun GeneralSettings(
                 icon    = R.drawable.comments,
                 content = {
                     var showCommentsButton by rememberPreference("show_comments_button", true)
+                    var showLyricsSourceSwitcher by rememberPreference(showLyricsSourceSwitcherKey, true)
                     if (search.inputValue.isBlank() || "Comments Button".contains(search.inputValue, true)) {
                         OtherSwitchSettingEntry(
                             title           = "Show comments button",
@@ -1103,6 +1093,13 @@ fun GeneralSettings(
                             text      = "Show/hide the comments button in the player screen",
                             modifier  = Modifier.padding(start = 25.dp, top = 4.dp),
                             textAlign = TextAlign.Start
+                        )
+                        OtherSwitchSettingEntry(
+                            title           = "Show lyrics sources",
+                            text            = "Display source pills in the lyrics screen",
+                            isChecked       = showLyricsSourceSwitcher,
+                            onCheckedChange = { showLyricsSourceSwitcher = it },
+                            icon            = R.drawable.song_lyrics
                         )
                         ImportantSettingsDescription(text = "Changes take effect immediately")
                     }
@@ -1140,6 +1137,15 @@ fun GeneralSettings(
                             valueText       = { it.textName },
                             values          = NotificationType.values().toList(),
                             onDismiss       = { showNotificationTypeDialog = false }
+                        )
+                    }
+                    if (search.inputValue.isBlank() || stringResource(R.string.new_releases_notifications).contains(search.inputValue, true)) {
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.new_releases_notifications),
+                            text = stringResource(R.string.new_releases_notifications_description),
+                            isChecked = newReleaseNotificationsEnabled,
+                            onCheckedChange = { newReleaseNotificationsEnabled = it },
+                            icon = R.drawable.album
                         )
                     }
                 }

@@ -172,7 +172,7 @@ fun BoxScope.ActionBar(
     val binder = LocalPlayerServiceBinder.current ?: return
     val menuState = LocalMenuState.current
 
-    val mediaItem = binder.player.currentMediaItem ?: return
+    val mediaItem = binder.displayedMediaItem ?: binder.player.currentMediaItem ?: return
 
     val playerBackgroundColors by rememberPreference( playerBackgroundColorsKey, PlayerBackgroundColors.BlurredCoverColor )
     val blackGradient by rememberPreference( blackgradientKey, false )
@@ -242,8 +242,21 @@ fun BoxScope.ActionBar(
                     var currentIndex by remember { mutableIntStateOf( binder.player.currentMediaItemIndex ) }
                     var nextIndex by remember { mutableIntStateOf( binder.player.nextMediaItemIndex ) }
                     val mediaItems = remember { mutableStateListOf<MediaItem>() }
+                    val queuePreviewItems by remember(mediaItems, currentIndex) {
+                        derivedStateOf {
+                            mediaItems.filterIndexed { index, _ -> index != currentIndex }
+                        }
+                    }
+                    val nextPreviewIndex by remember(queuePreviewItems, mediaItems, nextIndex) {
+                        derivedStateOf {
+                            val nextMediaId = mediaItems.getOrNull(nextIndex)?.mediaId
+                            queuePreviewItems.indexOfFirst { it.mediaId == nextMediaId }
+                                .takeIf { it >= 0 }
+                                ?: 0
+                        }
+                    }
 
-                    val pagerStateQueue = rememberPagerState( pageCount = { mediaItems.size } )
+                    val pagerStateQueue = rememberPagerState( pageCount = { queuePreviewItems.size } )
 
                     binder.player.DisposableListener {
                         object : Player.Listener {
@@ -263,20 +276,29 @@ fun BoxScope.ActionBar(
                         }
                     }
 
-                   // Instant update and snap when the queue itself changes
+                    // Instant update and snap when the queue itself changes
                     LaunchedEffect( binder.player.mediaItems ) {
                         mediaItems.clear()
                         mediaItems.addAll( binder.player.mediaItems )
-
-                       val targetPage = nextIndex.coerceIn( 0, pagerStateQueue.pageCount.coerceAtLeast(1) - 1 )
-                        pagerStateQueue.requestScrollToPage(targetPage)
+                        if (queuePreviewItems.isNotEmpty() && pagerStateQueue.pageCount > 0) {
+                            val targetPage = nextPreviewIndex
+                                .takeIf { it >= 0 }
+                                ?.coerceIn(0, pagerStateQueue.pageCount - 1)
+                                ?: 0
+                            pagerStateQueue.requestScrollToPage(targetPage)
+                        }
                     }
 
                     // Smooth slide when only the track skips
-                    LaunchedEffect( nextIndex ) {
-                        if (pagerStateQueue.pageCount > 0) {
-                            val targetPage = nextIndex.coerceIn(0, pagerStateQueue.pageCount - 1)
-                            pagerStateQueue.animateScrollToPage(targetPage)
+                    LaunchedEffect( nextPreviewIndex ) {
+                        if (queuePreviewItems.isNotEmpty() && pagerStateQueue.pageCount > 0) {
+                            val targetPage = nextPreviewIndex
+                                .takeIf { it >= 0 }
+                                ?.coerceIn(0, pagerStateQueue.pageCount - 1)
+                                ?: 0
+                            if (targetPage < pagerStateQueue.pageCount) {
+                                pagerStateQueue.animateScrollToPage(targetPage)
+                            }
                         }
                     }
 
@@ -294,18 +316,24 @@ fun BoxScope.ActionBar(
 
                         Icon(
                             painter = painterResource(
-                                id = if ( pagerStateQueue.currentPage > currentIndex ) R.drawable.chevron_forward
-                                else if ( pagerStateQueue.currentPage == currentIndex ) R.drawable.play
+                                id = if (pagerStateQueue.currentPage > nextPreviewIndex) R.drawable.chevron_forward
+                                else if (pagerStateQueue.currentPage == nextPreviewIndex) R.drawable.play
                                 else R.drawable.chevron_back
                             ),
                             contentDescription = null,
                             modifier = Modifier.size( 25.dp )
                                                .clickable(
                                                    interactionSource = remember { MutableInteractionSource() },
-                                                   indication = null,
+                                               indication = null,
                                                ) {
                                                    coroutine.launch {
-                                                       pagerStateQueue.animateScrollToPage( currentIndex )
+                                                       if (queuePreviewItems.isNotEmpty() && pagerStateQueue.pageCount > 0) {
+                                                           pagerStateQueue.animateScrollToPage(
+                                                               nextPreviewIndex.takeIf { it >= 0 }
+                                                                   ?.coerceIn(0, pagerStateQueue.pageCount - 1)
+                                                                   ?: 0
+                                                           )
+                                                       }
                                                    }
                                                },
                             tint = colorPalette().accent
@@ -323,18 +351,31 @@ fun BoxScope.ActionBar(
                         pageSpacing = 10.dp,
                         modifier = Modifier.weight(1f)
                     ) { index ->
-                        val mediaItemAtIndex by remember { derivedStateOf { mediaItems[index] } }
+                        val mediaItemAtIndex by remember(queuePreviewItems, index) {
+                            derivedStateOf { queuePreviewItems.getOrNull(index) }
+                        }
+                        val actualQueueIndex by remember(mediaItems, mediaItemAtIndex?.mediaId) {
+                            derivedStateOf {
+                                mediaItemAtIndex?.mediaId
+                                    ?.let { mediaId -> mediaItems.indexOfFirst { it.mediaId == mediaId } }
+                                    ?: -1
+                            }
+                        }
+
+                        val currentPreviewItem = mediaItemAtIndex ?: return@HorizontalPager
 
                         Row(
                             horizontalArrangement = Arrangement.Center,
                             modifier = Modifier
                                 .combinedClickable(
                                     onClick = {
-                                        binder.player.playAtIndex(index)
+                                        if (actualQueueIndex >= 0) {
+                                            binder.player.playAtIndex(actualQueueIndex)
+                                        }
                                     },
                                     onLongClick = {
-                                        if ( index < mediaItems.size ) {
-                                            binder.player.addNext( mediaItemAtIndex )
+                                        if ( actualQueueIndex >= 0 ) {
+                                            binder.player.addNext( currentPreviewItem )
                                             Toaster.s( R.string.addednext )
                                         }
                                     }
@@ -344,7 +385,7 @@ fun BoxScope.ActionBar(
                             if ( showAlbumCover )
                                 Box( Modifier.align(Alignment.CenterVertically) ) {
                                     ImageCacheFactory.Thumbnail(
-                                        thumbnailUrl = mediaItemAtIndex.mediaMetadata
+                                        thumbnailUrl = currentPreviewItem.mediaMetadata
                                                                        .artworkUri
                                                                        .toString(),
                                         contentDescription = "song_pos_$index",
@@ -369,7 +410,7 @@ fun BoxScope.ActionBar(
                                 Box {
                                     val titleText by remember {
                                         derivedStateOf {
-                                            cleanPrefix( mediaItemAtIndex.mediaMetadata.title.toString() )
+                                            cleanPrefix( currentPreviewItem.mediaMetadata.title.toString() )
                                         }
                                     }
 
@@ -405,7 +446,7 @@ fun BoxScope.ActionBar(
                                 Box {
                                     val artistsText by remember {
                                         derivedStateOf {
-                                            cleanPrefix( mediaItemAtIndex.mediaMetadata.artist.toString() )
+                                            cleanPrefix( currentPreviewItem.mediaMetadata.artist.toString() )
                                         }
                                     }
 
@@ -450,9 +491,13 @@ fun BoxScope.ActionBar(
                         IconButton(
                             icon = R.drawable.trash,
                             color = Color.White,
-                            enabled = true,
+                            enabled = nextPreviewIndex in queuePreviewItems.indices,
                             onClick = {
-                                binder.player.removeMediaItem( nextIndex )
+                                val removableMediaId = queuePreviewItems.getOrNull(nextPreviewIndex)?.mediaId
+                                val removableIndex = mediaItems.indexOfFirst { it.mediaId == removableMediaId }
+                                if (removableIndex >= 0) {
+                                    binder.player.removeMediaItem(removableIndex)
+                                }
                             },
                             modifier = Modifier
                                 .weight(.07f)
@@ -720,7 +765,7 @@ fun BoxScope.ActionBar(
                         icon = R.drawable.ellipsis_vertical,
                         color = colorPalette().accent,
                         onClick = {
-                            val currentMediaItem = binder.player.currentMediaItem
+                            val currentMediaItem = binder.displayedMediaItem ?: binder.player.currentMediaItem
                             if (currentMediaItem != null) {
                                 menuState.display {
                                     PlayerMenu(

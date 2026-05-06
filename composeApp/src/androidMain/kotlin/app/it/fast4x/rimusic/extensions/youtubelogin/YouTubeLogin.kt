@@ -72,6 +72,51 @@ fun YouTubeLogin(
         }
     }
 
+    suspend fun saveScopedSession(cookies: String): YoutubeSession {
+        val accountInfo = YtmSessionApi.fetchAccountInfo(cookies).getOrThrow()
+        val linkedAccounts = YtmSessionApi.listAccounts(cookies).getOrDefault(emptyList())
+        val selectedAccount = linkedAccounts.firstOrNull { it.isSelected }
+            ?: linkedAccounts.firstOrNull()
+        val switched = selectedAccount?.let { account ->
+            account.authUser.takeIf { it.isNotBlank() }?.let { authUser ->
+                runCatching {
+                    YtmSessionApi.switchAccount(
+                        cookies = cookies,
+                        authUser = authUser,
+                        pageId = account.pageId.ifBlank { null }
+                    ).getOrThrow()
+                }.getOrNull()
+            }
+        }
+
+        return YouTubeSessionStore.saveSession(
+            context = context,
+            session = YoutubeSession(
+                cookie = switched?.cookie?.ifBlank { cookies } ?: cookies,
+                visitorData = switched?.visitorData?.ifBlank { visitorData } ?: visitorData,
+                dataSyncId = switched?.dataSyncId?.ifBlank { dataSyncId } ?: dataSyncId,
+                authUser = switched?.authUser?.ifBlank { selectedAccount?.authUser.orEmpty() }
+                    ?: selectedAccount?.authUser.orEmpty(),
+                pageId = switched?.pageId?.ifBlank { selectedAccount?.pageId.orEmpty() }
+                    ?: selectedAccount?.pageId.orEmpty(),
+                accountName = switched?.accountName?.ifBlank { accountInfo.accountName }
+                    ?: accountInfo.accountName,
+                accountEmail = switched?.accountEmail?.ifBlank { accountInfo.accountEmail }
+                    ?: accountInfo.accountEmail,
+                accountChannelHandle = switched?.accountChannelHandle?.ifBlank { accountInfo.accountChannelHandle }
+                    ?: accountInfo.accountChannelHandle,
+                accountThumbnail = switched?.accountThumbnail?.ifBlank { accountInfo.accountThumbnail }
+                    ?: accountInfo.accountThumbnail,
+                lastAccountRefreshAt = if (accountInfo.hasSession) {
+                    System.currentTimeMillis()
+                } else {
+                    0L
+                }
+            ),
+            makePreferred = true
+        )
+    }
+
     Column(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -82,20 +127,25 @@ fun YouTubeLogin(
             icon = app.kreate.android.R.drawable.chevron_down,
             onClick = {
                 if (YouTubeSessionStore.hasAuthCookies(cookie)) {
-                    val existingSession = YouTubeSessionStore.getCurrentSession(context)
-                    if (existingSession != null) {
-                        onLogin(existingSession)
-                    } else {
-                        val session = YouTubeSessionStore.saveSession(
-                            context = context,
-                            session = YoutubeSession(
-                                cookie = cookie,
-                                visitorData = visitorData,
-                                dataSyncId = dataSyncId
-                            ),
-                            makePreferred = true
-                        )
-                        onLogin(session)
+                    scope.launch {
+                        isLoading = true
+                        runCatching {
+                            saveScopedSession(cookie)
+                        }.onSuccess { session ->
+                            onLogin(session)
+                        }.onFailure {
+                            val session = YouTubeSessionStore.saveSession(
+                                context = context,
+                                session = YoutubeSession(
+                                    cookie = cookie,
+                                    visitorData = visitorData,
+                                    dataSyncId = dataSyncId
+                                ),
+                                makePreferred = true
+                            )
+                            onLogin(session)
+                        }
+                        isLoading = false
                     }
                 } else {
                     android.widget.Toast.makeText(context, "Please complete login first", android.widget.Toast.LENGTH_SHORT).show()
@@ -149,27 +199,7 @@ fun YouTubeLogin(
 
                                     try {
                                         isLoading = true
-                                        val accountInfo = YtmSessionApi.fetchAccountInfo(
-                                            cookies = combinedCookies
-                                        ).getOrThrow()
-                                        val savedSession = YouTubeSessionStore.saveSession(
-                                            context = context,
-                                            session = YoutubeSession(
-                                                cookie = combinedCookies,
-                                                visitorData = visitorData,
-                                                dataSyncId = dataSyncId,
-                                                accountName = accountInfo.accountName,
-                                                accountEmail = accountInfo.accountEmail,
-                                                accountChannelHandle = accountInfo.accountChannelHandle,
-                                                accountThumbnail = accountInfo.accountThumbnail,
-                                                lastAccountRefreshAt = if (accountInfo.hasSession) {
-                                                    System.currentTimeMillis()
-                                                } else {
-                                                    0L
-                                                }
-                                            ),
-                                            makePreferred = true
-                                        )
+                                        val savedSession = saveScopedSession(combinedCookies)
                                         android.widget.Toast.makeText(
                                             context,
                                             "Logged in as ${savedSession.accountName.ifBlank { "YouTube Music" }}",

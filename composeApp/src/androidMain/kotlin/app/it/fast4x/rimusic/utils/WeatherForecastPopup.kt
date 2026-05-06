@@ -523,24 +523,28 @@ private fun LiveSportsDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(leagues) { (id, name) ->
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(999.dp))
                                 .background(
-                                    if (selectedLeague == id) Color(0xFF1976D2)
-                                    else Color(0xFF757575)
+                                    if (selectedLeague == id) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
                                 )
                                 .clickable { onLeagueChange(id) }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                .padding(horizontal = 14.dp, vertical = 9.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = name,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White,
+                                color = if (selectedLeague == id) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                                 maxLines = 1
                             )
                         }
@@ -556,24 +560,37 @@ private fun LiveSportsDialog(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                                 .padding(24.dp)
                         ) {
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(12.dp))
-                            Text("Fetching live matches... ⚽")
+                            Text(
+                                "Fetching live matches...",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
                     sports.isEmpty() -> {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                .padding(18.dp)
                         ) {
-                            Text("🏟️ No matches right now")
+                            Text(
+                                "No matches right now",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                             Text(
                                 "Check back later for action!",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF666666),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
                         }
@@ -589,61 +606,120 @@ private fun LiveSportsDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(
                                         containerColor = when (sport.status) {
-                                            "in" -> Color(0xFFFFF8E1)
-                                            "final" -> Color(0xFFE8F5E9)
-                                            else -> Color(0xFFF5F5F5)
+                                            "in" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f)
+                                            "final" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                                         }
                                     ),
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(20.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Row(
+                                            verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
                                                 text = sport.league,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = Color(0xFF666666)
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
-                                            Text(
-                                                text = when (sport.status) {
-                                                    "in" -> "🔴 LIVE"
-                                                    "final" -> "✅ FINAL"
-                                                    else -> sport.time
-                                                },
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = when (sport.status) {
-                                                    "in" -> Color(0xFFD32F2F)
-                                                    "final" -> Color(0xFF2E7D32)
-                                                    else -> Color(0xFF666666)
-                                                },
-                                                fontWeight = FontWeight.Medium
-                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(999.dp))
+                                                    .background(
+                                                        when (sport.status) {
+                                                            "in" -> Color(0x26D32F2F)
+                                                            "final" -> Color(0x262E7D32)
+                                                            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                                        }
+                                                    )
+                                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                                            ) {
+                                                Text(
+                                                    text = when (sport.status) {
+                                                        "in" -> "LIVE"
+                                                        "final" -> "FINAL"
+                                                        else -> sport.time
+                                                    },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = when (sport.status) {
+                                                        "in" -> Color(0xFFD32F2F)
+                                                        "final" -> Color(0xFF2E7D32)
+                                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
                                         }
 
-                                        Text(
-                                            text = "${sport.homeTeam} vs ${sport.awayTeam}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
 
-                                        if (sport.score.isNotBlank() && sport.status != "scheduled") {
-                                            Text(
-                                                text = "Score: ${sport.score}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color(0xFF2E7D32),
-                                                fontWeight = FontWeight.Medium
-                                            )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = sport.homeTeam,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Text(
+                                                    text = sport.awayTeam,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+
+                                            Column(
+                                                horizontalAlignment = Alignment.End,
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                if (sport.score.isNotBlank() && sport.status != "scheduled") {
+                                                    Text(
+                                                        text = sport.score,
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                } else {
+                                                    Text(
+                                                        text = sport.time,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                }
+                                            }
                                         }
 
                                         if (sport.status == "final" && sport.time.isNotBlank()) {
                                             Text(
-                                                text = "Played: ${sport.time}",
+                                                text = "Played ${sport.time}",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = Color(0xFF666666),
-                                                modifier = Modifier.padding(top = 4.dp)
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(top = 10.dp)
+                                            )
+                                        } else if (sport.status == "scheduled" && sport.time.isNotBlank()) {
+                                            Text(
+                                                text = sport.time,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(top = 10.dp)
+                                            )
+                                        }
+
+                                        if (sport.venue.isNotBlank()) {
+                                            Text(
+                                                text = sport.venue,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
+                                                modifier = Modifier.padding(top = 6.dp)
                                             )
                                         }
                                     }

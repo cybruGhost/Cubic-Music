@@ -1,7 +1,6 @@
 package app.kreate.android.me.knighthat.sync
 
 import android.content.Context
-import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
@@ -11,8 +10,9 @@ import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.service.MyDownloadHelper
 import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import app.it.fast4x.rimusic.utils.isNetworkConnected
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import app.kreate.android.me.knighthat.utils.Toaster
 
 /**
@@ -31,13 +31,10 @@ object YouTubeSync {
      * - Download song when liked (if enabled in settings)
      * - Sync like state with YouTube (if applicable)
      *
-     * This function must not be called on **main thread**
+     * Database work is forced onto Dispatchers.IO internally.
      */
     @UnstableApi
     suspend fun toggleSongLike( context: Context, mediaItem: MediaItem ) {
-        assert( Looper.myLooper() != Looper.getMainLooper() ) {
-            "Cannot run YouTubeSync.toggleSongLike on main thread"
-        }
         val normalizedMediaId = mediaItem.mediaId.substringAfterLast("/").trim()
         val localMediaId = normalizedMediaId.ifBlank { mediaItem.mediaId.trim() }
         if (localMediaId.isBlank() || localMediaId.startsWith("search:")) {
@@ -50,13 +47,11 @@ object YouTubeSync {
             mediaItem.buildUpon().setMediaId(localMediaId).build()
         }
 
-        // TODO: Encapsulate this block in a transaction
-        // Always ensure song in database before proceed
-        Database.insertIgnore( localMediaItem )
-        Database.songTable.toggleLike( localMediaId )
-
-        val likeState = runBlocking {
-            Database.songTable.likeState( localMediaId ).first()
+        val likeState = withContext(Dispatchers.IO) {
+            // Always ensure the local record exists before toggling like state.
+            Database.insertIgnore(localMediaItem)
+            Database.songTable.toggleLike(localMediaId)
+            Database.songTable.likeState(localMediaId).first()
         }
         MyDownloadHelper.downloadOnLike( localMediaItem, likeState, context )
 

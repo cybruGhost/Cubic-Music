@@ -46,6 +46,9 @@ import com.dd3boh.outertune.utils.potoken.PoTokenGenerator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -66,8 +69,48 @@ import java.net.URLEncoder
 import java.net.UnknownHostException
 import it.fast4x.innertube.requests.player
 import it.fast4x.innertube.utils.from
+import timber.log.Timber
 
 private const val CHUNK_LENGTH = 512 * 1024L     // 512Kb
+
+enum class PlaybackSourceKind(val label: String) {
+    Unknown("Waiting"),
+    Local("Local"),
+    YouTubeAndroid("YouTube"),
+    YouTubeIos("YouTube iOS"),
+    YouTubeInnertube("YouTube Player"),
+    Invidious("Invidious"),
+    Piped("Piped")
+}
+
+data class PlaybackSourceStatus(
+    val source: PlaybackSourceKind = PlaybackSourceKind.Unknown,
+    val videoId: String = "",
+    val isFallback: Boolean = false,
+    val updatedAt: Long = 0L
+)
+
+object PlaybackSourceMonitor {
+    private val _status = MutableStateFlow(PlaybackSourceStatus())
+    val status: StateFlow<PlaybackSourceStatus> = _status.asStateFlow()
+
+    fun report(source: PlaybackSourceKind, videoId: String, isFallback: Boolean = false) {
+        val normalizedVideoId = videoId.trim()
+        val current = _status.value
+        if (
+            current.source == source &&
+            current.videoId == normalizedVideoId &&
+            current.isFallback == isFallback
+        ) return
+
+        _status.value = PlaybackSourceStatus(
+            source = source,
+            videoId = normalizedVideoId,
+            isFallback = isFallback,
+            updatedAt = System.currentTimeMillis()
+        )
+    }
+}
 
 /**
  * Store id of song just added to the database.
@@ -295,15 +338,19 @@ suspend fun getInnertubePlayerFormatUrl(
 private suspend fun resolvePrimaryFormatUrl(
     videoId: String,
     audioQualityFormat: AudioQualityFormat,
-    connectionMetered: Boolean
+    connectionMetered: Boolean,
+    isFallback: Boolean = false
 ): Uri =
     try {
         getAndroidReelFormatUrl(videoId, audioQualityFormat, connectionMetered)
+            .also { PlaybackSourceMonitor.report(PlaybackSourceKind.YouTubeAndroid, videoId, isFallback) }
     } catch (primaryError: Exception) {
         runCatching {
             getIosFormatUrl(videoId, audioQualityFormat, connectionMetered)
+                .also { PlaybackSourceMonitor.report(PlaybackSourceKind.YouTubeIos, videoId, isFallback) }
         }.recoverCatching {
             getInnertubePlayerFormatUrl(videoId, audioQualityFormat, connectionMetered)
+                .also { PlaybackSourceMonitor.report(PlaybackSourceKind.YouTubeInnertube, videoId, isFallback) }
         }.getOrElse {
             throw primaryError
         }
@@ -373,12 +420,15 @@ private suspend fun getPipedFormatUrl(
 private suspend fun resolveAlternateProviderFormatUrl(
     videoId: String,
     audioQualityFormat: AudioQualityFormat,
-    connectionMetered: Boolean
+    connectionMetered: Boolean,
+    isFallback: Boolean = true
 ): Uri =
     runCatching {
         getInvidiousFormatUrl(videoId, audioQualityFormat, connectionMetered)
+            .also { PlaybackSourceMonitor.report(PlaybackSourceKind.Invidious, videoId, isFallback) }
     }.recoverCatching {
         getPipedFormatUrl(videoId, audioQualityFormat, connectionMetered)
+            .also { PlaybackSourceMonitor.report(PlaybackSourceKind.Piped, videoId, isFallback) }
     }.getOrThrow()
 
 private suspend fun findReplacementVideoId(videoId: String): String? {
@@ -540,7 +590,7 @@ fun DataSpec.process(
     val formatUri = runBlocking( Dispatchers.IO ) {
         var replacementVideoId: String? = null
         try {
-            resolvePrimaryFormatUrl(videoId, audioQualityFormat, connectionMetered)
+            resolvePrimaryFormatUrl(videoId, audioQualityFormat, connectionMetered, isFallback = false)
         } catch (primaryError: Exception) {
             if (replacementVideoId.isNullOrBlank()) {
                 replacementVideoId = findReplacementVideoId(videoId)
@@ -555,11 +605,11 @@ fun DataSpec.process(
 
             candidateVideoIds.firstNotNullOfOrNull { candidateVideoId ->
                 runCatching {
-                    resolveAlternateProviderFormatUrl(candidateVideoId, audioQualityFormat, connectionMetered)
+                    resolveAlternateProviderFormatUrl(candidateVideoId, audioQualityFormat, connectionMetered, isFallback = true)
                 }.getOrNull()
             } ?: runCatching {
                 replacementVideoId?.takeIf { it.isNotBlank() }?.let { fallbackVideoId ->
-                    resolvePrimaryFormatUrl(fallbackVideoId, audioQualityFormat, connectionMetered)
+                    resolvePrimaryFormatUrl(fallbackVideoId, audioQualityFormat, connectionMetered, isFallback = true)
                 }
             }.getOrNull() ?: throw primaryError
         }
@@ -567,6 +617,14 @@ fun DataSpec.process(
 
     withUri( formatUri ).subrange( uriPositionOffset )
 }
+
+private fun fallbackPlaybackDataSpec(
+    original: DataSpec,
+    videoId: String,
+): DataSpec = original.buildUpon()
+    .setUri("https://music.youtube.com/watch?v=$videoId")
+    .setKey(videoId)
+    .build()
 
 //<editor-fold defaultstate="collapsed" desc="Data source factories">
 @UnstableApi
@@ -579,6 +637,7 @@ fun PlayerServiceModern.createDataSourceFactory(): DataSource.Factory {
         val isLocal = dataSpec.uri.scheme == ContentResolver.SCHEME_CONTENT || dataSpec.uri.scheme == ContentResolver.SCHEME_FILE
 
         if (isLocal) {
+            PlaybackSourceMonitor.report(PlaybackSourceKind.Local, videoId)
             return@Factory dataSpec
         }
 
@@ -587,10 +646,16 @@ fun PlayerServiceModern.createDataSourceFactory(): DataSource.Factory {
 
         // Always resolve URL for non-local files and ensure key is set to videoId
         // This ensures CacheDataSource uses the correct key even if URI changes
-        dataSpec.process(videoId, audioQualityFormat, applicationContext.isConnectionMetered())
-            .buildUpon()
-            .setKey(videoId)
-            .build()
+        runCatching {
+            dataSpec.process(videoId, audioQualityFormat, applicationContext.isConnectionMetered())
+                .buildUpon()
+                .setKey(videoId)
+                .build()
+        }.onFailure {
+            Timber.e(it, "Failed to resolve playback DataSpec for %s. Falling back to safe source.", videoId)
+        }.getOrElse {
+            fallbackPlaybackDataSpec(dataSpec, videoId)
+        }
     }
 
     // LRU Cache (Writable) - Upstream is the Resolver
@@ -615,10 +680,16 @@ fun MyDownloadHelper.createDataSourceFactory(): DataSource.Factory {
         
         CoroutineScope(Threads.DATASPEC_DISPATCHER).launch { upsertSongInfo(videoId) }
 
-        dataSpec.process(videoId, audioQualityFormat, appContext().isConnectionMetered())
-            .buildUpon()
-            .setKey(videoId)
-            .build()
+        runCatching {
+            dataSpec.process(videoId, audioQualityFormat, appContext().isConnectionMetered())
+                .buildUpon()
+                .setKey(videoId)
+                .build()
+        }.onFailure {
+            Timber.e(it, "Failed to resolve download DataSpec for %s. Falling back to safe source.", videoId)
+        }.getOrElse {
+            fallbackPlaybackDataSpec(dataSpec, videoId)
+        }
     }
 
     // Download Cache (Writable for downloads? No, CacheWriter handles writing)

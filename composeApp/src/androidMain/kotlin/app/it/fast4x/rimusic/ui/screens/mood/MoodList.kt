@@ -67,6 +67,15 @@ import app.it.fast4x.rimusic.ui.components.themed.Loader
 
 internal const val defaultBrowseId = "FEmusic_moods_and_genres_category"
 
+private fun isWantedMoodHomeSection(title: String): Boolean {
+    val normalized = title.trim().lowercase()
+    if (normalized.isBlank()) return false
+    return !normalized.contains("quick picks") &&
+        !normalized.contains("forgotten favourites") &&
+        !normalized.contains("forgotten favorites") &&
+        !normalized.contains("music channels you may like")
+}
+
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -101,14 +110,13 @@ fun MoodList(
     // FIXED: Takes first part before & for better image variety
     fun getBannerUrl(moodName: String): String {
         return try {
-            // Take only the first part before & if it exists
             val primaryMood = if (moodName.contains("&")) {
                 moodName.substringBefore("&").trim()
             } else {
-                moodName
+                moodName.trim()
             }
-            
-            val encoded = URLEncoder.encode(primaryMood, "UTF-8").replace("+", "%20")
+
+            val encoded = URLEncoder.encode(primaryMood.ifBlank { "music" }, "UTF-8").replace("+", "%20")
             "https://loremflickr.com/800/400/$encoded,music/all"
         } catch (e: Exception) {
             "https://loremflickr.com/800/400/music,playlist/all"

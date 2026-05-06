@@ -256,6 +256,10 @@ object ImageCacheFactory {
         if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") {
             return DownloadDecision(false, NetworkQuality.LOW)
         }
+
+        if (!isNetworkConnected()) {
+            return DownloadDecision(false, CacheMetadataStore.get(thumbnailUrl) ?: getNetworkQuality())
+        }
         
         val lastAttempt = cooldownMap[thumbnailUrl]
         val now = System.currentTimeMillis()
@@ -280,6 +284,17 @@ object ImageCacheFactory {
         return DownloadDecision(false, cachedQuality)
     }
 
+    private fun isNetworkConnected(): Boolean {
+        return try {
+            val cm = appContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val capabilities = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     private fun hasCachedImage(url: String?, quality: NetworkQuality): Boolean {
         if (url.isNullOrBlank()) return false
         val key = generateCacheKeySync(url, quality)
@@ -293,11 +308,54 @@ object ImageCacheFactory {
         }.getOrDefault(false)
     }
 
+    private fun qualitySearchOrder(preferred: NetworkQuality): List<NetworkQuality> =
+        buildList {
+            add(preferred)
+            add(NetworkQuality.HIGH)
+            add(NetworkQuality.MEDIUM)
+            add(NetworkQuality.LOW)
+        }.distinct()
+
+    private fun cachedVariantCandidates(url: String?, preferred: NetworkQuality): List<String> {
+        if (url.isNullOrBlank()) return emptyList()
+
+        val candidates = linkedSetOf<String>()
+        val qualityOrder = qualitySearchOrder(preferred)
+
+        candidates += url
+        qualityOrder.forEach { quality ->
+            url.thumbnail(quality.size)?.let(candidates::add)
+        }
+
+        if (url.contains("i.ytimg.com/vi/")) {
+            qualityOrder.forEach { quality ->
+                var fallback = url.thumbnail(quality.size)
+                while (fallback != null) {
+                    candidates += fallback
+                    fallback = fallback.getNextYouTubeFallback()
+                }
+            }
+        }
+
+        val id = url.getYouTubeId()
+        if (id != null && (url.contains("pl_c") || url.contains("podcasts"))) {
+            PlaylistThumbnailStore.getHighUrl(id)?.let(candidates::add)
+            PlaylistThumbnailStore.getLowUrl(id)?.let(candidates::add)
+        }
+
+        candidates += url
+        return candidates.toList()
+    }
+
     private fun resolveDisplayUrl(thumbnailUrl: String?, quality: NetworkQuality, useNetwork: Boolean): String? {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
         if (validUrl == null) return null
         if (validUrl.isLocalArtSource()) return validUrl
-        if (!useNetwork && hasCachedImage(validUrl, quality)) return validUrl
+        if (!useNetwork) {
+            cachedVariantCandidates(validUrl, quality)
+                .firstOrNull { hasCachedImage(it, quality) }
+                ?.let { return it }
+        }
         return validUrl.thumbnail(quality.size)
     }
 
@@ -600,8 +658,8 @@ object ImageCacheFactory {
         fun enqueueWithFallback(url: String) {
             val request = ImageRequest.Builder(appContext())
                 .data(url)
-                .diskCacheKey(generateCacheKeySync(thumbnailUrl, decision.quality))
-                .memoryCacheKey(generateCacheKeySync(thumbnailUrl, decision.quality))
+                .diskCacheKey(generateCacheKeySync(url, decision.quality))
+                .memoryCacheKey(generateCacheKeySync(url, decision.quality))
                 .listener(
                     onSuccess = { _, result ->
                         if (decision.useNetwork) {

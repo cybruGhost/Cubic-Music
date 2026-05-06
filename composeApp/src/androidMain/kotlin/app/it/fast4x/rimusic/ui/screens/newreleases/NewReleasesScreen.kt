@@ -42,6 +42,7 @@ fun NewreleasesScreen(
                 miniPlayer,
                 navBarContent = { item ->
                     item(0, stringResource(R.string.new_albums), R.drawable.album)
+                    item(1, stringResource(R.string.new_albums_of_your_artists), R.drawable.artist)
                 }
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {

@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Zmiana kolejności jest możliwa tylko w sortowaniu rosnącym</string>
   <string name="information">Informacja</string>
   <string name="info_lyrics_found_on_s">Znaleziono tekst piosenki na %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Tekst nie został znaleziony w %s, spróbuj %s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Tekst nie został znaleziony w %1$s, spróbuj %2$s</string>
   <string name="info_lyrics_not_found_on_s">Tekst nie został znaleziony na %s</string>
   <string name="info_lyrics_tracks_found_on_s">Utwory liryczne znaleziono na %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Nie znaleziono utworów lirycznych na %s</string>
@@ -1055,3 +1055,5 @@
   <string name="cache_status">Status pamięci podręcznej</string>
   <string name="cache_empty">Pamięć podręczna pusta</string>
 </resources>
+
+

@@ -12,10 +12,10 @@ data class Mood(
     val params: String?
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
-        name = parcel.readString()!!,
+        name = parcel.readString().orEmpty(),
         color = Color(parcel.readLong()),
-        browseId = parcel.readString()!!,
-        params = parcel.readString()!!
+        browseId = parcel.readString(),
+        params = parcel.readString()
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) = with(parcel) {

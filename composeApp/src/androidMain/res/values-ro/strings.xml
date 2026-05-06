@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Reordonarea este posibilă doar în ordine crescătoare</string>
   <string name="information">Informații</string>
   <string name="info_lyrics_found_on_s">Versurile au fost găsite pe %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Versurile nu au fost găsite pe %s, încearcă pe %s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Versurile nu au fost găsite pe %1$s, încearcă pe %2$s</string>
   <string name="info_lyrics_not_found_on_s">Versurile nu au fost găsite pe %s</string>
   <string name="info_lyrics_tracks_found_on_s">Pistele de versuri au fost găsite pe %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Pistele de versuri nu au fost găsite pe %s</string>
@@ -1055,3 +1055,5 @@
   <string name="cache_status">Statusul geocutiei</string>
   <string name="cache_empty">Geocutie goală</string>
 </resources>
+
+

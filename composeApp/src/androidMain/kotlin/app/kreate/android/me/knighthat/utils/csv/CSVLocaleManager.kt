@@ -10,11 +10,14 @@ object CSVLocaleManager {
     private val canonicalHeaders = linkedMapOf(
         "PlaylistBrowseId" to setOf(
             "playlistbrowseid", "playlist browse id", "playlist id", "id playlist", "id de playlist",
-            "id de la playlist", "id playlista", "id playlisti", "playlist-id", "playlist_id"
+            "id de la playlist", "id playlista", "id playlisti", "playlist-id", "playlist_id",
+            "browseid", "browse id", "playlist browseid", "playlist browse-id", "playlist browse_id",
+            "ytm browse id", "youtube music playlist id", "youtube music browse id"
         ),
         "PlaylistName" to setOf(
             "playlistname", "playlist name", "name playlist", "nome playlist", "nombre playlist",
             "naam playlist", "nome da playlist", "namn spellista", "nama playlist",
+            "playlist title", "playlist header", "playlist label", "collection name", "collection title",
             "プレイリスト名", "اسم قائمة التشغيل", "çalma listesi adı"
         ),
         "MediaId" to setOf(
@@ -222,11 +225,15 @@ object CSVLocaleManager {
 
     private fun headerLooksLikeCanonical(normalizedHeader: String, canonical: String): Boolean =
         when (canonical) {
-            "PlaylistBrowseId" -> normalizedHeader.contains("playlist") && normalizedHeader.contains("id")
+            "PlaylistBrowseId" -> (normalizedHeader.contains("playlist") && normalizedHeader.contains("id")) ||
+                normalizedHeader.contains("browse id") ||
+                normalizedHeader.contains("browseid")
             "PlaylistName" -> normalizedHeader.contains("playlist") &&
                 (normalizedHeader.contains("name") ||
                     normalizedHeader.contains("title") ||
-                    normalizedHeader.contains("list"))
+                    normalizedHeader.contains("label") ||
+                    normalizedHeader.contains("list") ||
+                    normalizedHeader.contains("collection"))
             "MediaId" -> (normalizedHeader.contains("video") || normalizedHeader.contains("media") || normalizedHeader.contains("track")) &&
                 normalizedHeader.contains("id")
             "Title", "Track Name" -> normalizedHeader.contains("title") ||

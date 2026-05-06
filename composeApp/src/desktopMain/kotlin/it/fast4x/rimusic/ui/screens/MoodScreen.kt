@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerDefaults.windowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +45,16 @@ import app.it.fast4x.rimusic.ui.components.Title
 
 internal const val defaultBrowseId = "FEmusic_moods_and_genres_category"
 
+private object DesktopMoodCache {
+    private val pages = mutableMapOf<String, Result<BrowseResult>>()
+
+    fun get(key: String): Result<BrowseResult>? = pages[key]
+
+    fun put(key: String, value: Result<BrowseResult>) {
+        pages[key] = value
+    }
+}
+
 @Composable
 fun MoodScreen(
     mood: Innertube.Mood.Item,
@@ -50,26 +62,25 @@ fun MoodScreen(
     onArtistClick: (String) -> Unit,
     onPlaylistClick: (String) -> Unit
 ) {
+    val scrollState = rememberScrollState()
 
     val browseId = mood.endpoint.browseId ?: defaultBrowseId
+    val params = mood.endpoint.params
+    val cacheKey = "$browseId:${params.orEmpty()}"
 
     println("mediaItem browseId: $browseId")
 
     var moodPage by remember { mutableStateOf<BrowseResult?>(null) }
-    var moodPageResult by remember { mutableStateOf<Result<BrowseResult>?>(null) }
-    LaunchedEffect(browseId) {
-        moodPageResult = Innertube.browse(BrowseBodyWithLocale(browseId = browseId, params = mood.endpoint.params))
+    var moodPageResult by remember(cacheKey) { mutableStateOf(DesktopMoodCache.get(cacheKey)) }
+    LaunchedEffect(cacheKey) {
+        if (moodPageResult == null) {
+            moodPageResult = Innertube.browse(BrowseBodyWithLocale(browseId = browseId, params = params))
+            moodPageResult?.let { DesktopMoodCache.put(cacheKey, it) }
+        }
+        moodPage = moodPageResult?.getOrNull()
     }
 
-    moodPageResult?.getOrThrow().also { moodPage = it }
-
     val endPaddingValues = windowInsets.only(WindowInsetsSides.End).asPaddingValues()
-
-    val sectionTextModifier = Modifier
-        .padding(horizontal = 16.dp)
-        .padding(top = 24.dp, bottom = 8.dp)
-
-    val lazyListState = rememberLazyListState()
 
     Box(
         modifier = Modifier
@@ -85,10 +96,8 @@ fun MoodScreen(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .fillMaxHeight()
-                    //.fillMaxWidth(0.5f)
                     .fillMaxWidth()
-                //.verticalScroll(leftScrollState)
+                    .verticalScroll(scrollState)
             ) {
                 moodPage?.let { moodResult ->
                     /*

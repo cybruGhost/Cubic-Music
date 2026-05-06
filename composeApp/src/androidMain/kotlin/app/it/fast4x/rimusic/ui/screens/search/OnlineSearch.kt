@@ -4,6 +4,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.paint
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
@@ -176,7 +178,6 @@ fun OnlineSearch(
     val historyIconPainter = painterResource(R.drawable.history)
 
     val coroutineScope = rememberCoroutineScope()
-
     val focusRequester = remember {
         FocusRequester()
     }
@@ -716,8 +717,20 @@ fun MoodAndGenreCard(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clip(thumbnailRoundness.shape)
-            .background(moodColor)
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        colorPalette().background1,
+                        moodColor.copy(alpha = 0.22f)
+                    )
+                )
+            )
+            .border(
+                width = 1.dp,
+                color = colorPalette().textDisabled.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(8.dp)
+            )
             .clickable { onClick() }
     ) {
         Image(
@@ -725,22 +738,23 @@ fun MoodAndGenreCard(
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(48.dp)
+                .size(52.dp)
                 .align(Alignment.BottomEnd)
-                .padding(end = 4.dp, bottom = 4.dp)
+                .padding(end = 6.dp, bottom = 6.dp)
         )
 
         Text(
             text = mood.title,
-            style = typography().xs.semiBold.copy(color = Color.White, fontSize = 13.sp),
+            style = typography().xs.semiBold.copy(color = colorPalette().text, fontSize = 13.sp),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(8.dp)
+                .padding(10.dp)
         )
     }
 }
+
 @Composable
 fun ModernSearchSuggestionItem(
     query: String,

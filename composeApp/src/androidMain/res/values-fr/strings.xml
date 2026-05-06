@@ -507,7 +507,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">La réorganisation est possible uniquement dans le tri ascendant</string>
   <string name="information">Information</string>
   <string name="info_lyrics_found_on_s">Paroles trouvées sur %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Paroles introuvables sur %s, essayez sur %s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Paroles introuvables sur %1$s, essayez sur %2$s</string>
   <string name="info_lyrics_not_found_on_s">Paroles introuvables sur %s</string>
   <string name="info_lyrics_tracks_found_on_s">Paroles de titres trouvées sur %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Paroles des titres introuvables sur %s</string>
@@ -1112,3 +1112,4 @@ Volume BAS : titre précédent</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
   <string name="loading_please_wait">Chargement, veuillez patienter...</string>
 </resources>
+

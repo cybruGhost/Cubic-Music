@@ -81,12 +81,19 @@ data class YouTubeRadio @OptIn(UnstableApi::class) constructor(
         }
 
         if (isDiscoverEnabled) {
+            val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+            val listenedSongIds = Database.eventTable.findSongsMostPlayedBetween(
+                from = thirtyDaysAgo,
+                limit = 200
+            ).first().map { it.id }.toSet()
+
             val filteredMediaItems = mediaItems?.filter { item ->
                 val isMapped = Database.songPlaylistMapTable.isMapped(item.mediaId).first()
                 val isLiked = Database.songTable.isLiked(item.mediaId).first()
                 val notInQueue = item.mediaId != songsInQueue(item.mediaId)
+                val wasAlreadyListened = item.mediaId in listenedSongIds
                 
-                isMapped && isLiked && notInQueue
+                !isMapped && !isLiked && !wasAlreadyListened && notInQueue
             } ?: emptyList()
 
             val removedCount = (mediaItems?.size ?: 0) - filteredMediaItems.size
@@ -103,9 +110,6 @@ data class YouTubeRadio @OptIn(UnstableApi::class) constructor(
 
         val finalMediaItems = mediaItems
             ?.distinct()
-            ?.filter { item ->
-                Database.songTable.isLiked(item.mediaId).first()
-            }
             ?: emptyList()
 
         return finalMediaItems

@@ -6,7 +6,6 @@ import coil3.annotation.ExperimentalCoilApi
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
-import coil3.request.crossfade
 import coil3.util.DebugLogger
 import okio.FileSystem
 import org.jetbrains.compose.resources.painterResource
@@ -27,7 +26,7 @@ fun getAsyncImageLoader(context: PlatformContext) =
         .diskCachePolicy(CachePolicy.ENABLED)
         .networkCachePolicy(CachePolicy.ENABLED).diskCache {
             newDiskCache()
-        }.crossfade(true)
+        }
         .logger(DebugLogger())
         .build()
 

@@ -456,7 +456,7 @@ fun OtherSettings() {
                         },
                         icon = R.drawable.information
                     )
-                    
+
                     ImportantSettingsDescription(text = stringResource(R.string.restarting_rimusic_is_required))
                     
                     OtherSettingsEntry(

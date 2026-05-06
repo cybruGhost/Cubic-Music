@@ -11,7 +11,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -21,11 +20,18 @@ import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.typography
 
 object PathUtils {
+    const val INTERNAL_STORAGE_ROOT = "Internal storage"
+
+    fun normalizePath(path: String): String =
+        path.replace('\\', '/')
+            .split("/")
+            .filter { it.isNotBlank() }
+            .joinToString("/")
 
     fun findCommonPath( paths: Collection<String> ): String {
         if( paths.isEmpty() ) return ""
 
-        val splitPaths = paths.map { it.split( "/" ) } // Split each path by '/'
+        val splitPaths = paths.map { normalizePath(it).split( "/" ) }
         val commonParts = mutableListOf<String>()
 
         for (i in 0 until splitPaths[0].size) {
@@ -41,12 +47,14 @@ object PathUtils {
     }
 
     fun getAvailablePaths( paths: Collection<String>, currentPath: String ): List<String> {
-        val normalizedCurrentPath = if ( currentPath.endsWith("/") ) currentPath else "$currentPath/"
+        val basePath = normalizePath(currentPath)
+        val normalizedCurrentPath = if (basePath.isBlank()) "" else "$basePath/"
         val currentDepth = normalizedCurrentPath.split( "/" )
                                                      .filter { it.isNotEmpty() }
                                                      .size
 
-        return paths.mapNotNull { path ->
+        return paths.mapNotNull { rawPath ->
+                        val path = normalizePath(rawPath)
                         if (path.startsWith(normalizedCurrentPath)) {
                             val parts = path.split("/").filter { it.isNotEmpty() }
                             if (parts.size > currentDepth) parts[currentDepth] else null
@@ -88,7 +96,8 @@ object PathUtils {
                                }
         )
 
-        val totalPaths = currentPath.split( "/" ).filter( String::isNotEmpty )
+        val normalizedCurrentPath = normalizePath(currentPath)
+        val totalPaths = normalizedCurrentPath.split( "/" ).filter( String::isNotEmpty )
         var fullPath = ""
         // Older versions of Android display full path,
         // this makes the address bar go overflow.
@@ -101,10 +110,7 @@ object PathUtils {
                 contentDescription = null
             )
 
-            val capturedCurrentPath = remember {
-                // Remove prefix "/"
-                fullPath.drop(1)
-            }
+            val capturedCurrentPath = fullPath.drop(1)
             BasicText(
                 text = path,
                 style = typography().xs.copy(

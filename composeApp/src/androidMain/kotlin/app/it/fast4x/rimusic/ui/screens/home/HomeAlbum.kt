@@ -56,6 +56,8 @@ import app.it.fast4x.rimusic.enums.FilterBy
 import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.UiType
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
 import app.it.fast4x.rimusic.models.Album
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.thumbnailShape
@@ -103,6 +105,7 @@ import app.kreate.android.me.knighthat.component.Sort
 import app.kreate.android.me.knighthat.component.tab.Search
 import app.kreate.android.me.knighthat.component.tab.SongShuffler
 import app.kreate.android.me.knighthat.database.AlbumTable
+import app.kreate.android.me.knighthat.utils.Toaster
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalTextApi
@@ -176,8 +179,39 @@ fun HomeAlbums(
         }
     }
 
-    LaunchedEffect( Unit ) {
-        // TODO Convert to fetch from the internet
+    LaunchedEffect( items ) {
+        val session = YouTubeSessionStore.applyCurrentSession()
+        items.filter { it.thumbnailUrl == null && it.isYoutubeAlbum }
+            .forEach { album ->
+                val apiAlbum = session
+                    ?.takeIf { it.cookie.isNotBlank() }
+                    ?.let {
+                        YtmSessionApi.fetchAlbum(
+                            cookies = it.cookie,
+                            albumId = album.id,
+                            authUser = it.authUser.ifBlank { null },
+                            pageId = it.pageId.ifBlank { null }
+                        ).getOrNull()
+                    }
+                    ?: YtmSessionApi.fetchAlbum("", album.id, guest = true).getOrNull()
+                val thumbnail = apiAlbum
+                    ?.thumbnailUrl
+                    ?.ifBlank { apiAlbum.thumbnail }
+                    ?.takeIf { it.isNotBlank() }
+                if (thumbnail != null) {
+                    Database.asyncTransaction {
+                        albumTable.updateReplace(
+                            album.copy(
+                                title = album.title ?: apiAlbum?.title,
+                                authorsText = album.authorsText ?: apiAlbum?.artist,
+                                thumbnailUrl = thumbnail,
+                                year = album.year ?: apiAlbum?.year
+                            )
+                        )
+                    }
+                }
+            }
+
         Database.asyncTransaction {
             // Only occurs when album doesn't have thumbnailUrl assigned
             items.filter { it.thumbnailUrl == null }
@@ -210,19 +244,31 @@ fun HomeAlbums(
         }
     }
 
-    val sync = autoSyncToolbutton(R.string.autosync_albums)
-
     val doAutoSync by rememberPreference(autosyncKey, false)
     var justSynced by rememberSaveable { mutableStateOf(!doAutoSync) }
 
     var refreshing by remember { mutableStateOf(false) }
     val refreshScope = rememberCoroutineScope()
 
+    val sync = autoSyncToolbutton(R.string.autosync_albums) {
+        refreshScope.launch(Dispatchers.IO) {
+            refreshing = true
+            justSynced = false
+            val synced = importYTMLikedAlbums()
+            justSynced = synced
+            if (!synced) Toaster.i("No new YouTube Music albums were synced")
+            delay(500)
+            refreshing = false
+        }
+    }
+
     fun refresh() {
         if (refreshing) return
         refreshScope.launch(Dispatchers.IO) {
             refreshing = true
             justSynced = false
+            importYTMLikedAlbums()
+            justSynced = true
             delay(500)
             refreshing = false
         }

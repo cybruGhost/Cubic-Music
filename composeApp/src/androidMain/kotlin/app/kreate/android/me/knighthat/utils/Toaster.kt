@@ -3,6 +3,7 @@ package app.kreate.android.me.knighthat.utils
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
+import android.view.Gravity
 import android.widget.Toast
 import androidx.annotation.ColorInt
 import androidx.annotation.DrawableRes
@@ -38,27 +39,27 @@ object Toaster {
         @DrawableRes private val iconId: Int
     ) {
         NORMAL(
-            Color.rgb( 108, 117, 125 ),
+            Color.rgb( 54, 58, 66 ),
             Color.WHITE,
             -1
         ),
         SUCCESS(
-            Color.rgb( 25, 135, 84 ),
+            Color.rgb( 32, 122, 86 ),
             Color.WHITE,
             R.drawable.checkmark
         ),
         INFO(
-            Color.rgb( 13, 110, 253 ),
+            Color.rgb( 61, 66, 76 ),
             Color.WHITE,
             R.drawable.information
         ),
         WARNING(
-            Color.rgb( 255, 193, 7 ),
-            Color.rgb( 33, 37, 41 ),
+            Color.rgb( 181, 116, 34 ),
+            Color.WHITE,
             R.drawable.alert
         ),
         ERROR(
-            Color.rgb( 220, 53, 69 ),
+            Color.rgb( 166, 52, 67 ),
             Color.WHITE,
             R.drawable.close
         );
@@ -83,7 +84,9 @@ object Toaster {
         CoroutineScope( Dispatchers.Main ).launch {
             Toasty.custom(
                 appContext(), message, icon, background, foreground, duration, icon != Type.NORMAL.icon, true
-            ).show()
+            ).apply {
+                setGravity(Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM, 0, 116)
+            }.show()
         }
     }
 

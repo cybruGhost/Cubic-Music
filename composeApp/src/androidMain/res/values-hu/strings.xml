@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Reorder is possible only in ascending sorting</string>
   <string name="information">Információ</string>
   <string name="info_lyrics_found_on_s">Dalszöveg megtalálva a(z) %s-n</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Dalszöveg nem található a(z) %s-n, próbáld meg a(z) %s-n</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Dalszöveg nem található a(z) %1$s-n, próbáld meg a(z) %2$s-n</string>
   <string name="info_lyrics_not_found_on_s">Dalszöveg nem található a(z) %s-n</string>
   <string name="info_lyrics_tracks_found_on_s">Dalszövegek találhatók a következőn: %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">A dalszövegszámok nem találhatók a következőn: %s</string>
@@ -1055,3 +1055,4 @@
   <string name="cache_status">Cache status</string>
   <string name="cache_empty">Cache empty</string>
 </resources>
+

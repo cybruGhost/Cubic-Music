@@ -1,6 +1,7 @@
 package app.it.fast4x.rimusic.utils
 
 import android.content.Context
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -59,8 +60,12 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -84,6 +89,33 @@ private const val PREF_TEMP_UNIT = "temperature_unit"
 private const val DEFAULT_TEMP_UNIT = "celsius"
 private const val NAME_SOURCE_CUSTOM = "custom"
 private const val NAME_SOURCE_YT = "yt"
+private const val WEATHER_REFRESH_INTERVAL_MS = 10 * 60 * 1000L
+
+private object WeatherSessionCache {
+    private var cachedCity: String? = null
+    private var cachedWeather: WeatherData? = null
+    private var fetchedAtMillis: Long = 0L
+
+    fun get(city: String, forceRefresh: Boolean = false): WeatherData? {
+        if (forceRefresh) return null
+        if (cachedCity != city) return null
+        if (cachedWeather == null) return null
+        if (System.currentTimeMillis() - fetchedAtMillis > WEATHER_REFRESH_INTERVAL_MS) return null
+        return cachedWeather
+    }
+
+    fun isStale(city: String): Boolean {
+        if (cachedCity != city) return true
+        if (cachedWeather == null) return true
+        return System.currentTimeMillis() - fetchedAtMillis > WEATHER_REFRESH_INTERVAL_MS
+    }
+
+    fun update(city: String, weatherData: WeatherData?) {
+        cachedCity = city
+        cachedWeather = weatherData
+        fetchedAtMillis = System.currentTimeMillis()
+    }
+}
 
 // Temperature unit management
 private fun getSavedTemperatureUnit(context: Context): String {
@@ -116,11 +148,22 @@ private fun sanitizedYouTubeAccountName(): String? {
     return value
 }
 
-private fun joinedSinceLabel(): String = "Joined 17th March 2024 - today"
+private fun joinedSinceLabel(context: Context): String {
+    val installedAt = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime
+    }.getOrDefault(System.currentTimeMillis())
+
+    val formatter = SimpleDateFormat("d MMMM yyyy", Locale.getDefault())
+    return "Joined ${formatter.format(java.util.Date(installedAt))} - today"
+}
 
 @Composable
-fun WelcomeMessage() {
+fun WelcomeMessage(
+    onOpenAccountsSettings: (() -> Unit)? = null
+) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
     var username by remember { mutableStateOf("") }
     var nameSource by remember { mutableStateOf(NAME_SOURCE_CUSTOM) }
     var city by remember { mutableStateOf("") }
@@ -154,17 +197,48 @@ fun WelcomeMessage() {
     } else {
         username.ifBlank { youtubeAccountName.orEmpty() }
     }
+
+    suspend fun refreshWeather(forceRefresh: Boolean = false) {
+        if (city.isBlank()) return
+
+        val cachedWeather = WeatherSessionCache.get(city, forceRefresh)
+        if (cachedWeather != null) {
+            weatherData = cachedWeather
+            isLoading = false
+            errorMessage = null
+            return
+        }
+
+        isLoading = true
+        errorMessage = null
+        val fetchedWeather = fetchWeatherData(city)
+        weatherData = fetchedWeather
+        WeatherSessionCache.update(city, fetchedWeather)
+        isLoading = false
+        if (fetchedWeather == null) {
+            errorMessage = "Failed to fetch weather data"
+        }
+    }
     
     // Fetch weather when city is available
     LaunchedEffect(city) {
         if (city.isNotBlank()) {
-            isLoading = true
-            errorMessage = null
-            weatherData = fetchWeatherData(city)
-            isLoading = false
-            if (weatherData == null) {
-                errorMessage = "Failed to fetch weather data"
+            refreshWeather(forceRefresh = false)
+        }
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, city) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && city.isNotBlank() && WeatherSessionCache.isStale(city)) {
+                coroutineScope.launch {
+                    refreshWeather(forceRefresh = true)
+                }
             }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
     
@@ -193,6 +267,7 @@ fun WelcomeMessage() {
                 currentUsername = username,
                 currentNameSource = nameSource,
                 youtubeAccountName = youtubeAccountName,
+                onOpenAccountsSettings = onOpenAccountsSettings,
                 onDismiss = { showChangeDialog = false },
                 onUsernameChanged = { newUsername, newSource ->
                     DataStoreUtils.saveStringBlocking(context, KEY_USERNAME, newUsername)
@@ -213,6 +288,7 @@ fun WelcomeMessage() {
                     // FIX: Save the city to DataStore persistently
                     DataStoreUtils.saveStringBlocking(context, KEY_CITY, newCity)
                     city = newCity
+                    WeatherSessionCache.update(newCity, null)
                     showCityDialog = false
                 },
                 temperatureUnit = temperatureUnit,
@@ -667,6 +743,7 @@ private fun ChangeUsernameDialog(
     currentUsername: String,
     currentNameSource: String,
     youtubeAccountName: String?,
+    onOpenAccountsSettings: (() -> Unit)?,
     onDismiss: () -> Unit,
     onUsernameChanged: (String, String) -> Unit
 ) {
@@ -675,6 +752,7 @@ private fun ChangeUsernameDialog(
     val maxChars = 14
     val hasYouTubeAccount = !youtubeAccountName.isNullOrBlank()
     val isYouTubeConnected = isYouTubeLoggedIn()
+    val context = LocalContext.current
     val palette = colorPalette()
     val type = typography()
 
@@ -738,7 +816,7 @@ private fun ChangeUsernameDialog(
                         }
 
                         Text(
-                            text = joinedSinceLabel(),
+                            text = joinedSinceLabel(context),
                             style = type.xxs,
                             color = palette.textSecondary
                         )
@@ -782,7 +860,12 @@ private fun ChangeUsernameDialog(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
-                                        if (hasYouTubeAccount) selectedSource = NAME_SOURCE_YT
+                                        if (hasYouTubeAccount) {
+                                            selectedSource = NAME_SOURCE_YT
+                                        } else if (!isYouTubeConnected) {
+                                            onOpenAccountsSettings?.invoke()
+                                            onDismiss()
+                                        }
                                     }
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -820,7 +903,12 @@ private fun ChangeUsernameDialog(
                     Surface(
                         shape = RoundedCornerShape(18.dp),
                         color = palette.background2,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onOpenAccountsSettings?.invoke()
+                                onDismiss()
+                            }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -910,13 +998,13 @@ private fun ChangeUsernameDialog(
 private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(Dispatchers.IO) {
     return@withContext try {
         // Fetch API key dynamically from hosted JSON
-        val configUrl = "https://zesty-medovik-e88f42.netlify.app/wantamkilasikuhehe.json" // ww ruto ww kasongo ..wantam
+        val configUrl = SecureApiConfig.weatherConfigUrl // ww ruto ww kasongo ..wantam
         val configResponse = URL(configUrl).readText()
         val configJson = JSONObject(configResponse)
         val apiKey = configJson.getString("weather_api_key")
 
         // Then use the fetched key normally
-        val url = "https://api.openweathermap.org/data/2.5/weather?q=$city&units=metric&appid=$apiKey"
+        val url = "${SecureApiConfig.weatherApiBaseUrl}?q=$city&units=metric&appid=$apiKey"
         val response = URL(url).readText()
         val json = JSONObject(response)
 
@@ -951,7 +1039,7 @@ private suspend fun fetchWeatherData(city: String): WeatherData? = withContext(D
 // FIXED: Using the new ipapi.co API with proper error handling
 private suspend fun getLocationFromIP(): String? {
     return try {
-        val url = URL("https://ipinfo.io/json/")
+        val url = URL(SecureApiConfig.ipInfoUrl)
         val connection = withContext(Dispatchers.IO) { url.openConnection() as HttpURLConnection }
         connection.requestMethod = "GET"
         connection.connectTimeout = 5000

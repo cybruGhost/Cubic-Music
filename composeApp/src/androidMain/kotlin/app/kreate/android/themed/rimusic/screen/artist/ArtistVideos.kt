@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -22,6 +26,10 @@ import app.kreate.android.R
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.models.BrowseEndpoint
+import it.fast4x.innertube.models.bodies.ContinuationBody
+import it.fast4x.innertube.models.bodies.SearchBody
+import it.fast4x.innertube.requests.searchPage
+import it.fast4x.innertube.utils.from
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
@@ -66,13 +74,24 @@ fun ArtistVideos(
 
     val thumbnailHeightDp = 72.dp
     val thumbnailWidthDp = 128.dp
+    var artistQuery by remember { mutableStateOf("") }
+    var useYouTubeFallbackSearch by remember { mutableStateOf(false) }
+
+    LaunchedEffect(browseId) {
+        artistQuery = YtMusic.getArtistPage(browseId)
+            .getOrNull()
+            ?.artist
+            ?.title
+            .orEmpty()
+            .ifBlank { browseId.removePrefix("@") }
+    }
 
     Skeleton(
         navController = navController,
         miniPlayer = miniPlayer,
         navBarContent = {}
     ) {
-        ItemsPage(
+        ItemsPage<Innertube.Item>(
             tag = "artist/$browseId/videos",
             headerContent = {
                 Title(
@@ -142,13 +161,50 @@ fun ArtistVideos(
                 )
             },
             itemsPageProvider = { continuation ->
-                if (continuation == null) {
-                    YtMusic.getArtistItemsPage(BrowseEndpoint(browseId, params)).map {
-                        Innertube.ItemsPage(it.items, it.continuation)
+                if (continuation == null && !useYouTubeFallbackSearch) {
+                    val artistItemsResult = YtMusic.getArtistItemsPage(BrowseEndpoint(browseId, params))
+                    val artistItemsPage = artistItemsResult.getOrNull()
+                    val artistItems = artistItemsPage?.items.orEmpty()
+
+                    if (artistItems.isNotEmpty()) {
+                        Result.success(
+                            Innertube.ItemsPage(
+                                artistItems,
+                                artistItemsPage?.continuation
+                            )
+                        )
+                    } else {
+                        useYouTubeFallbackSearch = true
+                        Innertube.searchPage<Innertube.VideoItem>(
+                            body = SearchBody(
+                                query = artistQuery.ifBlank { browseId.removePrefix("@") },
+                                params = Innertube.SearchFilter.Video.value
+                            ),
+                            fromMusicShelfRendererContent = Innertube.VideoItem::from
+                        )?.map { searchResult: Innertube.ItemsPage<Innertube.VideoItem>? ->
+                            Innertube.ItemsPage<Innertube.Item>(
+                                searchResult?.items?.map { it as Innertube.Item },
+                                searchResult?.continuation
+                            )
+                        }
+                    }
+                } else if (useYouTubeFallbackSearch) {
+                    if (continuation == null) {
+                        null
+                    } else {
+                        Innertube.searchPage<Innertube.VideoItem>(
+                            body = ContinuationBody(continuation = continuation),
+                            fromMusicShelfRendererContent = Innertube.VideoItem::from
+                        )?.map { continuationPage: Innertube.ItemsPage<Innertube.VideoItem>? ->
+                            Innertube.ItemsPage<Innertube.Item>(
+                                continuationPage?.items?.map { it as Innertube.Item },
+                                continuationPage?.continuation
+                            )
+                        }
                     }
                 } else {
-                    YtMusic.getArtistItemsContinuation(continuation).map { continuationPage ->
-                        Innertube.ItemsPage(
+                    YtMusic.getArtistItemsContinuation(continuation ?: "").map { continuationPage ->
+                        Innertube.ItemsPage<Innertube.Item>(
                             continuationPage?.items,
                             continuationPage?.continuation
                         )

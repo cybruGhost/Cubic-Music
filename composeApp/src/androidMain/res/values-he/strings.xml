@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Reorder is possible only in ascending sorting</string>
   <string name="information">מידע</string>
   <string name="info_lyrics_found_on_s">מילות השיר נמצאו ב %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">מילות השיר לא נמצאו ב %s, נסה ב %s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">מילות השיר לא נמצאו ב %1$s, נסה ב %2$s</string>
   <string name="info_lyrics_not_found_on_s">מילות השיר לא נמצאו ב %s</string>
   <string name="info_lyrics_tracks_found_on_s">רצועות מילים נמצאו ב %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">רצועות המילים לא נמצאו ב %s</string>
@@ -1055,3 +1055,4 @@
   <string name="cache_status">Cache status</string>
   <string name="cache_empty">Cache empty</string>
 </resources>
+

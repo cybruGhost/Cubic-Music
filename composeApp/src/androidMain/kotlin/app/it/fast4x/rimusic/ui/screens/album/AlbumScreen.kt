@@ -53,7 +53,10 @@ import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.enums.PlayerPosition
 import app.it.fast4x.rimusic.enums.TransitionEffect
 import app.it.fast4x.rimusic.enums.UiType
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
 import app.it.fast4x.rimusic.models.Album
+import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.models.SongAlbumMap
 import app.it.fast4x.rimusic.ui.components.navigation.header.AppHeader
 import app.it.fast4x.rimusic.utils.asMediaItem
@@ -100,6 +103,64 @@ fun AlbumScreen(
     var alternatives by persistList<Innertube.AlbumItem>( "album/$browseId/alternatives" )
     var description by rememberSaveable { mutableStateOf("") }
     LaunchedEffect( Unit ) {
+        val session = YouTubeSessionStore.applyCurrentSession()
+        val apiAlbum = session
+            ?.takeIf { it.cookie.isNotBlank() }
+            ?.let {
+                YtmSessionApi.fetchAlbum(
+                    cookies = it.cookie,
+                    albumId = browseId,
+                    authUser = it.authUser.ifBlank { null },
+                    pageId = it.pageId.ifBlank { null }
+                ).getOrNull()
+            }
+            ?: YtmSessionApi.fetchAlbum("", browseId, guest = true).getOrNull()
+
+        if (apiAlbum != null) {
+            val onlineAlbum = Album(
+                id = browseId,
+                title = PropUtils.retainIfModified(album?.title, apiAlbum.title),
+                thumbnailUrl = PropUtils.retainIfModified(
+                    album?.thumbnailUrl,
+                    apiAlbum.thumbnailUrl.ifBlank { apiAlbum.thumbnail }
+                ),
+                year = apiAlbum.year.takeIf { it.isNotBlank() } ?: album?.year,
+                authorsText = PropUtils.retainIfModified(album?.authorsText, apiAlbum.artist),
+                shareUrl = album?.shareUrl,
+                timestamp = album?.timestamp ?: System.currentTimeMillis(),
+                bookmarkedAt = album?.bookmarkedAt,
+                isYoutubeAlbum = true
+            )
+            val songs = apiAlbum.tracks.map { track ->
+                Song(
+                    id = track.videoId,
+                    title = track.title,
+                    artistsText = track.artistsText.ifBlank { apiAlbum.artist },
+                    durationText = track.duration.takeIf { it.isNotBlank() },
+                    thumbnailUrl = track.thumbnailUrl.ifBlank {
+                        track.thumbnail.ifBlank { apiAlbum.thumbnailUrl.ifBlank { apiAlbum.thumbnail } }
+                    }.takeIf { it.isNotBlank() }
+                )
+            }
+
+            Database.asyncTransaction {
+                albumTable.upsert(onlineAlbum)
+                songs
+                    .onEach(songTable::insertIgnore)
+                    .mapIndexed { index, song ->
+                        SongAlbumMap(
+                            songId = song.id,
+                            albumId = browseId,
+                            position = apiAlbum.tracks.getOrNull(index)?.trackNumber?.takeIf { it > 0 }?.minus(1)
+                                ?: index
+                        )
+                    }
+                    .also(songAlbumMapTable::upsert)
+            }
+            description = apiAlbum.description
+            return@LaunchedEffect
+        }
+
         YtMusic.getAlbum( browseId, true )
                .onSuccess { online ->
                    val onlineAlbum = online.album
