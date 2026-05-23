@@ -64,7 +64,7 @@ Join our translation project on Crowdin:
 
 ---
 
-## 🚀 Current Version: `v1.8.0`  
+## 🚀 Current Version: `v1.8.1`  
 🔧 **Status:** Beta — actively improving and adding more features
 
 ---
