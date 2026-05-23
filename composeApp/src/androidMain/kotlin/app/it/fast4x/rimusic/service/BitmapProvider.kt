@@ -33,7 +33,7 @@ class BitmapProvider(
     private lateinit var defaultBitmap: Bitmap
 
     val bitmap: Bitmap
-        get() = lastBitmap ?: defaultBitmap
+        get() = validBitmapOrNull(lastBitmap) ?: defaultBitmap
 
     var listener: ((Bitmap?) -> Unit)? = null
         set(value) {
@@ -77,8 +77,9 @@ class BitmapProvider(
         }
         
         if (lastUri == uri) {
-            onDone(lastBitmap ?: defaultBitmap)
-            listener?.invoke(lastBitmap)
+            val safeBitmap = bitmap
+            onDone(safeBitmap)
+            listener?.invoke(validBitmapOrNull(lastBitmap))
             return
         }
 
@@ -87,23 +88,30 @@ class BitmapProvider(
 
         loadJob = scope.launch(Dispatchers.IO) {
             try {
-              val loadedBitmap: Bitmap? = ImageCacheFactory.loadBitmap(uri.toString(), allowHardware = false)
+                val loadedBitmap: Bitmap? = ImageCacheFactory.loadBitmap(uri.toString(), allowHardware = false)
                 
                 withContext(Dispatchers.Main) {
-                    if (loadedBitmap != null) {
-                        lastBitmap = loadedBitmap
-                    } else {
-                        lastBitmap = null
-                    }
-                    onDone(bitmap)
+                    lastBitmap = validBitmapOrNull(loadedBitmap)
+                    val safeBitmap = bitmap
+                    onDone(safeBitmap)
+                    listener?.invoke(validBitmapOrNull(lastBitmap))
                 }
             } catch (e: Exception) {
                 Timber.e("Failed to load bitmap ${e.stackTraceToString()}")
                 withContext(Dispatchers.Main) {
                     lastBitmap = null
-                    onDone(bitmap)
+                    val safeBitmap = bitmap
+                    onDone(safeBitmap)
+                    listener?.invoke(null)
                 }
             }
         }
+    }
+
+    private fun validBitmapOrNull(bitmap: Bitmap?): Bitmap? {
+        if (bitmap == null) return null
+        if (bitmap.isRecycled) return null
+        if (bitmap.width <= 0 || bitmap.height <= 0) return null
+        return bitmap
     }
 }

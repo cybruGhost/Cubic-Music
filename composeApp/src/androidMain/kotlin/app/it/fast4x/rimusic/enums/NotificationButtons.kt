@@ -46,16 +46,15 @@ enum class NotificationButtons(
         Search -> CommandSearch
     }
 
-    val pendingIntent: PendingIntent
-        @OptIn(UnstableApi::class)
-        get() = when (this) {
-            Download -> PlayerServiceModern.Action.download.pendingIntent
-            Favorites -> PlayerServiceModern.Action.like.pendingIntent
-            Repeat -> PlayerServiceModern.Action.repeat.pendingIntent
-            Shuffle -> PlayerServiceModern.Action.shuffle.pendingIntent
-            Radio -> PlayerServiceModern.Action.playradio.pendingIntent
-            Search -> PlayerServiceModern.Action.search.pendingIntent
-        }
+    @OptIn(UnstableApi::class)
+    fun pendingIntent(): PendingIntent = when (this) {
+        Download -> PlayerServiceModern.Action.download.pendingIntent
+        Favorites -> PlayerServiceModern.Action.like.pendingIntent
+        Repeat -> PlayerServiceModern.Action.repeat.pendingIntent
+        Shuffle -> PlayerServiceModern.Action.shuffle.pendingIntent
+        Radio -> PlayerServiceModern.Action.playradio.pendingIntent
+        Search -> PlayerServiceModern.Action.search.pendingIntent
+    }
 
     @OptIn(UnstableApi::class)
     fun getStateIcon(button: NotificationButtons, likedState: Long?, downloadState: Int, repeatMode: Int, shuffleMode: Boolean): Int {

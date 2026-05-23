@@ -470,6 +470,25 @@ object Innertube {
             ?.toAccountInfo()
     }
 
+    suspend fun allAccounts(): Result<List<AccountInfo>> = runCatching {
+        accountMenu()
+            .body<AccountMenuResponse>()
+            .actions
+            ?.mapNotNull { action ->
+                action?.openPopupAction?.popup?.multiPageMenuRenderer
+                    ?.header?.activeAccountHeaderRenderer
+            }
+            ?.flatMap { renderer ->
+                renderer.toAccountInfoList().ifEmpty {
+                    listOfNotNull(renderer.toAccountInfo())
+                }
+            }
+            ?.distinctBy { info ->
+                listOf(info.email, info.channelHandle, info.name).firstOrNull { !it.isNullOrBlank() }.orEmpty()
+            }
+            ?: emptyList()
+    }
+
     suspend fun accountMenu(): HttpResponse {
         val response =
             client.post(accountMenu) {
@@ -498,7 +517,7 @@ object Innertube {
                     append("X-Goog-Authuser", "0")
                     append("X-Goog-Visitor-Id", visitorData)
                     append("Cookie", cookie)
-                    if ("SAPISID" !in cookieMap || "__Secure-3PAPISID" !in cookieMap) return@let
+                    if ("SAPISID" !in cookieMap && "__Secure-3PAPISID" !in cookieMap) return@let
                     val currentTime = System.currentTimeMillis() / 1000
                     val sapisidCookie = cookieMap["SAPISID"] ?: cookieMap["__Secure-3PAPISID"]
                     val sapisidHash = sha1("$currentTime $sapisidCookie https://$YOUTUBE_MUSIC_HOST")
@@ -707,7 +726,7 @@ object Innertube {
         continuation: String? = null,
         setLogin: Boolean = false,
     ) = client.post(browse) {
-        setLogin(ytClient, true)
+        setLogin(ytClient, setLogin)
         setBody(
             BrowseBody(
                 context = Context.DefaultWebWithLocale,

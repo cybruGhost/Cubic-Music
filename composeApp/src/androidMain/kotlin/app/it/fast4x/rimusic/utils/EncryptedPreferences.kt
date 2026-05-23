@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package app.it.fast4x.rimusic.utils
 
 import android.content.Context
@@ -20,6 +22,8 @@ const val pipedInstanceNameKey = "pipedInstanceName"
 const val pipedApiBaseUrlKey = "pipedApiBaseUrl"
 const val pipedApiTokenKey = "pipedApiToken"
 const val discordPersonalAccessTokenKey = "DiscordPersonalAccessToken"
+const val ytmSupabaseJwtKey = "ytmSupabaseJwt"
+const val ytmSupabaseEmailKey = "ytmSupabaseEmail"
 
 inline fun <reified T : Enum<T>> EncryptedSharedPreferences.getEnum(
     key: String,

@@ -108,9 +108,7 @@ fun SongItem(
         thumbnailSizeDp = thumbnailSizeDp,
         modifier = modifier,
         onDownloadClick = {
-            Database.asyncTransaction {
-                songTable.upsert( song.asSong )
-            }
+            Database.upsert(song.asSong)
             onDownloadClick()
         },
         downloadState = downloadState,
@@ -145,9 +143,7 @@ fun SongItem(
         trailingContent = trailingContent,
         modifier = modifier,
         onDownloadClick = {
-            Database.asyncTransaction {
-                songTable.upsert( song.asSong )
-            }
+            Database.upsert(song.asSong)
             onDownloadClick()
         },
         downloadState = downloadState,
@@ -181,9 +177,7 @@ fun SongItem(
         trailingContent = trailingContent,
         modifier = modifier,
         onDownloadClick = {
-            Database.asyncTransaction {
-                songTable.upsert( song )
-            }
+            Database.upsert(song)
             onDownloadClick()
         },
         downloadState = downloadState,
@@ -702,16 +696,32 @@ fun SongItem(
                         }
                     }
                 } else {
-                    IconButton(
-                        onClick = onDownloadClick,
-                        icon = downloadedStateMedia.iconId,
-                        color = when(downloadedStateMedia) {
-                            DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED -> colorPalette().textDisabled
-                            else -> colorPalette().text
-                        },
-                        modifier = Modifier
-                            .size(20.dp)
-                    )
+                    Box(
+                        modifier = Modifier.size(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        IconButton(
+                            onClick = onDownloadClick,
+                            icon = downloadedStateMedia.iconId,
+                            color = when(downloadedStateMedia) {
+                                DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED -> colorPalette().textDisabled
+                                else -> colorPalette().text
+                            },
+                            modifier = Modifier.size(20.dp)
+                        )
+                        if (
+                            downloadedStateMedia == DownloadedStateMedia.CACHED ||
+                            downloadedStateMedia == DownloadedStateMedia.CACHED_AND_DOWNLOADED
+                        ) {
+                            BasicText(
+                                text = "\u273F",
+                                style = typography().xxs.medium.copy(color = androidx.compose.ui.graphics.Color(0xFFF5C542)),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .absoluteOffset(x = 2.dp, y = (-2).dp)
+                            )
+                        }
+                    }
                 }
 
             }

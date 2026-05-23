@@ -389,7 +389,7 @@ fun FluidLoadingScreen(colorPalette: app.it.fast4x.rimusic.ui.styling.ColorPalet
                         )
                         
                         LinearProgressIndicator(
-                            progress = currentProgress / 100f,
+                            progress = { currentProgress / 100f },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp)

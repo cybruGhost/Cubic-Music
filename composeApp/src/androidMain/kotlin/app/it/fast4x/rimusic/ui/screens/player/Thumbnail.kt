@@ -37,10 +37,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +84,6 @@ import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.utils.DisposableListener
 import app.it.fast4x.rimusic.utils.clickOnLyricsTextKey
 import app.it.fast4x.rimusic.utils.coverThumbnailAnimationKey
-import app.it.fast4x.rimusic.utils.currentWindow
 import app.it.fast4x.rimusic.utils.doubleShadowDrop
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.platform.LocalConfiguration
@@ -193,7 +194,7 @@ suspend fun fetchCommentsPage(videoId: String, continuation: String? = null): Co
 
             // Grab continuation token for the next page
             nextContinuation = if (jsonResponse.has("continuation")) {
-                jsonResponse.optString("continuation", null)
+                jsonResponse.optString("continuation").takeIf { it.isNotBlank() }
             } else null
 
         } else {
@@ -224,14 +225,40 @@ fun CommentsOverlay(
     var currentContinuation by remember { mutableStateOf<String?>(null) }
     var hasMoreComments by remember { mutableStateOf(true) }
     var isLoadingMore by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    
     // Pause rotation when user interacts with comments
     val isUserInteracting = selectedCommentId != null || expandedComments.isNotEmpty()
+
+    fun launchRotation() {
+        rotationJob?.cancel()
+        if (isVisible && comments.isNotEmpty() && isRotationRunning && !isUserInteracting) {
+            rotationJob = startRotation(
+                comments = comments,
+                currentIndex = currentIndex,
+                isRotationRunning = isRotationRunning,
+                isUserInteracting = isUserInteracting
+            ) { newIndex ->
+                currentIndex = newIndex.coerceIn(0, (comments.lastIndex).coerceAtLeast(0))
+            }
+        }
+    }
     
     // Load comments when overlay becomes visible
     LaunchedEffect(videoId, isVisible) {
-        if (isVisible && comments.isEmpty()) {
+        if (!isVisible) {
+            return@LaunchedEffect
+        }
+
+        comments = emptyList()
+        currentIndex = 0
+        selectedCommentId = null
+        expandedComments = emptySet()
+        currentContinuation = null
+        hasMoreComments = true
+        isLoadingMore = false
+
+        if (comments.isEmpty()) {
             isLoading = true
             errorMessage = null
             val response = fetchCommentsPage(videoId)
@@ -239,9 +266,8 @@ fun CommentsOverlay(
                 comments = response.comments
                 currentContinuation = response.continuation
                 hasMoreComments = response.continuation != null
-                startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
-                    currentIndex = newIndex
-                }
+                currentIndex = 0
+                launchRotation()
             } else {
                 errorMessage = "No comments available"
             }
@@ -253,31 +279,35 @@ fun CommentsOverlay(
     LaunchedEffect(isVisible, comments, isUserInteracting) {
         if (isVisible && comments.isNotEmpty()) {
             if (isRotationRunning && !isUserInteracting) {
-                rotationJob?.cancel()
-                startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
-                    currentIndex = newIndex
-                }
+                launchRotation()
             } else if (isUserInteracting) {
                 rotationJob?.cancel()
             }
         } else {
             rotationJob?.cancel()
             isRotationRunning = true
+            currentIndex = 0
             selectedCommentId = null
-            expandedComments = setOf()
+            expandedComments = emptySet()
         }
     }
     
     // Function to load more comments
-    val loadMoreComments = {
+    val loadMoreComments: (Boolean) -> Unit = { advanceToNewPage ->
         if (hasMoreComments && !isLoadingMore && currentContinuation != null) {
             isLoadingMore = true
-            CoroutineScope(Dispatchers.IO).launch {
+            scope.launch {
+                val oldCount = comments.size
                 val response = fetchCommentsPage(videoId, currentContinuation)
                 if (response.comments.isNotEmpty()) {
                     comments = comments + response.comments
                     currentContinuation = response.continuation
                     hasMoreComments = response.continuation != null
+                    if (advanceToNewPage) {
+                        currentIndex = oldCount.coerceAtMost(comments.lastIndex)
+                    }
+                } else {
+                    hasMoreComments = false
                 }
                 isLoadingMore = false
             }
@@ -374,16 +404,8 @@ fun CommentsOverlay(
                                 else Color.Transparent
                             )
                             .clickable {
-                                selectedCommentId = if (isSelected) null else currentComment.id
-                                // Pause rotation when user selects a comment
-                                if (!isSelected) {
-                                    rotationJob?.cancel()
-                                } else {
-                                    isRotationRunning = true
-                                    startRotation(comments, currentIndex, isRotationRunning, isUserInteracting) { newIndex ->
-                                        currentIndex = newIndex
-                                    }
-                                }
+                                selectedCommentId = currentComment.id
+                                rotationJob?.cancel()
                             }
                     ) {
                         // Author info with profile picture
@@ -521,6 +543,7 @@ fun CommentsOverlay(
                                     onClick = {
                                         rotationJob?.cancel()
                                         isRotationRunning = false
+                                        selectedCommentId = comments.getOrNull((currentIndex - 1).coerceAtLeast(0))?.id
                                         if (currentIndex > 0) {
                                             currentIndex--
                                         }
@@ -571,9 +594,9 @@ fun CommentsOverlay(
                                         isRotationRunning = false
                                         if (currentIndex < comments.size - 1) {
                                             currentIndex++
+                                            selectedCommentId = comments.getOrNull(currentIndex)?.id
                                         } else if (hasMoreComments && !isLoadingMore) {
-                                            // Load more comments when reaching the end
-                                            loadMoreComments()
+                                            loadMoreComments(true)
                                         }
                                     },
                                     enabled = currentIndex < comments.size - 1 || (hasMoreComments && !isLoadingMore)
@@ -722,12 +745,10 @@ fun Thumbnail(
     showthumbnail: Boolean,
     modifier: Modifier = Modifier
 ) {
-    println("Thumbnail call")
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
     val player = binder?.player ?: return
-
-    println("Thumbnail call after return")
+    val displayedPlayerState = rememberDisplayedPlayerState(binder)
 
     val (thumbnailSizeDp, thumbnailSizePx) = Dimensions.thumbnails.player.song.let {
         it to (it - 64.dp).px
@@ -736,10 +757,6 @@ fun Thumbnail(
     var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
  
     val showCommentsButton by rememberPreference("show_comments_button", true)
-
-    var nullableWindow by remember {
-        mutableStateOf(player.currentWindow)
-    }
 
     var error by remember {
         mutableStateOf<PlaybackException?>(player.playerError)
@@ -777,7 +794,6 @@ fun Thumbnail(
     player.DisposableListener {
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                nullableWindow = player.currentWindow
                 // Hide comments when song changes
                 showComments = false
             }
@@ -793,10 +809,17 @@ fun Thumbnail(
         }
     }
 
-    val window = nullableWindow ?: return
+    val displayedMediaItem = displayedPlayerState.mediaItem ?: return
+
+    LaunchedEffect(displayedMediaItem.mediaId, displayedMediaItem.mediaMetadata.artworkUri) {
+        artImageAvailable = true
+        if (displayedMediaItem.mediaMetadata.artworkUri != null) {
+            ImageCacheFactory.preloadImage(displayedMediaItem.mediaMetadata.artworkUri.toString())
+        }
+    }
 
     val coverPainter = ImageCacheFactory.Painter(
-        thumbnailUrl = window.mediaItem.mediaMetadata.artworkUri.toString(),
+        thumbnailUrl = displayedMediaItem.mediaMetadata.artworkUri?.toString().orEmpty(),
         onError = { 
             artImageAvailable = false 
             // Retry loading after a short delay
@@ -804,7 +827,7 @@ fun Thumbnail(
                 delay(1000) // Wait 1 second
                 if (!artImageAvailable) {
                     // Try to preload the image
-                    ImageCacheFactory.preloadImage(window.mediaItem.mediaMetadata.artworkUri.toString())
+                    displayedMediaItem.mediaMetadata.artworkUri?.toString()?.let(ImageCacheFactory::preloadImage)
                 }
             }
         },
@@ -823,10 +846,10 @@ fun Thumbnail(
     )
 
     AnimatedContent(
-        targetState = window,
+        targetState = displayedMediaItem,
         transitionSpec = {
             val duration = 500
-            val slideDirection = if (targetState.firstPeriodIndex > initialState.firstPeriodIndex)
+            val slideDirection = if (targetState.mediaId > initialState.mediaId)
                 AnimatedContentTransitionScope.SlideDirection.Left
             else AnimatedContentTransitionScope.SlideDirection.Right
 
@@ -853,7 +876,7 @@ fun Thumbnail(
             )
         },
         contentAlignment = Alignment.Center, label = ""
-    ) { currentWindow ->
+    ) { currentDisplayedMediaItem: MediaItem ->
 
         val thumbnailType by rememberPreference(thumbnailTypeKey, ThumbnailType.Modern)
 
@@ -882,7 +905,7 @@ fun Thumbnail(
                         if (showCoverThumbnailAnimation)
                             RotateThumbnailCoverAnimation(
                                 painter = coverPainter,
-                                isSongPlaying = player.isPlaying,
+                                isSongPlaying = displayedPlayerState.shouldBePlaying,
                                 modifier = Modifier
                                     .clickable {
                                         if (thumbnailTapEnabledKey && !showComments) {
@@ -945,28 +968,28 @@ fun Thumbnail(
 
                 // Comments overlay
                 CommentsOverlay(
-                    videoId = currentWindow.mediaItem.mediaId,
+                    videoId = currentDisplayedMediaItem.mediaId,
                     isVisible = showComments,
                     onDismiss = { showComments = false }
                 )
 
                 if (showlyricsthumbnail)
                     Lyrics(
-                        mediaId = currentWindow.mediaItem.mediaId,
+                        mediaId = currentDisplayedMediaItem.mediaId,
                         isDisplayed = isShowingLyrics && error == null && !showComments,
                         onDismiss = {
                             onShowLyrics(false)
                         },
-                        ensureSongInserted = { Database.insertIgnore( currentWindow.mediaItem ) },
+                        ensureSongInserted = { insertIgnore(currentDisplayedMediaItem) },
                         size = thumbnailSizeDp,
-                        mediaMetadataProvider = currentWindow.mediaItem::mediaMetadata,
+                        mediaMetadataProvider = currentDisplayedMediaItem::mediaMetadata,
                         durationProvider = player::getDuration,
                         isLandscape = isLandscape,
                         clickLyricsText = clickLyricsText,
                     )
 
                 StatsForNerds(
-                    mediaId = currentWindow.mediaItem.mediaId,
+                    mediaId = currentDisplayedMediaItem.mediaId,
                     isDisplayed = isShowingStatsForNerds && error == null && !showComments,
                     onDismiss = { onShowStatsForNerds(false) }
                 )
@@ -983,7 +1006,7 @@ fun Thumbnail(
                     if (errorCounter < 3) {
                         Timber.e("Playback error: ${error?.cause?.cause}")
                         Toaster.e(
-                            if (currentWindow.mediaItem.isLocal)
+                            if (currentDisplayedMediaItem.isLocal)
                                 localMusicFileNotFoundError
                             else when (error?.cause?.cause) {
                                 is UnresolvedAddressException, is UnknownHostException -> networkerror
@@ -1005,7 +1028,6 @@ fun Thumbnail(
     }
 }
 
-@OptIn(UnstableApi::class)
 fun Modifier.thumbnailpause(
     shouldBePlaying: Boolean
 ) = composed {

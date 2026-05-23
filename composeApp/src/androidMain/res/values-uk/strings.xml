@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Впорядкувати можливо лише при упорядкуванні</string>
   <string name="information">Інформація</string>
   <string name="info_lyrics_found_on_s">Текст пісні знайдено на %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Текст пісні не знайдено в %s, спробуйте в %s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Текст пісні не знайдено в %1$s, спробуйте в %2$s</string>
   <string name="info_lyrics_not_found_on_s">Текст пісні не знайдено в %s</string>
   <string name="info_lyrics_tracks_found_on_s">Текст треку знайдено в %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Текст треку не знайдено в %s</string>
@@ -1055,3 +1055,5 @@
   <string name="cache_status">Статус кешу</string>
   <string name="cache_empty">Кеш порожній</string>
 </resources>
+
+

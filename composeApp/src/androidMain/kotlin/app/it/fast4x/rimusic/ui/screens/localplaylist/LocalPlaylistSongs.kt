@@ -314,7 +314,7 @@ fun LocalPlaylistSongs(
 
     fun sync() {
         playlist?.let {
-            if ( !it.name.startsWith(PIPED_PREFIX, true) ) {
+            if (it.isYoutubePlaylist && !it.browseId.isNullOrBlank()) {
                 Database.asyncTransaction {
                     runBlocking(Dispatchers.IO) {
                         withContext(Dispatchers.IO) {
@@ -337,7 +337,7 @@ fun LocalPlaylistSongs(
                                       }
                     }
                 }
-            } else {
+            } else if (it.name.startsWith(PIPED_PREFIX, true)) {
                 syncSongsInPipedPlaylist(
                     context = context,
                     coroutineScope = coroutineScope,
@@ -348,6 +348,8 @@ fun LocalPlaylistSongs(
                     playlistId = it.id
 
                 )
+            } else {
+                Timber.w("Sync skipped for non-YT playlist: ${it.name}")
             }
         }
     }
@@ -756,7 +758,7 @@ fun LocalPlaylistSongs(
                         this.add( enqueue )
                         this.add( addToFavorite )
                         this.add( addToPlaylist )
-                        if( !playlist?.browseId.isNullOrBlank() ) {
+                        if( playlist?.isYoutubePlaylist == true && !playlist?.browseId.isNullOrBlank() ) {
                             this.add( syncComponent )
                             this.add( listenOnYT )
                         }
@@ -770,7 +772,7 @@ fun LocalPlaylistSongs(
                     }
                 )
 
-                if ( autosync && playlist?.browseId.isNullOrBlank() ) {
+                if (autosync && playlist?.isYoutubePlaylist == true && !playlist?.browseId.isNullOrBlank()) {
                     sync()
                 }
 
@@ -800,7 +802,7 @@ fun LocalPlaylistSongs(
 
             itemsIndexed(
                 items = itemsOnDisplay,
-                key = { _, song -> song.id },
+                key = { index, song -> song.id.ifBlank { "playlist_song_$index" } },
                 contentType = { _, song -> song },
             ) { index, song ->
 

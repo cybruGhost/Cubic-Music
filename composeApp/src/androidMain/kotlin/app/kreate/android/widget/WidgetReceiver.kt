@@ -10,3 +10,7 @@ class VerticalWidgetReceiver(
 class HorizontalWidgetReceiver(
     override val glanceAppWidget: GlanceAppWidget = Widget.Horizontal
 ): GlanceAppWidgetReceiver()
+
+class RescueWidgetReceiver(
+    override val glanceAppWidget: GlanceAppWidget = Widget.Rescue
+): GlanceAppWidgetReceiver()

@@ -22,6 +22,8 @@ import app.it.fast4x.rimusic.utils.preferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
 
@@ -51,37 +53,48 @@ class SongShuffler private constructor(
         /**
          * Play songs with order shuffled.
          */
-        fun playShuffled(
-            binder: PlayerServiceModern.Binder,
-            songs: List<Song>
-        ) {
-            // Send message saying that there's no song to play
-            if( songs.isEmpty() ) {
-                // TODO: add string to strings.xml
-                Toaster.i( R.string.no_song_to_shuffle )
-                return
-            }
+fun playShuffled(
+    binder: PlayerServiceModern.Binder,
+    songs: List<Song>
+) {
+    // Send message saying that there's no song to play
+    if( songs.isEmpty() ) {
+        Toaster.i( R.string.no_song_to_shuffle )
+        return
+    }
 
-            val maxSongsInQueue: Int = appContext().preferences
-                                                   .getEnum( maxSongsInQueueKey, MaxSongs.`500` )
-                                                   .toInt()
+    val maxSongsInQueue: Int = appContext().preferences
+                                           .getEnum( maxSongsInQueueKey, MaxSongs.`500` )
+                                           .toInt()
 
-            /**
-             * [take] takes up to this amount of item, if [List.size]
-             * was smaller than amount it can take, then take everything.
-             *
-             * If [take] was placed before [shuffled], any items
-             * outside the "take" will never be reached.
-             */
-            val songsToPlay = songs.shuffled()
-                                                     .take( maxSongsInQueue )
-                                                     .map( Song::asMediaItem )
-            // This is a cautious move, because binder's calls often require to be run on Main thread.
-            CoroutineScope( Dispatchers.Main ).launch {
-                binder.stopRadio()
-                binder.player.forcePlayFromBeginning( songsToPlay )
-            }
+    // Create a properly shuffled list without duplicates
+    val shuffledSongs = songs.shuffled().take(maxSongsInQueue)
+    
+    // Convert to MediaItems
+    val songsToPlay = shuffledSongs.map(Song::asMediaItem)
+    
+    // This is a cautious move, because binder's calls often require to be run on Main thread.
+    CoroutineScope( Dispatchers.Main ).launch {
+        // Stop any ongoing radio
+        binder.stopRadio()
+        
+        // Set flag to indicate manual shuffle
+        binder.isManuallyShuffled = true
+        
+        // CRITICAL: Disable shuffle mode to prevent interference
+        // The queue is already shuffled, so we don't need player's shuffle mode
+        if (binder.player.shuffleModeEnabled) {
+            binder.player.shuffleModeEnabled = false
         }
+        
+        // Set the manually shuffled queue
+        binder.player.forcePlayFromBeginning(songsToPlay)
+        
+        // Reset flag after queue is set
+        delay(100) // Small delay to ensure queue is processed
+        binder.isManuallyShuffled = false
+    }
+}
     }
 
     override val iconId: Int = R.drawable.shuffle

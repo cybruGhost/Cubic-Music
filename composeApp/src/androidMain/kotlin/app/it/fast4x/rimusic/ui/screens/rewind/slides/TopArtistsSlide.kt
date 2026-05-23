@@ -484,7 +484,7 @@ private suspend fun fetchHighQualityArtistThumbnail(artistName: String, highPrio
             // 优化查询参数
             val query = URLEncoder.encode("$artistName artist music official", "UTF-8")
             val limit = if (highPriority) 5 else 3 // 为前三名获取更多结果
-            val url = "https://yt.omada.cafe/api/v1/search?q=$query&type=video&limit=$limit"
+            val url = "https://yewtu.be/api/v1/search?q=$query&type=video&limit=$limit"
             
             val connection = URL(url).openConnection()
             connection.connectTimeout = 3000

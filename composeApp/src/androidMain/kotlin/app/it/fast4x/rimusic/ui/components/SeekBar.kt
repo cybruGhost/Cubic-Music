@@ -25,6 +25,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToLong
 
+private fun seekBarFraction(
+    value: Long,
+    minimumValue: Long,
+    maximumValue: Long,
+): Float {
+    val range = maximumValue - minimumValue
+    if (range <= 0L) return 0f
+    return ((value.toFloat() - minimumValue.toFloat()) / range.toFloat()).coerceIn(0f, 1f)
+}
+
 @Composable
 fun SeekBar(
     value: Long,
@@ -50,6 +60,7 @@ fun SeekBar(
 
     val currentBarHeight by transition.animateDp(label = "") { if (it) scrubberRadius else barHeight }
     val currentScrubberRadius by transition.animateDp(label = "") { if (it) 0.dp else scrubberRadius }
+    val progressFraction = seekBarFraction(value, minimumValue, maximumValue)
 
     Box(
         modifier = modifier
@@ -101,7 +112,7 @@ fun SeekBar(
                 val scrubberPosition = if (maximumValue < minimumValue) {
                     0f
                 } else {
-                    (value.toFloat() - minimumValue) / (maximumValue - minimumValue) * size.width
+                    progressFraction * size.width
                 }
 
                 drawCircle(
@@ -136,7 +147,7 @@ fun SeekBar(
         Spacer(
             modifier = Modifier
                 .height(currentBarHeight)
-                .fillMaxWidth((value.toFloat() - minimumValue) / (maximumValue - minimumValue))
+                .fillMaxWidth(progressFraction)
                 .background(color = color, shape = shape)
                 .align(Alignment.CenterStart)
         )
@@ -164,6 +175,7 @@ fun SeekBarThin(
         MutableTransitionState(false)
     }
 
+    val progressFraction = seekBarFraction(value, minimumValue, maximumValue)
 
     Box(
         modifier = modifier
@@ -215,7 +227,7 @@ fun SeekBarThin(
                 if (drawSteps) {
                     for (i in value + 1..maximumValue) {
                         val stepPosition =
-                            (i.toFloat() - minimumValue) / (maximumValue - minimumValue) * size.width
+                            seekBarFraction(i, minimumValue, maximumValue) * size.width
                         drawCircle(
                             color = scrubberColor,
                             radius = scrubberRadius.toPx() / 2,
@@ -238,7 +250,7 @@ fun SeekBarThin(
         Spacer(
             modifier = Modifier
                 .height(barHeight)
-                .fillMaxWidth((value.toFloat() - minimumValue) / (maximumValue - minimumValue))
+                .fillMaxWidth(progressFraction)
                 .background(color = color, shape = shape)
                 .align(Alignment.CenterStart)
         )

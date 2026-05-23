@@ -1,7 +1,11 @@
 package app.kreate.android.themed.rimusic.screen.home
 
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,12 +15,16 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -26,9 +34,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
+import androidx.documentfile.provider.DocumentFile
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
+import app.kreate.android.R
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.bodies.NextBody
 import it.fast4x.innertube.requests.relatedSongs
@@ -50,6 +62,7 @@ import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Button
 import app.it.fast4x.rimusic.ui.items.SongItemPlaceholder
+import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.ui.styling.onOverlay
 import app.it.fast4x.rimusic.ui.styling.overlay
@@ -66,6 +79,7 @@ import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.excludeSongsWithDurationLimitKey
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.includeLocalSongsKey
+import app.it.fast4x.rimusic.utils.importYTMLikedSongs
 import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
@@ -114,9 +128,14 @@ fun HomeSongs(
     val maxTopPlaylistItems by rememberPreference( MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10` )
     val includeLocalSongs by rememberPreference( includeLocalSongsKey, true )
     val excludeSongWithDurationLimit by rememberPreference( excludeSongsWithDurationLimitKey, DurationInMinutes.Disabled )
+    val customDownloadUri by rememberPreference(MyDownloadHelper.CUSTOM_DOWNLOAD_URI_KEY, "")
     //</editor-fold>
 
     var items by remember { mutableStateOf(emptyList<Song>()) }
+    var ytmFavoritesSynced by remember { mutableStateOf(false) }
+    var currentPlayingMediaId by remember {
+        mutableStateOf(binder?.player?.currentMediaItem?.mediaId.orEmpty())
+    }
 
     val songSort = Sort ( HOME_SONGS_SORT_BY, HOME_SONGS_SORT_ORDER )
     val topPlaylists = PeriodSelector( Preference.HOME_SONGS_TOP_PLAYLIST_PERIOD )
@@ -147,9 +166,32 @@ fun HomeSongs(
     var isRecommendationsLoading by remember { mutableStateOf(false) }
     //</editor-fold>
 
+    LaunchedEffect(builtInPlaylist) {
+        if (builtInPlaylist == BuiltInPlaylist.Favorites && isYouTubeSyncEnabled() && !ytmFavoritesSynced) {
+            importYTMLikedSongs()
+            ytmFavoritesSynced = true
+        }
+    }
+
+    DisposableEffect(binder?.player) {
+        val player = binder?.player
+        if (player == null) {
+            onDispose { }
+        } else {
+            val listener = object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    currentPlayingMediaId = mediaItem?.mediaId.orEmpty()
+                }
+            }
+            currentPlayingMediaId = player.currentMediaItem?.mediaId.orEmpty()
+            player.addListener(listener)
+            onDispose { player.removeListener(listener) }
+        }
+    }
+
     // This phrase loads all songs across types into [items]
     // No filtration applied to this stage, only sort
-    LaunchedEffect( builtInPlaylist, topPlaylists.period, songSort.sortBy, songSort.sortOrder, hiddenSongs.isFirstIcon ) {
+    LaunchedEffect( builtInPlaylist, topPlaylists.period, songSort.sortBy, songSort.sortOrder, hiddenSongs.isFirstIcon, customDownloadUri ) {
         isLoading = true
 
         val retrievedSongs = when( builtInPlaylist ) {
@@ -170,10 +212,12 @@ fun HomeSongs(
                                                                .values
                                                                .filter { it.state == Download.STATE_COMPLETED }
                                                                .fastMap { it.request.id }
+                val customFolderSongs = loadCustomDownloadFolderSongs(context, customDownloadUri)
                 Database.songTable
                         .sortAll( songSort.sortBy, songSort.sortOrder )
                         .map { list ->
-                            list.fastFilter { it.id in downloaded }
+                            (list.fastFilter { it.id in downloaded } + customFolderSongs)
+                                .distinctBy(Song::id)
                         }
             }
 
@@ -290,8 +334,8 @@ fun HomeSongs(
         onRecommendationsLoadingChange(false)
     }
 
-    LaunchedEffect( items, search.inputValue, isRecommendationEnabled, relatedSongsPositions ) {
-        items.toMutableList()
+    LaunchedEffect( items, search.inputValue, isRecommendationEnabled, relatedSongsPositions, currentPlayingMediaId ) {
+        val filteredItems = items.toMutableList()
              .apply {
                  if (isRecommendationEnabled) {
                      relatedSongsPositions.forEach { (song, position) ->
@@ -308,10 +352,30 @@ fun HomeSongs(
                  val containsArtist = song.cleanArtistsText().contains( search.inputValue, true )
                  containsTitle || containsArtist
              }
-             .let { 
-                 itemsOnDisplay.clear()
-                 itemsOnDisplay.addAll(it)
-             }
+
+        val reorderedItems = if (builtInPlaylist in setOf(
+                BuiltInPlaylist.Downloaded,
+                BuiltInPlaylist.Offline,
+                BuiltInPlaylist.Favorites
+            )
+        ) {
+            val normalizedPlayingId = currentPlayingMediaId.substringAfterLast("/", currentPlayingMediaId)
+            val currentIndex = filteredItems.indexOfFirst { song ->
+                song.id == currentPlayingMediaId || song.id == normalizedPlayingId
+            }
+            if (currentIndex > 0) {
+                filteredItems.toMutableList().apply {
+                    add(0, removeAt(currentIndex))
+                }
+            } else {
+                filteredItems
+            }
+        } else {
+            filteredItems
+        }
+
+        itemsOnDisplay.clear()
+        itemsOnDisplay.addAll(reorderedItems)
 
     }
 
@@ -337,6 +401,14 @@ fun HomeSongs(
     deleteDownloadsDialog.Render()
     //</editor-fold>
 
+    val bulkDownloadIds by MyDownloadHelper.bulkDownloadIds.collectAsState()
+    val downloadProgresses by MyDownloadHelper.progresses.collectAsState()
+    val downloadStates by MyDownloadHelper.downloads.collectAsState()
+
+    val visibleBulkDownloadSongs = remember(itemsOnDisplay, bulkDownloadIds) {
+        itemsOnDisplay.filter { it.id in bulkDownloadIds }
+    }
+
     LazyColumn(
         state = lazyListState,
         userScrollEnabled = !isLoading,
@@ -345,6 +417,81 @@ fun HomeSongs(
             .background(colorPalette().background0)
             .fillMaxSize()
     ) {
+        if (visibleBulkDownloadSongs.isNotEmpty()) {
+            val total = visibleBulkDownloadSongs.size
+            val completed = visibleBulkDownloadSongs.count { song ->
+                downloadStates[song.id]?.state == Download.STATE_COMPLETED
+            }
+            val active = visibleBulkDownloadSongs.count { song ->
+                downloadStates[song.id]?.state in setOf(
+                    Download.STATE_DOWNLOADING,
+                    Download.STATE_QUEUED,
+                    Download.STATE_RESTARTING
+                )
+            }
+            val progress = (
+                visibleBulkDownloadSongs.sumOf { song ->
+                    when (downloadStates[song.id]?.state) {
+                        Download.STATE_COMPLETED -> 1.0
+                        Download.STATE_DOWNLOADING -> downloadProgresses[song.id]?.toDouble() ?: 0.0
+                        else -> 0.0
+                    }
+                }.toFloat() / total.toFloat()
+                ).coerceIn(0f, 1f)
+
+            item(key = "bulk_download_progress") {
+                Surface(
+                    color = colorPalette().background1,
+                    shape = thumbnailShape(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        BasicText(
+                            text = context.getString(R.string.download_all_progress_title, completed, total),
+                            style = typography().xs.semiBold,
+                            maxLines = 1
+                        )
+                        BasicText(
+                            text = context.getString(R.string.download_all_progress_subtitle, active),
+                            style = typography().xxs.color(colorPalette().textSecondary),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            color = colorPalette().accent,
+                            trackColor = colorPalette().background3,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        visibleBulkDownloadSongs
+                            .firstOrNull { song ->
+                                downloadStates[song.id]?.state in setOf(
+                                    Download.STATE_DOWNLOADING,
+                                    Download.STATE_QUEUED,
+                                    Download.STATE_RESTARTING
+                                )
+                            }
+                            ?.let { activeSong ->
+                                BasicText(
+                                    text = context.getString(
+                                        R.string.download_all_progress_current_song,
+                                        activeSong.title
+                                    ),
+                                    style = typography().xxs.color(colorPalette().text),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                    }
+                }
+            }
+        }
+
         if( isLoading )
             items(
                 count = 20,
@@ -353,7 +500,7 @@ fun HomeSongs(
 
         itemsIndexed(
             items = itemsOnDisplay,
-            key = { _, song -> song.id }
+            key = { index, song -> song.id.ifBlank { "home_song_$index" } }
         ) { index, song ->
             val mediaItem = song.asMediaItem
 
@@ -427,12 +574,75 @@ fun HomeSongs(
 
                         binder?.stopRadio()
 
-                        val mediaItems = getSongs().fastMap( Song::asMediaItem )
+                        val mediaItems = itemsOnDisplay.fastMap( Song::asMediaItem )
                         binder?.player?.forcePlayAtIndex( mediaItems, index )
                     }
                 )
             }
 
         }
+    }
+}
+
+private suspend fun loadCustomDownloadFolderSongs(
+    context: android.content.Context,
+    treeUriString: String,
+): List<Song> = kotlinx.coroutines.withContext(Dispatchers.IO) {
+    if (treeUriString.isBlank()) return@withContext emptyList()
+
+    val root = DocumentFile.fromTreeUri(context, Uri.parse(treeUriString)) ?: return@withContext emptyList()
+    root.walkAudioFiles().mapNotNull { file ->
+        val fileUri = file.uri
+        val retriever = MediaMetadataRetriever()
+        runCatching {
+            retriever.setDataSource(context, fileUri)
+            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                ?.takeIf { it.isNotBlank() }
+                ?: file.name?.substringBeforeLast(".").orEmpty()
+            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?.takeIf { it.isNotBlank() }
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()
+            Song(
+                id = fileUri.toString(),
+                title = title.ifBlank { file.name ?: fileUri.lastPathSegment.orEmpty() },
+                artistsText = artist,
+                durationText = durationMs?.toDurationText(),
+                thumbnailUrl = null
+            )
+        }.getOrNull().also {
+            runCatching { retriever.release() }
+        }
+    }.distinctBy(Song::id)
+}
+
+private fun DocumentFile.walkAudioFiles(): List<DocumentFile> {
+    if (!exists()) return emptyList()
+    if (isFile) return listOfNotNull(takeIf { it.isPlayableAudioFile() })
+    return listFiles().flatMap { child ->
+        when {
+            child.isDirectory -> child.walkAudioFiles()
+            child.isPlayableAudioFile() -> listOf(child)
+            else -> emptyList()
+        }
+    }
+}
+
+private fun DocumentFile.isPlayableAudioFile(): Boolean {
+    val mime = type.orEmpty()
+    if (mime.startsWith("audio/", ignoreCase = true)) return true
+    val extension = name?.substringAfterLast('.', "").orEmpty().lowercase()
+    return extension in setOf("mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "mp4")
+}
+
+private fun Long.toDurationText(): String {
+    val totalSeconds = (this / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    return if (hours > 0L) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%d:%02d".format(minutes, seconds)
     }
 }

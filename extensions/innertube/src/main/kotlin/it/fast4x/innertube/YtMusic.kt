@@ -119,9 +119,13 @@ object YtMusic {
         println("YtMusic removelikeVideoOrSong error: ${it.stackTraceToString()}")
     }
 
-    suspend fun getHomePage(setLogin: Boolean = false): Result<HomePage> = runCatching {
+    suspend fun getHomePage(setLogin: Boolean = false, params: String? = null): Result<HomePage> = runCatching {
 
-        var response = Innertube.browse(browseId = "FEmusic_home", setLogin = setLogin).body<BrowseResponse>()
+        var response = Innertube.browse(
+            browseId = "FEmusic_home",
+            params = params,
+            setLogin = setLogin
+        ).body<BrowseResponse>()
 
         println("homePage() response sections: ${response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents}" )
@@ -130,12 +134,17 @@ object YtMusic {
         var continuation = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.continuations?.getContinuation()
 
-        val sections = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-            ?.tabRenderer?.content?.sectionListRenderer?.contents!!
+        val sectionListRenderer = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer
+
+        val sections = sectionListRenderer?.contents!!
             .mapNotNull { it.musicCarouselShelfRenderer }
             .mapNotNull {
                 HomePage.Section.fromMusicCarouselShelfRenderer(it)
             }.toMutableList()
+        val chips = sectionListRenderer.header?.chipCloudRenderer?.chips?.mapNotNull {
+            HomePage.Chip.fromChipCloudChipRenderer(it)
+        }
         while (continuation != null) {
             println("gethomePage() continuation before:  ${continuation}" )
             response = Innertube.browse(continuation = continuation).body<BrowseResponse>()
@@ -149,7 +158,11 @@ object YtMusic {
                 }.orEmpty()
 
         }
-        HomePage( sections = sections )
+        HomePage(
+            chips = chips,
+            sections = sections.distinctBy { it.title to it.label },
+            continuation = continuation
+        )
     }
 
     suspend fun getHistory(setLogin: Boolean = false): Result<HistoryPage> = runCatching {

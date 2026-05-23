@@ -371,18 +371,35 @@ fun SongItem(
                             Download.STATE_REMOVING     -> R.drawable.download
                             else                        -> cacheState.iconId
                         }
-                        IconButton(
-                            icon = icon,
-                            color = color,
-                            modifier = Modifier.size( 20.dp ),
-                            onClick = {
-                                binder?.cache?.removeResource( song.id )
-                                Database.asyncTransaction {
-                                    formatTable.deleteBySongId( song.id )
+                        Box(
+                            modifier = Modifier.size(20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            IconButton(
+                                icon = icon,
+                                color = color,
+                                modifier = Modifier.size(20.dp),
+                                onClick = {
+                                    binder?.cache?.removeResource( song.id )
+                                    Database.asyncTransaction {
+                                        formatTable.deleteBySongId( song.id )
+                                    }
+                                    MyDownloadHelper.handleDownload( context, song, true )
                                 }
-                                MyDownloadHelper.handleDownload( context, song, true )
+                            )
+                            if (
+                                cacheState == DownloadedStateMedia.CACHED ||
+                                cacheState == DownloadedStateMedia.CACHED_AND_DOWNLOADED
+                            ) {
+                                BasicText(
+                                    text = "\u273F",
+                                    style = typography().xxs.medium.copy(color = androidx.compose.ui.graphics.Color(0xFFF5C542)),
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .absoluteOffset(x = 2.dp, y = (-2).dp)
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }

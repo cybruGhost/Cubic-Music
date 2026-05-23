@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package app.kreate.android.me.knighthat.updater
 
 import androidx.compose.animation.AnimatedVisibility
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,6 +28,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -117,11 +121,13 @@ class ChangelogsDialog(
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { hideDialog() }
         ) {
+        val windowInfo = LocalWindowInfo.current
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp)
+                .heightIn(max = (windowInfo.containerSize.height * 0.92f).dp)
         ) {
             val sections = remember {
                 parseReleaseNotes(
@@ -159,6 +165,18 @@ class ChangelogsDialog(
                             .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        IconButton(
+                            onClick = { hideDialog() },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(32.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.close),
+                                contentDescription = null,
+                                tint = colorPalette().textSecondary
+                            )
+                        }
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -194,7 +212,8 @@ class ChangelogsDialog(
                 )
             ) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = if (colorPalette() === PureBlackColorPalette || colorPalette() === ModernBlackColorPalette || colorPaletteMode == ColorPaletteMode.PitchBlack) {
                             Color(0xFF1A1A1A) // Gray dark for pitch black themes
@@ -282,12 +301,12 @@ class ChangelogsDialog(
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    val configuration = LocalWindowInfo.current
-                                         val changesBoxHeight by remember {
+                    val changesBoxHeight by remember(selectedTab) {
                          derivedStateOf {
-                             val maxHeight = (configuration.containerSize.height * .8f).toInt()
-                             val calculatedHeight = sections.maxOf { it.changes.size } * 32
-                             calculatedHeight.coerceAtMost(maxHeight)
+                             val maxHeight = (windowInfo.containerSize.height * .45f).toInt()
+                             val minHeight = 220
+                             val calculatedHeight = sections[selectedTab].changes.size * 42
+                             calculatedHeight.coerceIn(minHeight, maxHeight)
                          }
                      }
 

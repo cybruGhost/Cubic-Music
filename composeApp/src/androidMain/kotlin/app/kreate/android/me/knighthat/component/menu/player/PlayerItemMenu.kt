@@ -2,6 +2,7 @@ package app.kreate.android.me.knighthat.component.menu.player
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.media.audiofx.AudioEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import app.kreate.android.R
@@ -62,6 +64,7 @@ import app.it.fast4x.rimusic.utils.asSong
 import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.saveImageToInternalStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -140,6 +143,55 @@ class PlayerItemMenu private constructor(
         val coroutineScope = rememberCoroutineScope()
         val song = remember(mediaItem) { mediaItem.asSong }
 
+        fun refreshQueuedArtwork(player: Player, updatedMediaItem: MediaItem) {
+            val updatedArtwork = updatedMediaItem.mediaMetadata.artworkUri
+            for (index in 0 until player.mediaItemCount) {
+                val queueItem = player.getMediaItemAt(index)
+                val queueSongId = queueItem.mediaId.substringAfterLast("/")
+                if (queueSongId == song.id) {
+                    player.replaceMediaItem(
+                        index,
+                        queueItem.buildUpon()
+                            .setMediaMetadata(
+                                queueItem.mediaMetadata.buildUpon()
+                                    .setArtworkUri(updatedArtwork)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+            }
+        }
+
+        val uploadCoverLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            if (uri == null) {
+                Toaster.w(R.string.thumbnail_not_selected)
+                return@rememberLauncherForActivityResult
+            }
+
+            val safeSongId = song.id.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val savedUri = saveImageToInternalStorage(
+                context = mContext,
+                imageUri = uri,
+                dirPath = "thumbnail/song",
+                thumbnailName = "song_${safeSongId}_${System.currentTimeMillis()}"
+            )
+
+            if (savedUri != null) {
+                val updatedSong = song.copy(thumbnailUrl = savedUri.toString())
+                CoroutineScope(Dispatchers.IO).launch {
+                    Database.songTable.updateReplace(updatedSong)
+                }
+                refreshQueuedArtwork(binder.player, updatedSong.asMediaItem)
+                menuState.hide()
+                Toaster.s(R.string.cover_saved)
+            } else {
+                Toaster.e(R.string.cover_save_failed)
+            }
+        }
+
         // Reactively collect Album and Artists (like the old menu)
         val albumData by remember(mediaItem.mediaId) {
             Database.albumTable.findBySongId(mediaItem.mediaId)
@@ -212,6 +264,21 @@ class PlayerItemMenu private constructor(
             }
         }
 
+        val uploadCoverButton = remember {
+            object : MenuIcon, Descriptive, Clickable {
+                override val iconId: Int = R.drawable.pencil
+                override val messageId: Int = R.string.upload_cover
+                @get:Composable
+                override val menuIconTitle: String get() = stringResource(messageId)
+
+                override fun onShortClick() {
+                    uploadCoverLauncher.launch("image/*")
+                }
+
+                override fun onLongClick() {}
+            }
+        }
+
         // Sleep Timer
         val sleepTimerButton = remember {
             object : MenuIcon, Descriptive, Clickable {
@@ -261,11 +328,12 @@ class PlayerItemMenu private constructor(
             mutableListOf<Button>().apply {
                 add(renameSong)           // 1
                 add(changeAuthor)         // 2
-                add(startRadio)           // 3
-                add(equalizerButton)      // 4
-                add(sleepTimerButton)     // 5
-                add(addToFavorite)        // 6
-                add(addToPlaylist)        // 7
+                add(uploadCoverButton)    // 3
+                add(startRadio)           // 4
+                add(equalizerButton)      // 5
+                add(sleepTimerButton)     // 6
+                add(addToFavorite)        // 7
+                add(addToPlaylist)        // 8
                 
                 // Go to Album (Always visible, priority to direct navigation)
                 add(object : MenuIcon, Descriptive, Clickable {

@@ -144,16 +144,6 @@ fun CubicJamWebView(
                             }
                         }
                         
-                        @Deprecated("Deprecated in Java")
-                        override fun onReceivedError(
-                            view: WebView?,
-                            errorCode: Int,
-                            description: String?,
-                            failingUrl: String?
-                        ) {
-                            super.onReceivedError(view, errorCode, description, failingUrl)
-                            Timber.e("WebView Error: $description (Code: $errorCode) for URL: $failingUrl")
-                        }
                     }
                     
                     webChromeClient = object : WebChromeClient() {
@@ -179,7 +169,6 @@ fun CubicJamWebView(
                     
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
-                    settings.databaseEnabled = true
                     settings.allowFileAccess = true
                     settings.allowContentAccess = true
                     settings.setSupportMultipleWindows(true)

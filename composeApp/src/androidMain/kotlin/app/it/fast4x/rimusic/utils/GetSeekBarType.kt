@@ -2,7 +2,11 @@ package app.it.fast4x.rimusic.utils
 
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -33,15 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
@@ -64,6 +60,7 @@ import app.it.fast4x.rimusic.ui.components.SeekBarWaved
 import app.it.fast4x.rimusic.ui.components.SeekBarOcean
 import app.it.fast4x.rimusic.ui.styling.collapsedPlayerProgressBar
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
+import app.it.fast4x.rimusic.utils.safeSeekTo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -92,16 +89,19 @@ fun GetSeekBar(
     LaunchedEffect(mediaId) {
         if (compositionLaunched) animatedPosition.animateTo(0f)
     }
-    LaunchedEffect(position) {
+    val effectivePosition = position
+    val effectiveDuration = duration
+    val safeDuration = effectiveDuration.coerceAtLeast(1L)
+
+    LaunchedEffect(effectivePosition) {
         if (!isSeeking && !animatedPosition.isRunning)
             animatedPosition.animateTo(
-                position.toFloat(), tween(
+                effectivePosition.toFloat(), tween(
                     durationMillis = 1000,
                     easing = LinearEasing
                 )
             )
     }
-
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -110,7 +110,7 @@ fun GetSeekBar(
             .fillMaxWidth()
     ) {
 
-        if (duration == C.TIME_UNSET)
+        if (effectiveDuration == C.TIME_UNSET)
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth(),
                 color = colorPalette().collapsedPlayerProgressBar
@@ -125,97 +125,94 @@ fun GetSeekBar(
             )
             SeekBarCustom(
                 type = playerTimelineType,
-                value = scrubbingPosition ?: position,
+                value = scrubbingPosition ?: effectivePosition,
                 minimumValue = 0,
-                maximumValue = duration,
+                maximumValue = effectiveDuration,
                 onDragStart = {
                     scrubbingPosition = it
                 },
                 onDrag = { delta ->
-                    scrubbingPosition = if (duration != C.TIME_UNSET) {
-                        scrubbingPosition?.plus(delta)?.coerceIn(0, duration)
+                    scrubbingPosition = if (effectiveDuration != C.TIME_UNSET) {
+                        scrubbingPosition?.plus(delta)?.coerceIn(0, effectiveDuration)
                     } else {
                         null
                     }
                 },
                 onDragEnd = {
-                    scrubbingPosition?.let(binder.player::seekTo)
+                    scrubbingPosition?.let { binder.player.safeSeekTo(it) }
                     scrubbingPosition = null
                 },
                 color = colorPalette().collapsedPlayerProgressBar,
                 backgroundColor = if (transparentbar) Color.Transparent else colorPalette().textSecondary,
                 shape = RoundedCornerShape(8.dp),
-                //modifier = Modifier.pulsatingEffect(currentValue = scrubbingPosition?.toFloat() ?: position.toFloat(), isVisible = true)
             )
 
         if (playerTimelineType == PlayerTimelineType.Default)
             SeekBar(
-                value = scrubbingPosition ?: position,
+                value = scrubbingPosition ?: effectivePosition,
                 minimumValue = 0,
-                maximumValue = duration,
+                maximumValue = effectiveDuration,
                 onDragStart = {
                     scrubbingPosition = it
                 },
                 onDrag = { delta ->
-                    scrubbingPosition = if (duration != C.TIME_UNSET) {
-                        scrubbingPosition?.plus(delta)?.coerceIn(0, duration)
+                    scrubbingPosition = if (effectiveDuration != C.TIME_UNSET) {
+                        scrubbingPosition?.plus(delta)?.coerceIn(0, effectiveDuration)
                     } else {
                         null
                     }
                 },
                 onDragEnd = {
-                    scrubbingPosition?.let(binder.player::seekTo)
+                    scrubbingPosition?.let { binder.player.safeSeekTo(it) }
                     scrubbingPosition = null
                 },
                 color = colorPalette().collapsedPlayerProgressBar,
                 backgroundColor = if (transparentbar) Color.Transparent else colorPalette().textSecondary,
                 shape = RoundedCornerShape(8.dp),
-                //modifier = Modifier.pulsatingEffect(currentValue = scrubbingPosition?.toFloat() ?: position.toFloat(), isVisible = true)
             )
 
         if (playerTimelineType == PlayerTimelineType.ThinBar)
             SeekBarThin(
-                value = scrubbingPosition ?: position,
+                value = scrubbingPosition ?: effectivePosition,
                 minimumValue = 0,
-                maximumValue = duration,
+                maximumValue = effectiveDuration,
                 onDragStart = {
                     scrubbingPosition = it
                 },
                 onDrag = { delta ->
-                    scrubbingPosition = if (duration != C.TIME_UNSET) {
-                        scrubbingPosition?.plus(delta)?.coerceIn(0, duration)
+                    scrubbingPosition = if (effectiveDuration != C.TIME_UNSET) {
+                        scrubbingPosition?.plus(delta)?.coerceIn(0, effectiveDuration)
                     } else {
                         null
                     }
                 },
                 onDragEnd = {
-                    scrubbingPosition?.let(binder.player::seekTo)
+                    scrubbingPosition?.let { binder.player.safeSeekTo(it) }
                     scrubbingPosition = null
                 },
                 color = colorPalette().collapsedPlayerProgressBar,
                 backgroundColor = if (transparentbar) Color.Transparent else colorPalette().textSecondary,
                 shape = RoundedCornerShape(8.dp),
-                //modifier = Modifier.pulsatingEffect(currentValue = scrubbingPosition?.toFloat() ?: position.toFloat(), isVisible = true)
             )
 
       //  update the Wavy section:
 if (playerTimelineType == PlayerTimelineType.Wavy) {
     SeekBarWaved(
-        value = scrubbingPosition ?: position,  // Now matches Long parameter
+        value = scrubbingPosition ?: effectivePosition,
         minimumValue = 0,
-        maximumValue = duration,
+        maximumValue = effectiveDuration,
         onDragStart = {
             scrubbingPosition = it
         },
         onDrag = { delta ->
-            scrubbingPosition = if (duration != C.TIME_UNSET) {
-                scrubbingPosition?.plus(delta)?.coerceIn(0, duration)
+            scrubbingPosition = if (effectiveDuration != C.TIME_UNSET) {
+                scrubbingPosition?.plus(delta)?.coerceIn(0, effectiveDuration)
             } else {
                 null
             }
         },
         onDragEnd = {
-            scrubbingPosition?.let(binder.player::seekTo)
+            scrubbingPosition?.let { binder.player.safeSeekTo(it) }
             scrubbingPosition = null
         },
         color = colorPalette().collapsedPlayerProgressBar,
@@ -227,21 +224,21 @@ if (playerTimelineType == PlayerTimelineType.Wavy) {
     // Add Ocean section
         if (playerTimelineType == PlayerTimelineType.Ocean) {
             SeekBarOcean(
-                value = scrubbingPosition ?: position,
+                value = scrubbingPosition ?: effectivePosition,
                 minimumValue = 0,
-                maximumValue = duration,
+                maximumValue = effectiveDuration,
                 onDragStart = {
                     scrubbingPosition = it
                 },
                 onDrag = { delta ->
-                    scrubbingPosition = if (duration != C.TIME_UNSET) {
-                        scrubbingPosition?.plus(delta)?.coerceIn(0, duration)
+                    scrubbingPosition = if (effectiveDuration != C.TIME_UNSET) {
+                        scrubbingPosition?.plus(delta)?.coerceIn(0, effectiveDuration)
                     } else {
                         null
                     }
                 },
                 onDragEnd = {
-                    scrubbingPosition?.let(binder.player::seekTo)
+                    scrubbingPosition?.let { binder.player.safeSeekTo(it) }
                     scrubbingPosition = null
                 },
                 color = colorPalette().collapsedPlayerProgressBar,
@@ -251,42 +248,43 @@ if (playerTimelineType == PlayerTimelineType.Wavy) {
         }
         if (playerTimelineType == PlayerTimelineType.FakeAudioBar)
             SeekBarAudioWaves(
-                progressPercentage = ProgressPercentage((position.toFloat() / duration.toFloat()).coerceIn(0f,1f)),
+                progressPercentage = ProgressPercentage.safeValue(
+                    (effectivePosition.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
+                ),
                 playedColor = colorPalette().accent,
                 notPlayedColor = if (transparentbar) Color.Transparent else colorPalette().textSecondary,
                 waveInteraction = {
-                    scrubbingPosition = (it.value * duration.toFloat()).toLong()
-                    binder.player.seekTo(scrubbingPosition!!)
+                    scrubbingPosition = (it.value * safeDuration.toFloat()).toLong()
+                    scrubbingPosition?.let { target -> binder.player.safeSeekTo(target) }
                     scrubbingPosition = null
                 },
                 modifier = Modifier
                     .height(40.dp)
-                    //.pulsatingEffect(currentValue = position.toFloat() / duration.toFloat(), isVisible = true)
             )
 
 
         if (playerTimelineType == PlayerTimelineType.ColoredBar)
             SeekBarColored(
-                value = scrubbingPosition ?: position,
+                value = scrubbingPosition ?: effectivePosition,
                 minimumValue = 0,
-                maximumValue = duration,
+                maximumValue = effectiveDuration,
                 onDragStart = {
                     scrubbingPosition = it
                 },
                 onDrag = { delta ->
-                    scrubbingPosition = if (duration != C.TIME_UNSET) {
-                        scrubbingPosition?.plus(delta)?.coerceIn(0, duration)
+                    scrubbingPosition = if (effectiveDuration != C.TIME_UNSET) {
+                        scrubbingPosition?.plus(delta)?.coerceIn(0, effectiveDuration)
                     } else {
                         null
                     }
                 },
                 onDragEnd = {
-                    scrubbingPosition?.let(binder.player::seekTo)
+                    scrubbingPosition?.let { binder.player.safeSeekTo(it) }
                     scrubbingPosition = null
                 },
                 color = colorPalette().collapsedPlayerProgressBar,
                 backgroundColor = colorPalette().textSecondary,
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
             )
 
 

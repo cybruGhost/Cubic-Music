@@ -45,7 +45,9 @@ import app.it.fast4x.rimusic.ui.components.Skeleton
 import app.it.fast4x.rimusic.ui.components.themed.IconButton
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
 import app.it.fast4x.rimusic.utils.Preference.enableVoiceInputKey
+import app.it.fast4x.rimusic.utils.SearchYoutubeEntity
 import app.it.fast4x.rimusic.utils.StartVoiceInput
+import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import kotlinx.coroutines.delay
@@ -66,6 +68,7 @@ fun SearchScreen(
     onDismiss: (() -> Unit)? = null,
 ) {
     val saveableStateHolder = rememberSaveableStateHolder()
+    val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
     val (tabIndex, onTabChanged) = rememberSaveable {
         mutableStateOf(0)
@@ -137,7 +140,7 @@ fun SearchScreen(
 
     // Handle keyboard search action
     val onKeyboardSearch = {
-        if (textFieldValue.text.isNotEmpty()) {
+        if (textFieldValue.text.isNotEmpty() && tabIndex != 3) {
             onSearch(textFieldValue.text)
         }
     }
@@ -234,6 +237,7 @@ fun SearchScreen(
             item(0, stringResource(R.string.online), R.drawable.globe)
             item(1, stringResource(R.string.library), R.drawable.library)
             item(2, stringResource(R.string.go_to_link), R.drawable.link)
+            item(3, stringResource(R.string.youtube_search), R.drawable.logo_youtube)
         }
     ) { currentTabIndex ->
         Column(
@@ -407,6 +411,12 @@ fun SearchScreen(
                         onAction2 = { onTabChanged(1) },
                         onAction3 = { onTabChanged(2) },
                         onAction4 = {}
+                    )
+                    3 -> SearchYoutubeEntity(
+                        navController = navController,
+                        onDismiss = {},
+                        query = textFieldValue.text,
+                        disableScrollingText = disableScrollingText
                     )
                 }
             }

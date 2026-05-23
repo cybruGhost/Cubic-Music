@@ -1,9 +1,12 @@
-# Cubic Music 
+## Cubic Music
+---
+
+
 ---
 
 ## ❤️ Support the project❣️💓
 
-If you enjoy our work and want to support development, you can buy us a coffee ☕  
+If you enjoy our work and want to support development, you can buy me a coffee ☕  
 
 👉 **[ko-fi.com/anonghost40418](https://ko-fi.com/anonghost40418)**
 

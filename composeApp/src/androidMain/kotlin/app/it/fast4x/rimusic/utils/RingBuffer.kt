@@ -1,6 +1,7 @@
 package app.it.fast4x.rimusic.utils
 
 import android.net.Uri
+import kotlin.ConsistentCopyVisibility
 import java.time.Clock
 import java.time.Instant
 
@@ -39,6 +40,7 @@ open class RingBuffer<T>(val size: Int, private val init: (index: Int) -> T) : I
 class UriCache<Key : Any, Meta>(size: Int = 16) {
     private val buffer = RingBuffer<CachedUri<Key, Meta>?>(size) { null }
 
+    @ConsistentCopyVisibility
     data class CachedUri<Key, Meta> internal constructor(
         val key: Key,
         val meta: Meta,

@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Omarrangering er kun muligt i stigende sortering</string>
   <string name="information">Information</string>
   <string name="info_lyrics_found_on_s">Sangtekster fundet på %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Ingen sangtekst fundet på %s; prøv på %s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Ingen sangtekst fundet på %1$s; prøv på %2$s</string>
   <string name="info_lyrics_not_found_on_s">Ingen sangtekst fundet på %s</string>
   <string name="info_lyrics_tracks_found_on_s">Sangtekstspor fundet på %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Ingen sangtekstspor fundet på %s</string>
@@ -1055,3 +1055,4 @@
   <string name="cache_status">Cache status</string>
   <string name="cache_empty">Cache tom</string>
 </resources>
+

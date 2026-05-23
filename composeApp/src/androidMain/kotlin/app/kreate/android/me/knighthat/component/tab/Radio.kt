@@ -12,8 +12,10 @@ import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.MenuState
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @UnstableApi
@@ -22,6 +24,7 @@ class Radio private constructor(
     private val menuState: MenuState,
     private val songs: () -> List<Song>
 ): MenuIcon, Descriptive {
+    private val radioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // Track recently played songs to avoid repetition
     private val recentlyPlayed = mutableStateListOf<Song>()
@@ -45,7 +48,6 @@ class Radio private constructor(
         @Composable
         get() = stringResource( messageId )
 
-    @OptIn(DelicateCoroutinesApi::class)
     override fun onShortClick() {
         retryCount = 0 // Reset retry counter when user manually clicks
         startRadioWithRetry()
@@ -55,7 +57,7 @@ class Radio private constructor(
      * Main radio start function with auto-retry capability
      */
     private fun startRadioWithRetry() {
-        GlobalScope.launch {
+        radioScope.launch {
             try {
                 val availableSongs = songs()
                 
@@ -105,8 +107,8 @@ class Radio private constructor(
             logError("Auto-retrying... Attempt $retryCount of $maxRetries")
             
             // Auto-retry after a short delay (1 second)
-            GlobalScope.launch {
-                kotlinx.coroutines.delay(1000)
+            radioScope.launch {
+                delay(1000)
                 startRadioWithRetry()
             }
         } else if (retryCount >= maxRetries) {

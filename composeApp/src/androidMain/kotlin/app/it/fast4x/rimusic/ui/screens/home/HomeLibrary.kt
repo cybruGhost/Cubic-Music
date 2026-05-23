@@ -21,14 +21,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -47,6 +43,8 @@ import app.it.fast4x.rimusic.enums.PlaylistsType
 import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.models.Playlist
 import app.it.fast4x.rimusic.models.PlaylistPreview
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
 import app.it.fast4x.rimusic.ui.components.ButtonsRow
 import app.it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import app.it.fast4x.rimusic.ui.components.tab.ItemSize
@@ -61,7 +59,6 @@ import app.it.fast4x.rimusic.utils.Preference.HOME_LIBRARY_ITEM_SIZE
 import app.it.fast4x.rimusic.utils.Preference.HOME_LIBRARY_SORT_BY
 import app.it.fast4x.rimusic.utils.Preference.HOME_LIBRARY_SORT_ORDER
 import app.it.fast4x.rimusic.utils.autoSyncToolbutton
-import app.it.fast4x.rimusic.utils.autosyncKey
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.enableCreateMonthlyPlaylistsKey
 import app.it.fast4x.rimusic.utils.playlistTypeKey
@@ -70,16 +67,17 @@ import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import app.it.fast4x.rimusic.utils.showMonthlyPlaylistsKey
 import app.it.fast4x.rimusic.utils.showPinnedPlaylistsKey
 import app.it.fast4x.rimusic.utils.showPipedPlaylistsKey
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import app.it.fast4x.rimusic.utils.syncSelectedYtmAccountData
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.component.Sort
 import app.kreate.android.me.knighthat.component.playlist.NewPlaylistDialog
+import app.kreate.android.me.knighthat.component.tab.CsvImportConversionHost
 import app.kreate.android.me.knighthat.component.tab.ImportSongsFromCSV
 import app.kreate.android.me.knighthat.component.tab.Search
 import app.kreate.android.me.knighthat.component.tab.SongShuffler
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Randomizer
+import app.kreate.android.me.knighthat.utils.Toaster
 
 @ExperimentalMaterial3Api
 @UnstableApi
@@ -94,6 +92,12 @@ fun HomeLibrary(
 ) {
     // Essentials
     val lazyGridState = rememberLazyGridState()
+    val syncScope = rememberCoroutineScope()
+
+    suspend fun repairYtmScope() {
+        YouTubeSessionStore.applyCurrentSession()
+            ?.let { YtmSessionApi.ensureScopedSession(it) }
+    }
 
     // Non-vital
     var playlistType by rememberPreference(playlistTypeKey, PlaylistsType.Playlist)
@@ -133,7 +137,6 @@ fun HomeLibrary(
     val newPlaylistDialog = NewPlaylistDialog()
     //</editor-fold>
     val importPlaylistDialog = ImportSongsFromCSV()
-    val sync = autoSyncToolbutton(R.string.autosync)
 
     LaunchedEffect( sort.sortBy, sort.sortOrder ) {
         Database.playlistTable
@@ -162,10 +165,17 @@ fun HomeLibrary(
         PlaylistsType.MonthlyPlaylist to stringResource(R.string.monthly_playlists)
     // END - Additional playlists
 
-LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
+    LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
         if (!showPinnedPlaylists && playlistType == PlaylistsType.PinnedPlaylist) playlistType = PlaylistsType.Playlist
         if (!showMonthlyPlaylists && playlistType == PlaylistsType.MonthlyPlaylist) playlistType = PlaylistsType.Playlist
         if (!showPipedPlaylists && playlistType == PlaylistsType.PipedPlaylist) playlistType = PlaylistsType.Playlist
+    }
+
+    LaunchedEffect(playlistType) {
+        if (playlistType == PlaylistsType.YTPlaylist) {
+            repairYtmScope()
+            syncSelectedYtmAccountData()
+        }
     }
     // START - New playlist
     newPlaylistDialog.Render()
@@ -183,37 +193,29 @@ LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
         override fun onClick(index: Int) = onPlaylistClick( itemsOnDisplay[index].playlist )
     }
 
-    val doAutoSync by rememberPreference(autosyncKey, false)
-    var justSynced by rememberSaveable { mutableStateOf(!doAutoSync) }
-
-    var refreshing by remember { mutableStateOf(false) }
-    val refreshScope = rememberCoroutineScope()
-
-    fun refresh() {
-        if (refreshing) return
-        refreshScope.launch(Dispatchers.IO) {
-            refreshing = true
-            justSynced = false
-            delay(500)
-            refreshing = false
+    val sync = autoSyncToolbutton(R.string.sync) {
+        syncScope.launch {
+            repairYtmScope()
+            val synced = syncSelectedYtmAccountData()
+            if (!synced) Toaster.i("No new YouTube Music changes were synced")
         }
     }
 
-    PullToRefreshBox(
-        isRefreshing = refreshing,
-        onRefresh = ::refresh
+    Box(
+        modifier = Modifier
+            .background(colorPalette().background0)
+            .fillMaxHeight()
+            .fillMaxWidth(
+                if (NavigationBarPosition.Right.isCurrent())
+                    Dimensions.contentWidthRightBar
+                else
+                    1f
+            )
     ) {
         Box(
             modifier = Modifier
                 .background(colorPalette().background0)
-                //.fillMaxSize()
-                .fillMaxHeight()
-                .fillMaxWidth(
-                    if (NavigationBarPosition.Right.isCurrent())
-                        Dimensions.contentWidthRightBar
-                    else
-                        1f
-                )
+                .fillMaxSize()
         ) {
             Column( Modifier.fillMaxSize() ) {
                 // Sticky tab's title
@@ -222,7 +224,7 @@ LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
                 }
 
                 // Sticky tab's tool bar
-                TabToolBar.Buttons( sort, search, shuffle, newPlaylistDialog, randomizer, importPlaylistDialog, itemSize )
+                TabToolBar.Buttons( sort, search, sync, shuffle, newPlaylistDialog, randomizer, importPlaylistDialog, itemSize )
 
                 // Sticky search bar
                 search.SearchBar( this )
@@ -320,5 +322,7 @@ LaunchedEffect(showPinnedPlaylists, showMonthlyPlaylists, showPipedPlaylists) {
                     onClickSearch = onSearchClick
                 )
         }
+
+        CsvImportConversionHost()
     }
 }

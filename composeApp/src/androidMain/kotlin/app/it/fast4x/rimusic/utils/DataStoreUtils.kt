@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -72,6 +73,30 @@ object DataStoreUtils {
     fun getBooleanBlocking(context: Context, key: String, default: Boolean = false): Boolean {
         return runBlocking {
             getBooleanFlow(context, key, default).first()
+        }
+    }
+
+    suspend fun saveInt(context: Context, key: String, value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[intPreferencesKey(key)] = value
+        }
+    }
+
+    fun saveIntBlocking(context: Context, key: String, value: Int) {
+        runBlocking {
+            saveInt(context, key, value)
+        }
+    }
+
+    fun getIntFlow(context: Context, key: String, default: Int = 0): Flow<Int> {
+        return context.dataStore.data.map { preferences ->
+            preferences[intPreferencesKey(key)] ?: default
+        }
+    }
+
+    fun getIntBlocking(context: Context, key: String, default: Int = 0): Int {
+        return runBlocking {
+            getIntFlow(context, key, default).first()
         }
     }
 }

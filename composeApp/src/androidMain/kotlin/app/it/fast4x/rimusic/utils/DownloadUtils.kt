@@ -120,13 +120,11 @@ fun manageDownload(
 @UnstableApi
 @Composable
 fun getDownloadState(mediaId: String): Int {
-    val context = LocalContext.current
     val downloader = LocalDownloadHelper.current
-    if (!isNetworkAvailableComposable()) return 3
 
     val downloadFlow = remember(mediaId) { downloader.getDownload(mediaId) }
     return downloadFlow.collectAsState(initial = null as Download?).value?.state
-        ?: 3
+        ?: Download.STATE_STOPPED
 }
 
 @UnstableApi
@@ -140,9 +138,9 @@ fun getDownloadProgress(mediaId: String): Float {
 @Composable
 fun isDownloadedSong(mediaId: String): Boolean {
     return when (downloadedStateMedia(mediaId)) {
-        DownloadedStateMedia.CACHED -> false
-        DownloadedStateMedia.CACHED_AND_DOWNLOADED, DownloadedStateMedia.DOWNLOADED -> true
+        DownloadedStateMedia.CACHED,
+        DownloadedStateMedia.CACHED_AND_DOWNLOADED,
+        DownloadedStateMedia.DOWNLOADED -> true
         else -> false
     }
 }
-

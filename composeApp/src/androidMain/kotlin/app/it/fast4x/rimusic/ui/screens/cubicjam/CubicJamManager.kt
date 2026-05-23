@@ -269,8 +269,12 @@ class CubicJamManager(
                 if (!isNetworkAvailable(context)) {
                     continue
                 }
-                val isPlaying = isPlayingProvider?.invoke() ?: true
-                val currentPosition = getCurrentPosition?.invoke() ?: 0L
+                val isPlaying = withContext(Dispatchers.Main.immediate) {
+                    isPlayingProvider?.invoke() ?: true
+                }
+                val currentPosition = withContext(Dispatchers.Main.immediate) {
+                    getCurrentPosition?.invoke() ?: 0L
+                }
                 sendActivityUpdate(mediaItem, currentPosition, duration, isPlaying)
             }
         }

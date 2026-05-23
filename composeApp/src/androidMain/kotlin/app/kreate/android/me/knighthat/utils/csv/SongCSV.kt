@@ -2,6 +2,7 @@ package app.kreate.android.me.knighthat.utils.csv
 
 import com.github.doyaaaaaken.kotlincsv.client.ICsvFileWriter
 import app.it.fast4x.rimusic.models.Song
+import app.it.fast4x.rimusic.cleanPrefix
 import app.it.fast4x.rimusic.utils.durationTextToMillis
 
 data class SongCSV(
@@ -19,9 +20,9 @@ data class SongCSV(
         playlistName: String = ""
     ): this(
         playlistBrowseId = playlistBrowseId,
-        playlistName = playlistName,
+        playlistName = cleanPrefix(playlistName),
         songId = song.id,
-        title = song.title,
+        title = cleanPrefix(song.title),
         artists = song.artistsText ?: "",
         duration = durationTextToMillis( song.durationText ?: "" ).div( 1000 ).toString(),
         thumbnailUrl = song.thumbnailUrl ?: ""

@@ -167,7 +167,13 @@ fun rememberNowPlayingState(): NowPlayingStateHolder {
                             
                             // Smooth update - only update if different
                             val currentFriend = state.value.friendNowPlaying
-                            if (currentFriend?.id != friendNowPlaying.id || 
+                            if (currentFriend?.id != friendNowPlaying.id ||
+                                currentFriend?.trackTitle != friendNowPlaying.trackTitle ||
+                                currentFriend?.artistName != friendNowPlaying.artistName ||
+                                currentFriend?.albumArtUrl != friendNowPlaying.albumArtUrl ||
+                                currentFriend?.positionMs != friendNowPlaying.positionMs ||
+                                currentFriend?.durationMs != friendNowPlaying.durationMs ||
+                                currentFriend?.friendName != friendNowPlaying.friendName ||
                                 currentFriend?.isPlaying != friendNowPlaying.isPlaying ||
                                 currentFriend?.isOnline != friendNowPlaying.isOnline) {
                                 
@@ -201,7 +207,8 @@ fun rememberNowPlayingState(): NowPlayingStateHolder {
                             // Smooth update
                             if (state.value.friendStatus?.friendName != friendStatus.friendName ||
                                 state.value.friendStatus?.isPlaying != friendStatus.isPlaying ||
-                                state.value.friendStatus?.isOnline != friendStatus.isOnline) {
+                                state.value.friendStatus?.isOnline != friendStatus.isOnline ||
+                                state.value.friendStatus?.lastActivity?.id != friendStatus.lastActivity?.id) {
                                 
                                 state.value = NowPlayingState(
                                     friendNowPlaying = state.value.friendNowPlaying,

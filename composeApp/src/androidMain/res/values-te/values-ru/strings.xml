@@ -501,7 +501,7 @@
 <string name="info_reorder_is_possible_only_in_ascending_sort">Переупорядочить возможно только при возрастании сортировки</string>
 <string name="information">Информация</string>
 <string name="info_lyrics_found_on_s">Текст песни найден на %s</string>
-<string name="info_lyrics_not_found_on_s_try_on_s">Текст песни не найден на %s, ищу на %s</string>
+<string name="info_lyrics_not_found_on_s_try_on_s">Текст песни не найден на %1$s, ищу на %2$s</string>
 <string name="info_lyrics_not_found_on_s">Текст песни не найден на %s</string>
 <string name="info_lyrics_tracks_found_on_s">Текст песни найден на %s</string>
 <string name="info_lyrics_tracks_not_found_on_s">Текст песни не найден на %s</string>
@@ -979,3 +979,4 @@
 <string name="view_changelog_settings_text">Просмотреть список изменений установленной версии</string>
 <string name="artist_songs_count_duration">%1$d Songs • %2$s</string>
 </resources>
+

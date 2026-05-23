@@ -2,7 +2,7 @@ A FAIRE
 
 
 PLUS TARD
-
+fix all code issues
 
 OK
 adjust default value of AUDIO_SKIP_SILENCE

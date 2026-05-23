@@ -28,7 +28,7 @@ import database.entities.SongAlbumMap
 import database.entities.SongArtistMap
 import database.entities.SongEntity
 import database.entities.SongPlaylistMap
-import it.fast4x.rimusic.LOCAL_KEY_PREFIX
+import app.it.fast4x.rimusic.LOCAL_KEY_PREFIX
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 

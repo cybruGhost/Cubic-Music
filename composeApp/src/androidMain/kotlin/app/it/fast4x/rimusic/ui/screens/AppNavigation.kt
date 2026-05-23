@@ -55,6 +55,7 @@ import app.it.fast4x.rimusic.ui.screens.album.AlbumScreen
 import app.it.fast4x.rimusic.ui.screens.artist.ArtistScreenModern
 import app.it.fast4x.rimusic.ui.screens.history.HistoryScreen
 import app.it.fast4x.rimusic.ui.screens.home.HomeScreen
+import app.it.fast4x.rimusic.ui.screens.home.HomePage
 import app.it.fast4x.rimusic.ui.screens.localplaylist.LocalPlaylistScreen
 import app.it.fast4x.rimusic.ui.screens.mood.MoodScreen
 import app.it.fast4x.rimusic.ui.screens.mood.MoodsPageScreen
@@ -64,11 +65,14 @@ import app.it.fast4x.rimusic.ui.screens.playlist.PlaylistScreen
 import app.it.fast4x.rimusic.ui.screens.podcast.PodcastScreen
 import app.it.fast4x.rimusic.ui.screens.rewind.RewindScreen
 import app.it.fast4x.rimusic.ui.screens.donate.DonateScreen
+import app.it.fast4x.rimusic.ui.screens.find.FindScreen
 import app.it.fast4x.rimusic.ui.screens.search.SearchScreen
 import app.it.fast4x.rimusic.ui.screens.searchresult.SearchResultScreen
 import app.it.fast4x.rimusic.ui.screens.settings.SettingsScreen
+import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyLoginWebView
 import app.it.fast4x.rimusic.ui.screens.statistics.StatisticsScreen
 import app.it.fast4x.rimusic.utils.clearPreference
+import app.it.fast4x.rimusic.utils.ApplyDiscoverToQueue
 import app.it.fast4x.rimusic.utils.homeScreenTabIndexKey
 import app.it.fast4x.rimusic.utils.pauseSearchHistoryKey
 import app.it.fast4x.rimusic.utils.preferences
@@ -76,13 +80,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import app.it.fast4x.rimusic.utils.transitionEffectKey
 import app.it.fast4x.rimusic.ui.screens.welcome.WelcomeScreen
-import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamManager
-import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamScreen
-import androidx.compose.runtime.remember
-import android.content.Context
-// i should add this import at the top of your AppNavigation.kt file
-import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamWebView
-import app.it.fast4x.rimusic.ui.screens.cubicjam.CubicJamSwipeScreen
+import app.it.fast4x.rimusic.ui.styling.LocalAppearance
 
 
 
@@ -103,6 +101,8 @@ fun AppNavigation(
     openTabFromShortcut: Int
 ) {
     val transitionEffect by rememberPreference(transitionEffectKey, TransitionEffect.SlideHorizontal)
+     val appearance = app.it.fast4x.rimusic.ui.styling.LocalAppearance.current
+    ApplyDiscoverToQueue()
 
     @Composable
     fun modalBottomSheetPage(content: @Composable () -> Unit) {
@@ -188,10 +188,13 @@ fun AppNavigation(
         }
 
         composable(route = NavRoutes.gameSnake.name) {
-            modalBottomSheetPage {
-                SnakeGame()
-            }
-        }
+    modalBottomSheetPage {
+        SnakeGame(
+            colorPalette = appearance.colorPalette,
+            typography = appearance.typography
+        )
+    }
+}
 
         composable(route = NavRoutes.queue.name) {
             modalBottomSheetPage {
@@ -290,6 +293,30 @@ fun AppNavigation(
             )
         }
 
+        composable(route = NavRoutes.spotifyLogin.name) {
+            SpotifyLoginWebView(
+                onLoginSuccess = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("spotify_login_success", true)
+                    navController.popBackStack()
+                },
+                onDismiss = { navController.popBackStack() }
+            )
+        }
+
+        composable(route = NavRoutes.find.name) {
+            modalBottomSheetPage {
+                FindScreen(
+                    onDismiss = { navController.popBackStack() },
+                    onOpenSearch = { query ->
+                        navController.navigate("${NavRoutes.searchResults.name}/${Uri.encode(query)}")
+                    },
+                    miniPlayer = {}
+                )
+            }
+        }
+
         composable(route = NavRoutes.statistics.name) {
             StatisticsScreen(
                 navController = navController,
@@ -304,46 +331,17 @@ fun AppNavigation(
                 miniPlayer = miniPlayer,
             )
         }
-// Cubic Jam Main Screen
-composable(route = NavRoutes.cubicjam.name) {
-    val context = LocalContext.current
-    val cubicJamManager = remember {
-        CubicJamManager(
-            context = context,
-            getToken = {
-                context.getSharedPreferences(
-                    "cubic_jam_prefs",
-                    Context.MODE_PRIVATE
-                ).getString("bearer_token", null)
-            }
-        )
-    }
-
-    CubicJamScreen(
-        navController = navController,
-        cubicJamManager = cubicJamManager
-    )
-}
-
-// Cubic Jam WebView Screen with URL parameter
-composable(
-    route = "${NavRoutes.cubicjam_web.name}?url={url}",
-    arguments = listOf(
-        navArgument("url") {
-            type = NavType.StringType
-            defaultValue = "https://jam-wave-connect.lovable.app/feed"
-            nullable = true
+        composable(route = NavRoutes.chipsPage.name) {
+            HomePage(
+                navController = navController,
+                miniPlayer = miniPlayer,
+                onSearchClick = { navController.navigate(NavRoutes.search.name) },
+                onSettingsClick = { navController.navigate(NavRoutes.settings.name) },
+                onAlbumClick = { navController.navigate("${NavRoutes.album.name}/$it") },
+                onArtistClick = { navController.navigate("${NavRoutes.artist.name}/$it") },
+                onPlaylistClick = { navController.navigate("${NavRoutes.playlist.name}/$it") },
+            )
         }
-    )
-) { backStackEntry ->
-    val url = backStackEntry.arguments?.getString("url")
-        ?: "https://jam-wave-connect.lovable.app/feed"
-
-    CubicJamWebView(
-        navController = navController,
-        initialUrl = url
-    )
-}
 
         // Add Rewind screen here
         composable(route = NavRoutes.rewind.name) {
@@ -444,9 +442,7 @@ composable(
             }
         }
 
-        composable(
-            route = NavRoutes.moodsPage.name
-        ) { navBackStackEntry ->
+        composable(route = NavRoutes.moodsPage.name) {
             MoodsPageScreen(
                 navController = navController
             )

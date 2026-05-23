@@ -31,8 +31,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -41,6 +43,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Slider
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
@@ -77,19 +80,26 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.media3.common.C
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
+import coil.compose.AsyncImage
 import app.kreate.android.R
 import com.valentinilk.shimmer.shimmer
 import it.fast4x.innertube.Innertube
@@ -114,6 +124,7 @@ import app.it.fast4x.rimusic.enums.LyricsOutline
 import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
 import app.it.fast4x.rimusic.enums.Romanization
 import app.it.fast4x.rimusic.models.Lyrics
+import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
@@ -132,11 +143,16 @@ import app.it.fast4x.rimusic.ui.styling.onOverlayShimmer
 import app.it.fast4x.rimusic.utils.SynchronizedLyrics
 import app.it.fast4x.rimusic.utils.center
 import app.it.fast4x.rimusic.utils.color
+import app.it.fast4x.rimusic.utils.buildLyricsShareLink
+import app.it.fast4x.rimusic.utils.buildLyricsShareLines
+import app.it.fast4x.rimusic.utils.buildLyricsShareSlice
 import app.it.fast4x.rimusic.utils.colorPaletteModeKey
 import app.it.fast4x.rimusic.utils.colorPaletteNameKey
 import app.it.fast4x.rimusic.utils.conditional
+import app.it.fast4x.rimusic.utils.defaultLyricsSourceKey
 import app.it.fast4x.rimusic.utils.effectRotationKey
 import app.it.fast4x.rimusic.utils.expandedplayerKey
+import app.it.fast4x.rimusic.utils.fetchSimpMusicLyrics
 import app.cubic.android.core.network.NetworkClientFactory
 import app.it.fast4x.rimusic.utils.isShowingSynchronizedLyricsKey
 import app.it.fast4x.rimusic.utils.jumpPreviousKey
@@ -149,6 +165,7 @@ import app.it.fast4x.rimusic.utils.lyricsColorKey
 import app.it.fast4x.rimusic.utils.lyricsFontSizeKey
 import app.it.fast4x.rimusic.utils.lyricsHighlightKey
 import app.it.fast4x.rimusic.utils.lyricsOutlineKey
+import app.it.fast4x.rimusic.utils.lyricsKaraokeEnabledKey
 import app.it.fast4x.rimusic.utils.lyricsSizeAnimateKey
 import app.it.fast4x.rimusic.utils.lyricsSizeKey
 import app.it.fast4x.rimusic.utils.lyricsSizeLKey
@@ -156,17 +173,24 @@ import app.it.fast4x.rimusic.utils.medium
 import app.it.fast4x.rimusic.utils.otherLanguageAppKey
 import app.it.fast4x.rimusic.utils.playNext
 import app.it.fast4x.rimusic.utils.playPrevious
+import app.it.fast4x.rimusic.utils.pickBestLrcLibTrack
+import app.it.fast4x.rimusic.utils.plainLyricsFromTimedText
 import app.it.fast4x.rimusic.utils.playerBackgroundColorsKey
 import app.it.fast4x.rimusic.utils.playerEnableLyricsPopupMessageKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.romanizationKey
+import app.it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.utils.shareLyricsCard
 import app.it.fast4x.rimusic.utils.showBackgroundLyricsKey
 import app.it.fast4x.rimusic.utils.showSecondLineKey
+import app.it.fast4x.rimusic.utils.showLyricsSourceSwitcherKey
 import app.it.fast4x.rimusic.utils.showlyricsthumbnailKey
+import app.it.fast4x.rimusic.utils.simpMusicTranslationEnabledKey
 import app.it.fast4x.rimusic.utils.textCopyToClipboard
 import app.it.fast4x.rimusic.utils.verticalFadingEdge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -197,7 +221,7 @@ fun Lyrics(
     size: Dp,
     mediaMetadataProvider: () -> MediaMetadata,
     durationProvider: () -> Long,
-    ensureSongInserted: () -> Unit,
+    ensureSongInserted: Database.() -> Unit,
     modifier: Modifier = Modifier,
     clickLyricsText: Boolean,
     trailingContent: (@Composable () -> Unit)? = null,
@@ -224,7 +248,7 @@ fun Lyrics(
         )
         var lyricsOutline by rememberPreference(
             lyricsOutlineKey,
-            LyricsOutline.None
+            LyricsOutline.Glow
         )
         val playerBackgroundColors by rememberPreference(
             playerBackgroundColorsKey,
@@ -243,7 +267,7 @@ fun Lyrics(
             mutableStateOf(false)
         }
 
-        var lyrics by remember {
+        var lyrics by remember(mediaId) {
             mutableStateOf<Lyrics?>(null)
         }
 
@@ -259,6 +283,9 @@ fun Lyrics(
         var showLanguagesList by remember {
             mutableStateOf(false)
         }
+        var changingSimpMusicLanguage by remember {
+            mutableStateOf(false)
+        }
 
         var translateEnabled by remember {
             mutableStateOf(false)
@@ -271,7 +298,9 @@ fun Lyrics(
         var lyricsBackground by rememberPreference(lyricsBackgroundKey, LyricsBackground.Black)
 
         if (showLanguagesList) {
-            translateEnabled = false
+            if (!changingSimpMusicLanguage) {
+                translateEnabled = false
+            }
             menuState.display {
                 Menu {
                     Row(
@@ -290,7 +319,11 @@ fun Lyrics(
                         onClick = {
                             menuState.hide()
                             showLanguagesList = false
-                            translateEnabled = false
+                            if (changingSimpMusicLanguage) {
+                                changingSimpMusicLanguage = false
+                            } else {
+                                translateEnabled = false
+                            }
 
                         }
                     )
@@ -301,7 +334,11 @@ fun Lyrics(
                         onClick = {
                             menuState.hide()
                             showLanguagesList = false
-                            translateEnabled = true
+                            if (changingSimpMusicLanguage) {
+                                changingSimpMusicLanguage = false
+                            } else {
+                                translateEnabled = true
+                            }
 
                         }
                     )
@@ -316,7 +353,11 @@ fun Lyrics(
                                     menuState.hide()
                                     otherLanguageApp = it
                                     showLanguagesList = false
-                                    translateEnabled = true
+                                    if (changingSimpMusicLanguage) {
+                                        changingSimpMusicLanguage = false
+                                    } else {
+                                        translateEnabled = true
+                                    }
 
                                 }
                             )
@@ -333,36 +374,63 @@ fun Lyrics(
             mutableStateOf(false)
         }
 
-        if (copyToClipboard) text?.let {
-            textCopyToClipboard(it, context)
+        LaunchedEffect(copyToClipboard, text) {
+            if (copyToClipboard && !text.isNullOrBlank()) {
+                textCopyToClipboard(text!!, context)
+                copyToClipboard = false
+            }
         }
 
         var fontSize by rememberPreference(lyricsFontSizeKey, LyricsFontSize.Medium)
         val showBackgroundLyrics by rememberPreference(showBackgroundLyricsKey, false)
+        val showLyricsSourceSwitcher by rememberPreference(showLyricsSourceSwitcherKey, true)
         val playerEnableLyricsPopupMessage by rememberPreference(
             playerEnableLyricsPopupMessageKey,
             true
         )
+        var defaultLyricsSource by rememberPreference(defaultLyricsSourceKey, "lrclib")
+        var simpMusicTranslationEnabled by rememberPreference(simpMusicTranslationEnabledKey, false)
+        var selectedLyricsSource by rememberSaveable(mediaId) { mutableStateOf(defaultLyricsSource) }
+        var showSimpMusicOptions by rememberSaveable(mediaId) { mutableStateOf(false) }
+        var showShareCardPreview by rememberSaveable(mediaId) { mutableStateOf(false) }
+        var shareSliceStartLine by rememberSaveable(mediaId) { mutableStateOf(0f) }
         var expandedplayer by rememberPreference(expandedplayerKey, false)
 
-        var checkedLyricsLrc by remember {
+        var checkedLyricsLrc by remember(mediaId) {
             mutableStateOf(false)
         }
-        var checkedLyricsKugou by remember {
+        var checkedLyricsKugou by remember(mediaId) {
             mutableStateOf(false)
         }
-        var checkedLyricsInnertube by remember {
+        var checkedLyricsInnertube by remember(mediaId) {
             mutableStateOf(false)
         }
-        var checkLyrics by remember {
+        var checkLyrics by remember(mediaId) {
             mutableStateOf(false)
         }
         var lyricsHighlight by rememberPreference(lyricsHighlightKey, LyricsHighlight.None)
         var lyricsAlignment by rememberPreference(lyricsAlignmentKey, LyricsAlignment.Center)
         var lyricsSizeAnimate by rememberPreference(lyricsSizeAnimateKey, true)
+        var lyricsKaraokeEnabled by rememberPreference(lyricsKaraokeEnabledKey, false)
         val mediaMetadata = mediaMetadataProvider()
-        var artistName by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.artist?.toString().orEmpty()))}
-        var title by rememberSaveable { mutableStateOf(cleanPrefix(mediaMetadata.title?.toString().orEmpty()))}
+        var artistName by rememberSaveable(mediaId) { mutableStateOf(cleanPrefix(mediaMetadata.artist?.toString().orEmpty()))}
+        var title by rememberSaveable(mediaId) { mutableStateOf(cleanPrefix(mediaMetadata.title?.toString().orEmpty()))}
+        val sharePreviewLines = remember(text) { buildLyricsShareLines(text.orEmpty()) }
+        val shareMaxStartIndex = (sharePreviewLines.size - 1).coerceAtLeast(0)
+        val shareSliceStartIndex = shareSliceStartLine.toInt().coerceIn(0, shareMaxStartIndex)
+        val sharePreviewLyrics = remember(text, shareSliceStartIndex) {
+            buildLyricsShareSlice(
+                lines = sharePreviewLines,
+                startIndex = shareSliceStartIndex
+            )
+        }
+        val shareDeeplink = remember(mediaId, mediaMetadata.title, mediaMetadata.artist) {
+            buildLyricsShareLink(
+                mediaId = mediaId,
+                title = cleanPrefix(mediaMetadata.title?.toString().orEmpty()),
+                artist = cleanPrefix(mediaMetadata.artist?.toString().orEmpty())
+            )
+        }
         var lyricsSize by rememberPreference(lyricsSizeKey, 20f)
         var lyricsSizeL by rememberPreference(lyricsSizeLKey, 20f)
         var customSize = if (isLandscape) lyricsSizeL else lyricsSize
@@ -391,6 +459,177 @@ fun Lyrics(
         LaunchedEffect(mediaMetadata.title, mediaMetadata.artist) {
             artistName = mediaMetadata.artist?.toString().orEmpty()
             title = cleanPrefix(mediaMetadata.title?.toString().orEmpty())
+        }
+
+        LaunchedEffect(mediaId, mediaMetadata.title, mediaMetadata.artist) {
+            lyrics = null
+            checkedLyricsLrc = false
+            checkedLyricsKugou = false
+            checkedLyricsInnertube = false
+            checkLyrics = false
+            invalidLrc = false
+            isError = false
+            isErrorSync = false
+            selectedLyricsSource = defaultLyricsSource
+            showSimpMusicOptions = false
+            showShareCardPreview = false
+            shareSliceStartLine = 0f
+        }
+
+        suspend fun fetchLyricsFromSource(source: String, allowSimpFallback: Boolean = true) {
+            selectedLyricsSource = source
+            isError = false
+            showPlaceholder = true
+
+            val existingLyrics = withContext(Dispatchers.IO) {
+                Database.lyricsTable.findBySongId(mediaId).first()
+            }
+            val metadataArtist = mediaMetadata.artist?.toString().orEmpty()
+            val metadataTitle = cleanPrefix(mediaMetadata.title?.toString().orEmpty())
+
+            suspend fun awaitPlaybackDurationMs(): Long {
+                var duration = withContext(Dispatchers.Main) { durationProvider() }
+                while (duration == C.TIME_UNSET) {
+                    delay(100)
+                    duration = withContext(Dispatchers.Main) { durationProvider() }
+                }
+                return duration
+            }
+
+            fun applyLyrics(updatedLyrics: Lyrics) {
+                lyrics = updatedLyrics
+                if (isShowingSynchronizedLyrics && updatedLyrics.synced.isNullOrBlank() && !updatedLyrics.fixed.isNullOrBlank()) {
+                    isShowingSynchronizedLyrics = false
+                }
+                showPlaceholder = false
+                isError = false
+            }
+
+            fun markFailure() {
+                showPlaceholder = false
+                isError = true
+            }
+
+            suspend fun persistLyricsSafely(updatedLyrics: Lyrics) {
+                val existingSong = withContext(Dispatchers.IO) {
+                    Database.songTable.findById(mediaId).first()
+                }
+                Database.asyncTransaction {
+                    if (existingSong == null) {
+                        songTable.insertIgnore(
+                            Song(
+                                id = mediaId,
+                                title = metadataTitle.ifBlank { mediaId },
+                                artistsText = metadataArtist.ifBlank { null },
+                                durationText = null,
+                                thumbnailUrl = mediaMetadata.artworkUri?.toString()
+                            )
+                        )
+                    }
+                    lyricsTable.upsert(updatedLyrics)
+                }
+            }
+
+            suspend fun fallbackFromSimpMusic() {
+                val firstFallback = defaultLyricsSource.takeIf { it != "simpmusic" }.orEmpty().ifBlank { "lrclib" }
+                fetchLyricsFromSource(firstFallback, allowSimpFallback = false)
+                if ((lyrics?.synced.isNullOrBlank() && lyrics?.fixed.isNullOrBlank()) || isError) {
+                    fetchLyricsFromSource("kugou", allowSimpFallback = false)
+                }
+            }
+
+            when (source) {
+                "lrclib" -> {
+                    val duration = awaitPlaybackDurationMs()
+
+                    val result = LrcLib.lyrics(
+                        artist = artistName,
+                        title = title,
+                        duration = duration.milliseconds,
+                        album = mediaMetadata.albumTitle?.toString()
+                    )?.getOrNull()
+
+                    if (result?.text?.isNotBlank() == true) {
+                        val updatedLyrics = Lyrics(
+                            songId = mediaId,
+                            fixed = existingLyrics?.fixed ?: plainLyricsFromTimedText(result.text),
+                            synced = result.text
+                        )
+                        applyLyrics(updatedLyrics)
+                        persistLyricsSafely(updatedLyrics)
+                        checkedLyricsLrc = true
+                    } else {
+                        checkedLyricsLrc = true
+                        markFailure()
+                    }
+                }
+
+                "kugou" -> {
+                    val duration = awaitPlaybackDurationMs()
+
+                    val result = KuGou.lyrics(
+                        artist = metadataArtist,
+                        title = metadataTitle,
+                        duration = duration / 1000
+                    )?.getOrNull()
+
+                    if (result?.value?.isNotBlank() == true) {
+                        val updatedLyrics = Lyrics(
+                            songId = mediaId,
+                            fixed = existingLyrics?.fixed,
+                            synced = result.value
+                        )
+                        applyLyrics(updatedLyrics)
+                        persistLyricsSafely(updatedLyrics)
+                        checkedLyricsKugou = true
+                    } else {
+                        checkedLyricsKugou = true
+                        markFailure()
+                    }
+                }
+
+                "simpmusic" -> {
+                    val simpLanguageCode = otherLanguageApp.code
+                        .substringBefore('-')
+                        .substringBefore('_')
+                        .ifBlank { "en" }
+                        .take(2)
+
+                    val simpLyrics = fetchSimpMusicLyrics(
+                        videoId = mediaId,
+                        translatedLanguage = simpLanguageCode,
+                        useTranslatedLyrics = simpMusicTranslationEnabled
+                    )
+
+                    val resolvedSyncedLyrics = when {
+                        simpMusicTranslationEnabled && !simpLyrics?.translatedLyrics.isNullOrBlank() -> simpLyrics?.translatedLyrics
+                        !simpLyrics?.syncedLyrics.isNullOrBlank() -> simpLyrics?.syncedLyrics
+                        else -> existingLyrics?.synced
+                    }
+                    val shouldFallbackToSyncedSources =
+                        isShowingSynchronizedLyrics &&
+                            resolvedSyncedLyrics.isNullOrBlank() &&
+                            allowSimpFallback
+
+                    if (shouldFallbackToSyncedSources) {
+                        fallbackFromSimpMusic()
+                    } else if (!resolvedSyncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
+                        val updatedLyrics = Lyrics(
+                            songId = mediaId,
+                            fixed = simpLyrics?.plainLyrics ?: existingLyrics?.fixed,
+                            synced = resolvedSyncedLyrics
+                        )
+                        applyLyrics(updatedLyrics)
+                        persistLyricsSafely(updatedLyrics)
+                    } else {
+                        if (allowSimpFallback) {
+                            fallbackFromSimpMusic()
+                        } else {
+                            markFailure()
+                        }
+                    }
+                }
+            }
         }
 
         fun translateLyricsWithRomanization(output: MutableState<String>, textToTranslate: String, isSync: Boolean, destinationLanguage: Language = Language.AUTO) = @Composable{
@@ -458,10 +697,79 @@ fun Lyrics(
         }
 
 
-        LaunchedEffect(mediaId, isShowingSynchronizedLyrics, checkLyrics) {
+        LaunchedEffect(mediaId, mediaMetadata.title, mediaMetadata.artist, isShowingSynchronizedLyrics, checkLyrics) {
             Database.lyricsTable
                     .findBySongId( mediaId )
                     .collect { currentLyrics ->
+                        if (!showLyricsSourceSwitcher) {
+                            if (isShowingSynchronizedLyrics && currentLyrics?.synced.isNullOrBlank()) {
+                                fetchLyricsFromSource("lrclib", allowSimpFallback = false)
+                                return@collect
+                            }
+
+                            if (!isShowingSynchronizedLyrics && currentLyrics?.fixed.isNullOrBlank()) {
+                                var duration = withContext(Dispatchers.Main) { durationProvider() }
+                                while (duration == C.TIME_UNSET) {
+                                    delay(100)
+                                    duration = withContext(Dispatchers.Main) { durationProvider() }
+                                }
+                                val lrcLibResult = runCatching {
+                                    LrcLib.lyrics(
+                                        artist = artistName ?: "",
+                                        title = title ?: "",
+                                        duration = duration.milliseconds,
+                                        album = mediaMetadata.albumTitle?.toString()
+                                    )?.getOrNull()
+                                }.getOrNull()
+
+                                val lrcLibPlainLyrics = lrcLibResult?.text
+                                    ?.lineSequence()
+                                    ?.map { line -> line.replace(Regex("""\[[^\]]*]"""), "").trim() }
+                                    ?.filter { it.isNotBlank() }
+                                    ?.joinToString("\n")
+                                    ?.ifBlank { null }
+
+                                if (!lrcLibPlainLyrics.isNullOrBlank()) {
+                                    val updatedLyrics = Lyrics(
+                                        songId = mediaId,
+                                        fixed = lrcLibPlainLyrics,
+                                        synced = currentLyrics?.synced ?: lrcLibResult.text
+                                    )
+                                    lyrics = updatedLyrics
+                                    Database.asyncTransaction {
+                                        lyricsTable.upsert(updatedLyrics)
+                                    }
+                                    isError = false
+                                } else {
+                                    kotlin.runCatching {
+                                        Innertube.lyrics(NextBody(videoId = mediaId))
+                                            ?.onSuccess { fixedLyrics ->
+                                                val updatedLyrics = Lyrics(
+                                                    songId = mediaId,
+                                                    fixed = fixedLyrics ?: "",
+                                                    synced = currentLyrics?.synced
+                                                )
+                                                lyrics = updatedLyrics
+                                                Database.asyncTransaction {
+                                                    lyricsTable.upsert(updatedLyrics)
+                                                }
+                                                isError = false
+                                            }?.onFailure {
+                                                isError = true
+                                            }
+                                    }.onFailure {
+                                        Timber.e("Lyrics hidden-source fixed fallback error ${it.stackTraceToString()}")
+                                        isError = true
+                                    }
+                                }
+                                checkedLyricsInnertube = true
+                                return@collect
+                            }
+
+                            lyrics = currentLyrics
+                            return@collect
+                        }
+
                         if (isShowingSynchronizedLyrics && currentLyrics?.synced == null) {
                             lyrics = null
                             var duration = withContext(Dispatchers.Main) {
@@ -509,7 +817,7 @@ fun Lyrics(
                                         lyricsTable.upsert(
                                             Lyrics(
                                                 songId = mediaId,
-                                                fixed = currentLyrics?.fixed,
+                                                fixed = currentLyrics?.fixed ?: plainLyricsFromTimedText(it?.text),
                                                 synced = it?.text.orEmpty()
                                             )
                                         )
@@ -563,16 +871,41 @@ fun Lyrics(
                                                 )
                                             }
                                         }?.onFailure {
-                                            if (playerEnableLyricsPopupMessage)
-                                                coroutineScope.launch {
-                                                    Toaster.e(
-                                                        R.string.info_lyrics_not_found_on_s,
-                                                        "KuGou.com",
-                                                        duration = Toast.LENGTH_LONG
-                                                    )
+                                            checkedLyricsKugou = true
+                                            val simpLyrics = fetchSimpMusicLyrics(mediaId)
+                                            if (!simpLyrics?.syncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
+                                                if (playerEnableLyricsPopupMessage) {
+                                                    coroutineScope.launch {
+                                                        Toaster.s(
+                                                            R.string.info_lyrics_found_on_s,
+                                                            "SimpMusic"
+                                                        )
+                                                    }
                                                 }
 
-                                            isError = true
+                                                Database.asyncTransaction {
+                                                    lyricsTable.upsert(
+                                                        Lyrics(
+                                                            songId = mediaId,
+                                                            fixed = simpLyrics?.plainLyrics ?: currentLyrics?.fixed,
+                                                            synced = simpLyrics?.syncedLyrics ?: currentLyrics?.synced
+                                                        )
+                                                    )
+                                                }
+                                                isError = false
+                                            } else {
+                                                if (playerEnableLyricsPopupMessage)
+                                                    coroutineScope.launch {
+                                                        Toaster.e(
+                                                            R.string.info_lyrics_not_found_on_s_try_on_s,
+                                                            "KuGou.com",
+                                                            "SimpMusic",
+                                                            duration = Toast.LENGTH_LONG
+                                                        )
+                                                    }
+
+                                                isError = true
+                                            }
                                         }
                                     }.onFailure {
                                         Timber.e("Lyrics Kugou get error ${it.stackTraceToString()}")
@@ -634,177 +967,396 @@ fun Lyrics(
             )
         }
 
-        @Composable
-        fun SelectLyricFromTrack(
-            tracks: List<Track>,
-            mediaId: String,
-            lyrics: Lyrics?
-        ) {
-            menuState.display {
-                Menu {
-                    MenuEntry(
-                        icon = R.drawable.chevron_back,
-                        text = stringResource(R.string.cancel),
-                        onClick = { menuState.hide() }
-                    )
-                    Row{
-                        TextField(
-                            value = title,
-                            onValueChange = {
-                                title = it
-                            },
-                            singleLine = true,
-                            colors = textFieldColors,
-                            modifier = Modifier
-                                .padding(horizontal = 6.dp)
-                                .weight(1f)
-                        )
-                        TextField(
-                            value = artistName,
-                            onValueChange = {
-                                artistName = it
-                            },
-                            singleLine = true,
-                            colors = textFieldColors,
-                            modifier = Modifier
-                                .padding(horizontal = 6.dp)
-                                .weight(1f)
-                        )
-                        IconButton(
-                            icon = R.drawable.search,
-                            color = Color.Black,
-                            onClick = {
-                                isPicking = false
-                                menuState.hide()
-                                isPicking = true
-                            },
-                            modifier = Modifier
-                                .background(shape = RoundedCornerShape(4.dp), color = Color.White)
-                                .padding(all = 4.dp)
-                                .size(24.dp)
-                                .align(Alignment.CenterVertically)
-                                .weight(0.2f)
-                        )
-                    }
-                    tracks.forEach {
-                        MenuEntry(
-                            icon = R.drawable.text,
-                            text = "${it.artistName} - ${it.trackName}",
-                            secondaryText = "(${stringResource(R.string.sort_duration)} ${
-                                it.duration.seconds.toComponents { minutes, seconds, _ ->
-                                    "$minutes:${seconds.toString().padStart(2, '0')}"
-                                }
-                            } ${stringResource(R.string.id)} ${it.id}) ",
-                            onClick = {
-                                menuState.hide()
-                                Database.asyncTransaction {
-                                    lyricsTable.upsert(
-                                        Lyrics(
-                                            songId = mediaId,
-                                            fixed = lyrics?.fixed,
-                                            synced = it.syncedLyrics.orEmpty()
-                                        )
-                                    )
-                                }
+        if (showShareCardPreview) {
+            val configuration = LocalConfiguration.current
+            val previewMaxHeight = (configuration.screenHeightDp.dp * if (isLandscape) 0.80f else 0.86f)
+            val previewCardScale = if (isLandscape) 0.9f else 0.96f
+            DefaultDialog(
+                onDismiss = { showShareCardPreview = false },
+                modifier = Modifier
+                    .fillMaxWidth(if (isLandscape) 0.86f else 0.95f)
+                    .heightIn(max = previewMaxHeight)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.Start
+            ) {
+                BasicText(
+                    text = "Share lyrics card",
+                    style = typography().m.semiBold.color(colorPalette().text)
+                )
+                BasicText(
+                    text = "Preview the card, tap the lyric line you want to start from, then send that exact slice.",
+                    style = typography().xs.color(colorPalette().textSecondary),
+                    modifier = Modifier.padding(top = 6.dp, bottom = 14.dp)
+                )
+
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    LyricsSharePreviewCard(
+                        title = cleanPrefix(mediaMetadata.title?.toString().orEmpty()),
+                        artist = cleanPrefix(mediaMetadata.artist?.toString().orEmpty()),
+                        lyricsSnippet = sharePreviewLyrics,
+                        artworkUrl = mediaMetadata.artworkUri?.toString(),
+                        deeplinkUrl = shareDeeplink,
+                        modifier = Modifier
+                            .fillMaxWidth(if (isLandscape) 0.92f else 0.97f)
+                            .heightIn(max = if (isLandscape) 286.dp else 356.dp)
+                            .graphicsLayer {
+                                scaleX = previewCardScale
+                                scaleY = previewCardScale
+                                transformOrigin = TransformOrigin(0.5f, 0f)
                             }
-                        )
-                    }
-                    MenuEntry(
-                        icon = R.drawable.chevron_back,
-                        text = stringResource(R.string.cancel),
-                        onClick = { menuState.hide() }
                     )
                 }
-            }
-            isPicking = false
-        }
 
+                BasicText(
+                    text = "Start from line ${shareSliceStartIndex + 1}",
+                    style = typography().xs.semiBold.color(colorPalette().text),
+                    modifier = Modifier.padding(top = 16.dp)
+                )
 
-        if (isPicking && isShowingSynchronizedLyrics) {
-            var loading by remember { mutableStateOf(true) }
-            val tracks = remember { mutableStateListOf<Track>() }
-            var error by remember { mutableStateOf(false) }
+                Slider(
+                    value = shareSliceStartLine.coerceIn(0f, shareMaxStartIndex.toFloat()),
+                    onValueChange = { shareSliceStartLine = it },
+                    valueRange = 0f..shareMaxStartIndex.toFloat().coerceAtLeast(0f)
+                )
 
-            LaunchedEffect(Unit) {
-                kotlin.runCatching {
-                    LrcLib.lyrics(
-                        artist = artistName,
-                        title = title
-                    )?.onSuccess {
-                        if (it.isNotEmpty() && playerEnableLyricsPopupMessage)
-                            coroutineScope.launch {
-                                Toaster.e(
-                                    R.string.info_lyrics_tracks_found_on_s,
-                                    "LrcLib.net",
-                                    duration = Toast.LENGTH_LONG
+                BasicText(
+                    text = "Selected ${sharePreviewLyrics.lines().size.coerceAtMost(6)} preview lines",
+                    style = typography().xxs.color(colorPalette().textSecondary),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(170.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(colorPalette().background2.copy(alpha = 0.55f))
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    itemsIndexed(sharePreviewLines) { index, line ->
+                        val isSelected = index == shareSliceStartIndex
+                        BasicText(
+                            text = line,
+                            style = typography().xs.color(
+                                if (isSelected) colorPalette().text else colorPalette().textSecondary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isSelected) colorPalette().accent.copy(alpha = 0.20f)
+                                    else Color.Transparent
                                 )
-                            }
-                        else
-                            if (playerEnableLyricsPopupMessage)
+                                .clickable { shareSliceStartLine = index.toFloat() }
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(colorPalette().background2)
+                            .clickable { showShareCardPreview = false }
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BasicText(
+                            text = stringResource(R.string.cancel),
+                            style = typography().xs.semiBold.color(colorPalette().text)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(colorPalette().accent)
+                            .clickable {
                                 coroutineScope.launch {
-                                    Toaster.e(
-                                        R.string.info_lyrics_not_found_on_s,
-                                        "LrcLib.net",
-                                        duration = Toast.LENGTH_LONG
-                                    )
-                                }
-                        if (it.isEmpty()){
-                            menuState.display {
-                                Menu {
-                                    MenuEntry(
-                                        icon = R.drawable.chevron_back,
-                                        text = stringResource(R.string.cancel),
-                                        onClick = { menuState.hide() }
-                                    )
-                                    Row {
-                                        TextField(
-                                            value = title,
-                                            onValueChange = { it ->
-                                                title = it
-                                            },
-                                            singleLine = true,
-                                            colors = textFieldColors,
-                                            modifier = Modifier
-                                                .padding(horizontal = 6.dp)
-                                                .weight(1f)
-                                        )
-                                        TextField(
-                                            value = artistName,
-                                            onValueChange = { it ->
-                                                artistName = it
-                                            },
-                                            singleLine = true,
-                                            colors = textFieldColors,
-                                            modifier = Modifier
-                                                .padding(horizontal = 6.dp)
-                                                .weight(1f)
-                                        )
-                                        IconButton(
-                                            icon = R.drawable.search,
-                                            color = Color.Black,
-                                            onClick = {
-                                                isPicking = false
-                                                menuState.hide()
-                                                isPicking = true
-                                            },
-                                            modifier = Modifier
-                                                .background(
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    color = Color.White
-                                                )
-                                                .padding(all = 4.dp)
-                                                .size(24.dp)
-                                                .align(Alignment.CenterVertically)
-                                                .weight(0.2f)
-                                        )
+                                    shareLyricsCard(
+                                        context = context,
+                                        mediaId = mediaId,
+                                        title = cleanPrefix(mediaMetadata.title?.toString().orEmpty()),
+                                        artist = cleanPrefix(mediaMetadata.artist?.toString().orEmpty()),
+                                        lyricsText = sharePreviewLyrics,
+                                        artworkUrl = mediaMetadata.artworkUri?.toString(),
+                                        deeplinkUrl = shareDeeplink
+                                    ).onSuccess {
+                                        showShareCardPreview = false
+                                    }.onFailure {
+                                        Toaster.e("Failed to share lyrics card")
                                     }
                                 }
                             }
-                            isPicking = false
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BasicText(
+                            text = "Share now",
+                            style = typography().xs.semiBold.color(colorPalette().onAccent),
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip
+                        )
+                    }
+                }
+            }
+        }
+
+@Composable
+fun SelectLyricFromTrack(
+    tracks: List<Track>,
+    mediaId: String,
+    lyrics: Lyrics?
+) {
+    menuState.display {
+        Menu {
+            MenuEntry(
+                icon = R.drawable.chevron_back,
+                text = stringResource(R.string.cancel),
+                onClick = { menuState.hide() }
+            )
+            MenuEntry(
+                icon = R.drawable.text,
+                text = stringResource(R.string.fetch_lyrics_from_simpmusic),
+                onClick = {
+                    menuState.hide()
+                    coroutineScope.launch {
+                        val simpLyrics = fetchSimpMusicLyrics(mediaId)
+                        if (!simpLyrics?.syncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
+                            Database.asyncTransaction {
+                                lyricsTable.upsert(
+                                    Lyrics(
+                                        songId = mediaId,
+                                        fixed = simpLyrics?.plainLyrics ?: lyrics?.fixed,
+                                        synced = simpLyrics?.syncedLyrics ?: lyrics?.synced
+                                    )
+                                )
+                            }
+                            if (playerEnableLyricsPopupMessage) {
+                                Toaster.s(
+                                    R.string.info_lyrics_found_on_s,
+                                    context.getString(R.string.lyrics_source_simpmusic)
+                                )
+                            }
+                        } else if (playerEnableLyricsPopupMessage) {
+                            Toaster.e(
+                                R.string.info_lyrics_not_found_on_s,
+                                context.getString(R.string.lyrics_source_simpmusic),
+                                duration = Toast.LENGTH_LONG
+                            )
                         }
+                    }
+                }
+            )
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                TextField(
+                    value = title,
+                    onValueChange = {
+                        title = it
+                    },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        unfocusedTextColor = Color(0xFF008080), // Teal
+                        focusedTextColor = Color(0xFF008080), // Teal
+                        unfocusedIndicatorColor = colorPalette().text,
+                        focusedIndicatorColor = colorPalette().text,
+                        unfocusedContainerColor = colorPalette().background2,
+                        focusedContainerColor = colorPalette().background2,
+                        cursorColor = Color(0xFF008080)
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .weight(1f)
+                )
+                TextField(
+                    value = artistName,
+                    onValueChange = {
+                        artistName = it
+                    },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        unfocusedTextColor = Color(0xFF008080), // Teal
+                        focusedTextColor = Color(0xFF008080), // Teal
+                        unfocusedIndicatorColor = colorPalette().text,
+                        focusedIndicatorColor = colorPalette().text,
+                        unfocusedContainerColor = colorPalette().background2,
+                        focusedContainerColor = colorPalette().background2,
+                        cursorColor = Color(0xFF008080)
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .weight(1f)
+                )
+                IconButton(
+                    icon = R.drawable.search,
+                    color = Color.White,
+                    onClick = {
+                        isPicking = false
+                        menuState.hide()
+                        isPicking = true
+                    },
+                    modifier = Modifier
+                        .background(shape = RoundedCornerShape(4.dp), color = Color(0xFF008080))
+                        .padding(all = 4.dp)
+                        .size(28.dp)
+                        .align(Alignment.CenterVertically)
+                )
+            }
+            tracks.forEach {
+                MenuEntry(
+                    icon = R.drawable.text,
+                    text = "${it.artistName} - ${it.trackName}",
+                    secondaryText = "(${stringResource(R.string.sort_duration)} ${
+                        it.duration.seconds.toComponents { minutes, seconds, _ ->
+                            "$minutes:${seconds.toString().padStart(2, '0')}"
+                        }
+                    } ${stringResource(R.string.id)} ${it.id}) ",
+                    onClick = {
+                        menuState.hide()
+                        val syncedLyrics = it.syncedLyrics?.takeIf(String::isNotBlank)
+                        val fixedLyrics = it.plainLyrics?.takeIf(String::isNotBlank)
+                            ?: plainLyricsFromTimedText(syncedLyrics)
+                        Database.asyncTransaction {
+                            lyricsTable.upsert(
+                                Lyrics(
+                                    songId = mediaId,
+                                    fixed = fixedLyrics ?: lyrics?.fixed,
+                                    synced = syncedLyrics
+                                )
+                            )
+                        }
+                    }
+                )
+            }
+            MenuEntry(
+                icon = R.drawable.chevron_back,
+                text = stringResource(R.string.cancel),
+                onClick = { menuState.hide() }
+            )
+        }
+    }
+    isPicking = false
+}
+
+     if (isPicking && isShowingSynchronizedLyrics) {
+    var loading by remember { mutableStateOf(true) }
+    val tracks = remember { mutableStateListOf<Track>() }
+    var error by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        kotlin.runCatching {
+            LrcLib.lyrics(
+                artist = artistName,
+                title = title
+            )?.onSuccess {
+                if (it.isNotEmpty() && playerEnableLyricsPopupMessage)
+                    coroutineScope.launch {
+                        Toaster.e(
+                            R.string.info_lyrics_tracks_found_on_s,
+                            "LrcLib.net",
+                            duration = Toast.LENGTH_LONG
+                        )
+                    }
+                else
+                    if (playerEnableLyricsPopupMessage)
+                        coroutineScope.launch {
+                            Toaster.e(
+                                R.string.info_lyrics_not_found_on_s,
+                                "LrcLib.net",
+                                duration = Toast.LENGTH_LONG
+                            )
+                        }
+                if (it.isEmpty()){
+                    menuState.display {
+                        Menu {
+                            MenuEntry(
+                                icon = R.drawable.chevron_back,
+                                text = stringResource(R.string.cancel),
+                                onClick = { menuState.hide() }
+                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextField(
+                                    value = title,
+                                    onValueChange = { it ->
+                                        title = it
+                                    },
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        unfocusedTextColor = Color(0xFF008080), // Teal
+                                        focusedTextColor = Color(0xFF008080), // Teal
+                                        unfocusedIndicatorColor = colorPalette().text,
+                                        focusedIndicatorColor = colorPalette().text,
+                                        unfocusedContainerColor = colorPalette().background2,
+                                        focusedContainerColor = colorPalette().background2,
+                                        cursorColor = Color(0xFF008080)
+                                    ),
+                                    modifier = Modifier
+                                        .padding(horizontal = 6.dp)
+                                        .weight(1f)
+                                )
+                                TextField(
+                                    value = artistName,
+                                    onValueChange = { it ->
+                                        artistName = it
+                                    },
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        unfocusedTextColor = Color(0xFF008080), // Teal
+                                        focusedTextColor = Color(0xFF008080), // Teal
+                                        unfocusedIndicatorColor = colorPalette().text,
+                                        focusedIndicatorColor = colorPalette().text,
+                                        unfocusedContainerColor = colorPalette().background2,
+                                        focusedContainerColor = colorPalette().background2,
+                                        cursorColor = Color(0xFF008080)
+                                    ),
+                                    modifier = Modifier
+                                        .padding(horizontal = 6.dp)
+                                        .weight(1f)
+                                )
+                                IconButton(
+                                    icon = R.drawable.search,
+                                    color = Color.White,
+                                    onClick = {
+                                        isPicking = false
+                                        menuState.hide()
+                                        isPicking = true
+                                    },
+                                    modifier = Modifier
+                                        .background(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFF008080)
+                                        )
+                                        .padding(all = 4.dp)
+                                        .size(28.dp)
+                                        .align(Alignment.CenterVertically)
+                                )
+                            }
+                        }
+                    }
+                    isPicking = false
+                }
 
                         tracks.clear()
-                        tracks.addAll(it)
+                        val durationMs = durationProvider().takeIf { value -> value != C.TIME_UNSET } ?: 0L
+                        val bestTrack = pickBestLrcLibTrack(it, title, durationMs)
+                        bestTrack?.let { match -> tracks.add(match) }
+                        tracks.addAll(it.filterNot { track -> track.id == bestTrack?.id })
                         loading = false
                         error = false
                     }?.onFailure {
@@ -885,6 +1437,165 @@ fun Lyrics(
                 )
             }
 
+            if (showLyricsSourceSwitcher) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .zIndex(10f)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(top = 14.dp, end = 14.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.Black.copy(alpha = 0.28f))
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        if (isShowingSynchronizedLyrics) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(colorPalette().background2.copy(alpha = 0.9f))
+                                    .clickable {
+                                        showSimpMusicOptions = false
+                                        isPicking = true
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(R.drawable.search),
+                                    contentDescription = "Search LrcLib",
+                                    colorFilter = ColorFilter.tint(colorPalette().accent),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                BasicText(
+                                    text = "Lrc",
+                                    style = typography().xxs.semiBold.copy(color = colorPalette().accent)
+                                )
+                            }
+                        }
+
+                        listOf(
+                            "lrclib" to "Lrc",
+                            "kugou" to "Kg",
+                            "simpmusic" to "Simp"
+                        ).forEach { (sourceKey, label) ->
+                            BasicText(
+                                text = label,
+                                style = typography().xxs.semiBold.copy(
+                                    color = if (selectedLyricsSource == sourceKey) colorPalette().accent else Color.White.copy(alpha = 0.82f)
+                                ),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        if (selectedLyricsSource == sourceKey) colorPalette().background2.copy(alpha = 0.9f)
+                                        else Color.Transparent
+                                    )
+                                    .clickable {
+                                        if (sourceKey == "simpmusic") {
+                                            selectedLyricsSource = sourceKey
+                                            showSimpMusicOptions = !showSimpMusicOptions
+                                        } else {
+                                            showSimpMusicOptions = false
+                                            selectedLyricsSource = sourceKey
+                                            coroutineScope.launch {
+                                                fetchLyricsFromSource(sourceKey)
+                                            }
+                                        }
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+
+                    if (showSimpMusicOptions) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .padding(top = 8.dp, end = 14.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.Black.copy(alpha = 0.38f))
+                                .padding(horizontal = 10.dp, vertical = 10.dp)
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                BasicText(
+                                    text = if (simpMusicTranslationEnabled) "Translated" else "Original",
+                                    style = typography().xxs.semiBold.copy(color = Color.White),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colorPalette().background2.copy(alpha = 0.9f))
+                                        .clickable { simpMusicTranslationEnabled = !simpMusicTranslationEnabled }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                                BasicText(
+                                    text = languageDestinationName(otherLanguageApp),
+                                    style = typography().xxs.semiBold.copy(color = Color.White),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colorPalette().background2.copy(alpha = 0.9f))
+                                        .clickable {
+                                            changingSimpMusicLanguage = true
+                                            showLanguagesList = true
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                BasicText(
+                                    text = if (defaultLyricsSource == "simpmusic") "Default: Simp" else "Make Default",
+                                    style = typography().xxs.semiBold.copy(
+                                        color = if (defaultLyricsSource == "simpmusic") colorPalette().accent else Color.White
+                                    ),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colorPalette().background2.copy(alpha = 0.9f))
+                                        .clickable {
+                                            defaultLyricsSource =
+                                                if (defaultLyricsSource == "simpmusic") "lrclib" else "simpmusic"
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                                BasicText(
+                                    text = "Fetch",
+                                    style = typography().xxs.semiBold.copy(color = colorPalette().accent),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colorPalette().background2.copy(alpha = 0.9f))
+                                        .clickable {
+                                            coroutineScope.launch {
+                                                fetchLyricsFromSource("simpmusic")
+                                            }
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    BasicText(
+                        text = "Share Card",
+                        style = typography().xxs.semiBold.copy(
+                            color = if (text.isNullOrBlank()) Color.White.copy(alpha = 0.45f) else colorPalette().accent
+                        ),
+                        modifier = Modifier
+                            .padding(top = 8.dp, end = 14.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.Black.copy(alpha = 0.32f))
+                            .clickable(enabled = !text.isNullOrBlank()) {
+                                shareSliceStartLine = 0f
+                                showShareCardPreview = true
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
             if (text?.isEmpty() == true && !checkedLyricsLrc && !checkedLyricsKugou && !checkedLyricsInnertube)
                 checkLyrics = !checkLyrics
 
@@ -896,16 +1607,17 @@ fun Lyrics(
 
                     val synchronizedLyrics = remember(text) {
                         val sentences = LrcLib.Lyrics(text).sentences
-
-                        run {
-                            invalidLrc = false
-                            SynchronizedLyrics(sentences) {
-                                player.currentPosition + 50L //- (lyrics?.startTime ?: 0L)
-                            }
+                        invalidLrc = sentences.size <= 1
+                        SynchronizedLyrics(sentences) {
+                            player.currentPosition + 50L
                         }
                     }
 
                     val lazyListState = rememberLazyListState()
+
+                    LaunchedEffect(mediaId, text) {
+                        lazyListState.scrollToItem(0)
+                    }
 
                     LaunchedEffect(synchronizedLyrics, density) {
                         //val centerOffset = with(density) { (-thumbnailSize / 3).roundToPx() }
@@ -1075,13 +1787,29 @@ fun Lyrics(
                                 }
                             }
                             val animateSizeText by animateFloatAsState(
-                                targetValue = if (index == synchronizedLyrics.index) 1.05f else 0.85f,
-                                animationSpec = tween(500, easing = LinearOutSlowInEasing),
+                                targetValue = when {
+                                    lyricsKaraokeEnabled && index == synchronizedLyrics.index -> 1.02f
+                                    lyricsKaraokeEnabled -> 0.92f
+                                    index == synchronizedLyrics.index -> 1.05f
+                                    else -> 0.85f
+                                },
+                                animationSpec = tween(
+                                    durationMillis = if (lyricsKaraokeEnabled) 220 else 500,
+                                    easing = LinearOutSlowInEasing
+                                ),
                                 label = ""
                             )
                             val animateOpacity by animateFloatAsState(
-                                targetValue = if (index == synchronizedLyrics.index) 1f else 0.6f,
-                                animationSpec = tween(500, easing = LinearOutSlowInEasing),
+                                targetValue = when {
+                                    lyricsKaraokeEnabled && index == synchronizedLyrics.index -> 1f
+                                    lyricsKaraokeEnabled -> 0.38f
+                                    index == synchronizedLyrics.index -> 1f
+                                    else -> 0.6f
+                                },
+                                animationSpec = tween(
+                                    durationMillis = if (lyricsKaraokeEnabled) 220 else 500,
+                                    easing = LinearOutSlowInEasing
+                                ),
                                 label = ""
                             )
                             //Rainbow Shimmer
@@ -2246,6 +2974,16 @@ fun Lyrics(
 
                                         if (!showlyricsthumbnail && isShowingSynchronizedLyrics) {
                                             MenuEntry(
+                                                icon = if (lyricsKaraokeEnabled) R.drawable.checkmark else R.drawable.text,
+                                                text = stringResource(R.string.karaoke_animation),
+                                                secondaryText = stringResource(R.string.karaoke_animation_description),
+                                                enabled = true,
+                                                onClick = {
+                                                    menuState.hide()
+                                                    lyricsKaraokeEnabled = !lyricsKaraokeEnabled
+                                                }
+                                            )
+                                            MenuEntry(
                                                 icon = if (lyricsSizeAnimate) R.drawable.checkmark else R.drawable.close,
                                                 text = stringResource(R.string.lyricsanimate),
                                                 enabled = true,
@@ -2378,6 +3116,17 @@ fun Lyrics(
                                         )
 
                                         MenuEntry(
+                                            icon = R.drawable.share_social,
+                                            text = "Share lyrics card",
+                                            enabled = !text.isNullOrBlank(),
+                                            onClick = {
+                                                menuState.hide()
+                                                shareSliceStartLine = 0f
+                                                showShareCardPreview = true
+                                            }
+                                        )
+
+                                        MenuEntry(
                                             icon = R.drawable.search,
                                             text = stringResource(R.string.search_lyrics_online),
                                             onClick = {
@@ -2487,3 +3236,138 @@ fun SelectLyricFromTrack(
         }
     }
 }*/
+
+private val LyricsShareHeadlineFont = FontFamily(
+    Font(R.font.poppins_w600, FontWeight.SemiBold),
+    Font(R.font.poppins_w700, FontWeight.Bold)
+)
+
+private val LyricsShareBodyFont = FontFamily(
+    Font(R.font.poppins_w500, FontWeight.Medium),
+    Font(R.font.poppins_w600, FontWeight.SemiBold)
+)
+
+@Composable
+private fun LyricsSharePreviewCard(
+    title: String,
+    artist: String,
+    lyricsSnippet: String,
+    artworkUrl: String?,
+    deeplinkUrl: String,
+    modifier: Modifier = Modifier
+) {
+    val previewBackground = Brush.verticalGradient(
+        colors = listOf(
+            colorPalette().accent.copy(alpha = 0.38f),
+            colorPalette().background0.copy(alpha = 0.96f),
+            colorPalette().background1
+        )
+    )
+
+    val displayedLyrics = lyricsSnippet
+        .lines()
+        .take(6)
+        .joinToString("\n")
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(28.dp))
+            .background(previewBackground)
+            .padding(14.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(colorPalette().background1.copy(alpha = 0.72f))
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AsyncImage(
+                    model = artworkUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 6.dp)
+                ) {
+                    BasicText(
+                        text = title.ifBlank { "Unknown title" },
+                        style = TextStyle(
+                            color = colorPalette().text,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = LyricsShareHeadlineFont
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    BasicText(
+                        text = artist.ifBlank { "Unknown artist" },
+                        style = TextStyle(
+                            color = colorPalette().textSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = LyricsShareBodyFont
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+
+            BasicText(
+                text = displayedLyrics,
+                style = TextStyle(
+                    color = colorPalette().text,
+                    fontSize = 22.sp,
+                    lineHeight = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = LyricsShareHeadlineFont,
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.15f),
+                        offset = Offset(0f, 2f),
+                        blurRadius = 10f
+                    )
+                ),
+                modifier = Modifier.padding(top = 18.dp)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    BasicText(
+                        text = "Cubic Music",
+                        style = TextStyle(
+                            color = colorPalette().text,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = LyricsShareBodyFont
+                        )
+                    )
+                }
+            }
+        }
+    }
+}

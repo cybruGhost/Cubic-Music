@@ -86,6 +86,8 @@ val Context.okHttpDataSourceFactory
         OkHttpDataSource.Factory(okHttpClient())
             .setUserAgent("Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Mobile Safari/537.36")
     )
+        .handleRangeErrors()
+        .handleCatchingErrors()
 
 private fun okHttpClient(): OkHttpClient {
     ProxyPreferences.preference?.let {
@@ -99,7 +101,8 @@ private fun okHttpClient(): OkHttpClient {
     }
     return OkHttpClient.Builder()
         .connectTimeout(Duration.ofSeconds(16))
-        .readTimeout(Duration.ofSeconds(8))
+        .readTimeout(Duration.ofSeconds(20))
+        .retryOnConnectionFailure(true)
         .build()
 }
 

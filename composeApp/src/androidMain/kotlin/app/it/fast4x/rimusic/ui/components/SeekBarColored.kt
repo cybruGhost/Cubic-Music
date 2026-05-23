@@ -29,6 +29,16 @@ import androidx.compose.ui.unit.dp
 import app.it.fast4x.rimusic.ui.styling.LocalAppearance
 import kotlin.math.roundToLong
 
+private fun coloredSeekBarFraction(
+    value: Long,
+    minimumValue: Long,
+    maximumValue: Long,
+): Float {
+    val range = maximumValue - minimumValue
+    if (range <= 0L) return 0f
+    return ((value.toFloat() - minimumValue.toFloat()) / range.toFloat()).coerceIn(0f, 1f)
+}
+
 @Composable
 fun SeekBarColored(
     value: Long,
@@ -43,7 +53,7 @@ fun SeekBarColored(
     barHeight: Dp = 3.dp,
     scrubberColor: Color = color,
     scrubberRadius: Dp = 6.dp,
-    shape: Shape = RectangleShape
+    shape: Shape = RectangleShape,
 ) {
 
     val (colorPalette, typography) = LocalAppearance.current
@@ -56,6 +66,7 @@ fun SeekBarColored(
     val currentBarHeight by transition.animateDp(label = "") { if (it) scrubberRadius else barHeight }
     val currentScrubberRadius by transition.animateDp(label = "") { if (it) 0.dp else scrubberRadius }
 
+    val progressFraction = coloredSeekBarFraction(value, minimumValue, maximumValue)
     val barColor = when {
         value >= 0 && value <= maximumValue / 5 -> colorPalette.text
         value >= maximumValue / 5 && value <= maximumValue / 4 -> colorPalette.background0
@@ -115,7 +126,7 @@ fun SeekBarColored(
                 val scrubberPosition = if (maximumValue < minimumValue) {
                     0f
                 } else {
-                    (value.toFloat() - minimumValue) / (maximumValue - minimumValue) * size.width
+                    progressFraction * size.width
                 }
 
                 drawCircle(
@@ -132,15 +143,15 @@ fun SeekBarColored(
             modifier = Modifier
                 .height(currentBarHeight)
                 .fillMaxWidth()
-                .background(color = barColor, shape = shape)
+                .background(color = backgroundColor, shape = shape)
                 .align(Alignment.Center)
         )
 
         Spacer(
             modifier = Modifier
                 .height(currentBarHeight)
-                .fillMaxWidth((value.toFloat() - minimumValue) / (maximumValue - minimumValue))
-                .background(color = backgroundColor, shape = shape)
+                .fillMaxWidth(progressFraction)
+                .background(color = barColor, shape = shape)
                 .align(Alignment.CenterStart)
         )
     }

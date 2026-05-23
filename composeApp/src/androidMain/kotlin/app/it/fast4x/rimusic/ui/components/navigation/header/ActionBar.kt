@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
@@ -24,11 +25,12 @@ import app.it.fast4x.rimusic.enums.FontType
 import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.extensions.pip.isPipSupported
 import app.it.fast4x.rimusic.extensions.pip.rememberPipHandler
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YoutubeSession
 import app.it.fast4x.rimusic.ui.components.navigation.header.HeaderIcon
-import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
 import app.it.fast4x.rimusic.utils.enablePictureInPictureKey
 import app.it.fast4x.rimusic.utils.rememberPreference
-import app.it.fast4x.rimusic.ytAccountThumbnail
+import app.it.fast4x.rimusic.utils.ytCookieKey
 import app.it.fast4x.rimusic.ui.styling.Typography
 import app.it.fast4x.rimusic.ui.styling.typographyOf
 import app.it.fast4x.rimusic.ui.components.themed.DropdownMenu as ThemedDropdownMenu
@@ -210,25 +212,34 @@ private data class MenuItem(
 fun ActionBar(
     navController: NavController,
 ) {
+    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
+    val activeCookie by rememberPreference(ytCookieKey, "")
+    val currentSession: YoutubeSession? = remember(activeCookie) {
+        YouTubeSessionStore.applyCurrentSession(context)
+    }
+    val activeThumbnail = currentSession?.accountThumbnail.orEmpty()
+    val isYouTubeLoggedIn = remember(activeCookie, currentSession?.sessionId) {
+        YouTubeSessionStore.hasAuthCookies(currentSession?.cookie ?: activeCookie)
+    }
 
     // Search Icon
     HeaderIcon(R.drawable.search) { 
         navController.navigate(NavRoutes.search.name) 
     }
 
-    if (isYouTubeLoggedIn()) {
-        if (ytAccountThumbnail() != "") {
+    if (isYouTubeLoggedIn) {
+        if (activeThumbnail.isNotBlank()) {
             ImageCacheFactory.AsyncImage(
-                thumbnailUrl = ytAccountThumbnail(),
+                thumbnailUrl = activeThumbnail,
                 contentDescription = null,
                 modifier = Modifier
-                    .height(40.dp)
-                    .padding(end = 10.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
                     .clickable { expanded = !expanded }
             )
         } else {
-            HeaderIcon(R.drawable.ytmusic, size = 30.dp) { 
+            HeaderIcon(R.drawable.ytmusic, size = 32.dp) {
                 expanded = !expanded 
             }
         }

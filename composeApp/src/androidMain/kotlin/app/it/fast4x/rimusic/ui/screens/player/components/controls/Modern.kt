@@ -118,7 +118,7 @@ fun InfoAlbumAndArtistModern(
     var showSelectDialog by remember { mutableStateOf(false) }
     val playerBackgroundColors by rememberPreference(playerBackgroundColorsKey,PlayerBackgroundColors.BlurredCoverColor)
     val playerInfoShowIcon by rememberPreference(playerInfoShowIconsKey, true)
-    val currentMediaItem = binder.player.currentMediaItem
+    val currentMediaItem = binder.displayedMediaItem ?: binder.player.currentMediaItem
 
     Row(
         verticalAlignment = Alignment.CenterVertically,

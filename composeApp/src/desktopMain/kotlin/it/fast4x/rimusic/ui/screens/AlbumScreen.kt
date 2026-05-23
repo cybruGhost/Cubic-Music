@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerDefaults.windowInsets
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Text
@@ -90,6 +92,7 @@ fun AlbumScreen(
     onAlbumClick: (String) -> Unit
 ) {
     val coroutineScope by remember { mutableStateOf(CoroutineScope(Dispatchers.IO)) }
+    val scrollState = rememberScrollState()
     //val leftScrollState = rememberScrollState()
     //val rightScrollState = rememberScrollState()
 
@@ -101,7 +104,7 @@ fun AlbumScreen(
 
 
 
-    val albumPage = remember { mutableStateOf<Innertube.PlaylistOrAlbumPage?>(null) }
+    val albumPage = remember(browseId) { mutableStateOf<Innertube.PlaylistOrAlbumPage?>(null) }
     LaunchedEffect(browseId) {
         DB.album(browseId).collect { currentAlbum ->
             album = currentAlbum
@@ -176,12 +179,12 @@ fun AlbumScreen(
             verticalAlignment = Alignment.Top,
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
             Column(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .fillMaxHeight()
                     .fillMaxWidth(0.5f)
             ) {
 
@@ -364,10 +367,8 @@ fun AlbumScreen(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .fillMaxHeight()
-                    //.fillMaxWidth(0.5f)
-                    .fillMaxSize()
-                //.verticalScroll(rightScrollState)
+                    .fillMaxWidth()
+                    .padding(start = 16.dp)
             ) {
 
                 if (albumPage.value != null) {
@@ -382,7 +383,7 @@ fun AlbumScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title(
@@ -432,7 +433,7 @@ fun AlbumScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title(

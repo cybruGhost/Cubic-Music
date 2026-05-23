@@ -24,7 +24,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.Button
+import androidx.compose.material3.Button as MaterialButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -51,7 +51,7 @@ import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
-import app.it.fast4x.rimusic.ui.components.tab.toolbar.Button
+import app.it.fast4x.rimusic.ui.components.tab.toolbar.Button as ToolbarButton
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.utils.Preference.HOME_ON_DEVICE_SONGS_SORT_BY
 import app.it.fast4x.rimusic.utils.Preference.HOME_SONGS_SORT_ORDER
@@ -68,7 +68,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import app.kreate.android.me.knighthat.component.FolderItem
 import app.kreate.android.me.knighthat.component.SongItem
-import app.kreate.android.me.knighthat.component.Sort
 import app.kreate.android.me.knighthat.component.tab.ItemSelector
 import app.kreate.android.me.knighthat.component.tab.Search
 import app.kreate.android.me.knighthat.utils.PathUtils
@@ -83,7 +82,7 @@ fun OnDeviceSong(
     lazyListState: LazyListState,
     itemSelector: ItemSelector<Song>,
     search: Search,
-    buttons: MutableList<Button>,
+    buttons: MutableList<ToolbarButton>,
     itemsOnDisplay: MutableList<Song>,
     getSongs: () -> List<Song>,
 ) {
@@ -130,7 +129,10 @@ fun OnDeviceSong(
     }
     //</editor-fold>
 
-    val odSort = Sort( HOME_ON_DEVICE_SONGS_SORT_BY, HOME_SONGS_SORT_ORDER )
+    val odSort = app.kreate.android.me.knighthat.component.Sort(
+        HOME_ON_DEVICE_SONGS_SORT_BY,
+        HOME_SONGS_SORT_ORDER
+    )
 
     LaunchedEffect( isPermissionGranted, odSort.sortBy, odSort.sortOrder ) {
         if( !isPermissionGranted ) return@LaunchedEffect
@@ -138,18 +140,25 @@ fun OnDeviceSong(
         context.getLocalSongs( odSort.sortBy, odSort.sortOrder )
                .distinctUntilChanged()
                .onEach { lazyListState.scrollToItem( 0, 0 ) }
-               .collect {
-                   songsOnDevice = it
+               .collect { songsMap ->
+                   songsOnDevice = songsMap
+                   val availablePaths = songsMap.values.map(PathUtils::normalizePath).toSet()
+                   val fallbackPath = PathUtils.findCommonPath(songsMap.values)
+                   currentPath = currentPath
+                       .takeIf { path -> PathUtils.normalizePath(path) in availablePaths || path == fallbackPath }
+                       ?: fallbackPath
                }
     }
     LaunchedEffect( songsOnDevice, search.inputValue, currentPath ) {
+        val normalizedCurrentPath = PathUtils.normalizePath(currentPath)
         songsOnDevice.keys.filter { !parentalControlEnabled || !it.title.startsWith( EXPLICIT_PREFIX, true ) }
                           .filter {
+                              val songPath = songsOnDevice[it]?.let(PathUtils::normalizePath) ?: return@filter false
                               // [showFolder4LocalSongs] must be false and
                               // this song must be inside [currentPath] to show song
                               !showFolder4LocalSongs
-                                      || currentPath.equals( songsOnDevice[it], true )
-                                      || "$currentPath/".equals( songsOnDevice[it], true )
+                                      || songPath == normalizedCurrentPath
+                                      || songPath.startsWith("$normalizedCurrentPath/")
                           }
                           .filter {
                               // Without cleaning, user can search explicit songs with "e:"
@@ -198,7 +207,7 @@ fun OnDeviceSong(
 
                 Spacer( Modifier.height( 20.dp ) )
 
-                Button(
+                MaterialButton(
                     border = BorderStroke( 2.dp, colorPalette().accent ),
                     colors = ButtonDefaults.buttonColors().copy( containerColor = Color.Transparent ),
                     onClick = {
@@ -236,15 +245,19 @@ fun OnDeviceSong(
 
             items(
                 items = PathUtils.getAvailablePaths( songsOnDevice.values, currentPath ),
-                key = { it }
-            ) {
-                FolderItem( it ) { currentPath += "/$it" }
+                key = { folderName -> folderName }
+            ) { folderName ->
+                FolderItem( folderName ) {
+                    currentPath = listOf(PathUtils.normalizePath(currentPath), folderName)
+                        .filter { segment -> segment.isNotBlank() }
+                        .joinToString("/")
+                }
             }
         }
 
         itemsIndexed(
             items = itemsOnDisplay,
-            key = { _, song -> song.id }
+            key = { index, song -> song.id.ifBlank { "device_song_$index" } }
         ) { index, song ->
             val mediaItem = song.asMediaItem
 
@@ -263,7 +276,7 @@ fun OnDeviceSong(
                     onClick = {
                         search.hideIfEmpty()
 
-                        val mediaItems = getSongs().fastMap( Song::asMediaItem )
+                        val mediaItems = itemsOnDisplay.fastMap( Song::asMediaItem )
                         binder?.player?.forcePlayAtIndex( mediaItems, index )
                     }
                 )

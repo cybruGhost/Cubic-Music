@@ -1,4 +1,4 @@
-package it.fast4x.rimusic
+package app.it.fast4x.rimusic
 
 interface Platform {
     val name: String

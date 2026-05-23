@@ -51,8 +51,9 @@ data class BrowseResponse(
         val sectionListRenderer: SectionListRenderer?,
     )
 
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
-    data class Header @OptIn(ExperimentalSerializationApi::class) constructor(
+    data class Header(
         @JsonNames("musicVisualHeaderRenderer")
         val musicImmersiveHeaderRenderer: MusicImmersiveHeaderRenderer?,
         val musicDetailHeaderRenderer: MusicDetailHeaderRenderer?,

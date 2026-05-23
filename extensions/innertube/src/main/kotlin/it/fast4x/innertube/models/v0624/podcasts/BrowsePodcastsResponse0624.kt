@@ -584,6 +584,7 @@ data class BrowseSectionListReloadEndpoint (
      */
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Continuation (
     val reloadContinuationData: ReloadContinuationData? = null,

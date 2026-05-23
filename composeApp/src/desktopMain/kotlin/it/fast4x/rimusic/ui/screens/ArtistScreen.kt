@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerDefaults.windowInsets
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Text
@@ -80,7 +82,6 @@ import rimusic.composeapp.generated.resources.songs
 import rimusic.composeapp.generated.resources.translate
 import kotlin.random.Random
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ArtistScreen(
     browseId: String,
@@ -90,7 +91,28 @@ fun ArtistScreen(
     onViewAllSinglesClick: () -> Unit,
     onAlbumClick: (String) -> Unit,
     onClosePage: () -> Unit
+) = DesktopArtistScreen(
+    browseId = browseId,
+    onSongClick = onSongClick,
+    onPlaylistClick = onPlaylistClick,
+    onViewAllAlbumsClick = onViewAllAlbumsClick,
+    onViewAllSinglesClick = onViewAllSinglesClick,
+    onAlbumClick = onAlbumClick,
+    onClosePage = onClosePage
+)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DesktopArtistScreen(
+    browseId: String,
+    onSongClick: (Song) -> Unit,
+    onPlaylistClick: (String) -> Unit,
+    onViewAllAlbumsClick: () -> Unit,
+    onViewAllSinglesClick: () -> Unit,
+    onAlbumClick: (String) -> Unit,
+    onClosePage: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
     //val leftScrollState = rememberScrollState()
     //val rightScrollState = rememberScrollState()
     val artistPage = remember { mutableStateOf<Innertube.ArtistPage?>(null) }
@@ -123,14 +145,13 @@ fun ArtistScreen(
             verticalAlignment = Alignment.Top,
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
             Column(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .fillMaxHeight()
                     .fillMaxWidth(0.5f)
-                    //.verticalScroll(leftScrollState)
             ) {
                 /*
                 ExpandIcon(
@@ -292,10 +313,8 @@ fun ArtistScreen(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .fillMaxHeight()
-                    //.fillMaxWidth(0.5f)
-                    .fillMaxSize()
-                    //.verticalScroll(rightScrollState)
+                    .fillMaxWidth()
+                    .padding(start = 16.dp)
             ) {
 
                 if (artistPage.value != null) {
@@ -310,7 +329,7 @@ fun ArtistScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title(
@@ -360,7 +379,7 @@ fun ArtistScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title(
@@ -401,7 +420,7 @@ fun ArtistScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title2Actions(
@@ -449,7 +468,7 @@ fun ArtistScreen(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(endPaddingValues)
                         ) {
                             Title(

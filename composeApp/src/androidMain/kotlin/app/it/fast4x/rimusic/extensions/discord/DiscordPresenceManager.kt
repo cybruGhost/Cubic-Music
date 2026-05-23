@@ -301,7 +301,6 @@ class DiscordPresenceManager(
         when (validateToken(token)) {
             false -> {
                 Timber.tag("DiscordPresence").e("Invalid token, stopping presence updates")
-                Toaster.e(R.string.discord_token_text_invalid)
                 return
             }
             null -> {

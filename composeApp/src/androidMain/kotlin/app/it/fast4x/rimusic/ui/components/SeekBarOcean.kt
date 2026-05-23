@@ -40,6 +40,16 @@ import kotlin.math.PI
 import kotlin.math.roundToLong
 import kotlin.math.sin
 
+private fun oceanSeekBarFraction(
+    value: Long,
+    minimumValue: Long,
+    maximumValue: Long,
+): Float {
+    val range = maximumValue - minimumValue
+    if (range <= 0L) return 0f
+    return ((value.toFloat() - minimumValue.toFloat()) / range.toFloat()).coerceIn(0f, 1f)
+}
+
 @Composable
 fun SeekBarOcean(
     value: Long,
@@ -140,7 +150,7 @@ private fun ContentDrawScope.drawOceanScrubber(
     val scrubberPosition = if (maximumValue < minimumValue) {
         0f
     } else {
-        (value.toFloat() - minimumValue) / (maximumValue - minimumValue) * size.width
+        oceanSeekBarFraction(value, minimumValue, maximumValue) * size.width
     }
 
     drawRoundRect(
@@ -161,7 +171,7 @@ private fun OceanContent(
     color: Color,
     shape: Shape
 ) {
-    val fraction = (value.toFloat() - minimumValue) / (maximumValue - minimumValue)
+    val fraction = oceanSeekBarFraction(value, minimumValue, maximumValue)
     val progress by rememberInfiniteTransition().animateFloat(
         initialValue = 0f,
         targetValue = 1f,

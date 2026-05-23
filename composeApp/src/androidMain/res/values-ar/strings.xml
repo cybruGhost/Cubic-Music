@@ -1126,6 +1126,7 @@
   <string name="check_beta_update_disabled">BETA معطل</string>
   <string name="cache_status">حالة ذاكرة التخزين المؤقت</string>
   <string name="cache_empty">ذاكرة التخزين المؤقت فارغة</string>
+
   <string name="rewind">Rewind</string>
   <string name="donate">Donate</string>
   <!-- Spotify Canvas Strings -->
@@ -1388,3 +1389,6 @@
   <string name="app_announcements_channel_name">Announcements</string>
   <string name="app_announcements_channel_description">Update, promo, and custom app messages</string>
 </resources>
+
+</resources>
+

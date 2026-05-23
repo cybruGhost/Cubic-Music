@@ -776,7 +776,7 @@ fun CustomLiquidBackground(modifier: Modifier = Modifier) {
                                     val controlX = (prevX + x) / 2
                                     val controlY = (prevY + y) / 2 - waveAmplitude * 0.5f
                                     
-                                    quadraticBezierTo(controlX, controlY, x, y)
+                                    quadraticTo(controlX, controlY, x, y)
                                 }
                             }
                             

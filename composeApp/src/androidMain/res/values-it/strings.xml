@@ -551,7 +551,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Il riordino è possibile solo nell\'ordinamento crescente</string>
   <string name="information">Informazioni</string>
   <string name="info_lyrics_found_on_s">Lyrics trovate su %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Lyrics not found on %1$s, try on %2$s</string>
+
   <string name="info_lyrics_not_found_on_s">Lyrics non trovate su %s</string>
   <string name="info_lyrics_tracks_found_on_s">Lyrics trovate su %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Lyrics non trovate su %s</string>
@@ -1388,3 +1388,5 @@
   <string name="app_announcements_channel_name">Announcements</string>
   <string name="app_announcements_channel_description">Update, promo, and custom app messages</string>
 </resources>
+
+

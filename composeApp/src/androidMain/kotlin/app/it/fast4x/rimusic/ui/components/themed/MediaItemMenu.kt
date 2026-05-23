@@ -621,7 +621,7 @@ fun BaseMediaItemMenu(
                 type = "text/plain"
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    ExternalUris.youtubeMusic(mediaItem.mediaId)
+                    ExternalUris.cubicMusicSong(mediaItem.mediaId)
                 )
             }
 
@@ -681,7 +681,7 @@ fun MiniMediaItemMenu(
                 type = "text/plain"
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    ExternalUris.youtubeMusic(mediaItem.mediaId)
+                    ExternalUris.cubicMusicSong(mediaItem.mediaId)
                 )
             }
 
@@ -1561,26 +1561,42 @@ fun MediaItemMenu(
                         onDismiss = { showSelectDialogListenOn = false },
                         values = listOf(
                             Info(
-                                "https://youtube.com/watch?v=${mediaItem.mediaId}",
+                                ExternalUris.youtube(mediaItem.mediaId),
                                 stringResource(R.string.listen_on_youtube)
                             ),
                             Info(
-                                "https://music.youtube.com/watch?v=${mediaItem.mediaId}",
+                                ExternalUris.youtubeMusic(mediaItem.mediaId),
                                 stringResource(R.string.listen_on_youtube_music)
                             ),
                             Info(
-                                "https://piped.kavin.rocks/watch?v=${mediaItem.mediaId}&playerAutoPlay=true",
+                                ExternalUris.cubicMusicSong(mediaItem.mediaId),
+                                "Cubic Music"
+                            ),
+                            Info(
+                                ExternalUris.piped(mediaItem.mediaId),
                                 stringResource(R.string.listen_on_piped)
                             ),
                             Info(
-                                "https://yewtu.be/watch?v=${mediaItem.mediaId}&autoplay=1",
+                                ExternalUris.invidious(mediaItem.mediaId),
                                 stringResource(R.string.listen_on_invidious)
                             )
                         ),
                         onValueSelected = {
                             binder?.player?.pause()
                             showSelectDialogListenOn = false
-                            uriHandler.openUri(it)
+                            if (it.startsWith("intent://")) {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent.parseUri(it, Intent.URI_INTENT_SCHEME).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                    )
+                                }.onFailure {
+                                    uriHandler.openUri(ExternalUris.cubicMusicFallback(mediaItem.mediaId))
+                                }
+                            } else {
+                                uriHandler.openUri(it)
+                            }
                         }
                     )
                 /*

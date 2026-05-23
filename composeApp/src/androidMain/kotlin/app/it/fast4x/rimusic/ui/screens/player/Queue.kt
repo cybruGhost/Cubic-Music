@@ -128,14 +128,30 @@ fun Queue(
        var items by remember(player.currentTimeline) {
             mutableStateOf(player.currentTimeline.mediaItems.map( MediaItem::asSong ))
         }
+        var currentMediaId by remember { mutableStateOf(player.currentMediaItem?.mediaId.orEmpty()) }
         player.DisposableListener {
             object : Player.Listener {
                 override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                     items = player.currentTimeline.mediaItems.map( MediaItem::asSong )
                 }
+
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    currentMediaId = mediaItem?.mediaId.orEmpty()
+                }
+
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int
+                ) {
+                    currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
+                }
             }
         }
         var itemsOnDisplay by persistList<Song>( "queue/on_display" )
+        val nowPlayingSong by remember(items, currentMediaId) {
+            derivedStateOf { items.firstOrNull { it.id == currentMediaId } }
+        }
 
         val lazyListState = rememberLazyListState()
         val reorderingState = rememberReorderingState(
@@ -166,6 +182,9 @@ fun Queue(
 
                     containsTitle || containsArtist
                 }
+                .filterNot { song ->
+                    nowPlayingSong?.id == song.id
+                }
                 .let { itemsOnDisplay = it }
         }
 
@@ -183,6 +202,7 @@ fun Queue(
                 player.clearMediaItems()
             } else
                 itemSelector.map( items::indexOf )
+                            .filter { it >= 0 && it < player.mediaItemCount }
                             .sorted()
                             // Goes backward to prevent item from being skipped
                             // due to the previous element is removed and the indices
@@ -230,6 +250,43 @@ fun Queue(
                                    )
 
             ) {
+                nowPlayingSong?.let { song ->
+                    item(key = "now_playing_pinned_${song.id}") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            BasicText(
+                                text = "Now playing",
+                                style = TextStyle(
+                                    color = colorPalette().textSecondary,
+                                    fontStyle = typography().s.fontStyle
+                                ),
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                            SongItem(
+                                song = song,
+                                itemSelector = itemSelector,
+                                navController = navController,
+                                trailingContent = { Box(Modifier.width(24.dp)) },
+                                onClick = {
+                                    if (player.isNowPlaying(song.id)) {
+                                        if (player.shouldBePlaying) player.pause() else player.play()
+                                    } else {
+                                        val actualIndex = player.findMediaItemIndexById(song.id)
+                                        if (actualIndex >= 0) {
+                                            player.seekToDefaultPosition(actualIndex)
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                        }
+                                    }
+                                    search.hideIfEmpty()
+                                }
+                            )
+                        }
+                    }
+                }
                 itemsIndexed(
                     items = itemsOnDisplay,
                   key = { index, song -> "${song.id}-$index" }
@@ -272,10 +329,12 @@ fun Queue(
                         SwipeableQueueItem(
                             mediaItem = mediaItem,
                             onPlayNext = {
-                                binder.player.moveMediaItem(index, binder.player.currentMediaItemIndex)
-                                binder.player.seekToDefaultPosition(binder.player.currentMediaItemIndex - 1)
-                                binder.player.prepare()
-                                binder.player.playWhenReady = true
+                                val currentIndex = binder.player.currentMediaItemIndex
+                                val actualIndex = binder.player.findMediaItemIndexById(song.id)
+                                val targetIndex = (currentIndex + 1).coerceAtMost(binder.player.mediaItemCount - 1)
+                                if (actualIndex != targetIndex && actualIndex in 0 until binder.player.mediaItemCount) {
+                                    binder.player.moveMediaItem(actualIndex, targetIndex)
+                                }
                             },
                             onDownload = {
                                 binder.cache.removeResource(song.id)
@@ -296,12 +355,14 @@ fun Queue(
 
                                      To bypass it, pass another function that requires
                                      computation to extract data.
-                                 */
+                                */
                                 val actualIndex = player.findMediaItemIndexById( song.id )
-                                player.removeMediaItem( actualIndex )
-                                Toaster.s(
-                                    "${context.resources.getString(R.string.deleted)} ${song.cleanTitle()}"
-                                )
+                                if (actualIndex in 0 until player.mediaItemCount) {
+                                    player.removeMediaItem( actualIndex )
+                                    Toaster.s(
+                                        "${context.resources.getString(R.string.deleted)} ${song.cleanTitle()}"
+                                    )
+                                }
                             },
                             onEnqueue = {
                                 binder.player.enqueue(
@@ -326,9 +387,12 @@ fun Queue(
                                         else
                                             player.play()
                                     } else {
-                                        player.seekToDefaultPosition(index)
-                                        player.prepare()
-                                        player.playWhenReady = true
+                                        val actualIndex = player.findMediaItemIndexById(song.id)
+                                        if (actualIndex >= 0) {
+                                            player.seekToDefaultPosition(actualIndex)
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                        }
                                     }
 
                                     /*

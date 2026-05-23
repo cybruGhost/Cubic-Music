@@ -1,3 +1,5 @@
+@file:Suppress("DELICATE_COROUTINES_API")
+
 package app.kreate.android.me.knighthat.updater
 
 import androidx.compose.animation.AnimatedVisibility
@@ -122,6 +124,7 @@ object NewUpdateAvailableDialog {
     private var installationStep by mutableStateOf("")
     private var showDeleteConfirm by mutableStateOf(false)
     private var parserFailed by mutableStateOf(false)
+    private var downloadFolderHasFiles by mutableStateOf(false)
 
     var isActive: Boolean by mutableStateOf( false )
 
@@ -131,17 +134,8 @@ private fun checkIfAlreadyDownloaded() {
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
         "CubicMusic"
     )
-    
-    // If directory doesn't exist, definitely no download
-    if (!downloadsDir.exists()) {
-        this.isDownloaded = false
-        return
-    }
-    
-    val apkFile = File(downloadsDir, Updater.build.name)
-    
-    // Check if file exists AND has content (not empty)
-    this.isDownloaded = apkFile.exists() && apkFile.length() > 1000 // At least 1KB to be valid
+    downloadFolderHasFiles = downloadsDir.exists() && (downloadsDir.listFiles()?.isNotEmpty() == true)
+    this.isDownloaded = ApkInstallWorker.isApkDownloaded(Updater.build.name)
 }
     fun onDismiss() {
         isCancelled = true
@@ -185,6 +179,7 @@ private fun checkIfAlreadyDownloaded() {
             onComplete = {
                 isDownloading = false
                 isDownloaded = true
+                downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
 
                 Toast.makeText(
                     appContext(),
@@ -194,6 +189,7 @@ private fun checkIfAlreadyDownloaded() {
             },
             onError = { error ->
                 isDownloading = false
+                downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
 
                 Toast.makeText(
                     appContext(),
@@ -257,6 +253,7 @@ private fun checkIfAlreadyDownloaded() {
         // Reset download state
         isDownloading = false
         downloadProgress = 0f
+        downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
         
         // Show cancelled message
         Toast.makeText(
@@ -273,6 +270,7 @@ private fun checkIfAlreadyDownloaded() {
             isDownloaded = false
             isDownloading = false
             downloadProgress = 0f
+            downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
 
             Toast.makeText(
                 appContext(),
@@ -293,6 +291,7 @@ private fun reDownloadApk() {
     isDownloaded = false
     downloadProgress = 0f
     isDownloading = true
+    downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
     
     // Show download starting message
     Toast.makeText(
@@ -312,6 +311,7 @@ private fun reDownloadApk() {
         onComplete = {
             isDownloading = false
             isDownloaded = true
+            downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
             
             Toast.makeText(
                 appContext(),
@@ -321,6 +321,7 @@ private fun reDownloadApk() {
         },
         onError = { error ->
             isDownloading = false
+            downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
             
             Toast.makeText(
                 appContext(),
@@ -922,10 +923,10 @@ private fun reDownloadApk() {
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        BasicText(
-                                            text = "Cancel Download",
-                                            style = typography().s.semiBold.copy(color = Color.White)
-                                        )
+                            BasicText(
+                                text = stringResource(R.string.apk_cancel_download),
+                                style = typography().s.semiBold.copy(color = Color.White)
+                            )
                                     }
                                 }
                             }
@@ -972,14 +973,14 @@ AnimatedVisibility(
                     modifier = Modifier.fillMaxWidth(0.8f)
                 ) {
                     BasicText(
-                        text = "Install Now",
+                        text = stringResource(R.string.apk_install_now),
                         style = typography().s.semiBold.copy(color = Color.White),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     BasicText(
-                        text = "Start installation immediately",
+                        text = stringResource(R.string.apk_install_now_hint),
                         style = typography().xxs.copy(color = Color.White.copy(alpha = 0.9f)),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -1028,7 +1029,7 @@ AnimatedVisibility(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     BasicText(
-                        text = "Re-download",
+                        text = stringResource(R.string.apk_redownload),
                         style = typography().xs.semiBold.copy(color = Color.White)
                     )
                 }
@@ -1061,7 +1062,7 @@ AnimatedVisibility(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     BasicText(
-                        text = "Delete",
+                        text = stringResource(R.string.apk_delete_download),
                         style = typography().xs.semiBold.copy(color = Color.White)
                     )
                 }
@@ -1106,7 +1107,7 @@ AnimatedVisibility(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 BasicText(
-                    text = "Auto-downloads, then installs with confirmation",
+                    text = stringResource(R.string.apk_auto_download_install_hint),
                     style = typography().xxs.copy(color = Color.White.copy(alpha = 0.9f)),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1121,6 +1122,47 @@ AnimatedVisibility(
         }
     }
 }
+
+AnimatedVisibility(
+    visible = !parserFailed,
+    enter = fadeIn(animationSpec = tween(300)) + scaleIn(
+        animationSpec = tween(300),
+        initialScale = 0.95f
+    )
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (colorPalette() === PureBlackColorPalette || colorPalette() === ModernBlackColorPalette || colorPaletteMode == ColorPaletteMode.PitchBlack) {
+                Color(0xFF1A1A1A)
+            } else {
+                colorPalette().background1
+            }
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            BasicText(
+                text = stringResource(R.string.apk_folder_location, ApkInstallWorker.getDownloadFolderPath()),
+                style = typography().xs.medium.copy(color = colorPalette().text)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            BasicText(
+                text = stringResource(
+                    if (downloadFolderHasFiles) R.string.apk_folder_has_files else R.string.apk_folder_empty
+                ),
+                style = typography().xxs.copy(color = colorPalette().textSecondary)
+            )
+        }
+    }
+}
+
+Spacer(modifier = Modifier.height(8.dp))
 
 Spacer(modifier = Modifier.height(if (isDownloading || isDownloaded || isInstalling || parserFailed) 8.dp else 5.dp))
 

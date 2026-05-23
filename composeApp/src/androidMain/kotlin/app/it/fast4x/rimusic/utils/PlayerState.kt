@@ -23,6 +23,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import app.kreate.android.me.knighthat.utils.Toaster
 
+data class PlaybackProgressState(
+    val position: Long,
+    val duration: Long,
+    val bufferedPosition: Long,
+)
+
 @Composable
 inline fun Player.DisposableListener(crossinline listenerProvider: () -> Player.Listener) {
     DisposableEffect(this) {
@@ -34,8 +40,20 @@ inline fun Player.DisposableListener(crossinline listenerProvider: () -> Player.
 
 @Composable
 fun Player.positionAndDurationState(): State<Pair<Long, Long>> {
+    val progressState = playbackProgressState()
+    return rememberUpdatedState(progressState.value.position to progressState.value.duration)
+}
+
+@Composable
+fun Player.playbackProgressState(): State<PlaybackProgressState> {
     val state = remember {
-        mutableStateOf(currentPosition to duration)
+        mutableStateOf(
+            PlaybackProgressState(
+                position = currentPosition.coerceAtLeast(0L),
+                duration = duration,
+                bufferedPosition = bufferedPosition.coerceAtLeast(0L),
+            )
+        )
     }
 
     LaunchedEffect(this) {
@@ -47,6 +65,7 @@ fun Player.positionAndDurationState(): State<Pair<Long, Long>> {
                 if (playbackState == Player.STATE_READY) {
                     isSeeking = false
                 }
+                needsUpdate = true
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -73,7 +92,11 @@ fun Player.positionAndDurationState(): State<Pair<Long, Long>> {
             while (isActive) {
                 withFrameNanos { }
                 if (!isSeeking || needsUpdate) {
-                    state.value = currentPosition to duration
+                    state.value = PlaybackProgressState(
+                        position = currentPosition.coerceAtLeast(0L),
+                        duration = duration,
+                        bufferedPosition = bufferedPosition.coerceAtLeast(0L),
+                    )
                     needsUpdate = false
                 }
             }

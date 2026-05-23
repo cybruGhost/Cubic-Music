@@ -9,6 +9,7 @@ import coil3.SingletonImageLoader
 import coil3.ImageLoader
 
 import app.kreate.android.R
+import app.it.fast4x.rimusic.notifications.AppAnnouncementNotifier
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.service.MyDownloadHelper
 import app.it.fast4x.rimusic.utils.CaptureCrash
@@ -35,18 +36,27 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
             if (it.exists()) return@also
             it.mkdir()
         }
+        val runtimeLogFile = File(dir, "Cubic-Music_log.txt").also {
+            if (!it.exists()) {
+                it.createNewFile()
+            }
+        }
         
         // Always set up crash handler regardless of debug mode
         Thread.setDefaultUncaughtExceptionHandler(CaptureCrash(dir.absolutePath))
         
         if (logEnabled) {
-            Timber.plant(FileLoggingTree(File(dir, "N-Zik_log.txt")))
-            Timber.d("Log enabled at ${dir.absolutePath}")
+            Timber.uprootAll()
+            Timber.plant(Timber.DebugTree())
+            Timber.plant(FileLoggingTree(runtimeLogFile))
+            Timber.d("Debug log enabled at ${runtimeLogFile.absolutePath}")
         } else {
             Timber.uprootAll()
             Timber.plant(Timber.DebugTree())
         }
         /**** LOG *********/
+
+        AppAnnouncementNotifier.maybeShow(this)
     }
 
     private fun createNotificationChannels() {
@@ -83,7 +93,18 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
                 setShowBadge(false)
             }
 
-            notificationManager.createNotificationChannels(listOf(playerChannel, sleepTimerChannel, downloadChannel))
+            val announcementChannel = NotificationChannel(
+                AppAnnouncementNotifier.CHANNEL_ID,
+                applicationContext.getString(R.string.app_announcements_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = applicationContext.getString(R.string.app_announcements_channel_description)
+                setShowBadge(true)
+            }
+
+            notificationManager.createNotificationChannels(
+                listOf(playerChannel, sleepTimerChannel, downloadChannel, announcementChannel)
+            )
         }
     }
 

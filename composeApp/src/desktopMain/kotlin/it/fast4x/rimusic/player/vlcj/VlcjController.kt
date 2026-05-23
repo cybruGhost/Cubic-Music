@@ -14,17 +14,16 @@ import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
+import java.io.File
 import java.nio.file.Paths
 import kotlin.io.path.pathString
 
 class VlcjController : PlayerController {
 
     init {
-        //println("desktop VlcjController init ${System.setProperty("jna.library.path", System.getProperty("user.dir"))}")
-        addSearchPath(
-            RuntimeUtil.getLibVlcLibraryName(),
-            Paths.get(System.getProperty("user.dir"), "lib", "libvlc.dll").pathString
-        )
+        candidateLibVlcDirectories().forEach { directory ->
+            addSearchPath(RuntimeUtil.getLibVlcLibraryName(), directory)
+        }
         NativeDiscovery().discover()
     }
 
@@ -36,7 +35,7 @@ class VlcjController : PlayerController {
     private val stateListener = object : MediaPlayerEventAdapter() {
         override fun mediaPlayerReady(mediaPlayer: MediaPlayer) {
             catch { mediaPlayer.audio().setVolume(50) }
-            _state.update { it.copy(duration = mediaPlayer.status().length()) }
+            _state.update { it.copy(duration = mediaPlayer.status().length(), volume = 0.5f) }
         }
 
         override fun playing(mediaPlayer: MediaPlayer) {
@@ -60,7 +59,7 @@ class VlcjController : PlayerController {
         }
 
         override fun volumeChanged(mediaPlayer: MediaPlayer, volume: Float) {
-            _state.update { it.copy(volume = volume) }
+            _state.update { it.copy(volume = (volume / 100f).coerceIn(0f, 1f)) }
         }
 
         override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) {
@@ -74,6 +73,12 @@ class VlcjController : PlayerController {
         get() = _state.asStateFlow()
 
     override fun load(url: String) = catch {
+        _state.value = PlayerState()
+        player?.run {
+            controls().stop()
+            events().removeMediaPlayerEventListener(stateListener)
+            release()
+        }
         player = factory.mediaPlayers()?.newEmbeddedMediaPlayer()?.apply {
             events()?.addMediaPlayerEventListener(stateListener)
             media()?.prepare(url)
@@ -98,6 +103,7 @@ class VlcjController : PlayerController {
             events().removeMediaPlayerEventListener(stateListener)
             release()
         }
+        player = null
     }
 
     override fun seekTo(timestamp: Long) = catch {
@@ -110,5 +116,32 @@ class VlcjController : PlayerController {
 
     override fun toggleSound() = catch {
         player?.audio()?.mute()
+    }
+
+    private fun candidateLibVlcDirectories(): List<String> {
+        val userDir = System.getProperty("user.dir")
+        val appDir = System.getProperty("compose.application.resources.dir")
+        val executableDir = runCatching {
+            ProcessHandle.current()
+                .info()
+                .command()
+                .orElse(null)
+                ?.let(::File)
+                ?.parentFile
+                ?.absolutePath
+        }.getOrNull()
+
+        return listOfNotNull(
+            userDir,
+            userDir?.let { Paths.get(it, "lib").pathString },
+            userDir?.let { Paths.get(it, "app").pathString },
+            userDir?.let { Paths.get(it, "app", "lib").pathString },
+            appDir,
+            appDir?.let { Paths.get(it, "lib").pathString },
+            executableDir,
+            executableDir?.let { Paths.get(it, "lib").pathString },
+            executableDir?.let { Paths.get(it, "app").pathString },
+            executableDir?.let { Paths.get(it, "app", "lib").pathString }
+        ).distinct()
     }
 }

@@ -30,7 +30,6 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
-import coil3.request.crossfade
 import coil3.request.SuccessResult
 import coil3.toBitmap
 import it.fast4x.innertube.models.Thumbnail
@@ -39,6 +38,8 @@ import app.it.fast4x.rimusic.enums.CoilDiskCacheMaxSize
 import app.it.fast4x.rimusic.enums.ExoPlayerCacheLocation
 import app.it.fast4x.rimusic.enums.ImageQualityFormat
 import app.it.fast4x.rimusic.thumbnailShape
+import app.cubic.android.core.network.isNetworkAvailable
+import app.cubic.android.core.network.isNetworkConnected
 import app.cubic.android.core.network.NetworkQualityHelper
 // import app.cubic.android.core.network.GlobalNetworkLogger
 import app.cubic.android.core.network.enum.NetworkQuality as cubicNetworkQuality
@@ -58,6 +59,11 @@ import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalCoilApi::class)
 object ImageCacheFactory {
+    private data class ResolvedImageSource(
+        val url: String?,
+        val quality: NetworkQuality,
+        val useNetwork: Boolean,
+    )
 
     val DISK_CACHE: DiskCache by lazy {
         val preferences = appContext().preferences
@@ -88,7 +94,7 @@ object ImageCacheFactory {
 
     data class DownloadDecision(val useNetwork: Boolean, val quality: NetworkQuality)
 
-    private const val COOLDOWN_MS = 10 * 1000L
+    private const val COOLDOWN_MS = 2_500L
     private val cooldownMap = ConcurrentHashMap<String, Long>()
     private val cacheKeyMap = ConcurrentHashMap<String, String>()
     private val storeVersion = MutableStateFlow(0)
@@ -182,7 +188,6 @@ object ImageCacheFactory {
 
     val LOADER: ImageLoader by lazy {
         ImageLoader.Builder(appContext())
-            .crossfade(true)
             .memoryCache { MemoryCache.Builder().maxSizePercent(appContext(), 0.15).strongReferencesEnabled(true).build() }
             .diskCache(DISK_CACHE)
             .components {
@@ -221,6 +226,129 @@ object ImageCacheFactory {
             LOADER.memoryCache?.remove(MemoryCache.Key(key))
             DISK_CACHE.remove(key)
         } catch (e: Exception) {}
+    }
+
+    private fun hasCachedImage(url: String?, quality: NetworkQuality): Boolean {
+        if (url.isNullOrBlank()) return false
+        val key = generateCacheKeySync(url, quality)
+        val inMemory = runCatching {
+            LOADER.memoryCache?.get(MemoryCache.Key(key)) != null
+        }.getOrDefault(false)
+        if (inMemory) return true
+
+        return runCatching {
+            DISK_CACHE.openSnapshot(key) != null
+        }.getOrDefault(false)
+    }
+
+    private fun qualitySearchOrder(preferred: NetworkQuality): List<NetworkQuality> =
+        buildList {
+            add(preferred)
+            add(NetworkQuality.HIGH)
+            add(NetworkQuality.MEDIUM)
+            add(NetworkQuality.LOW)
+        }.distinct()
+
+    private fun cachedVariantCandidates(url: String?, preferred: NetworkQuality): List<Pair<String, NetworkQuality>> {
+        if (url.isNullOrBlank()) return emptyList()
+
+        val candidates = linkedSetOf<Pair<String, NetworkQuality>>()
+        val qualityOrder = qualitySearchOrder(preferred)
+
+        candidates += url to preferred
+
+        for (quality in qualityOrder) {
+            url.thumbnail(quality.size)?.let { candidates += it to quality }
+        }
+
+        if (url.contains("i.ytimg.com/vi/")) {
+            for (quality in qualityOrder) {
+                var fallback = url.thumbnail(quality.size)
+                while (fallback != null) {
+                    candidates += fallback to quality
+                    fallback = fallback.getNextYouTubeFallback()
+                }
+            }
+        }
+
+        val id = url.getYouTubeId()
+        if (id != null && (url.contains("pl_c") || url.contains("podcasts"))) {
+            PlaylistThumbnailStore.getHighUrl(id)?.let { highUrl ->
+                candidates += highUrl to NetworkQuality.HIGH
+                candidates += highUrl to NetworkQuality.MEDIUM
+                candidates += highUrl to NetworkQuality.LOW
+            }
+            PlaylistThumbnailStore.getLowUrl(id)?.let { lowUrl ->
+                candidates += lowUrl to NetworkQuality.LOW
+                candidates += lowUrl to NetworkQuality.MEDIUM
+                candidates += lowUrl to NetworkQuality.HIGH
+            }
+        }
+
+        candidates += url to preferred
+        return candidates.toList()
+    }
+
+    private fun resolveImageSource(thumbnailUrl: String?): ResolvedImageSource {
+        val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
+        if (validUrl == null) {
+            return ResolvedImageSource(null, NetworkQuality.LOW, false)
+        }
+        if (validUrl.isLocalArtSource()) {
+            return ResolvedImageSource(validUrl, NetworkQuality.HIGH, false)
+        }
+
+        val decision = getDownloadDecision(validUrl)
+        val networkConnected = appContext().isNetworkConnected
+        val networkAvailable = appContext().isNetworkAvailable
+        val cachedSource = cachedVariantCandidates(validUrl, decision.quality)
+            .firstOrNull { (candidateUrl, candidateQuality) ->
+                hasCachedImage(candidateUrl, candidateQuality)
+            }
+
+        if (!decision.useNetwork) {
+            return if (cachedSource != null) {
+                ResolvedImageSource(
+                    url = cachedSource.first,
+                    quality = cachedSource.second,
+                    useNetwork = false,
+                )
+            } else {
+                ResolvedImageSource(
+                    url = validUrl.thumbnail(decision.quality.size),
+                    quality = decision.quality,
+                    useNetwork = false,
+                )
+            }
+        }
+
+        if (networkConnected) {
+            return ResolvedImageSource(
+                url = validUrl.thumbnail(decision.quality.size),
+                quality = decision.quality,
+                useNetwork = true,
+            )
+        }
+
+        return if (cachedSource != null) {
+            ResolvedImageSource(
+                url = cachedSource.first,
+                quality = cachedSource.second,
+                useNetwork = false,
+            )
+        } else if (networkAvailable) {
+            ResolvedImageSource(
+                url = validUrl,
+                quality = NetworkQuality.LOW,
+                useNetwork = false,
+            )
+        } else {
+            ResolvedImageSource(
+                url = validUrl.thumbnail(decision.quality.size),
+                quality = decision.quality,
+                useNetwork = false,
+            )
+        }
     }
 
     fun getNetworkQuality(): NetworkQuality {
@@ -264,6 +392,10 @@ object ImageCacheFactory {
         if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") {
             return DownloadDecision(false, NetworkQuality.LOW)
         }
+
+        if (!appContext().isNetworkConnected) {
+            return DownloadDecision(false, CacheMetadataStore.get(thumbnailUrl) ?: getNetworkQuality())
+        }
         
         val lastAttempt = cooldownMap[thumbnailUrl]
         val now = System.currentTimeMillis()
@@ -296,19 +428,19 @@ object ImageCacheFactory {
         modifier: Modifier = Modifier.clip(thumbnailShape()).fillMaxSize()
     ) {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
-        val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
-        var currentUrl by remember(validUrl, version) { 
-            mutableStateOf(validUrl?.thumbnail(decision.quality.size).also { modUrl ->
-                // if (validUrl != null) Timber.tag("ImageCache").d("URL: original=%s, modified=%s", validUrl, modUrl)
-            }) 
+        var currentSource by remember(validUrl, version) {
+            mutableStateOf(resolveImageSource(validUrl))
+        }
+        var currentUrl by remember(validUrl, version) {
+            mutableStateOf(currentSource.url)
         }
         
         
         val request = ImageRequest.Builder(appContext())
             .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+            .diskCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
+            .memoryCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
             .listener(
                 onSuccess = { _, result ->
                     val dataSource = result.dataSource
@@ -318,8 +450,8 @@ object ImageCacheFactory {
                             PlaylistThumbnailStore.save(id, currentUrl!!, currentUrl!!.isYouTubeHighRes())
                         }
                     }
-                    if (validUrl != null && decision.useNetwork) {
-                        CacheMetadataStore.save(validUrl, decision.quality)
+                    if (validUrl != null && currentSource.useNetwork) {
+                        CacheMetadataStore.save(validUrl, currentSource.quality)
                     }
                 },
                 onError = { _, result ->
@@ -332,9 +464,10 @@ object ImageCacheFactory {
                     if (currentUrl != validUrl && id != null &&
                         (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
                         
-                        clearCacheForKey(currentUrl, decision.quality)
+                        clearCacheForKey(currentUrl, currentSource.quality)
                         PlaylistThumbnailStore.clear(id)
                         currentUrl = validUrl
+                        currentSource = currentSource.copy(url = validUrl)
                         return@listener
                     }
                     
@@ -342,6 +475,7 @@ object ImageCacheFactory {
                         val fallback = currentUrl.getNextYouTubeFallback()
                         if (fallback != null) {
                             currentUrl = fallback
+                            currentSource = currentSource.copy(url = fallback)
                             return@listener
                         }
                     }
@@ -373,19 +507,19 @@ object ImageCacheFactory {
         onError: ((State.Error) -> Unit)? = null
     ): AsyncImagePainter {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
-        val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
-        var currentUrl by remember(validUrl, version) { 
-            mutableStateOf(validUrl?.thumbnail(decision.quality.size).also { modUrl ->
-                // if (validUrl != null) Timber.tag("ImageCache").d("URL: original=%s, modified=%s", validUrl, modUrl)
-            }) 
+        var currentSource by remember(validUrl, version) {
+            mutableStateOf(resolveImageSource(validUrl))
+        }
+        var currentUrl by remember(validUrl, version) {
+            mutableStateOf(currentSource.url)
         }
         
         
         val request = ImageRequest.Builder(appContext())
             .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+            .diskCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
+            .memoryCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
             .listener(
                 onSuccess = { _, result ->
                     val dataSource = result.dataSource
@@ -395,8 +529,8 @@ object ImageCacheFactory {
                             PlaylistThumbnailStore.save(id, currentUrl!!, currentUrl!!.isYouTubeHighRes())
                         }
                     }
-                    if (validUrl != null && decision.useNetwork) {
-                        CacheMetadataStore.save(validUrl, decision.quality)
+                    if (validUrl != null && currentSource.useNetwork) {
+                        CacheMetadataStore.save(validUrl, currentSource.quality)
                     }
                 },
                 onError = { _, result ->
@@ -407,9 +541,10 @@ object ImageCacheFactory {
                     if (currentUrl != validUrl && id != null &&
                         (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
                         
-                        clearCacheForKey(currentUrl, decision.quality)
+                        clearCacheForKey(currentUrl, currentSource.quality)
                         PlaylistThumbnailStore.clear(id)
                         currentUrl = validUrl
+                        currentSource = currentSource.copy(url = validUrl)
                         return@listener
                     }
 
@@ -417,6 +552,7 @@ object ImageCacheFactory {
                         val fallback = currentUrl.getNextYouTubeFallback()
                         if (fallback != null) {
                             currentUrl = fallback
+                            currentSource = currentSource.copy(url = fallback)
                             return@listener
                         }
                     }
@@ -450,18 +586,18 @@ object ImageCacheFactory {
         onError: ((State.Error) -> Unit)? = null
     ) {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
-        val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
-        var currentUrl by remember(validUrl, version) { 
-            mutableStateOf(validUrl?.thumbnail(decision.quality.size).also { modUrl ->
-                //if (validUrl != null) Timber.tag("ImageCache").d("URL: original=%s, modified=%s", validUrl, modUrl)
-            }) 
+        var currentSource by remember(validUrl, version) {
+            mutableStateOf(resolveImageSource(validUrl))
+        }
+        var currentUrl by remember(validUrl, version) {
+            mutableStateOf(currentSource.url)
         }
         
         val request = ImageRequest.Builder(appContext())
             .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+            .diskCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
+            .memoryCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
             .listener(
                 onSuccess = { _, result ->
                     val dataSource = result.dataSource
@@ -471,8 +607,8 @@ object ImageCacheFactory {
                             PlaylistThumbnailStore.save(id, currentUrl!!, currentUrl!!.isYouTubeHighRes())
                         }
                     }
-                    if (validUrl != null && decision.useNetwork) {
-                        CacheMetadataStore.save(validUrl, decision.quality)
+                    if (validUrl != null && currentSource.useNetwork) {
+                        CacheMetadataStore.save(validUrl, currentSource.quality)
                     }
                 },
                 onError = { _, result ->
@@ -483,9 +619,10 @@ object ImageCacheFactory {
                     if (currentUrl != validUrl && id != null &&
                         (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
                         
-                        clearCacheForKey(currentUrl, decision.quality)
+                        clearCacheForKey(currentUrl, currentSource.quality)
                         PlaylistThumbnailStore.clear(id)
                         currentUrl = validUrl
+                        currentSource = currentSource.copy(url = validUrl)
                         return@listener
                     }
 
@@ -493,6 +630,7 @@ object ImageCacheFactory {
                         val fallback = currentUrl.getNextYouTubeFallback()
                         if (fallback != null) {
                             currentUrl = fallback
+                            currentSource = currentSource.copy(url = fallback)
                             return@listener
                         }
                     }
@@ -530,8 +668,9 @@ object ImageCacheFactory {
             return null
         }
         
-        val decision = getDownloadDecision(url)
-        var currentUrl = url.thumbnail(decision.quality.size)
+        val resolvedSource = resolveImageSource(url)
+        var currentUrl = resolvedSource.url
+        val requestQuality = resolvedSource.quality
         // Timber.tag("ImageCache").d("URL (loadBitmap): original=%s, modified=%s", url, currentUrl)
         var lastError: String? = null
         
@@ -539,8 +678,8 @@ object ImageCacheFactory {
             
             val request = ImageRequest.Builder(appContext())
                 .data(currentUrl)
-                .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-                .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+                .diskCacheKey(generateCacheKeySync(currentUrl, requestQuality))
+                .memoryCacheKey(generateCacheKeySync(currentUrl, requestQuality))
                 .allowHardware(allowHardware)
                 .build()
                 
@@ -554,8 +693,8 @@ object ImageCacheFactory {
                         PlaylistThumbnailStore.save(id, currentUrl, currentUrl.isYouTubeHighRes())
                     }
                 }
-                if (decision.useNetwork) {
-                    CacheMetadataStore.save(url, decision.quality)
+                if (resolvedSource.useNetwork) {
+                    CacheMetadataStore.save(url, requestQuality)
                 }
                 return result.image!!.toBitmap()
             }
@@ -567,7 +706,7 @@ object ImageCacheFactory {
             val id = currentUrl.getYouTubeId()
             if (currentUrl != url && id != null && (currentUrl.contains("pl_c") || currentUrl.contains("podcasts"))) {
                 
-                clearCacheForKey(currentUrl, decision.quality)
+                clearCacheForKey(currentUrl, requestQuality)
                 PlaylistThumbnailStore.clear(id)
                 currentUrl = url
                 continue
@@ -592,19 +731,19 @@ object ImageCacheFactory {
             return
         }
         
-        val decision = getDownloadDecision(thumbnailUrl)
-        val finalUrl = thumbnailUrl.thumbnail(decision.quality.size)
+        val resolvedSource = resolveImageSource(thumbnailUrl)
+        val finalUrl = resolvedSource.url
         // Timber.tag("ImageCache").d("URL (preload): original=%s, modified=%s", thumbnailUrl, finalUrl)
         
         fun enqueueWithFallback(url: String) {
             val request = ImageRequest.Builder(appContext())
                 .data(url)
-                .diskCacheKey(generateCacheKeySync(thumbnailUrl, decision.quality))
-                .memoryCacheKey(generateCacheKeySync(thumbnailUrl, decision.quality))
+                .diskCacheKey(generateCacheKeySync(url, resolvedSource.quality))
+                .memoryCacheKey(generateCacheKeySync(url, resolvedSource.quality))
                 .listener(
                     onSuccess = { _, result ->
-                        if (decision.useNetwork) {
-                            CacheMetadataStore.save(thumbnailUrl, decision.quality)
+                        if (resolvedSource.useNetwork) {
+                            CacheMetadataStore.save(thumbnailUrl, resolvedSource.quality)
                         }
                     },
                     onError = { _, result ->
@@ -654,6 +793,11 @@ object ImageCacheFactory {
 
     fun getCacheSize(): Long = try { DISK_CACHE.size } catch (e: Exception) { 0L }
 }
+
+private fun String.isLocalArtSource(): Boolean =
+    startsWith("content://") ||
+        startsWith("file://") ||
+        startsWith("/")
 
 fun String.resize(width: Int? = null, height: Int? = null): String {
     if (width == null && height == null) return this
@@ -797,5 +941,3 @@ private fun String.getYouTubeQualityScore(): Int {
 }
 
 private fun String.isYouTubeHighRes(): Boolean = getYouTubeQualityScore() >= 5
-
-
