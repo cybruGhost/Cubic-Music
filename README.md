@@ -31,7 +31,7 @@ Every bit of support helps keep cubicmusic growing 🚀
 </div>
 
 ---
-New feature (v1.8.0 )
+New feature (v1.8.1 )
 <b>Spotify Canvas(beta)</b>
 
 What is Spotify Canvas?
