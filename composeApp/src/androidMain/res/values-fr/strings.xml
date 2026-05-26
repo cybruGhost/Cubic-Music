@@ -440,7 +440,7 @@
   <string name="pinned_playlists">Playlists Épinglées</string>
   <string name="locked">Verrouillé</string>
   <string name="sort_duration">Durée</string>
-  <string name="lang_serbian_cyrillic">Serbian Cyrillic (??????)</string>
+  <string name="lang_serbian_cyrillic">Serbe cyrillique</string>
   <string name="pause_between_songs">Mettre en pause entre les titres</string>
   <string name="navigation_bar_type">Type de barre de navigation</string>
   <string name="icon_and_text">Texte et icône</string>
@@ -754,7 +754,7 @@ Volume BAS : titre précédent</string>
   <string name="discoverinforadio">Supprime les titres aimés et les playlists de la file d\'attente</string>
   <string name="discover_has_been_applied_to_radio">Jennie &#x1F31F; has applied to radio, removed songs: %s</string>
   <string name="songs_number_to_show">Nombre de titres à afficher</string>
-  <string name="discover_has_been_applied_to_queue">Jennie &#x1F31F; has applied to queue, removed songs: %s</string>
+  <string name="discover_has_been_applied_to_queue">Jennie &#x1F31F; a appliqué à la queue, titres supprimés : %s</string>
   <string name="discover_queue_no_changes">Discovery checked the queue. Nothing needed removing.</string>
   <string name="discover_loading_more_songs">Discovery is loading more songs.</string>
   <string name="player_pause_on_volume_zero">Mettre en pause quand le volume est à 0</string>
