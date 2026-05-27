@@ -551,7 +551,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">La réorganisation est possible uniquement dans le tri ascendant</string>
   <string name="information">Information</string>
   <string name="info_lyrics_found_on_s">Paroles trouvées sur %s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Lyrics not found on %1$s, try on %2$s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Paroles non trouvées sur %1$s, essayez sur %2$s</string>
   <string name="info_lyrics_not_found_on_s">Paroles introuvables sur %s</string>
   <string name="info_lyrics_tracks_found_on_s">Paroles de titres trouvées sur %s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Paroles des titres introuvables sur %s</string>
@@ -625,7 +625,7 @@
   <string name="exclude_songs_with_duration_limit_description">Les titres dont la durée dépasse la limite seront exclues du classement des titres les plus populaires et de la file d\'attente</string>
   <string name="no_log_available">Journal indisponible</string>
   <string name="enable_quick_picks_page">Activer la page de Sélection Rapide</string>
-  <string name="lang_vietnamese">Vietnamese (ti?ng Vi?t)</string>
+  <string name="lang_vietnamese">Vietnamien</string>
   <string name="parental_control">Contrôle Parental</string>
   <string name="info_prevent_play_songs_with_age_limitation">Empêcher la lecture de titres avec une limite d\'âge</string>
   <string name="cache_location_private">Privé</string>
@@ -710,7 +710,7 @@
   <string name="past_month">Ce mois</string>
   <string name="past_year">Cette année</string>
   <string name="all_time">Tous les temps</string>
-  <string name="header_view_top_of">Top %s of all time</string>
+  <string name="header_view_top_of">Top %s de tout les temps</string>
   <string name="podcast_episodes">Épisodes</string>
   <string name="podcasts">Podcasts</string>
   <string name="playlistindicator">Indicateur de playlist</string>
@@ -718,7 +718,7 @@
   <string name="deleted">Supprimé</string>
   <string name="playlistindicatorinfo2">Le titre est présent dans l\'une des playlists</string>
   <string name="statsfornerdsplayer">Afficher les statistiques pour les nerds dans le lecteur</string>
-  <string name="discover">Discover&#x1F31F;</string>
+  <string name="discover">Découvrir &#x1F31F;</string>
   <string name="discoverinfo">Supprimez les titres de la file d\'attente s\'ils sont inclus dans les favoris ou les playlists</string>
   <string name="controls_header_customize">Personnaliser</string>
   <string name="controls_title_blur_effect">Effet de flou</string>
@@ -735,9 +735,9 @@
 Volume BAS : titre précédent</string>
   <string name="paste">Coller</string>
   <string name="searches_no_suggestions">Aucune suggestion</string>
-  <string name="youtube_search">YouTube</string>
+  <string name="youtube_search">Youtube</string>
   <string name="search_youtube_hint">Type a search to find YouTube songs, videos, artists, and playlists.</string>
-  <string name="action_bar_show_discover_button">Show Enable Discover&#x1F31F;</string>
+  <string name="action_bar_show_discover_button">Montrer Activer Découvrir &#x1F31F;</string>
   <string name="playertype">Type de lecteur</string>
   <string name="noblur">Pas de flou quand les paroles sont désactivées</string>
   <string name="fadingedge">Bord en dégradé</string>
@@ -752,7 +752,7 @@ Volume BAS : titre précédent</string>
   <string name="message_type_modern">Moderne</string>
   <string name="message_type_essential">Minimale</string>
   <string name="discoverinforadio">Supprime les titres aimés et les playlists de la file d\'attente</string>
-  <string name="discover_has_been_applied_to_radio">Jennie &#x1F31F; has applied to radio, removed songs: %s</string>
+  <string name="discover_has_been_applied_to_radio">Jennie &#x1F31F; a été appliquée à la radio, titres supprimés : %s</string>
   <string name="songs_number_to_show">Nombre de titres à afficher</string>
   <string name="discover_has_been_applied_to_queue">Jennie &#x1F31F; a appliqué à la queue, titres supprimés : %s</string>
   <string name="discover_queue_no_changes">Discovery checked the queue. Nothing needed removing.</string>
@@ -855,7 +855,7 @@ Volume BAS : titre précédent</string>
   <string name="repeat">Répéter</string>
   <string name="original_lyrics">Paroles originales</string>
   <string name="translated_lyrics">Paroles traduites</string>
-  <string name="press_once_again_to_exit">&#x1F979;Press once again to exit</string>
+  <string name="press_once_again_to_exit">&#x1F979;Appuyez encore une fois pour quitter</string>
   <string name="random_sorting">Tri aléatoire</string>
   <string name="music_animations_bars">Barres</string>
   <string name="music_animations_crazy_bars">Barres Folles</string>
