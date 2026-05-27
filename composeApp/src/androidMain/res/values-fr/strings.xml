@@ -476,9 +476,9 @@
   <string name="cover_save_failed">La couverture n\'a pas pu être téléchargée</string>
   <string name="tap_anywhere_to_dismiss">Appuyez n\'importe où pour fermer</string>
   <string name="retry_with_other_sources">Réessayer avec d\'autres sources</string>
-  <string name="retry_with_other_sources_hint">Try alternate playback sources such as YouTube match search and fallback stream providers.</string>
-  <string name="redownload_song">Re-download song</string>
-  <string name="redownload_song_hint">This downloaded file looks corrupted. Cubic Music will clear the broken offline copy and download it again.</string>
+  <string name="retry_with_other_sources_hint">Essayez d\'autres sources de lecture telles que la recherche de correspondance YouTube et les fournisseurs de source de secours.</string>
+  <string name="redownload_song">Retélécharger un titre</string>
+  <string name="redownload_song_hint">Ce fichier téléchargé semble corrompu. Cubic Music va supprimer la copie hors ligne et la télécharger à nouveau.</string>
   <string name="menu_style">Style du menu</string>
   <string name="style_grid">Grille</string>
   <string name="style_list">Liste</string>
