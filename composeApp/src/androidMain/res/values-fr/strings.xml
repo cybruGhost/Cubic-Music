@@ -502,7 +502,7 @@
   <string name="info_includes_excludes_songs_on_the_device">Inclure / Exclure les titres présents sur l\'appareil</string>
   <string name="info_enqueue_songs">Mettre les titres en file d\'attente</string>
   <string name="info_download_all_songs">Télécharger tous les titres</string>
-  <string name="delete_all_downloaded_songs">Delete all downloaded songs</string>
+  <string name="delete_all_downloaded_songs">Supprimer tous les titres téléchargés</string>
   <string name="info_remove_all_downloaded_songs">Supprimer tous les titres téléchargés</string>
   <string name="info_start_radio">Démarrer la radio</string>
   <string name="info_translation">Traduction</string>
@@ -532,7 +532,7 @@
   <string name="info_wait_it_may_take_a_few_minutes">Veuillez patienter, cela peut prendre quelques minutes...</string>
   <string name="album_and_alternative_versions">Album et versions alternatives</string>
   <string name="album_alternative_versions">Versions alternatives</string>
-  <string name="monthly_playlists">Monthly wrapped&#x2728;&#xFE0F;</string>
+  <string name="monthly_playlists">Mise en ligne mensuelle&#x2728;&#xFE0F;</string>
   <string name="month_january_s">Janvier %s</string>
   <string name="month_february_s">Février %s</string>
   <string name="month_march_s">Mars %s</string>
@@ -736,7 +736,7 @@ Volume BAS : titre précédent</string>
   <string name="paste">Coller</string>
   <string name="searches_no_suggestions">Aucune suggestion</string>
   <string name="youtube_search">Youtube</string>
-  <string name="search_youtube_hint">Type a search to find YouTube songs, videos, artists, and playlists.</string>
+  <string name="search_youtube_hint">Saisissez un mot-clé pour rechercher des titres, des vidéos, des artistes et des playlists sur YouTube.</string>
   <string name="action_bar_show_discover_button">Montrer Activer Découvrir &#x1F31F;</string>
   <string name="playertype">Type de lecteur</string>
   <string name="noblur">Pas de flou quand les paroles sont désactivées</string>
@@ -755,8 +755,8 @@ Volume BAS : titre précédent</string>
   <string name="discover_has_been_applied_to_radio">Jennie &#x1F31F; a été appliquée à la radio, titres supprimés : %s</string>
   <string name="songs_number_to_show">Nombre de titres à afficher</string>
   <string name="discover_has_been_applied_to_queue">Jennie &#x1F31F; a appliqué à la queue, titres supprimés : %s</string>
-  <string name="discover_queue_no_changes">Discovery checked the queue. Nothing needed removing.</string>
-  <string name="discover_loading_more_songs">Discovery is loading more songs.</string>
+  <string name="discover_queue_no_changes">Discovery a vérifié la file d\'attente. Il n\'y avait rien à supprimer.</string>
+  <string name="discover_loading_more_songs">Discovery est en train de charger d\'autres morceaux.</string>
   <string name="player_pause_on_volume_zero">Mettre en pause quand le volume est à 0</string>
   <string name="info_pauses_player_when_volume_zero">Met en pause le lecteur lorsque le volume atteint 0 et reprend lorsque le volume est supérieur à 0</string>
   <string name="quality">Qualité</string>
@@ -793,7 +793,7 @@ Volume BAS : titre précédent</string>
   <string name="player_pause_listen_history_info">Cela ne sauvegarde pas les événements de lecture utilisés pour les statistiques, l\'historique et les suggestions dans la Sélection Rapide.</string>
   <string name="vertical_widget">Widget vertical</string>
   <string name="horizontal_widget">Widget horizontal</string>
-  <string name="rescue_widget">Rescue Center widget</string>
+  <string name="rescue_widget">Widget « Centre de Secours »</string>
   <string name="social_reddit">Reddit</string>
   <string name="social_reddit_info">Rejoignez la communauté sur Reddit</string>
   <string name="sleep_timer_ended">Minuterie de veille terminée</string>
@@ -862,10 +862,10 @@ Volume BAS : titre précédent</string>
   <string name="music_animations_crazy_points">Points Fous</string>
   <string name="music_animations_bubbles">Bulles</string>
   <string name="now_playing_indicator">Indicateur de lecture en cours</string>
-  <string name="good_afternoon">Good Afternoon&#x2600;&#xFE0F;</string>
-  <string name="good_evening">Good Evening&#x1F324;</string>
-  <string name="good_morning">Good Morning&#x1F31E;</string>
-  <string name="good_night">Good Night&#x1F318;</string>
+  <string name="good_afternoon">Bonjour&#x2600;&#xFE0F;</string>
+  <string name="good_evening">Bonsoir&#x1F324;</string>
+  <string name="good_morning">Bonjour&#x1F31E;</string>
+  <string name="good_night">Bonsoir&#x1F318;</string>
   <string name="colored_bar">Barre Colorée</string>
   <string name="about_developers_designers">Développeurs</string>
   <string name="set_custom_value">Valeur personnalisée</string>
@@ -890,7 +890,7 @@ Volume BAS : titre précédent</string>
   <string name="action_bar_show_start_radio_button">Afficher le bouton radio</string>
   <string name="tab_accounts">Comptes</string>
   <string name="blankspace">Espace Vide en Haut</string>
-  <string name="settings_enable_autodownload_song">enable auto download song??</string>
+  <string name="settings_enable_autodownload_song">Activer le téléchargement automatique des morceaux ?</string>
   <string name="settings_enable_autodownload_song_when_liked">Téléchargement automatique du titre lorsqu\'il est apprécié</string>
   <string name="settings_enable_autodownload_song_when_album_bookmarked">Téléchargement automatique du titre lorsque l\'album est ajouté aux favoris</string>
   <string name="tab_general">Général</string>
