@@ -41,8 +41,8 @@ fun InitDownloader() {
 fun downloadedStateMedia(mediaId: String): DownloadedStateMedia {
     val binder = LocalPlayerServiceBinder.current
 
-    val cachedBytes = remember(mediaId) {
-        binder?.cache?.getCachedBytes(mediaId, 0, -1)
+    val cachedBytes = remember(mediaId, binder?.cache?.cacheSpace) {
+        binder?.cache?.getCachedBytes(mediaId, 0, -1) ?: 0L
     }
 
     val isDownloaded by remember(mediaId) {
@@ -50,16 +50,23 @@ fun downloadedStateMedia(mediaId: String): DownloadedStateMedia {
             download?.state == Download.STATE_COMPLETED
         }
     }.collectAsState(initial = false, context = Dispatchers.IO)
-    val isCached by remember {
+    val isDownloadCached = remember(mediaId, binder?.downloadCache?.cacheSpace) {
+        MyDownloadHelper.isDownloadCached(mediaId)
+    }
+    val isCached by remember(mediaId, cachedBytes) {
         Database.formatTable.findBySongId( mediaId ).map {
-            it?.contentLength == cachedBytes
+            cachedBytes > 0L || (
+                it?.contentLength != null &&
+                    it.contentLength > 0L &&
+                    cachedBytes >= it.contentLength
+                )
         }
     }.collectAsState( false, Dispatchers.IO )
 
     return when {
-        isDownloaded && isCached -> DownloadedStateMedia.CACHED_AND_DOWNLOADED
-        isDownloaded && !isCached -> DownloadedStateMedia.DOWNLOADED
-        !isDownloaded && isCached -> DownloadedStateMedia.CACHED
+        isDownloaded && (isCached || isDownloadCached) -> DownloadedStateMedia.CACHED_AND_DOWNLOADED
+        isDownloaded -> DownloadedStateMedia.DOWNLOADED
+        isCached || isDownloadCached -> DownloadedStateMedia.CACHED
         else -> DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED
     }
 }
@@ -77,20 +84,28 @@ fun getDownloadStateMedia(
         MyDownloadHelper.getDownload(songId)
             .map { download -> download?.state == Download.STATE_COMPLETED }
     }.collectAsState(initial = false, context = Dispatchers.IO)
-    val isCached by remember {
+    val isDownloadCached = remember(songId, binder.downloadCache.cacheSpace) {
+        MyDownloadHelper.isDownloadCached(songId)
+    }
+    val cachedBytes = remember(songId, binder.cache.cacheSpace) {
+        binder.cache.getCachedBytes(songId, 0, -1)
+    }
+    val isCached by remember(songId, cachedBytes) {
         Database.formatTable
             .findBySongId( songId )
             .map {
-                if( it?.contentLength == null )
-                    return@map false
-                binder.cache.isCached( it.songId, 0, it.contentLength )
+                cachedBytes > 0L || (
+                    it?.contentLength != null &&
+                        it.contentLength > 0L &&
+                        binder.cache.isCached( it.songId, 0, it.contentLength )
+                    )
             }
     }.collectAsState( false, Dispatchers.IO )
 
     return when {
-        isDownloaded && isCached  -> DownloadedStateMedia.CACHED_AND_DOWNLOADED
-        isDownloaded && !isCached -> DownloadedStateMedia.DOWNLOADED
-        !isDownloaded && isCached -> DownloadedStateMedia.CACHED
+        isDownloaded && (isCached || isDownloadCached) -> DownloadedStateMedia.CACHED_AND_DOWNLOADED
+        isDownloaded -> DownloadedStateMedia.DOWNLOADED
+        isCached || isDownloadCached -> DownloadedStateMedia.CACHED
         // !isDownloaded && !isCached
         else                      -> DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED
     }
@@ -138,7 +153,6 @@ fun getDownloadProgress(mediaId: String): Float {
 @Composable
 fun isDownloadedSong(mediaId: String): Boolean {
     return when (downloadedStateMedia(mediaId)) {
-        DownloadedStateMedia.CACHED,
         DownloadedStateMedia.CACHED_AND_DOWNLOADED,
         DownloadedStateMedia.DOWNLOADED -> true
         else -> false

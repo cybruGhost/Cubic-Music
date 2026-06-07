@@ -25,6 +25,7 @@ import app.it.fast4x.rimusic.ui.screens.settings.EnumValueSelectorSettingsEntry
 import app.it.fast4x.rimusic.ui.screens.settings.SettingsDescription
 import app.it.fast4x.rimusic.utils.checkUpdateStateKey
 import app.it.fast4x.rimusic.utils.checkBetaUpdatesKey
+import app.it.fast4x.rimusic.utils.SecureApiConfig
 import app.it.fast4x.rimusic.utils.updateCancelledKey
 import app.it.fast4x.rimusic.utils.lastUpdateCheckKey
 import app.it.fast4x.rimusic.utils.rememberPreference
@@ -36,8 +37,12 @@ import kotlinx.serialization.json.Json
 import app.kreate.android.me.knighthat.utils.Repository
 import app.kreate.android.me.knighthat.utils.Toaster
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
+import org.json.JSONObject
+import java.io.IOException
 import java.net.UnknownHostException
+import java.net.URLEncoder
 import java.nio.file.NoSuchFileException
 import kotlin.math.pow
 
@@ -45,6 +50,12 @@ object Updater {
     private lateinit var tagName: String
     lateinit var build: GithubRelease.Build
     var githubRelease: GithubRelease? = null
+    private val updateHttpClient by lazy {
+        OkHttpClient.Builder()
+            .retryOnConnectionFailure(true)
+            .protocols(listOf(Protocol.HTTP_1_1))
+            .build()
+    }
 
     /**
      * Extracts the build type from version string
@@ -151,21 +162,25 @@ object Updater {
      * > **NOTE**: This is a blocking process, it should never run on UI thread
      */
     private suspend fun fetchUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+        val githubResult = runCatching { fetchGithubUpdate(checkBetaUpdates) }
+        if (githubResult.isSuccess) return@withContext
+
+        val fallbackResult = runCatching { fetchUpdateBuddyRelease(checkBetaUpdates) }
+        if (fallbackResult.isSuccess) return@withContext
+
+        throw fallbackResult.exceptionOrNull()
+            ?: githubResult.exceptionOrNull()
+            ?: NoSuchFileException("")
+    }
+
+    private suspend fun fetchGithubUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
         assert(Looper.myLooper() != Looper.getMainLooper()) {
             "Cannot run fetch update on main thread"
         }
 
         // Get all releases to find the best one
         val url = "${Repository.GITHUB_API}/repos/${Repository.REPO}/releases"
-        val request = Request.Builder().url(url).build()
-        val response = OkHttpClient().newCall(request).execute()
-
-        if (!response.isSuccessful) {
-            Toaster.e(response.message)
-            return@withContext
-        }
-
-        val resBody = response.body?.string()
+        val resBody = executeUpdateRequest(url)
         if (resBody.isNullOrBlank()) {
             Toaster.i(R.string.info_no_update_available)
             return@withContext
@@ -186,6 +201,60 @@ object Updater {
         } else {
             throw NoSuchFileException("")
         }
+    }
+
+    private suspend fun fetchUpdateBuddyRelease(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+        val channel = if (checkBetaUpdates || extractVersionSuffix(BuildConfig.VERSION_NAME) == "b") "beta" else "stable"
+        val current = URLEncoder.encode(BuildConfig.VERSION_NAME, Charsets.UTF_8.name())
+        val url = "${SecureApiConfig.updateBuddyLatestReleaseEndpoint}?channel=$channel&current=$current"
+        val body = executeUpdateRequest(url, treat404AsNoFile = true).orEmpty()
+        if (body.isBlank()) throw NoSuchFileException("")
+
+        val root = JSONObject(body)
+        if (!root.optBoolean("updateAvailable", false)) throw NoSuchFileException("")
+
+        val latest = root.optJSONObject("latest") ?: throw NoSuchFileException("")
+        val version = latest.optString("version").ifBlank { throw NoSuchFileException("") }
+        val downloadUrl = latest.optString("downloadUrl").ifBlank { throw NoSuchFileException("") }
+        val buildType = if (channel == "beta") "beta" else extractBuildType(BuildConfig.VERSION_NAME)
+        val release = GithubRelease(
+            id = 0u,
+            tagName = version,
+            name = latest.optString("name").ifBlank { version },
+            body = latest.optString("notes"),
+            prerelease = latest.optBoolean("isPrerelease", channel != "stable"),
+            builds = listOf(
+                GithubRelease.Build(
+                    id = 0u,
+                    url = downloadUrl,
+                    name = "${BuildConfig.APP_NAME}-$buildType.apk",
+                    size = 0u,
+                    createdAt = latest.optString("publishedAt").ifBlank { "1970-01-01T00:00:00Z" },
+                    downloadUrl = downloadUrl
+                )
+            )
+        )
+
+        this@Updater.githubRelease = release
+        build = release.builds.first()
+        tagName = release.tagName
+    }
+
+    private fun executeUpdateRequest(url: String, treat404AsNoFile: Boolean = false): String? {
+        var lastError: Throwable? = null
+        repeat(2) { attempt ->
+            try {
+                updateHttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                    if (treat404AsNoFile && response.code == 404) throw NoSuchFileException("")
+                    if (!response.isSuccessful) throw IOException(response.message)
+                    return response.body?.string()
+                }
+            } catch (error: IOException) {
+                lastError = error
+                if (attempt == 1 || !error.message.orEmpty().contains("stream", ignoreCase = true)) throw error
+            }
+        }
+        throw lastError ?: IOException("Update check failed")
     }
 
     /**

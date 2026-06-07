@@ -3,11 +3,7 @@ package app.it.fast4x.rimusic.ui.components.themed
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +20,7 @@ import app.it.fast4x.rimusic.utils.coilDiskCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.exoPlayerDiskCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import kotlinx.coroutines.delay
 
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -61,35 +58,38 @@ fun CacheSpaceIndicator(
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
 
-    val imageDiskCacheSize = remember {
-        ImageCacheFactory.getCacheSize()
+    val imageDiskCacheSize by androidx.compose.runtime.produceState(initialValue = ImageCacheFactory.getCacheSize()) {
+        while (true) {
+            value = ImageCacheFactory.getCacheSize()
+            delay(1000)
+        }
     }
-
-    val cachedSongsDiskCacheSize = remember {
-        binder?.cache?.cacheSpace
+    val cachedSongsDiskCacheSize by androidx.compose.runtime.produceState(initialValue = binder?.cache?.cacheSpace ?: 0L, binder?.cache) {
+        while (true) {
+            value = binder?.cache?.cacheSpace ?: 0L
+            delay(1000)
+        }
     }
-
-    val downloadedSongsDiskCacheSize = remember {
-        binder?.downloadCache?.cacheSpace
-    }
-
-    val progressValue = remember { mutableStateOf(0f) }
-
-    LaunchedEffect (Unit, cacheType) {
-        progressValue.value =
-        when (cacheType) {
-            CacheType.Images -> imageDiskCacheSize?.toFloat()
-                ?.div(coilDiskCacheMaxSize.bytes.coerceAtLeast(1)) ?: 0.0f
-            CacheType.CachedSongs -> cachedSongsDiskCacheSize?.toFloat()
-                ?.div(exoPlayerDiskCacheMaxSize.bytes.coerceAtLeast(1)) ?: 0.0f
-            CacheType.DownloadedSongs -> downloadedSongsDiskCacheSize?.toFloat()
-                ?.div(exoPlayerDiskDownloadCacheMaxSize.bytes.coerceAtLeast(1)) ?: 0.0f
+    val downloadedSongsDiskCacheSize by androidx.compose.runtime.produceState(initialValue = binder?.downloadCache?.cacheSpace ?: 0L, binder?.downloadCache) {
+        while (true) {
+            value = binder?.downloadCache?.cacheSpace ?: 0L
+            delay(1000)
         }
     }
 
+    val progressValue =
+        when (cacheType) {
+            CacheType.Images -> imageDiskCacheSize.toFloat()
+                .div(coilDiskCacheMaxSize.bytes.coerceAtLeast(1))
+            CacheType.CachedSongs -> cachedSongsDiskCacheSize.toFloat()
+                .div(exoPlayerDiskCacheMaxSize.bytes.coerceAtLeast(1))
+            CacheType.DownloadedSongs -> downloadedSongsDiskCacheSize.toFloat()
+                .div(exoPlayerDiskDownloadCacheMaxSize.bytes.coerceAtLeast(1))
+        }
+
     if (!circularIndicator)
         ProgressIndicator(
-            progress = progressValue.value,
+            progress = progressValue,
             strokeCap = StrokeCap.Round,
             modifier = Modifier
                 .fillMaxWidth()
@@ -98,7 +98,7 @@ fun CacheSpaceIndicator(
         )
     else
         ProgressIndicatorCircular(
-            progress = progressValue.value,
+            progress = progressValue,
             strokeCap = StrokeCap.Round,
             modifier = Modifier
                 .fillMaxWidth()

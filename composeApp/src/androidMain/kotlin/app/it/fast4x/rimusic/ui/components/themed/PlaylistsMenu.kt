@@ -1,21 +1,35 @@
 ﻿package app.it.fast4x.rimusic.ui.components.themed
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.navigation.NavController
@@ -45,6 +59,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.compositeOver
 import app.it.fast4x.rimusic.PIPED_PREFIX
+import app.it.fast4x.rimusic.utils.CShareClient
+import kotlinx.coroutines.launch
 
 class PlaylistsMenu private constructor(
     private val navController: NavController,
@@ -95,7 +111,9 @@ class PlaylistsMenu private constructor(
     @Composable
     private fun PlaylistCard( playlistPreview: PlaylistPreview ) {
         val playlist = playlistPreview.playlist
+        var showCShare by remember { mutableStateOf(false) }
 
+        if (showCShare) CShareDialog(playlistPreview = playlistPreview, onDismiss = { showCShare = false })
         MenuEntry(
             icon = R.drawable.add_in_playlist,
             text = playlist.name.substringAfter( PINNED_PREFIX ),
@@ -121,6 +139,12 @@ class PlaylistsMenu private constructor(
                         modifier = Modifier.size(18.dp)
                     )
                 }
+                IconButton(
+                    icon = R.drawable.share_social,
+                    color = colorPalette().accent,
+                    onClick = { showCShare = true },
+                    modifier = Modifier.size(24.dp)
+                )
                 IconButton(
                     icon = R.drawable.open,
                     color = colorPalette().text,
@@ -165,6 +189,8 @@ class PlaylistsMenu private constructor(
 
         val newPlaylistButton = NewPlaylistDialog()
         newPlaylistButton.Render()
+        var showImportCShare by remember { mutableStateOf(false) }
+        if (showImportCShare) CShareImportDialog(onDismiss = { showImportCShare = false })
 
         Menu {
             Row(
@@ -194,6 +220,14 @@ class PlaylistsMenu private constructor(
                     style = typography().m.semiBold,
                     modifier = Modifier.weight(1f).padding(start = 8.dp)
                 )
+                IconButton(
+                    onClick = { showImportCShare = true },
+                    icon = R.drawable.share_social,
+                    color = colorPalette().accent,
+                    modifier = Modifier
+                        .padding(all = 4.dp)
+                        .size(24.dp)
+                )
                 newPlaylistButton.ToolBarButton()
             }
             search.SearchBar(this)
@@ -218,4 +252,171 @@ class PlaylistsMenu private constructor(
             }
         }
     }
+}
+
+@Composable
+fun CShareDialog(
+    playlistPreview: PlaylistPreview,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+    var loading by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<CShareClient.ShareResult?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val createFailed = stringResource(R.string.cshare_error_create_failed)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colorPalette().background1,
+        titleContentColor = colorPalette().text,
+        textContentColor = colorPalette().textSecondary,
+        shape = RoundedCornerShape(18.dp),
+        title = { Text(stringResource(R.string.cshare_title)) },
+        text = {
+            Column {
+                BasicText(
+                    text = stringResource(R.string.cshare_create_description),
+                    style = typography().xs.copy(color = colorPalette().textSecondary)
+                )
+                result?.let { share ->
+                    Column(
+                        modifier = Modifier
+                            .padding(top = 10.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colorPalette().background2)
+                            .clickable { clipboard.setText(AnnotatedString(share.shareText)) }
+                            .padding(10.dp)
+                    ) {
+                        BasicText(stringResource(R.string.cshare_tap_to_copy), style = typography().xxs.copy(color = colorPalette().accent))
+                        BasicText(share.shareText, style = typography().xs.copy(color = colorPalette().text))
+                        BasicText(stringResource(R.string.cshare_expires_at, share.expiresAt), style = typography().xxs.copy(color = colorPalette().textSecondary))
+                        BasicText(stringResource(R.string.cshare_song_count, share.songCount), style = typography().xxs.copy(color = colorPalette().textSecondary))
+                    }
+                }
+                error?.let {
+                    BasicText(
+                        text = it,
+                        style = typography().xs.copy(color = colorPalette().red),
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !loading,
+                onClick = {
+                    scope.launch {
+                        loading = true
+                        error = null
+                        result = runCatching { CShareClient.sharePlaylist(playlistPreview.playlist) }
+                            .onSuccess { clipboard.setText(AnnotatedString(it.shareText)) }
+                            .onFailure { error = it.message ?: createFailed }
+                            .getOrNull()
+                        loading = false
+                    }
+                }
+            ) {
+                Text(if (loading) stringResource(R.string.cshare_creating) else stringResource(R.string.cshare_create_code))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
+}
+
+@Composable
+fun CShareImportDialog(onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var link by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var preview by remember { mutableStateOf<CShareClient.SharedPlaylist?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val readFailed = stringResource(R.string.cshare_error_read_failed)
+    val importFailed = stringResource(R.string.cshare_error_import_failed)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colorPalette().background1,
+        titleContentColor = colorPalette().text,
+        textContentColor = colorPalette().textSecondary,
+        shape = RoundedCornerShape(18.dp),
+        title = { Text(stringResource(R.string.cshare_import_title)) },
+        text = {
+            Column {
+                BasicText(
+                    text = stringResource(R.string.cshare_import_description),
+                    style = typography().xs.copy(color = colorPalette().textSecondary)
+                )
+                OutlinedTextField(
+                    value = link,
+                    onValueChange = { link = it },
+                    label = { Text(stringResource(R.string.cshare_link_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colorPalette().text,
+                        unfocusedTextColor = colorPalette().text,
+                        focusedContainerColor = colorPalette().background2,
+                        unfocusedContainerColor = colorPalette().background2,
+                        focusedBorderColor = colorPalette().accent,
+                        unfocusedBorderColor = colorPalette().textSecondary.copy(alpha = 0.45f),
+                        cursorColor = colorPalette().accent,
+                        focusedLabelColor = colorPalette().accent,
+                        unfocusedLabelColor = colorPalette().textSecondary
+                    )
+                )
+                preview?.let {
+                    Column(
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(colorPalette().background2)
+                            .padding(12.dp)
+                    ) {
+                        BasicText(it.name, style = typography().s.semiBold.copy(color = colorPalette().text))
+                        BasicText(stringResource(R.string.cshare_song_count, it.songs.size), style = typography().xs.copy(color = colorPalette().textSecondary))
+                        it.expiresAt?.let { expiry ->
+                            BasicText(stringResource(R.string.cshare_expires_at, expiry), style = typography().xxs.copy(color = colorPalette().textSecondary))
+                        }
+                    }
+                }
+                error?.let {
+                    BasicText(it, style = typography().xs.copy(color = colorPalette().red), modifier = Modifier.padding(top = 12.dp))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !loading,
+                onClick = {
+                    scope.launch {
+                        loading = true
+                        error = null
+                        val loaded = preview ?: runCatching { CShareClient.importShare(link) }
+                            .onFailure { error = it.message ?: readFailed }
+                            .getOrNull()
+                        if (preview == null) {
+                            preview = loaded
+                        } else if (loaded != null) {
+                            runCatching { CShareClient.importIntoLibrary(loaded) }
+                                .onSuccess {
+                                    Toaster.done()
+                                    onDismiss()
+                                }
+                                .onFailure { error = it.message ?: importFailed }
+                        }
+                        loading = false
+                    }
+                }
+            ) {
+                Text(if (loading) stringResource(R.string.working) else if (preview == null) stringResource(R.string.preview) else stringResource(R.string.import_playlist))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
 }

@@ -111,7 +111,7 @@ fun PlayerError(error: PlaybackException) {
     )
 
     LaunchedEffect(error, message) {
-        Timber.e("Playback error: ${error.cause?.cause}")
+        Timber.w("Playback error shown: ${error.cause?.cause?.javaClass?.simpleName ?: error.errorCodeName}")
         Toaster.w(message)
     }
 

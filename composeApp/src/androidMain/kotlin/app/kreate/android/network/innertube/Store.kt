@@ -9,6 +9,8 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import app.kreate.android.me.knighthat.utils.Toaster
 import org.jetbrains.annotations.Blocking
 import org.schabi.newpipe.extractor.localization.ContentCountry
@@ -25,6 +27,7 @@ object Store {
     private lateinit var cookie: String
 
     private lateinit var iosVisitorData: String
+    private val visitorMutex = Mutex()
 
     @Blocking
     private suspend fun fetchIfNeeded() {
@@ -54,25 +57,34 @@ object Store {
         )
     }
 
-    fun getIosVisitorData(): String {
+    fun getIosVisitorData(): String = runBlocking {
         if( ::iosVisitorData.isInitialized )
-            return iosVisitorData
+            return@runBlocking iosVisitorData
 
-        val headers: MutableMap<String, List<String>> = mutableMapOf()
-        headers["User-Agent"] = listOf( YoutubeParsingHelper.getIosUserAgent( Localization.DEFAULT ) )
-        headers.putAll(YoutubeParsingHelper.getOriginReferrerHeaders("https://www.youtube.com"))
+        visitorMutex.withLock {
+            if( ::iosVisitorData.isInitialized )
+                return@withLock iosVisitorData
 
-        iosVisitorData = YoutubeParsingHelper.getVisitorDataFromInnertube(
-            InnertubeClientRequestInfo.ofIosClient(),
-            Localization.DEFAULT,
-            ContentCountry.DEFAULT,
-            headers,
-            YoutubeParsingHelper.YOUTUBEI_V1_URL,
-            null,
-            false
-        )
+            val currentLocale = java.util.Locale.getDefault()
+            val localization = Localization(currentLocale.language.takeIf { it.isNotBlank() } ?: "en")
+            val contentCountry = ContentCountry(currentLocale.country.takeIf { it.isNotBlank() } ?: "GB")
 
-        return iosVisitorData
+            val headers: MutableMap<String, List<String>> = mutableMapOf()
+            headers["User-Agent"] = listOf( YoutubeParsingHelper.getIosUserAgent( localization ) )
+            headers.putAll(YoutubeParsingHelper.getOriginReferrerHeaders("https://www.youtube.com"))
+
+            iosVisitorData = YoutubeParsingHelper.getVisitorDataFromInnertube(
+                InnertubeClientRequestInfo.ofIosClient(),
+                localization,
+                contentCountry,
+                headers,
+                YoutubeParsingHelper.YOUTUBEI_V1_URL,
+                null,
+                false
+            )
+
+            iosVisitorData
+        }
     }
 
     @Blocking

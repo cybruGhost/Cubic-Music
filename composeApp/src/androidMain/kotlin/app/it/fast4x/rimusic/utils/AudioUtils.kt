@@ -126,8 +126,11 @@ fun MedleyMode(binder: PlayerServiceModern.Binder?, seconds: Int) {
 
 @MainThread
 fun ExoPlayer.fadeInEffect(duration: Long) {
-    if (isPlaying) return
     val targetVolume = getGlobalVolume()
+    if (isPlaying) {
+        if (volume < targetVolume) volume = targetVolume
+        return
+    }
     if (duration <= 0L) {
         volume = targetVolume
         if (playbackState == Player.STATE_IDLE) {

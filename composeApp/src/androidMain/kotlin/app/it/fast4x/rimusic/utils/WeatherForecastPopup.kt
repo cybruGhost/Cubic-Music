@@ -1,31 +1,47 @@
+@file:Suppress("DEPRECATION")
+
 package app.it.fast4x.rimusic.utils
 
+import androidx.compose.animation.core.EaseInOutSine
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,1426 +50,1419 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.it.fast4x.rimusic.ui.styling.ColorPalette
+import app.it.fast4x.rimusic.ui.styling.LocalAppearance
+import app.it.fast4x.rimusic.ui.styling.Typography
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.roundToInt
-import org.json.JSONArray
-import java.util.*
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
-// Temperature unit management functions
-private fun celsiusToFahrenheit(celsius: Double): Double {
-    return (celsius * 9/5) + 32
+// ─────────────────────────────────────────────────────────────────
+//  WEATHER PALETTE — accent tints layered over app ColorPalette
+// ─────────────────────────────────────────────────────────────────
+
+data class WeatherPalette(
+    val accent    : Color,   // progress bars, badges, highlights
+    val accentSoft: Color,   // secondary accent (muted)
+    val glowColor : Color,   // drawBehind radial orb
+    val tintLayer : Color    // subtle bg tint in hero card
+)
+
+fun resolveWeatherPalette(condition: String, isNight: Boolean): WeatherPalette = when {
+    condition == "thunderstorm" -> WeatherPalette(
+        accent     = Color(0xFFB388FF),
+        accentSoft = Color(0xFF7E57C2),
+        glowColor  = Color(0xFF7C4DFF),
+        tintLayer  = Color(0xFF1A0A2E)
+    )
+    condition == "rain" || condition == "drizzle" -> WeatherPalette(
+        accent     = Color(0xFF4FC3F7),
+        accentSoft = Color(0xFF0288D1),
+        glowColor  = Color(0xFF0277BD),
+        tintLayer  = Color(0xFF051829)
+    )
+    condition == "snow" -> WeatherPalette(
+        accent     = Color(0xFFB2EBF2),
+        accentSoft = Color(0xFF4DD0E1),
+        glowColor  = Color(0xFF00ACC1),
+        tintLayer  = Color(0xFF0A1A29)
+    )
+    condition == "mist" -> WeatherPalette(
+        accent     = Color(0xFF90A4AE),
+        accentSoft = Color(0xFF607D8B),
+        glowColor  = Color(0xFF546E7A),
+        tintLayer  = Color(0xFF0D1219)
+    )
+    condition == "clouds" -> WeatherPalette(
+        accent     = Color(0xFFFFCA28),
+        accentSoft = Color(0xFFFFA000),
+        glowColor  = Color(0xFFFF8F00),
+        tintLayer  = Color(0xFF0D1520)
+    )
+    isNight -> WeatherPalette(
+        accent     = Color(0xFF7986CB),
+        accentSoft = Color(0xFF3F51B5),
+        glowColor  = Color(0xFF283593),
+        tintLayer  = Color(0xFF03051A)
+    )
+    else -> WeatherPalette( // clear / sunny
+        accent     = Color(0xFFFFD54F),
+        accentSoft = Color(0xFFFFB300),
+        glowColor  = Color(0xFFFF8F00),
+        tintLayer  = Color(0xFF061020)
+    )
 }
 
-private fun formatTemperature(temp: Double, isCelsius: Boolean): String {
-    val displayTemp = if (isCelsius) temp else celsiusToFahrenheit(temp)
-    val unit = if (isCelsius) "°C" else "°F"
-    return "${displayTemp.roundToInt()}$unit"
-}
+// ─────────────────────────────────────────────────────────────────
+//  MAIN COMPOSABLE
+// ─────────────────────────────────────────────────────────────────
 
 @Composable
 fun WeatherForecastPopup(
-    weatherData: WeatherData,
-    username: String,
-    onDismiss: () -> Unit,
-    onCityChange: () -> Unit,
-    temperatureUnit: String = "celsius" // Add this parameter
+    weatherData     : WeatherData,
+    username        : String,
+    onDismiss       : () -> Unit,
+    onCityChange    : () -> Unit,
+    temperatureUnit : String = "celsius"
 ) {
-    var showSportsDialog by remember { mutableStateOf(false) }
-    var liveSports by remember { mutableStateOf<List<LiveSport>>(emptyList()) }
-    var isLoadingSports by remember { mutableStateOf(false) }
-    var selectedLeague by remember { mutableStateOf("eng.1") }
-    val isCelsius = temperatureUnit == "celsius"
-    
-    // Calculate accurate local time based on timezone offset (GMT+3)
-    val localTime = getAccurateLocalTimeGMT3(weatherData.timezoneOffset)
-    val localHour = localTime.get(Calendar.HOUR_OF_DAY)
-    val isNight = localHour >= 20 || localHour < 6
-    
-    val normalizedCondition = normalizeCondition(weatherData.condition)
-    
-    // Calculate accurate rain probability with REAL logic
-    val rainProbability = calculateRealRainProbability(
-        weatherData.humidity, 
-        normalizedCondition,
-        weatherData.cloudCover,
-        weatherData.pressure
+    val uriHandler   = LocalUriHandler.current
+    val appearance   = LocalAppearance.current
+    val cp           = appearance.colorPalette   // ColorPalette
+    val typography   = appearance.typography     // Typography
+
+    val isCelsius    = temperatureUnit == "celsius"
+    val localTime    = getAccurateLocalTimeGMT3(weatherData.timezoneOffset)
+    val localHour    = localTime.get(Calendar.HOUR_OF_DAY)
+    val isNight      = localHour >= 20 || localHour < 6
+    val condition    = normalizeCondition(weatherData.condition)
+    val wp           = resolveWeatherPalette(condition, isNight)
+    val rainPct      = calculateRealRainProbability(
+        weatherData.humidity, condition, weatherData.cloudCover, weatherData.pressure
     )
-    
-    // Fetch live sports when popup opens or league changes
-    LaunchedEffect(selectedLeague, showSportsDialog) {
-        if (showSportsDialog) {
-            isLoadingSports = true
-            liveSports = fetchLiveSportsFromESPN(selectedLeague)
-            isLoadingSports = false
+
+    var showSports     by remember { mutableStateOf(false) }
+    var sportsList     by remember { mutableStateOf<List<LiveSport>>(emptyList()) }
+    var loadingSports  by remember { mutableStateOf(false) }
+    var selectedLeague by remember { mutableStateOf("eng.1") }
+
+    // Shared infinite transitions — same pattern as DonateScreen
+    val inf = rememberInfiniteTransition(label = "weather")
+    val glowAlpha by inf.animateFloat(
+        initialValue = 0.25f,
+        targetValue  = 0.6f,
+        animationSpec = infiniteRepeatable(tween(1800, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "glow"
+    )
+    val orbAngle by inf.animateFloat(
+        initialValue = 0f,
+        targetValue  = 360f,
+        animationSpec = infiniteRepeatable(tween(26000, easing = LinearEasing)),
+        label = "orb"
+    )
+
+    LaunchedEffect(selectedLeague, showSports) {
+        if (showSports) {
+            loadingSports = true
+            sportsList = fetchLiveSportsFromESPN(selectedLeague)
+            loadingSports = false
         }
     }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Hi, $username!",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF7B1FA2),
-                    modifier = Modifier.weight(1f)
-                )
-                Row {
-                    // Temperature unit display
-                    Text(
-                        text = if (isCelsius) "°C" else "°F",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp)
-                            .align(Alignment.CenterVertically)
-                    )
-                    // Sports button - ALWAYS VISIBLE with real data
-                    IconButton(
-                        onClick = { 
-                            showSportsDialog = true
-                        },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        if (isLoadingSports) {
-                            Text("⚙️", style = MaterialTheme.typography.bodyMedium)
-                        } else {
-                            Text("⚽", style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
-                    // City change button (same visual size as ⚽)
-                    IconButton(
-                        onClick = onCityChange,
-                        modifier = Modifier
-                            .size(32.dp) // same size as the sports icon
-                            .background(Color(0xFF800080), shape = RoundedCornerShape(6.dp)) // 💜 Purple background
-                            .padding(2.dp) // reduces inner padding, keeps icon centered
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Change city",
-                            tint = getTextColorForBackground(getSmartConditionGradient(normalizedCondition, isNight)),
-                            modifier = Modifier.size(20.dp) // slightly smaller so it fits inside
-                        )
-                    }
-                }
-            }
+        containerColor   = cp.background0,
+        shape            = RoundedCornerShape(24.dp),
+        title = {
+            WeatherDialogHeader(
+                username      = username,
+                isCelsius     = isCelsius,
+                loadingSports = loadingSports,
+                wp            = wp,
+                cp            = cp,
+                onSports      = { showSports = true },
+                onCityChange  = onCityChange
+            )
         },
         text = {
-            LazyColumn(
-                modifier = Modifier.padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Current Weather Card - Focus on humidity, cloud cover, temperature
-                item {
-                    WeatherHeaderCard(
-                        weatherData = weatherData,
-                        localTime = localTime,
-                        isNight = isNight,
-                        normalizedCondition = normalizedCondition,
-                        rainProbability = rainProbability,
-                        isCelsius = isCelsius // Pass the unit
-                    )
-                }
-                
-                // Smart Rain Analysis Card
-                if (shouldShowRainPrediction(rainProbability, weatherData.humidity, normalizedCondition)) {
-                    item {
-                        SmartRainAnalysisCard(
-                            rainProbability, 
-                            normalizedCondition, 
-                            weatherData.humidity,
-                            weatherData.cloudCover,
-                            weatherData.pressure
-                        )
+            Box {
+                // Rotating ambient orbs — DonateScreen Canvas pattern
+                Canvas(Modifier.fillMaxSize()) {
+                    for (i in 0..2) {
+                        rotate(orbAngle + i * 120f) {
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        wp.glowColor.copy(alpha = glowAlpha * 0.09f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(
+                                        size.width  * if (i % 2 == 0) 0.15f else 0.85f,
+                                        size.height * if (i == 0) 0.08f else 0.55f
+                                    ),
+                                    radius = size.minDimension * 0.7f
+                                ),
+                                radius = size.minDimension * 0.7f,
+                                center = Offset(size.width * 0.5f, size.height * 0.5f)
+                            )
+                        }
                     }
                 }
-                
-                // Weather Intelligence
-                item {
-                    WeatherIntelligenceCard(weatherData, normalizedCondition, rainProbability, localHour)
-                }
-                
-                // Smart Activities - LOGICAL activities based on real conditions
-                item {
-                    SmartActivitiesCard(
-                        weatherData = weatherData,
-                        localHour = localHour,
-                        isNight = isNight,
-                        rainProbability = rainProbability,
-                        normalizedCondition = normalizedCondition
-                    )
-                }
-                
-                // Weather Details - Focus on humidity and cloud cover
-                item {
-                    WeatherDetailsCard(weatherData, localHour, isCelsius) // Pass the unit
-                }
-                
-                // Hydration Reminder - ALWAYS SHOW
-                item {
-                    HydrationReminderCard()
+
+                LazyColumn(
+                    contentPadding      = PaddingValues(vertical = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    item {
+                        HeroWeatherCard(
+                            weatherData, localTime, isNight, condition,
+                            rainPct, isCelsius, wp, cp, glowAlpha
+                        )
+                    }
+
+                    if (shouldShowRainPrediction(rainPct, weatherData.humidity, condition)) {
+                        item {
+                            RainCard(rainPct, condition, weatherData.humidity,
+                                weatherData.cloudCover, weatherData.pressure, wp, cp)
+                        }
+                    }
+
+                    item { InsightCard(weatherData, condition, rainPct, localHour, wp, cp) }
+                    item { ActivityCard(weatherData, localHour, isNight, rainPct, condition, wp, cp) }
+                    item { MetricsCard(weatherData, isCelsius, wp, cp) }
+                    item { HydrationCard(cp) }
+                    item {
+                        CubeSportsCard(cp, glowAlpha) {
+                            uriHandler.openUri("https://thecub4.vercel.app/Cubesports")
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
+                onClick  = onDismiss,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors   = ButtonDefaults.buttonColors(containerColor = wp.accent),
+                shape    = RoundedCornerShape(14.dp)
             ) {
-                Text("Got it! 🌟")
+                Text(
+                    "Close",
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 15.sp,
+                    color      = if (wp.accent.luminance() > 0.35f) Color(0xFF111111) else Color.White
+                )
             }
         }
     )
-    
-    // Sports Dialog with REAL ESPN data
-    if (showSportsDialog) {
-        LiveSportsDialog(
-            sports = liveSports,
+
+    if (showSports) {
+        SportsDialog(
+            sports         = sportsList,
             selectedLeague = selectedLeague,
-            onLeagueChange = { league -> 
-                selectedLeague = league
-            },
-            onDismiss = { showSportsDialog = false },
-            isLoading = isLoadingSports
+            onLeagueChange = { selectedLeague = it },
+            onDismiss      = { showSports = false },
+            isLoading      = loadingSports,
+            wp             = wp,
+            cp             = cp,
+            onOpenSite     = { uriHandler.openUri("https://thecub4.vercel.app/Cubesports") }
         )
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  DIALOG HEADER
+// ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun WeatherHeaderCard(
-    weatherData: WeatherData,
-    localTime: Calendar,
-    isNight: Boolean,
-    normalizedCondition: String,
-    rainProbability: Int,
-    isCelsius: Boolean // Add this parameter
+private fun WeatherDialogHeader(
+    username     : String,
+    isCelsius    : Boolean,
+    loadingSports: Boolean,
+    wp           : WeatherPalette,
+    cp           : ColorPalette,
+    onSports     : () -> Unit,
+    onCityChange : () -> Unit
 ) {
-    val gradient = getSmartConditionGradient(normalizedCondition, isNight)
-    val textColor = getTextColorForBackground(gradient)
-    
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier          = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Hi, $username 👋",
+                fontWeight = FontWeight.Bold,
+                fontSize   = 17.sp,
+                color      = cp.text
+            )
+            Text(
+                if (isCelsius) "Showing °C" else "Showing °F",
+                fontSize = 11.sp,
+                color    = cp.textSecondary
+            )
+        }
+
+        // Sports button — same style as DonateScreen back button
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(cp.background2.copy(alpha = 0.6f))
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onSports() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(if (loadingSports) "⚙️" else "⚽", fontSize = 18.sp)
+        }
+
+        Spacer(Modifier.width(8.dp))
+
+        // City button
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(cp.background2.copy(alpha = 0.6f))
+                .border(0.7.dp, wp.accent.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onCityChange() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.LocationOn, contentDescription = "Change city",
+                tint = wp.accent, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  HERO CARD
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun HeroWeatherCard(
+    weatherData : WeatherData,
+    localTime   : Calendar,
+    isNight     : Boolean,
+    condition   : String,
+    rainPct     : Int,
+    isCelsius   : Boolean,
+    wp          : WeatherPalette,
+    cp          : ColorPalette,
+    glowAlpha   : Float
+) {
+    val inf = rememberInfiniteTransition(label = "hero")
+    val emojiPulse by inf.animateFloat(
+        initialValue = 0.94f,
+        targetValue  = 1f,
+        animationSpec = infiniteRepeatable(tween(2600, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "emoji"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(gradient)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            // Location and EXACT local time (GMT+3)
-            Text(
-                text = "${weatherData.city} • ${formatFullDateGMT3(localTime)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = textColor.copy(alpha = 0.8f),
-                modifier = Modifier.padding(bottom = 8.dp)
+            .background(
+                Brush.linearGradient(listOf(wp.tintLayer, cp.background0))
             )
-            
+            .border(
+                width = 0.7.dp,
+                brush = Brush.linearGradient(
+                    listOf(wp.accent.copy(alpha = 0.35f), wp.glowColor.copy(alpha = 0.08f))
+                ),
+                shape = RoundedCornerShape(20.dp)
+            )
+            // Glow orb — exact drawBehind pattern from DonateScreen profile image
+            .drawBehind {
+                drawCircle(
+                    color  = wp.glowColor.copy(alpha = glowAlpha * 0.22f),
+                    radius = size.width * 0.5f,
+                    center = Offset(size.width * 0.82f, size.height * 0.18f)
+                )
+            }
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            // Location + date row
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text(weatherData.city, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = cp.text)
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(wp.accent.copy(alpha = 0.12f))
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
+                ) {
+                    Text(formatFullDateGMT3(localTime), fontSize = 10.sp, color = wp.accent)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Emoji + temperature
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = getDynamicWeatherEmoji(normalizedCondition, isNight),
-                    style = MaterialTheme.typography.displayLarge,
-                    modifier = Modifier.padding(end = 16.dp)
+                    text     = getDynamicWeatherEmoji(condition, isNight),
+                    fontSize = 60.sp,
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = emojiPulse
+                        scaleY = emojiPulse
+                    }
                 )
+                Spacer(Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = formatTemperature(weatherData.temp, isCelsius), // Use formatTemperature
-                        style = MaterialTheme.typography.displaySmall,
+                        formatTemperature(weatherData.temp, isCelsius),
+                        fontSize   = 48.sp,
                         fontWeight = FontWeight.Bold,
-                        color = textColor
+                        color      = cp.text,
+                        lineHeight = 48.sp
                     )
                     Text(
-                        text = "${getAccurateWeatherDescription(normalizedCondition, weatherData)} • Feels like ${formatTemperature(weatherData.feelsLike, isCelsius)}", // Use formatTemperature
-                        style = MaterialTheme.typography.titleMedium,
-                        color = textColor.copy(alpha = 0.9f)
+                        getAccurateWeatherDescription(condition, weatherData),
+                        fontSize   = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color      = wp.accent
                     )
                     Text(
-                        text = "${getTimeOfDayGreeting(localTime.get(Calendar.HOUR_OF_DAY))} • Local: ${formatAccurateLocalTimeGMT3(localTime)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = textColor.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(top = 4.dp)
+                        "Feels like ${formatTemperature(weatherData.feelsLike, isCelsius)}",
+                        fontSize = 12.sp,
+                        color    = cp.textSecondary
                     )
                 }
             }
-            
-            // Smart weather analysis
+
+            Spacer(Modifier.height(14.dp))
+
+            // Accent divider
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(wp.accent.copy(alpha = 0.4f), Color.Transparent)
+                        )
+                    )
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Greeting + time badge
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(cp.background2.copy(alpha = 0.5f))
+                    .border(0.5.dp, wp.accent.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    "${getTimeOfDayGreeting(localTime.get(Calendar.HOUR_OF_DAY))} · ${formatAccurateLocalTimeGMT3(localTime)}",
+                    fontSize   = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color      = wp.accentSoft
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
             Text(
-                text = getSmartWeatherAnalysis(weatherData, normalizedCondition, rainProbability),
-                style = MaterialTheme.typography.bodySmall,
-                color = textColor.copy(alpha = 0.9f),
-                modifier = Modifier.padding(top = 12.dp)
+                getSmartWeatherAnalysis(weatherData, condition, rainPct),
+                fontSize   = 12.sp,
+                color      = cp.textSecondary,
+                lineHeight = 17.sp
             )
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  SHARED SECTION SHELL
+// ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun SmartRainAnalysisCard(
-    rainProbability: Int,
-    condition: String,
-    humidity: Int,
+private fun SectionCard(cp: ColorPalette, content: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(cp.background2.copy(alpha = 0.55f))
+            .padding(14.dp)
+    ) { content() }
+}
+
+@Composable
+private fun SectionTitle(emoji: String, title: String, wp: WeatherPalette, cp: ColorPalette) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(cp.background3.copy(alpha = 0.8f))
+                .border(0.5.dp, wp.accent.copy(alpha = 0.25f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Text(emoji, fontSize = 13.sp) }
+        Spacer(Modifier.width(8.dp))
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = cp.text)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  RAIN CARD
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun RainCard(
+    rainPct   : Int,
+    condition : String,
+    humidity  : Int,
     cloudCover: Int?,
-    pressure: Int
+    pressure  : Int,
+    wp        : WeatherPalette,
+    cp        : ColorPalette
 ) {
-    val rainInfo = getRealRainAnalysis(rainProbability, condition, humidity, cloudCover, pressure)
-    
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = getRainEmoji(condition, rainProbability),
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.size(28.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = rainInfo,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF0D47A1),
-                    fontWeight = FontWeight.Medium
-                )
-                if (humidity > 80 && condition != "rain" && condition != "drizzle") {
-                    Text(
-                        text = "High humidity ${humidity}% but no rain expected - feels muggy",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF1565C0),
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                } else if (cloudCover ?: 0 > 60 && condition != "rain") {
-                    Text(
-                        text = "${cloudCover}% cloud cover - ${getCloudCoverAnalysis(cloudCover ?: 0)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF1565C0),
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+    val progress by animateFloatAsState(
+        targetValue   = rainPct / 100f,
+        animationSpec = tween(800, easing = FastOutSlowInEasing),
+        label         = "rain"
+    )
+    val barColor = when {
+        rainPct >= 70 -> Color(0xFFEF5350)
+        rainPct >= 40 -> Color(0xFFFFB300)
+        else          -> Color(0xFF66BB6A)
+    }
+
+    SectionCard(cp) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                SectionTitle(getRainEmoji(condition, rainPct), "Precipitation", wp, cp)
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(barColor.copy(alpha = 0.14f))
+                        .border(0.5.dp, barColor.copy(alpha = 0.35f), RoundedCornerShape(999.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text("$rainPct%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = barColor)
                 }
             }
+            Spacer(Modifier.height(10.dp))
+            LinearProgressIndicator(
+                progress   = { progress },
+                modifier   = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color      = barColor,
+                trackColor = cp.background0
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                getRealRainAnalysis(rainPct, condition, humidity, cloudCover, pressure),
+                fontSize = 12.sp, color = cp.textSecondary, lineHeight = 17.sp
+            )
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  INSIGHT CARD
+// ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun WeatherIntelligenceCard(
+private fun InsightCard(
     weatherData: WeatherData,
-    condition: String,
-    rainProbability: Int,
-    localHour: Int
+    condition  : String,
+    rainPct    : Int,
+    localHour  : Int,
+    wp         : WeatherPalette,
+    cp         : ColorPalette
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "🧠 Weather Intelligence",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF7B1FA2)
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = getSmartForecast(weatherData, condition, rainProbability, localHour),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF6A1B9A)
-            )
+    SectionCard(cp) {
+        Column {
+            SectionTitle("🧠", "Weather Intelligence", wp, cp)
+            Spacer(Modifier.height(8.dp))
+            Text(getSmartForecast(weatherData, condition, rainPct, localHour),
+                fontSize = 12.sp, color = cp.textSecondary, lineHeight = 17.sp)
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  ACTIVITY CARD
+// ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun SmartActivitiesCard(
+private fun ActivityCard(
     weatherData: WeatherData,
-    localHour: Int,
-    isNight: Boolean,
-    rainProbability: Int,
-    normalizedCondition: String
+    localHour  : Int,
+    isNight    : Boolean,
+    rainPct    : Int,
+    condition  : String,
+    wp         : WeatherPalette,
+    cp         : ColorPalette
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "🎯 Something you can do",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFE65100)
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = getLogicalActivities(weatherData, localHour, isNight, rainProbability, normalizedCondition),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFBF360C)
-            )
+    SectionCard(cp) {
+        Column {
+            SectionTitle("🎯", "Something you can do", wp, cp)
+            Spacer(Modifier.height(8.dp))
+            Text(getLogicalActivities(weatherData, localHour, isNight, rainPct, condition),
+                fontSize = 12.sp, color = cp.textSecondary, lineHeight = 17.sp)
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  METRICS 2×3 GRID
+// ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun WeatherDetailsCard(weatherData: WeatherData, localHour: Int, isCelsius: Boolean) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "📊 Weather Details",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
-            val details = listOf(
-                WeatherDetail("💧 Humidity", "${weatherData.humidity}%", getHumidityAnalysis(weatherData.humidity)),
-                WeatherDetail("☁️ Cloud Cover", "${getSmartCloudCover(weatherData.cloudCover, weatherData.condition)}%", getCloudCoverAnalysis(getSmartCloudCover(weatherData.cloudCover, weatherData.condition))),
-                WeatherDetail("💨 Wind", "${weatherData.windSpeed} m/s", getWindAnalysis(weatherData.windSpeed)),
-                WeatherDetail("🌡 Pressure", "${weatherData.pressure} hPa", getPressureAnalysis(weatherData.pressure)),
-                WeatherDetail("👁 Visibility", "${weatherData.visibility / 1000} km", getVisibilityAnalysis(weatherData.visibility)),
-                WeatherDetail("🌡 Min/Max", "${formatTemperature(weatherData.minTemp, isCelsius)} / ${formatTemperature(weatherData.maxTemp, isCelsius)}", getTempRangeAnalysis(weatherData)) // Use formatTemperature
-            )
-            
-            details.forEach { detail ->
-                WeatherDetailRow(detail)
-                Spacer(modifier = Modifier.size(4.dp))
+private fun MetricsCard(
+    weatherData: WeatherData,
+    isCelsius  : Boolean,
+    wp         : WeatherPalette,
+    cp         : ColorPalette
+) {
+    val metrics = listOf(
+        Triple("💧", "Humidity",
+            "${weatherData.humidity}%  ·  ${getHumidityAnalysis(weatherData.humidity)}"),
+        Triple("☁️", "Cloud Cover",
+            "${getSmartCloudCover(weatherData.cloudCover, weatherData.condition)}%  ·  ${getCloudCoverAnalysis(getSmartCloudCover(weatherData.cloudCover, weatherData.condition))}"),
+        Triple("💨", "Wind",
+            "${weatherData.windSpeed} m/s  ·  ${getWindAnalysis(weatherData.windSpeed)}"),
+        Triple("🌡", "Pressure",
+            "${weatherData.pressure} hPa  ·  ${getPressureAnalysis(weatherData.pressure)}"),
+        Triple("👁", "Visibility",
+            "${weatherData.visibility / 1000} km  ·  ${getVisibilityAnalysis(weatherData.visibility)}"),
+        Triple("↕", "Min / Max",
+            "${formatTemperature(weatherData.minTemp, isCelsius)} / ${formatTemperature(weatherData.maxTemp, isCelsius)}")
+    )
+
+    SectionCard(cp) {
+        Column {
+            SectionTitle("📊", "Weather Details", wp, cp)
+            Spacer(Modifier.height(12.dp))
+            metrics.chunked(2).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { (emoji, label, value) ->
+                        MetricTile(emoji, label, value, wp, cp, Modifier.weight(1f))
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
 }
 
 @Composable
-private fun HydrationReminderCard() {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+private fun MetricTile(
+    emoji   : String,
+    label   : String,
+    value   : String,
+    wp      : WeatherPalette,
+    cp      : ColorPalette,
+    modifier: Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(cp.background0.copy(alpha = 0.6f))
+            .border(0.5.dp, wp.accent.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+            .padding(10.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "💧",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.size(28.dp)
+        Column {
+            Text("$emoji  $label", fontSize = 10.sp, color = cp.textSecondary)
+            Spacer(Modifier.height(4.dp))
+            Text(value, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                color = cp.text, maxLines = 2, lineHeight = 14.sp)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  HYDRATION CARD
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun HydrationCard(cp: ColorPalette) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF0D47A1).copy(alpha = 0.22f),
+                        Color(0xFF006064).copy(alpha = 0.12f)
+                    )
+                )
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            .border(0.5.dp, Color(0xFF29B6F6).copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 11.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("💧", fontSize = 22.sp)
+            Spacer(Modifier.width(10.dp))
             Column {
-                Text(
-                    text = "Stay Hydrated!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF2E7D32),
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "Drink water regularly throughout the day, no matter the weather(Q2Fyb2w=)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF1B5E20),
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+                Text("Stay Hydrated",
+                    fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color(0xFF81D4FA))
+                Text("Drink water throughout the day, whatever the weather.",
+                    fontSize = 11.sp, color = cp.textSecondary, lineHeight = 15.sp)
             }
         }
     }
 }
 
-// ===================== LIVE SPORTS DIALOG =====================
+// ─────────────────────────────────────────────────────────────────
+//  CUBESPORTS PROMO CARD
+// ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun LiveSportsDialog(
-    sports: List<LiveSport>,
+private fun CubeSportsCard(cp: ColorPalette, glowAlpha: Float, onOpen: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(cp.background2.copy(alpha = 0.5f))
+            .border(0.6.dp, Color(0xFF4CAF50).copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+            .drawBehind {
+                drawCircle(
+                    color  = Color(0xFF4CAF50).copy(alpha = glowAlpha * 0.12f),
+                    radius = size.minDimension * 0.6f,
+                    center = Offset(size.width * 0.88f, size.height * 0.3f)
+                )
+            }
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onOpen() }
+            .padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("⚽", fontSize = 26.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("CubeSports", fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp, color = Color(0xFF81C784))
+                Text("Live scores, streams & match details",
+                    fontSize = 11.sp, color = cp.textSecondary, lineHeight = 15.sp)
+            }
+            Icon(Icons.Outlined.OpenInNew, contentDescription = null,
+                tint = Color(0xFF4CAF50).copy(alpha = 0.55f), modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  SPORTS DIALOG
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SportsDialog(
+    sports        : List<LiveSport>,
     selectedLeague: String,
     onLeagueChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    isLoading: Boolean
+    onDismiss     : () -> Unit,
+    isLoading     : Boolean,
+    wp            : WeatherPalette,
+    cp            : ColorPalette,
+    onOpenSite    : () -> Unit
 ) {
     val leagues = listOf(
-        "eng.1" to "Premier League",
-        "esp.1" to "La Liga",
-        "ita.1" to "Serie A",
-        "ger.1" to "Bundesliga",
-        "fra.1" to "Ligue 1",
-        "uefa.champions" to "Champions League"
+        "eng.1"          to "Premier League",
+        "esp.1"          to "La Liga",
+        "ita.1"          to "Serie A",
+        "ger.1"          to "Bundesliga",
+        "fra.1"          to "Ligue 1",
+        "uefa.champions" to "UCL"
+    )
+
+    val inf = rememberInfiniteTransition(label = "sd")
+    val glowAlpha by inf.animateFloat(
+        initialValue = 0.2f, targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(tween(1800, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "sdGlow"
     )
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor   = cp.background0,
+        shape            = RoundedCornerShape(24.dp),
         title = {
-            Text(
-                text = "⚽ Live Football",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Glow behind football — DonateScreen profile image pattern
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .drawBehind {
+                            drawCircle(
+                                color  = Color(0xFF4CAF50).copy(alpha = glowAlpha * 0.3f),
+                                radius = size.minDimension / 2 + 10f
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) { Text("⚽", fontSize = 22.sp) }
+
+                Spacer(Modifier.width(10.dp))
+
+                Column(Modifier.weight(1f)) {
+                    Text("Live Football", fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp, color = cp.text)
+                    Text("Want more data?", fontSize = 11.sp, color = cp.textSecondary)
+                }
+
+                // CubeSports link button
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF4CAF50).copy(alpha = 0.12f))
+                        .border(0.5.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onOpenSite() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("CubeSports", fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold, color = Color(0xFF81C784))
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Outlined.OpenInNew, contentDescription = null,
+                            tint = Color(0xFF81C784), modifier = Modifier.size(11.dp))
+                    }
+                }
+            }
         },
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // 🏆 League selector
+            Column(Modifier.fillMaxWidth()) {
+                // League chips
                 LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    contentPadding        = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(leagues) { (id, name) ->
+                    items(leagues) { (code, name) ->
+                        val selected = selectedLeague == code
                         Box(
-                            modifier = Modifier
+                            Modifier
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(
-                                    if (selectedLeague == id) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surfaceVariant
+                                    if (selected) wp.accent.copy(alpha = 0.18f)
+                                    else cp.background2.copy(alpha = 0.5f)
                                 )
-                                .clickable { onLeagueChange(id) }
-                                .padding(horizontal = 14.dp, vertical = 9.dp),
-                            contentAlignment = Alignment.Center
+                                .border(
+                                    0.6.dp,
+                                    if (selected) wp.accent.copy(alpha = 0.45f) else cp.background2,
+                                    RoundedCornerShape(999.dp)
+                                )
+                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onLeagueChange(code) }
+                                .padding(horizontal = 13.dp, vertical = 7.dp)
                         ) {
                             Text(
-                                text = name,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (selectedLeague == id) {
-                                    MaterialTheme.colorScheme.onPrimary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                maxLines = 1
+                                name,
+                                fontSize   = 11.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                color      = if (selected) wp.accent else cp.textSecondary
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
 
-                // ⚙️ Match list / loading / empty state
                 when {
-                    isLoading -> {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                .padding(24.dp)
-                        ) {
-                            CircularProgressIndicator()
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                "Fetching live matches...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    sports.isEmpty() -> {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                .padding(18.dp)
-                        ) {
-                            Text(
-                                "No matches right now",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "Check back later for action!",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-                    }
-
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.padding(vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(sports) { sport ->
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = when (sport.status) {
-                                            "in" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f)
-                                            "final" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-                                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                                        }
-                                    ),
-                                    shape = RoundedCornerShape(20.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(
-                                                text = sport.league,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(999.dp))
-                                                    .background(
-                                                        when (sport.status) {
-                                                            "in" -> Color(0x26D32F2F)
-                                                            "final" -> Color(0x262E7D32)
-                                                            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                                                        }
-                                                    )
-                                                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                                            ) {
-                                                Text(
-                                                    text = when (sport.status) {
-                                                        "in" -> "LIVE"
-                                                        "final" -> "FINAL"
-                                                        else -> sport.time
-                                                    },
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = when (sport.status) {
-                                                        "in" -> Color(0xFFD32F2F)
-                                                        "final" -> Color(0xFF2E7D32)
-                                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                                    },
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(10.dp))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = sport.homeTeam,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Text(
-                                                    text = sport.awayTeam,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-
-                                            Column(
-                                                horizontalAlignment = Alignment.End,
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                if (sport.score.isNotBlank() && sport.status != "scheduled") {
-                                                    Text(
-                                                        text = sport.score,
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        color = MaterialTheme.colorScheme.onSurface,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                } else {
-                                                    Text(
-                                                        text = sport.time,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        fontWeight = FontWeight.Medium
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        if (sport.status == "final" && sport.time.isNotBlank()) {
-                                            Text(
-                                                text = "Played ${sport.time}",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(top = 10.dp)
-                                            )
-                                        } else if (sport.status == "scheduled" && sport.time.isNotBlank()) {
-                                            Text(
-                                                text = sport.time,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(top = 10.dp)
-                                            )
-                                        }
-
-                                        if (sport.venue.isNotBlank()) {
-                                            Text(
-                                                text = sport.venue,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
-                                                modifier = Modifier.padding(top = 6.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    isLoading       -> SportsLoadingState(wp, cp)
+                    sports.isEmpty() -> SportsEmptyState(cp)
+                    else -> LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding      = PaddingValues(vertical = 2.dp)
+                    ) {
+                        items(sports) { sport -> MatchCard(sport, wp, cp) }
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1976D2)
-                )
-            ) {
-                Text("Close", color = Color.White)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick  = onOpenSite,
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                    shape    = RoundedCornerShape(12.dp)
+                ) { Text("⚽  CubeSports", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White) }
+
+                Button(
+                    onClick  = onDismiss,
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = cp.background2),
+                    shape    = RoundedCornerShape(12.dp)
+                ) { Text("Close", fontWeight = FontWeight.Medium, fontSize = 12.sp, color = cp.textSecondary) }
             }
         }
     )
 }
 
-
+// ─────────────────────────────────────────────────────────────────
+//  MATCH CARD — real logos (AsyncImage / coil3), live pulse dot
+// ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun WeatherDetailRow(detail: WeatherDetail) {
-    Row(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = detail.emojiLabel,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = detail.value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-    Text(
-        text = detail.tip,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        modifier = Modifier.padding(top = 2.dp)
+private fun MatchCard(sport: LiveSport, wp: WeatherPalette, cp: ColorPalette) {
+    val isLive  = sport.status == "in"
+    val isFinal = sport.status == "final"
+
+    val inf = rememberInfiniteTransition(label = "dot_${sport.id}")
+    val dotAlpha by inf.animateFloat(
+        initialValue = 0.2f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
+        label = "dot"
     )
-}
 
-// ============ REAL ESPN SPORTS API ============
-// ============ REAL ESPN SPORTS API ============
-// ✅ FIXED, CLEANED & ENHANCED ESPN SOCCER API FETCHER
-private suspend fun fetchLiveSportsFromESPN(leagueCode: String): List<LiveSport> = withContext(Dispatchers.IO) {
-    try {
-        val calendar = Calendar.getInstance()
-        val endDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(calendar.time)
-        calendar.add(Calendar.DAY_OF_YEAR, -6)
-        val startDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(calendar.time)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(cp.background2.copy(alpha = 0.55f))
+            .border(
+                0.6.dp,
+                if (isLive) Color(0xFFEF5350).copy(alpha = 0.35f) else cp.background2,
+                RoundedCornerShape(16.dp)
+            )
+            .drawBehind {
+                if (isLive) drawCircle(
+                    color  = Color(0xFFEF5350).copy(alpha = dotAlpha * 0.06f),
+                    radius = size.minDimension * 0.7f,
+                    center = Offset(size.width * 0.5f, size.height * 0.5f)
+                )
+            }
+            .padding(12.dp)
+    ) {
+        Column {
+            // League + status
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text(sport.league, fontSize = 10.sp,
+                    color = cp.textSecondary.copy(alpha = 0.55f))
+                LiveBadge(sport.status, sport.time, sport.clock, dotAlpha, wp, cp)
+            }
 
-        val apiUrl =
-            "https://site.api.espn.com/apis/site/v2/sports/soccer/$leagueCode/scoreboard?dates=$startDate-$endDate"
+            Spacer(Modifier.height(12.dp))
 
-        val response = URL(apiUrl).readText()
-        val json = JSONObject(response)
+            // Home — Score — Away
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                TeamColumn(sport.homeTeam, sport.homeLogo, cp, Modifier.weight(1f), alignEnd = false)
 
-        if (!json.has("events")) return@withContext emptyList<LiveSport>()
-
-        val events = json.getJSONArray("events")
-        val sports = mutableListOf<LiveSport>()
-
-        for (i in 0 until events.length()) {
-            try {
-                val event = events.getJSONObject(i)
-                val competitions = event.optJSONArray("competitions") ?: continue
-                if (competitions.length() == 0) continue
-
-                val competition = competitions.getJSONObject(0)
-                val competitors = competition.optJSONArray("competitors") ?: continue
-                if (competitors.length() < 2) continue
-
-                // 🏆 League name fix — use multiple fallbacks
-                val leagueName = competition.optJSONObject("league")?.optString("name")
-                    ?: competition.optJSONObject("category")?.optString("name")
-                    ?: competition.optJSONObject("tournament")?.optString("name")
-                    ?: event.optJSONObject("league")?.optString("name")
-                    ?: event.optJSONObject("competitions")?.optJSONObject("category")?.optString("name")
-                    ?: "League"
-
-                val venueName = competition.optJSONObject("venue")?.optString("fullName") ?: "TBD"
-
-                // 🏠 Extract Home & Away Teams safely
-                val homeObj = competitors.findJSONObject { it.optString("homeAway") == "home" } ?: competitors.getJSONObject(0)
-                val awayObj = competitors.findJSONObject { it.optString("homeAway") == "away" } ?: competitors.getJSONObject(1)
-
-                val homeTeam = homeObj.optJSONObject("team")?.optString("displayName") ?: "Home"
-                val awayTeam = awayObj.optJSONObject("team")?.optString("displayName") ?: "Away"
-
-                // ⚽ Handle Scores
-                val homeScore = homeObj.optString("score")
-                    .ifEmpty { homeObj.optJSONObject("score")?.optString("value") ?: "0" }
-                val awayScore = awayObj.optString("score")
-                    .ifEmpty { awayObj.optJSONObject("score")?.optString("value") ?: "0" }
-
-                val score = "$homeScore-$awayScore"
-
-                // 📊 Match Status
-                val statusObj = event.optJSONObject("status")
-                val typeObj = statusObj?.optJSONObject("type")
-                val rawStatus = typeObj?.optString("state")?.lowercase()
-                    ?: typeObj?.optString("name")?.lowercase()
-                    ?: "scheduled"
-
-                val status = when (rawStatus) {
-                    "in", "inprogress", "in_progress" -> "in"
-                    "post", "final" -> "final"
-                    else -> "scheduled"
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (sport.status != "scheduled") {
+                        Text(
+                            "${sport.homeScore} — ${sport.awayScore}",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize   = 20.sp,
+                            color      = if (isLive) Color(0xFFEF9A9A) else cp.text
+                        )
+                        if (isLive && sport.clock.isNotBlank()) {
+                            Text(sport.clock, fontSize = 10.sp, color = Color(0xFFEF5350))
+                        }
+                    } else {
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(cp.background0.copy(alpha = 0.5f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(sport.time, fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold, color = wp.accent)
+                        }
+                    }
                 }
 
-                val matchId = event.optString("id", "0")
-                val date = event.optString("date", "")
-                val matchTime = if (date.isNotBlank()) formatESPNTime(date) else "TBD"
+                TeamColumn(sport.awayTeam, sport.awayLogo, cp, Modifier.weight(1f), alignEnd = true)
+            }
 
-                // 🏟 Add match
-                sports.add(
-                    LiveSport(
-                        id = matchId,
-                        league = leagueName,
-                        homeTeam = homeTeam,
-                        awayTeam = awayTeam,
-                        score = score,
-                        status = status,
-                        time = matchTime,
-                        venue = venueName
-                    )
+            if (sport.venue.isNotBlank() && sport.venue != "TBD") {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "📍  ${sport.venue}",
+                    fontSize = 10.sp,
+                    color    = cp.textSecondary.copy(alpha = 0.4f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            } catch (inner: Exception) {
-                println("⚠️ Skipped event #$i: ${inner.message}")
-                continue
             }
         }
-
-        // Sort: Live → Scheduled → Final
-        return@withContext sports.sortedWith(
-            compareBy(
-                { it.status != "in" },
-                { it.status != "scheduled" },
-                { it.time }
-            )
-        )
-    } catch (e: Exception) {
-        println("❌ Fetch Error: ${e.message}")
-        emptyList()
     }
 }
 
-/**
- * ✅ Helper: Find JSONObject inside JSONArray by condition
- */
+@Composable
+private fun TeamColumn(
+    name    : String,
+    logoUrl : String,
+    cp      : ColorPalette,
+    modifier: Modifier,
+    alignEnd: Boolean
+) {
+    Column(
+        modifier            = modifier,
+        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
+    ) {
+        // Real ESPN logo via AsyncImage — same import as DonateScreen
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(cp.background0.copy(alpha = 0.5f))
+                .border(0.5.dp, cp.background2, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (logoUrl.isNotBlank()) {
+                AsyncImage(
+                    model              = logoUrl,
+                    contentDescription = name,
+                    modifier           = Modifier.size(30.dp),
+                    contentScale       = ContentScale.Fit
+                )
+            } else {
+                Text(name.take(1).uppercase(),
+                    fontWeight = FontWeight.Bold, fontSize = 14.sp, color = cp.textSecondary)
+            }
+        }
+        Spacer(Modifier.height(5.dp))
+        Text(
+            name,
+            fontWeight = FontWeight.SemiBold,
+            fontSize   = 11.sp,
+            color      = cp.text,
+            maxLines   = 1,
+            overflow   = TextOverflow.Ellipsis,
+            textAlign  = if (alignEnd) TextAlign.End else TextAlign.Start
+        )
+    }
+}
+
+@Composable
+private fun LiveBadge(
+    status  : String,
+    time    : String,
+    clock   : String,
+    dotAlpha: Float,
+    wp      : WeatherPalette,
+    cp      : ColorPalette
+) {
+    val isLive  = status == "in"
+    val isFinal = status == "final"
+
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(
+                when {
+                    isLive  -> Color(0xFFEF5350).copy(alpha = 0.14f)
+                    isFinal -> Color(0xFF4CAF50).copy(alpha = 0.12f)
+                    else    -> cp.background2.copy(alpha = 0.5f)
+                }
+            )
+            .border(
+                0.5.dp,
+                when {
+                    isLive  -> Color(0xFFEF5350).copy(alpha = 0.35f)
+                    isFinal -> Color(0xFF4CAF50).copy(alpha = 0.25f)
+                    else    -> cp.background2
+                },
+                RoundedCornerShape(999.dp)
+            )
+            .padding(horizontal = 9.dp, vertical = 4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isLive) {
+                Box(Modifier.size(5.dp).clip(CircleShape)
+                    .background(Color(0xFFEF5350).copy(alpha = dotAlpha)))
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(
+                text       = when { isLive -> "LIVE"; isFinal -> "FT"; else -> time },
+                fontWeight = FontWeight.Bold,
+                fontSize   = 10.sp,
+                color      = when {
+                    isLive  -> Color(0xFFEF9A9A)
+                    isFinal -> Color(0xFFA5D6A7)
+                    else    -> cp.textSecondary
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SportsLoadingState(wp: WeatherPalette, cp: ColorPalette) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(cp.background2.copy(alpha = 0.4f))
+            .padding(28.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = wp.accent, strokeWidth = 2.dp,
+                modifier = Modifier.size(28.dp))
+            Spacer(Modifier.height(10.dp))
+            Text("Fetching matches…", fontSize = 12.sp, color = cp.textSecondary)
+        }
+    }
+}
+
+@Composable
+private fun SportsEmptyState(cp: ColorPalette) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(cp.background2.copy(alpha = 0.4f))
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("🏟", fontSize = 34.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("No matches right now", fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp, color = cp.text)
+            Text("Check CubeSports for more", fontSize = 11.sp,
+                color = cp.textSecondary, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp))
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  ESPN API
+// ─────────────────────────────────────────────────────────────────
+
+private suspend fun fetchLiveSportsFromESPN(leagueCode: String): List<LiveSport> =
+    withContext(Dispatchers.IO) {
+        try {
+            val cal = Calendar.getInstance()
+            val end = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(cal.time)
+            cal.add(Calendar.DAY_OF_YEAR, -6)
+            val start = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(cal.time)
+
+            val json = JSONObject(
+                URL("https://site.api.espn.com/apis/site/v2/sports/soccer/$leagueCode/scoreboard?dates=$start-$end")
+                    .readText()
+            )
+            if (!json.has("events")) return@withContext emptyList<LiveSport>()
+
+            val events = json.getJSONArray("events")
+            val list   = mutableListOf<LiveSport>()
+
+            for (i in 0 until events.length()) {
+                try {
+                    val event       = events.getJSONObject(i)
+                    val comps       = event.optJSONArray("competitions") ?: continue
+                    if (comps.length() == 0) continue
+                    val comp        = comps.getJSONObject(0)
+                    val competitors = comp.optJSONArray("competitors") ?: continue
+                    if (competitors.length() < 2) continue
+
+                    val leagueName = comp.optJSONObject("league")?.optString("name")
+                        ?: event.optJSONObject("league")?.optString("name") ?: "Football"
+                    val venue      = comp.optJSONObject("venue")?.optString("fullName") ?: ""
+
+                    val homeObj = competitors.findJSONObject { it.optString("homeAway") == "home" }
+                        ?: competitors.getJSONObject(0)
+                    val awayObj = competitors.findJSONObject { it.optString("homeAway") == "away" }
+                        ?: competitors.getJSONObject(1)
+
+                    val homeTeam  = homeObj.optJSONObject("team")?.optString("displayName") ?: "Home"
+                    val awayTeam  = awayObj.optJSONObject("team")?.optString("displayName") ?: "Away"
+                    val homeLogo  = homeObj.optJSONObject("team")?.optString("logo") ?: ""
+                    val awayLogo  = awayObj.optJSONObject("team")?.optString("logo") ?: ""
+                    val homeScore = homeObj.optString("score").ifEmpty { "0" }
+                    val awayScore = awayObj.optString("score").ifEmpty { "0" }
+
+                    val statusObj = event.optJSONObject("status")
+                    val typeObj   = statusObj?.optJSONObject("type")
+                    val raw       = (typeObj?.optString("state") ?: "scheduled").lowercase()
+                    val clock     = statusObj?.optString("displayClock") ?: ""
+
+                    val status = when (raw) {
+                        "in", "inprogress", "in_progress" -> "in"
+                        "post", "final"                   -> "final"
+                        else                              -> "scheduled"
+                    }
+
+                    val time = if (event.optString("date").isNotBlank())
+                        formatESPNTime(event.optString("date")) else "TBD"
+
+                    list.add(LiveSport(
+                        id = event.optString("id", "0"), league = leagueName,
+                        homeTeam = homeTeam, awayTeam = awayTeam,
+                        homeLogo = homeLogo, awayLogo = awayLogo,
+                        homeScore = homeScore, awayScore = awayScore,
+                        status = status, time = time, venue = venue, clock = clock
+                    ))
+                } catch (_: Exception) { continue }
+            }
+
+            list.sortedWith(compareBy({ it.status != "in" }, { it.status != "scheduled" }, { it.time }))
+        } catch (_: Exception) { emptyList() }
+    }
+
 private fun JSONArray.findJSONObject(predicate: (JSONObject) -> Boolean): JSONObject? {
     for (i in 0 until length()) {
-        val obj = optJSONObject(i)
-        if (obj != null && predicate(obj)) return obj
+        val o = optJSONObject(i) ?: continue
+        if (predicate(o)) return o
     }
     return null
 }
 
-/**
- * 🕒 Converts ESPN UTC time → Kenya local time
- */
-fun formatESPNTime(dateString: String): String {
-    return try {
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
-        val utcTime = LocalDateTime.parse(dateString, formatter)
-        val kenyaZone = ZoneId.of("Africa/Nairobi")
-        val kenyaTime = utcTime.atZone(ZoneId.of("UTC")).withZoneSameInstant(kenyaZone)
-        val outputFormatter = DateTimeFormatter.ofPattern("hh:mm a")
-        kenyaTime.format(outputFormatter)
-    } catch (e: Exception) {
-        e.printStackTrace()
-        dateString
-    }
+fun formatESPNTime(date: String): String = try {
+    val utc   = LocalDateTime.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'"))
+    val kenya = utc.atZone(ZoneId.of("UTC")).withZoneSameInstant(ZoneId.of("Africa/Nairobi"))
+    kenya.format(DateTimeFormatter.ofPattern("hh:mm a"))
+} catch (_: Exception) { date }
+
+// ─────────────────────────────────────────────────────────────────
+//  TEMPERATURE / TIME HELPERS
+// ─────────────────────────────────────────────────────────────────
+
+private fun celsiusToFahrenheit(c: Double) = c * 9.0 / 5.0 + 32.0
+private fun formatTemperature(temp: Double, isCelsius: Boolean) =
+    "${(if (isCelsius) temp else celsiusToFahrenheit(temp)).roundToInt()}${if (isCelsius) "°C" else "°F"}"
+
+private fun getAccurateLocalTimeGMT3(@Suppress("UNUSED_PARAMETER") offset: Int): Calendar =
+    Calendar.getInstance().also { it.timeZone = TimeZone.getTimeZone("GMT+3") }
+
+private fun formatAccurateLocalTimeGMT3(cal: Calendar): String =
+    SimpleDateFormat("HH:mm", Locale.getDefault())
+        .also { it.timeZone = cal.timeZone }.format(cal.time)
+
+private fun formatFullDateGMT3(cal: Calendar): String =
+    SimpleDateFormat("EEE, d MMM · HH:mm", Locale.getDefault())
+        .also { it.timeZone = cal.timeZone }.format(cal.time)
+
+private fun getTimeOfDayGreeting(localHour: Int) = when {
+    localHour in 4..11  -> "Good Morning"
+    localHour in 12..15 -> "Good Afternoon"
+    localHour in 16..19 -> "Good Evening"
+    else                -> "Good Night"
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  WEATHER LOGIC
+// ─────────────────────────────────────────────────────────────────
 
-
-// ============ SMART CLOUD COVER LOGIC ============
-private fun getSmartCloudCover(cloudCover: Int?, condition: String): Int {
-    // If it's raining but cloud cover is 0, that's illogical - fix it
-    return when {
-        condition.contains("rain", ignoreCase = true) && (cloudCover == null || cloudCover < 70) -> 85
-        condition.contains("thunderstorm", ignoreCase = true) && (cloudCover == null || cloudCover < 80) -> 95
-        condition.contains("drizzle", ignoreCase = true) && (cloudCover == null || cloudCover < 60) -> 75
-        condition.contains("clear", ignoreCase = true) && (cloudCover ?: 0) > 50 -> 20
-        condition.contains("cloud", ignoreCase = true) && (cloudCover ?: 0) < 40 -> 70
-        else -> cloudCover ?: when {
-            condition.contains("clear", ignoreCase = true) -> 10
-            condition.contains("cloud", ignoreCase = true) -> 75
-            else -> 50
-        }
-    }
-}
-
-// ============ ACCURATE TIME FUNCTIONS (GMT+3) ============
-private fun getAccurateLocalTimeGMT3(timezoneOffset: Int): Calendar {
-    val calendar = Calendar.getInstance()
-    // Force GMT+3 timezone regardless of device settings
-    val timezone = TimeZone.getTimeZone("GMT+3")
-    calendar.timeZone = timezone
-    return calendar
-}
-
-private fun formatAccurateLocalTimeGMT3(calendar: Calendar): String {
-    val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-    formatter.timeZone = calendar.timeZone
-    return formatter.format(calendar.time)
-}
-
-private fun formatFullDateGMT3(calendar: Calendar): String {
-    val formatter = SimpleDateFormat("EEE, d MMM yyyy | HH:mm", Locale.getDefault())
-    formatter.timeZone = calendar.timeZone
-    return formatter.format(calendar.time)
-}
-
-private fun getTimeOfDayGreeting(hour: Int): String {
-    return when {
-        hour in 4..11 -> "Good Morning"
-        hour in 12..15 -> "Good Afternoon"
-        hour in 16..19 -> "Good Evening"
-        else -> "Good Night"
-    }
-}
-
-
-private fun formatMatchTime(time: String): String {
-    return if (time.isNotBlank()) time else "Coming soon"
-}
-
-// ============ REAL RAIN PROBABILITY CALCULATION ============
-// ============ REALISTIC RAIN PROBABILITY CALCULATION ============
-private fun calculateRealRainProbability(
-    humidity: Int,
-    condition: String,
-    cloudCover: Int?,
-    pressure: Int
-): Int {
-    val actualCloudCover = getSmartCloudCover(cloudCover, condition)
-    var probability = 0
-
-    return when {
-        condition.contains("thunderstorm", true) -> 98
-        condition.contains("rain", true) -> {
-            when {
-                humidity >= 90 -> 95
-                humidity >= 80 -> 85
-                else -> 75
-            }
-        }
-        condition.contains("drizzle", true) -> 70
-        else -> {
-            // Humidity (45% influence)
-            probability += when {
-                humidity >= 90 -> 40
-                humidity >= 85 -> 35
-                humidity >= 80 -> 25
-                humidity >= 70 -> 15
-                else -> 5
-            }
-
-            // Cloud cover (35% influence)
-            probability += when {
-                actualCloudCover >= 90 -> 35
-                actualCloudCover >= 80 -> 25
-                actualCloudCover >= 70 -> 20
-                actualCloudCover >= 50 -> 10
-                else -> 5
-            }
-
-            // Pressure (20% influence)
-            probability += when {
-                pressure <= 1000 -> 20
-                pressure <= 1010 -> 10
-                else -> 0
-            }
-
-            // Cap to 95%
-            minOf(probability, 95)
-        }
-    }
-}
-
-
-private fun getRealRainAnalysis(
-    rainProbability: Int,
-    condition: String,
-    humidity: Int,
-    cloudCover: Int?,
-    pressure: Int
-): String {
-    val clouds = getSmartCloudCover(cloudCover, condition)
-    val lowPressure = pressure < 1005
-
-    return when {
-        condition.contains("thunderstorm", true) ->
-            "Thunderstorm conditions active — strong winds or lightning possible."
-
-        condition.contains("rain", true) -> when {
-            humidity >= 90 -> "Heavy rain expected now/soon — high humidity at ${humidity}% and dense ${clouds}% clouds."
-            humidity >= 85 -> "Moderate rain possible — humidity around ${humidity}%."
-            else -> "Light rain — mild humidity ${humidity}%."
-        }
-
-        condition.contains("drizzle", true) ->
-            "Light drizzle observed — air is damp with humidity ${humidity}%."
-
-        rainProbability >= 85 ->
-            "Heavy rain expected soon — ${clouds}% clouds and high humidity ${humidity}%."
-
-        rainProbability >= 70 ->
-            "Rain likely later today — ${clouds}% cloud cover and ${if (lowPressure) "dropping pressure" else "steady pressure"} indicate incoming showers."
-
-        rainProbability >= 50 ->
-            "Possible rain in coming hours — ${clouds}% cloud cover and humidity ${humidity}%."
-
-        rainProbability >= 30 ->
-            "Light rain possible — some cloud build-up (${clouds}%) and moderate humidity ${humidity}%."
-
-        humidity >= 80 && clouds >= 60 ->
-            "Humid and mostly cloudy (${clouds}%), but no significant rainfall expected."
-
-        humidity >= 80 && clouds < 60 ->
-            "Air feels wet due to high humidity (${humidity}%), though skies remain partly clear."
-
-        clouds >= 70 ->
-            "Cloudy skies (${clouds}%) but atmosphere remains dry."
-
-        clouds in 40..69 ->
-            "Partly cloudy with comfortable humidity (${humidity}%). No rain expected."
-
-        else ->
-            "Clear and dry conditions — low humidity (${humidity}%) and minimal cloud cover (${clouds}%)."
-    }
-}
-
-
-// ============ SMART WEATHER FUNCTIONS ============
-private fun getAccurateWeatherDescription(condition: String, weatherData: WeatherData): String {
-    return when (condition) {
-        "clear" -> "Clear skies"
-        "clouds" -> "${getCloudCoverDescription(getSmartCloudCover(weatherData.cloudCover, weatherData.condition))}"
-        "rain" -> "${getRainIntensity(weatherData.humidity)} rain"
-        "drizzle" -> "Light drizzle"
-        "thunderstorm" -> "Thunderstorm"
-        "snow" -> "Snowing"
-        "mist" -> "Misty"
-        else -> "Clear"
-    }
-}
-
-// ☔ SMART WEATHER ANALYSIS – realistic humid & drizzle logic
-private fun getSmartWeatherAnalysis(weatherData: WeatherData, condition: String, rainProbability: Int): String {
-    val analysis = mutableListOf<String>()
-    val smartCloudCover = getSmartCloudCover(weatherData.cloudCover, condition)
-    val temp = weatherData.temp.roundToInt()
-    val humidity = weatherData.humidity
-
-    // 🌡️ Temperature analysis (realistic comfort)
+private fun normalizeCondition(c: String): String = c.lowercase(Locale.ROOT).let {
     when {
-        temp <= 0 -> analysis.add("Freezing $temp°C – stay indoors if you can ❄️🧊")
-        temp in 1..5 -> analysis.add("Extremely cold $temp°C – heavy coat & gloves needed 🧥🧤")
-        temp in 6..10 -> analysis.add("Cold $temp°C – wear a thick jacket 🧣")
-        temp in 11..14 -> analysis.add("Chilly $temp°C – sweater or jacket is a must 🍂")
-        temp in 15..18 -> analysis.add("Cool $temp°C – dress warm 🌤️")
-        temp in 19..22 -> analysis.add("Mild $temp°C – comfortable but not warm 👕")
-        temp in 23..27 -> analysis.add("Warm $temp°C – good weather for t-shirts ☀️")
-        temp in 28..32 -> analysis.add("Hot $temp°C – drink water & stay hydrated 🥵")
-        temp > 32 -> analysis.add("Scorching $temp°C – avoid staying too long in the sun 🔥")
+        it.contains("thunderstorm") -> "thunderstorm"
+        it.contains("drizzle")      -> "drizzle"
+        it.contains("rain")         -> "rain"
+        it.contains("snow")         -> "snow"
+        it.contains("clear")        -> "clear"
+        it.contains("cloud")        -> "clouds"
+        it.contains("mist") || it.contains("fog") || it.contains("haze") -> "mist"
+        else                        -> "clear"
     }
-
-    // 💧 Humidity analysis (sticky / uncomfortable logic)
-    when {
-        humidity >= 85 -> analysis.add("Very humid ${humidity}% – sticky and heavy air 💦")
-        humidity in 70..84 -> analysis.add("Humid ${humidity}% – feels  & uncomfortable 🌫️")
-        humidity in 40..69 -> analysis.add("Comfortable humidity ${humidity}% 👍")
-        humidity < 40 -> analysis.add("Dry ${humidity}% – low moisture 💨")
-    }
-
-    // ☁️ Cloud cover intelligence
-    when {
-        condition.contains("overcast", ignoreCase = true) ->
-            analysis.add("Overcast skies (${smartCloudCover}%) ☁️")
-
-        condition.contains("mostly cloudy", ignoreCase = true) ->
-            analysis.add("Mostly cloudy (${smartCloudCover}%) ☁️🌥️")
-
-        condition.contains("partly cloudy", ignoreCase = true) ->
-            analysis.add("Partly cloudy (${smartCloudCover}%) 🌥️☀️")
-
-        condition.contains("broken clouds", ignoreCase = true) ->
-            analysis.add("Broken clouds with patches of sunlight (${smartCloudCover}%) 🌥️")
-
-        condition.contains("scattered clouds", ignoreCase = true) ->
-            analysis.add("Scattered clouds drifting across the sky (${smartCloudCover}%) ⛅")
-
-        condition.contains("few clouds", ignoreCase = true) ->
-            analysis.add("Few clouds (${smartCloudCover}%) 🌤️")
-
-        smartCloudCover in 0..30 ->
-            analysis.add("Clear skies (${smartCloudCover}%) 🌞")
-
-        smartCloudCover in 31..40 ->
-            analysis.add("Few clouds (${smartCloudCover}%) 🌤️")
-
-        smartCloudCover in 41..50 ->
-            analysis.add("Scattered clouds (${smartCloudCover}%) ⛅")
-
-        smartCloudCover in 51..60 ->
-            analysis.add("Broken clouds (${smartCloudCover}%) 🌥️")
-
-        smartCloudCover in 61..70 ->
-            analysis.add("Partly cloudy (${smartCloudCover}%) 🌥️☀️")
-
-        smartCloudCover in 71..85 ->
-            analysis.add("Mostly cloudy (${smartCloudCover}%) ☁️🌥️")
-
-        smartCloudCover >= 86 ->
-            analysis.add("Overcast (${smartCloudCover}%) ☁️")
-    }
-
-
-    // ☔ Rain probability + humidity & cloud smart combo
-    val adjustedRainChance = when {
-        // High humidity & clouds but low reported rain = possible drizzle
-        humidity > 80 && smartCloudCover > 60 && rainProbability < 40 -> rainProbability + 20
-        // Very high humidity (sticky + cloudy) – air may burst into rain
-        humidity > 85 && smartCloudCover > 70 && rainProbability < 50 -> rainProbability + 30
-        else -> rainProbability
-    }
-
-    when {
-        adjustedRainChance >= 70 -> analysis.add("High chance of rain (${adjustedRainChance}%) – rain or thunder likely ☔")
-        adjustedRainChance in 40..69 -> analysis.add("Possible rain (${adjustedRainChance}%) – keep a jacket nearby 🌦️")
-        adjustedRainChance in 20..39 -> analysis.add("Might drizzle (${adjustedRainChance}%) – humid air may spark light showers 🌧️")
-        else -> {
-            // If humid + sticky + overcast, suggest "sticky & might drizzle"
-            if (humidity > 80 && smartCloudCover > 50)
-                analysis.add("Sticky conditions – might drizzle later 🌫️")
-            else
-                analysis.add("No rain expected (${adjustedRainChance}%) 🌤️")
-        }
-    }
-
-    return analysis.joinToString(" • ")
 }
 
-
-private fun getSmartForecast(
-    weatherData: WeatherData,
-    condition: String,
-    rainProbability: Int,
-    localHour: Int
-): String {
-    val temp = weatherData.temp
-    val humidity = weatherData.humidity
-    val smartCloudCover = getSmartCloudCover(weatherData.cloudCover, condition)
-
-    val base = buildString {
-
-        // 🌡️ Temperature focus
-        when {
-            temp <= -5 -> append("Extremely cold day with biting frost. Dress heavily to stay warm. ")
-            temp in -4.0..0.0 -> append("Freezing temperatures around zero — keep bundled up. ")
-            temp in 1.0..9.9 -> append("Cold air dominates, ideal for staying cozy indoors. ")
-            temp in 10.0..17.9 -> append("Cold and calm weather, Keep warm regardless. ")
-            temp in 18.0..27.9 -> append("Pleasant and mild temperatures — perfect balance for the day. ")
-            temp in 28.0..33.9 -> append("Warm day, stay hydrated and avoid long exposure under direct sun. ")
-            temp >= 34 -> append("Very hot conditions expected, outdoor activity should be minimal. ")
-        }
-
-        // 💧 Humidity intelligence
-        when {
-            humidity >= 90 && condition != "rain" -> append("Air feels heavy and wet, though skies remain mostly dry. ")
-            humidity >= 80 && condition == "rain" -> append("Wet atmosphere with high humidity ${humidity}%, making rainfall feel heavier. ")
-            humidity in 60..79 -> append("Moderate humidity ${humidity}%, quite comfortable to be outside. ")
-            humidity in 40..59 -> append("Balanced air moisture creating pleasant and steady conditions. ")
-            humidity <= 39 -> append("Dry atmosphere ${humidity}%, leading to crisp and refreshing air. ")
-        }
-
-        // ☁️ Cloud cover intelligence
-        when {
-            smartCloudCover >= 86 -> append("Overcast skies (${smartCloudCover}% clouds) blocking most sunlight. ")
-            smartCloudCover in 71..85 -> append("Mostly cloudy with dim sunlight filtering through. ")
-            smartCloudCover in 61..70 -> append("Partly cloudy — intervals of sun and shade throughout the day. ")
-            smartCloudCover in 51..60 -> append("Broken clouds scattered across the sky. ")
-            smartCloudCover in 41..50 -> append("Scattered clouds drifting across the sky. ")
-            smartCloudCover in 31..40 -> append("Few clouds dotting the sky — mostly sunny. ")
-            smartCloudCover in 0..30 -> append("Clear blue skies with little to no cloud cover. ")
-        }
-
-        // 🌧️ Rain intelligence
-        when {
-            condition == "rain" && rainProbability >= 80 -> append("Rainfall ongoing with strong likelihood of continuation (${rainProbability}%). ")
-            condition == "rain" && rainProbability < 80 -> append("Light rain with chances of clearing later (${rainProbability}%). ")
-            rainProbability >= 85 -> append("High chance of heavy rain later today (${rainProbability}%). ")
-            rainProbability in 60..84 -> append("Moderate chance of showers or drizzle (${rainProbability}%). ")
-            rainProbability in 40..59 -> append("Slight possibility of light rain later in the day (${rainProbability}%). ")
-            rainProbability < 40 -> append("Low rain probability — dry conditions likely. ")
-        }
-    }
-
-    return base.trim()
+private fun getSmartCloudCover(cloudCover: Int?, condition: String): Int = when {
+    condition.contains("rain", true)         && (cloudCover == null || cloudCover < 70) -> 85
+    condition.contains("thunderstorm", true) && (cloudCover == null || cloudCover < 80) -> 95
+    condition.contains("drizzle", true)      && (cloudCover == null || cloudCover < 60) -> 75
+    condition.contains("clear", true)        && (cloudCover ?: 0) > 50                  -> 20
+    condition.contains("cloud", true)        && (cloudCover ?: 0) < 40                  -> 70
+    else -> cloudCover ?: if (condition.contains("clear", true)) 10
+                          else if (condition.contains("cloud", true)) 75 else 50
 }
 
-private fun getLogicalActivities(
-    weatherData: WeatherData,
-    localHour: Int,
-    isNight: Boolean,
-    rainProbability: Int,
-    normalizedCondition: String
-): String {
-    val temp = weatherData.temp
-    val mood = StringBuilder()
+private fun calculateRealRainProbability(h: Int, cond: String, cloud: Int?, pressure: Int): Int {
+    val c = getSmartCloudCover(cloud, cond)
+    return when {
+        cond.contains("thunderstorm", true) -> 98
+        cond.contains("rain", true)         -> if (h >= 90) 95 else if (h >= 80) 85 else 75
+        cond.contains("drizzle", true)      -> 70
+        else -> minOf(
+            (when { h >= 90 -> 40; h >= 85 -> 35; h >= 80 -> 25; h >= 70 -> 15; else -> 5 }) +
+            (when { c >= 90 -> 35; c >= 80 -> 25; c >= 70 -> 20; c >= 50 -> 10; else -> 5 }) +
+            (if (pressure <= 1000) 20 else if (pressure <= 1010) 10 else 0),
+            95
+        )
+    }
+}
 
-    // 🌧️ When it’s raining or stormy
-    if (normalizedCondition == "rain" || normalizedCondition == "thunderstorm" || rainProbability > 60) {
-        mood.append("Seems like it’s one of those rainy or stormy moments. The kind where the world slows down a little, and you get to stay inside feeling cozy. Maybe curl up with a good book, watch something comforting, or just let yourself rest. It’s the kind of weather that makes warm tea and quiet thoughts feel perfect. ")
+private fun getRealRainAnalysis(rainPct: Int, cond: String, h: Int, cloud: Int?, pressure: Int): String {
+    val c = getSmartCloudCover(cloud, cond)
+    return when {
+        cond.contains("thunderstorm", true)      -> "Thunderstorm active — lightning or strong winds possible."
+        cond.contains("rain", true) && h >= 90   -> "Heavy rain — high humidity ${h}% and ${c}% cloud cover."
+        cond.contains("rain", true)              -> "Light to moderate rain — humidity around ${h}%."
+        cond.contains("drizzle", true)           -> "Light drizzle — damp air at ${h}% humidity."
+        rainPct >= 70                            -> "Rain very likely — ${c}% cloud cover and ${h}% humidity."
+        rainPct >= 40                            -> "Possible showers — ${c}% clouds, ${if (pressure < 1005) "pressure dropping" else "steady"}."
+        h >= 80 && c < 60                        -> "High humidity (${h}%) but partly clear skies."
+        c >= 70                                  -> "Mostly cloudy (${c}%) — dry conditions expected."
+        else                                     -> "Clear and dry — ${h}% humidity, ${c}% cloud cover."
+    }
+}
 
-        // Clothing tone — gentle and caring
-        when {
-            temp < 15 -> mood.append("If you have to go out, wrap yourself in something warm and waterproof — you deserve to stay comfortable. 🧥")
-            else -> mood.append("If you’re stepping out, a waterproof jacket and boots will do just fine. Stay dry and safe out there. 🌧️")
-        }
+private fun getAccurateWeatherDescription(cond: String, wd: WeatherData) = when (cond) {
+    "clear"        -> "Clear skies"
+    "clouds"       -> getCloudCoverDescription(getSmartCloudCover(wd.cloudCover, wd.condition))
+    "rain"         -> "${if (wd.humidity >= 85) "Heavy" else if (wd.humidity >= 75) "Moderate" else "Light"} rain"
+    "drizzle"      -> "Light drizzle"
+    "thunderstorm" -> "Thunderstorm"
+    "snow"         -> "Snowing"
+    "mist"         -> "Misty"
+    else           -> "Clear"
+}
 
+private fun getDynamicWeatherEmoji(cond: String, isNight: Boolean) = when (cond) {
+    "clear"        -> if (isNight) "🌙" else "☀️"
+    "clouds"       -> if (isNight) "☁️" else "⛅"
+    "rain"         -> "🌧️"
+    "drizzle"      -> "🌦️"
+    "thunderstorm" -> "⛈️"
+    "snow"         -> "❄️"
+    "mist"         -> "🌫️"
+    else           -> if (isNight) "🌙" else "☀️"
+}
+
+private fun getRainEmoji(cond: String, pct: Int) = when {
+    cond == "thunderstorm" -> "⛈️"
+    cond == "rain"         -> "🌧️"
+    cond == "drizzle"      -> "🌦️"
+    pct >= 70              -> "🌧️"
+    pct >= 40              -> "🌦️"
+    else                   -> "💧"
+}
+
+private fun getSmartWeatherAnalysis(wd: WeatherData, cond: String, rainPct: Int): String {
+    val temp   = wd.temp.roundToInt()
+    val h      = wd.humidity
+    val clouds = getSmartCloudCover(wd.cloudCover, cond)
+    val adj    = if (h > 80 && clouds > 60 && rainPct < 50) rainPct + 20 else rainPct
+    return listOf(
+        when { temp <= 0 -> "Freezing $temp°C ❄️"; temp in 1..10 -> "Cold $temp°C 🧥"; temp in 11..18 -> "Cool $temp°C"; temp in 19..27 -> "Warm $temp°C ☀️"; else -> "Hot $temp°C 🥵" },
+        when { h >= 85 -> "Very humid ${h}% 💦"; h in 70..84 -> "Humid ${h}%"; else -> "Comfortable ${h}%" },
+        when { adj >= 70 -> "Rain likely (${adj}%) ☔"; adj in 40..69 -> "Possible rain (${adj}%) 🌦️"; else -> "No rain (${adj}%)" }
+    ).joinToString("  ·  ")
+}
+
+private fun getSmartForecast(wd: WeatherData, cond: String, rainPct: Int, localHour: Int): String {
+    val clouds = getSmartCloudCover(wd.cloudCover, cond)
+    return buildString {
+        append(when {
+            wd.temp <= 5   -> "Cold day — good time to stay cozy. "
+            wd.temp <= 17  -> "Cool air — keep a layer on. "
+            wd.temp <= 27  -> "Pleasant temperatures today. "
+            else           -> "Warm day — stay hydrated. "
+        })
+        if (wd.humidity >= 90 && cond != "rain") append("Air feels heavy despite mostly dry skies. ")
+        append(when {
+            clouds >= 86 -> "Overcast (${clouds}%). "
+            clouds >= 31 -> "${getCloudCoverDescription(clouds)} (${clouds}%). "
+            else         -> "Clear skies. "
+        })
+        append(when {
+            rainPct >= 70 -> "High rain chance (${rainPct}%) — bring an umbrella."
+            rainPct >= 40 -> "Some rain possible (${rainPct}%)."
+            else          -> "Dry conditions expected."
+        })
+    }.trim()
+}
+
+private fun getLogicalActivities(wd: WeatherData, localHour: Int, isNight: Boolean, rainPct: Int, cond: String) = buildString {
+    if (cond == "rain" || cond == "thunderstorm" || rainPct > 60) {
+        append("Good weather for staying in — a book, something on screen, or a quiet moment. ")
+        append(if (wd.temp < 15) "Bundle up if you head out. 🧥" else "A jacket and waterproof shoes will do. 🌧️")
     } else {
-        // 🌤️ When the skies are clearer — different moods for different hours
-        when {
-            isNight -> mood.append("The night feels peaceful — maybe take a slow walk through the city lights, enjoy dinner under the stars, or just sit somewhere quiet and breathe it all in. Nights like this remind you to slow down a bit. 🌙")
-            localHour in 6..11 -> mood.append("The morning looks fresh and full of energy. A walk, a quick jog, or just that first coffee outside could start your day perfectly. Let the sunlight hit your face for a moment before everything gets busy. ☀️")
-            localHour in 12..17 -> mood.append("The day’s alive — it could be a good time for a meal outdoors, a swim, a little gardening, or even just hanging out somewhere open. Let yourself enjoy the warmth if it’s nice out. 🌻")
-            localHour in 18..23 -> mood.append("The evening glow’s setting in — perfect for catching a sunset, spending time with friends, or just unwinding on a rooftop. Sometimes, all you need is a bit of calm air and good company. 🌇")
-        }
-
-        // 👕 Clothing guidance that sounds human
-        when {
-            temp < 10 -> mood.append(" It’s cold out there — wear something that keeps you warm and wrapped up. ❄️")
-            temp < 20 -> mood.append(" The air feels cool; maybe carry a light jacket just in case. 🧥")
-            temp > 25 -> mood.append(" It’s warm enough to go light — something airy will keep you comfy. 👕")
-        }
+        append(when {
+            isNight            -> "Peaceful night — a slow walk, dinner out, or just breathing the air in. 🌙"
+            localHour in 6..11  -> "Fresh morning — a walk, run, or that first coffee outdoors. ☀️"
+            localHour in 12..17 -> "Afternoon open — eat outside, swim, or soak up the warmth. 🌻"
+            else               -> "Evening setting in — catch the last light, meet someone, unwind. 🌇"
+        })
+        append(when {
+            wd.temp < 10 -> " Cold — dress warm. ❄️"
+            wd.temp < 20 -> " Cool — light jacket is smart. 🧥"
+            wd.temp > 25 -> " Warm — dress light. 👕"
+            else         -> ""
+        })
     }
-
-    // Final personal touch
-    mood.append(" Whatever the weather, remember — comfort first, always. You don’t have to do much; just enjoy the moment for what it is. 💫")
-
-    return mood.toString()
+    append(" Comfort first. 💫")
 }
 
+private fun shouldShowRainPrediction(pct: Int, h: Int, cond: String) =
+    pct > 0 || cond == "rain" || cond == "drizzle" || cond == "thunderstorm" || h > 80
 
-// ============ HELPER FUNCTIONS ============
-private fun shouldShowRainPrediction(rainProbability: Int, humidity: Int, condition: String): Boolean {
-    return rainProbability > 0 || condition == "rain" || condition == "drizzle" || condition == "thunderstorm" || humidity > 80
-}
+private fun getHumidityAnalysis(h: Int) =
+    when { h >= 90 -> "Very humid"; h >= 80 -> "Humid"; h >= 70 -> "Moderate"; h <= 35 -> "Dry"; else -> "Normal" }
 
-private fun normalizeCondition(apiCondition: String): String {
-    val condition = apiCondition.lowercase(Locale.ROOT)
-    return when {
-        condition.contains("thunderstorm") -> "thunderstorm"
-        condition.contains("drizzle") -> "drizzle"
-        condition.contains("rain") -> "rain"
-        condition.contains("snow") -> "snow"
-        condition.contains("clear") -> "clear"
-        condition.contains("cloud") -> "clouds"
-        condition.contains("mist") || condition.contains("fog") || condition.contains("haze") -> "mist"
-        else -> "clear"
-    }
-}
+private fun getCloudCoverAnalysis(c: Int) =
+    when { c >= 86 -> "Overcast"; c in 71..85 -> "Mostly cloudy"; c in 61..70 -> "Partly cloudy"; c in 51..60 -> "Broken clouds"; c in 41..50 -> "Scattered"; c in 31..40 -> "Few clouds"; else -> "Clear" }
 
-private fun getTextColorForBackground(gradient: Brush): Color {
-    return Color.White
-}
+private fun getWindAnalysis(w: Double) =
+    when { w > 8 -> "Strong winds"; w > 5 -> "Moderate breeze"; w > 2 -> "Light breeze"; else -> "Calm" }
 
-private fun getDynamicWeatherEmoji(condition: String, isNight: Boolean): String {
-    return when (condition) {
-        "clear" -> if (isNight) "🌙" else "☀️"
-        "clouds" -> if (isNight) "☁️" else "⛅"
-        "rain" -> "🌧️"
-        "drizzle" -> "🌦️"
-        "thunderstorm" -> "⛈️"
-        "snow" -> "❄️"
-        "mist" -> "🌫️"
-        else -> if (isNight) "🌙" else "☀️"
-    }
-}
+private fun getPressureAnalysis(p: Int) =
+    when { p > 1020 -> "High — stable"; p < 1000 -> "Low — unsettled"; else -> "Normal" }
 
-private fun getRainEmoji(condition: String, rainProbability: Int): String {
-    return when {
-        condition == "thunderstorm" -> "⛈️"
-        condition == "rain" -> "🌧️"
-        condition == "drizzle" -> "🌦️"
-        rainProbability >= 70 -> "🌧️"
-        rainProbability >= 40 -> "🌦️"
-        else -> "💧"
-    }
-}
+private fun getVisibilityAnalysis(v: Int) =
+    when { v > 10000 -> "Excellent"; v > 5000 -> "Good"; v > 2000 -> "Moderate"; else -> "Poor" }
 
-private fun getSmartConditionGradient(condition: String, isNight: Boolean): Brush {
-    return when (condition) {
-        "clear" -> if (isNight) {
-            Brush.verticalGradient(listOf(Color(0xFF2C3E50), Color(0xFF34495E)))
-        } else {
-            Brush.verticalGradient(listOf(Color(0xFF74B9FF), Color(0xFF0984E3)))
-        }
-        "rain", "drizzle" -> Brush.verticalGradient(listOf(Color(0xFF636E72), Color(0xFF2D3436)))
-        "thunderstorm" -> Brush.verticalGradient(listOf(Color(0xFF2C3E50), Color(0xFF34495E)))
-        "snow" -> Brush.verticalGradient(listOf(Color(0xFFDFE6E9), Color(0xFFB2BEC3)))
-        "clouds" -> Brush.verticalGradient(listOf(Color(0xFFB2BEC3), Color(0xFF636E72)))
-        "mist" -> Brush.verticalGradient(listOf(Color(0xFFDFE6E9), Color(0xFFB2BEC3)))
-        else -> Brush.verticalGradient(listOf(Color(0xFF74B9FF), Color(0xFF0984E3)))
-    }
-}
+private fun getCloudCoverDescription(c: Int) =
+    when { c >= 86 -> "Overcast"; c in 71..85 -> "Mostly cloudy"; c in 61..70 -> "Partly cloudy"; c in 51..60 -> "Broken clouds"; c in 41..50 -> "Scattered clouds"; c in 31..40 -> "Few clouds"; else -> "Clear skies" }
 
-// ============ WEATHER ANALYSIS FUNCTIONS ============
-private fun getHumidityAnalysis(humidity: Int): String {
-    return when {
-        humidity >= 90 -> "Very humid, rain likely"
-        humidity >= 80 -> "Humid, possible rain"
-        humidity >= 70 -> "Moderate humidity"
-        humidity <= 35 -> "Dry and comfortable"
-        else -> "Normal humidity levels"
-    }
-}
+// ─────────────────────────────────────────────────────────────────
+//  DATA CLASSES
+// ─────────────────────────────────────────────────────────────────
 
-private fun getCloudCoverAnalysis(cloudCover: Int): String {
-    return when {
-        cloudCover >= 86 -> "Overcast skies"
-        cloudCover in 71..85 -> "Mostly cloudy"
-        cloudCover in 61..70 -> "Partly cloudy"
-        cloudCover in 51..60 -> "Broken clouds"
-        cloudCover in 41..50 -> "Scattered clouds"
-        cloudCover in 31..40 -> "Few clouds"
-        else -> "Clear skies"
-    }
-}
-
-private fun getWindAnalysis(windSpeed: Double): String {
-    return when {
-        windSpeed > 8 -> "Strong winds"
-        windSpeed > 5 -> "Moderate breeze"
-        windSpeed > 2 -> "Light breeze"
-        else -> "Calm conditions"
-    }
-}
-
-private fun getPressureAnalysis(pressure: Int): String {
-    return when {
-        pressure > 1020 -> "High pressure, stable weather"
-        pressure < 1000 -> "Low pressure, changing weather"
-        else -> "Normal pressure conditions"
-    }
-}
-
-private fun getVisibilityAnalysis(visibility: Int): String {
-    return when {
-        visibility > 10000 -> "Excellent visibility"
-        visibility > 5000 -> "Good visibility"
-        visibility > 2000 -> "Moderate visibility"
-        else -> "Poor visibility"
-    }
-}
-
-private fun getTempRangeAnalysis(weatherData: WeatherData): String {
-    val range = weatherData.maxTemp - weatherData.minTemp
-    return when {
-        range > 12 -> "Large temperature swing"
-        range > 8 -> "Moderate variation"
-        range > 4 -> "Small variation"
-        else -> "Stable temperatures"
-    }
-}
-
-private fun getRainIntensity(humidity: Int): String {
-    return when {
-        humidity >= 85 -> "Heavy"
-        humidity >= 75 -> "Moderate"
-        else -> "Light"
-    }
-}
-
-private fun getCloudCoverDescription(cloudCover: Int): String {
-    return when {
-        cloudCover >= 86 -> "Overcast"
-        cloudCover in 71..85 -> "Mostly cloudy"
-        cloudCover in 61..70 -> "Partly cloudy"
-        cloudCover in 51..60 -> "Broken clouds"
-        cloudCover in 41..50 -> "Scattered clouds"
-        cloudCover in 31..40 -> "Few clouds"
-        else -> "Clear skies"
-    }
-}
-
-
-// Add this extension function for clickable modifier
-fun Modifier.clickable(onClick: () -> Unit): Modifier {
-    return this
-}
-
-// ============ DATA CLASSES ============
 data class LiveSport(
-    val id: String,
-    val league: String,
-    val homeTeam: String,
-    val awayTeam: String,
-    val score: String,
-    val status: String,
-    val time: String,
-    val venue: String
+    val id       : String,
+    val league   : String,
+    val homeTeam : String,
+    val awayTeam : String,
+    val homeLogo : String = "",
+    val awayLogo : String = "",
+    val homeScore: String = "0",
+    val awayScore: String = "0",
+    val status   : String,   // "in" | "final" | "scheduled"
+    val time     : String,
+    val venue    : String = "",
+    val clock    : String = ""
 )
 
-data class WeatherDetail(val emojiLabel: String, val value: String, val tip: String)
-
-// Make sure your WeatherData class includes cloudCover property:
+// WeatherData shape — keep your existing class, ensure cloudCover: Int? exists:
 // data class WeatherData(
-//     val city: String,
-//     val temp: Double,
-//     val feelsLike: Double,
-//     val minTemp: Double,
-//     val maxTemp: Double,
-//     val humidity: Int,
-//     val windSpeed: Double,
-//     val pressure: Int,
-//     val visibility: Int,
-//     val condition: String,
-//     val timezoneOffset: Int,
-//     val cloudCover: Int? = null
+//     val city: String, val temp: Double, val feelsLike: Double,
+//     val minTemp: Double, val maxTemp: Double, val humidity: Int,
+//     val windSpeed: Double, val pressure: Int, val visibility: Int,
+//     val condition: String, val timezoneOffset: Int, val cloudCover: Int? = null
 // )

@@ -16,16 +16,20 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +46,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -65,6 +71,7 @@ import app.it.fast4x.rimusic.models.toUiMood
 import app.it.fast4x.rimusic.ui.components.Skeleton
 import app.it.fast4x.rimusic.ui.components.themed.Loader
 import app.it.fast4x.rimusic.utils.enableQuickPicksPageKey
+import app.it.fast4x.rimusic.utils.exportifyWebUrlKey
 import app.it.fast4x.rimusic.utils.getEnum
 import app.it.fast4x.rimusic.utils.homeScreenTabIndexKey
 import app.it.fast4x.rimusic.utils.indexNavigationTabKey
@@ -266,11 +273,16 @@ class ExportifyWebInterface(private val context: android.content.Context) {
 @Composable
 fun ExportifyWebViewScreen() {
     val context = LocalContext.current
+    val exportifyDefaultUrl = "https://thecub4.netlify.app/spotifyfeature/"
+    val aniplayUrl = "https://sonic-scroll-48.lovable.app"
+    var selectedWebUrl by rememberPreference(exportifyWebUrlKey, exportifyDefaultUrl)
     var isLoading by remember { mutableStateOf(true) }
     var webView: WebView? by remember { mutableStateOf(null) }
     var hasError by remember { mutableStateOf(false) }
     var isConnectedToInternet by remember { mutableStateOf(true) } // Assume connected initially
     var showDownloadDialog by remember { mutableStateOf(false) }
+    var showSiteDialog by remember { mutableStateOf(false) }
+    var siteSwitcherExpanded by remember { mutableStateOf(false) }
     var downloadUrl by remember { mutableStateOf("") }
 
     // Function to check internet connectivity
@@ -278,12 +290,29 @@ fun ExportifyWebViewScreen() {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     // Update connection status on first composition
     LaunchedEffect(Unit) {
         isConnectedToInternet = checkInternetConnection()
+    }
+
+    LaunchedEffect(webView, selectedWebUrl) {
+        while (true) {
+            val connected = checkInternetConnection()
+            if (!connected && isConnectedToInternet) {
+                isConnectedToInternet = false
+                hasError = false
+                isLoading = false
+                webView?.stopLoading()
+                webView?.loadUrl("about:blank")
+            } else if (connected && !isConnectedToInternet) {
+                isConnectedToInternet = true
+            }
+            delay(3000L)
+        }
     }
 
     // Handle download dialog
@@ -311,6 +340,58 @@ fun ExportifyWebViewScreen() {
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    if (showSiteDialog) {
+        AlertDialog(
+            onDismissRequest = { showSiteDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            shape = RoundedCornerShape(28.dp),
+            title = {
+                Column {
+                    Text("Default page")
+                    Text(
+                        text = if (selectedWebUrl == aniplayUrl) "Aniplay is active" else "Exportify is active",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Choose the default web tool for this tab. You can switch anytime.")
+                    WebToolChoice(
+                        title = "Exportify",
+                        subtitle = "Spotify exports and music tools",
+                        selected = selectedWebUrl != aniplayUrl,
+                        onClick = {
+                            selectedWebUrl = exportifyDefaultUrl
+                            showSiteDialog = false
+                            if (isConnectedToInternet) {
+                                isLoading = true
+                                webView?.loadUrl(selectedWebUrl)
+                            }
+                        }
+                    )
+                    WebToolChoice(
+                        title = "Aniplay",
+                        subtitle = "Audiobooks, books, and anime",
+                        selected = selectedWebUrl == aniplayUrl,
+                        onClick = {
+                            selectedWebUrl = aniplayUrl
+                            showSiteDialog = false
+                            if (isConnectedToInternet) {
+                                isLoading = true
+                                webView?.loadUrl(selectedWebUrl)
+                            }
+                        }
+                    )
+                }
+            },
+            confirmButton = {}
         )
     }
 
@@ -440,7 +521,7 @@ fun ExportifyWebViewScreen() {
                         addJavascriptInterface(ExportifyWebInterface(ctx), "Android")
                         
                         // Load the Exportify website
-                        loadUrl("https://thecub4.netlify.app/spotifyfeature/")
+                        loadUrl(selectedWebUrl)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -449,7 +530,7 @@ fun ExportifyWebViewScreen() {
                     if (hasError && isConnectedToInternet) {
                         hasError = false
                         isLoading = true
-                        view.loadUrl("https://thecub4.netlify.app/spotifyfeature/")
+                        view.loadUrl(selectedWebUrl)
                     }
                 }
             )
@@ -533,12 +614,55 @@ fun ExportifyWebViewScreen() {
                             isConnectedToInternet = checkInternetConnection()
                             if (isConnectedToInternet) {
                                 isLoading = true
-                                webView?.loadUrl("https://thecub4.netlify.app/spotifyfeature/")
+                                webView?.loadUrl(selectedWebUrl)
                             }
                         }
                     ) {
                         Text("Retry")
                     }
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .clickable {
+                    if (siteSwitcherExpanded) {
+                        showSiteDialog = true
+                    } else {
+                        siteSwitcherExpanded = true
+                    }
+                },
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 8.dp,
+            shadowElevation = 8.dp,
+            shape = RoundedCornerShape(22.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = if (siteSwitcherExpanded) 12.dp else 10.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                if (siteSwitcherExpanded) {
+                    Text(
+                        text = if (selectedWebUrl == aniplayUrl) "Aniplay" else "Exportify",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Text(
+                        text = "Change",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -552,10 +676,48 @@ fun ExportifyWebViewScreen() {
             // Refresh on back press if there's an error
             hasError = false
             isLoading = true
-            webView?.loadUrl("https://thecub4.netlify.app/spotifyfeature/")
+            webView?.loadUrl(selectedWebUrl)
         } else if (!isConnectedToInternet) {
             // Check connection again on back press
             isConnectedToInternet = checkInternetConnection()
+        }
+    }
+}
+
+@Composable
+private fun WebToolChoice(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        },
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = MaterialTheme.colorScheme.onSurface)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

@@ -1,10 +1,12 @@
 // ui/screens/welcome/WelcomeScreen.kt -
 package app.it.fast4x.rimusic.ui.screens.welcome
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,6 +63,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -81,6 +84,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import kotlin.math.roundToInt
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.ui.platform.LocalUriHandler
@@ -93,32 +97,46 @@ private const val KEY_HAS_SEEN_WELCOME = "has_seen_welcome"
 
 // Copy the getLocationFromIP function here since it's private in utils
 private suspend fun getLocationFromIP(): String? = withContext(Dispatchers.IO) {
-    return@withContext try {
-        val url = URL("https://ipinfo.io/json/")
-        val connection = withContext(Dispatchers.IO) { url.openConnection() as HttpURLConnection }
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 3000
-        connection.readTimeout = 3000
+    val endpoints = listOf(
+        "https://ipapi.co/json/" to "city",
+        "https://ipinfo.io/json/" to "city"
+    )
 
-        val responseCode = connection.responseCode
-        if (responseCode == 200) {
-            val reader = BufferedReader(InputStreamReader(connection.inputStream))
-            val response = reader.use { it.readText() }
-            reader.close()
-            connection.disconnect()
-            val json = JSONObject(response)
-            json.optString("city", "invalid city")
-        } else "API failed, just key in your city"
-    } catch (e: Exception) {
-        e.printStackTrace()
-        "failure happened, just key in ur city"
+    for ((endpoint, cityKey) in endpoints) {
+        val detectedCity = runCatching {
+            val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 4500
+                readTimeout = 4500
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "CubicMusic/Android")
+            }
+
+            try {
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) return@runCatching null
+                val response = BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
+                JSONObject(response).optString(cityKey)
+                    .trim()
+                    .takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+            } finally {
+                connection.disconnect()
+            }
+        }.getOrNull()
+
+        if (!detectedCity.isNullOrBlank()) {
+            return@withContext detectedCity
+        }
     }
+
+    return@withContext null
 }
 
 @Composable
 fun WelcomeScreen(navController: NavController) {
     val context = LocalContext.current
     var showWelcome by remember { mutableStateOf(true) }
+    var welcomeBackgroundIndex by remember { mutableStateOf(0) }
+    var detectedWelcomeCity by remember { mutableStateOf("") }
     var userHasSeenWelcome by remember { 
         mutableStateOf(false)
     }
@@ -134,13 +152,24 @@ fun WelcomeScreen(navController: NavController) {
                 val currentCity = DataStoreUtils.getStringBlocking(context, KEY_CITY, "")
                 if (currentCity.isBlank()) {
                     try {
-                        val detectedCity = getLocationFromIP() ?: "Nairobi"
-                        DataStoreUtils.saveStringBlocking(context, KEY_CITY, detectedCity)
+                        getLocationFromIP()?.let { detectedCity ->
+                            DataStoreUtils.saveStringBlocking(context, KEY_CITY, detectedCity)
+                            detectedWelcomeCity = detectedCity
+                        }
                     } catch (e: Exception) {
                         // Silently fail
                     }
+                } else {
+                    detectedWelcomeCity = currentCity
                 }
             }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(6500)
+            welcomeBackgroundIndex = 1 - welcomeBackgroundIndex
         }
     }
     
@@ -149,30 +178,9 @@ fun WelcomeScreen(navController: NavController) {
             .fillMaxSize()
             .background(Color(0xFF0A0A1A))
     ) {
-        // New custom canvas liquid background
-        CustomLiquidBackground(modifier = Modifier.fillMaxSize())
-        
-        // Subtle stars overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawWithCache {
-                    onDrawWithContent {
-                        drawContent()
-                        // Subtle stars
-                        for (i in 0..50) {
-                            val x = (Math.random() * size.width).toFloat()
-                            val y = (Math.random() * size.height).toFloat()
-                            val radius = (Math.random() * 1.2f).toFloat()
-                            val alpha = (0.1 + Math.random() * 0.3).toFloat()
-                            drawCircle(
-                                color = Color.White.copy(alpha = alpha),
-                                radius = radius,
-                                center = Offset(x, y)
-                            )
-                        }
-                    }
-                }
+        WelcomeImageBackground(
+            index = welcomeBackgroundIndex,
+            modifier = Modifier.fillMaxSize()
         )
         
         if (userHasSeenWelcome && showWelcome) {
@@ -207,6 +215,7 @@ fun WelcomeScreen(navController: NavController) {
         } else if (showWelcome) {
             // Show welcome screen
             WelcomeContent(
+                initialCity = detectedWelcomeCity,
                 onComplete = { name, city ->
                     DataStoreUtils.saveStringBlocking(context, KEY_HAS_SEEN_WELCOME, "true")
                     DataStoreUtils.saveStringBlocking(context, KEY_USERNAME, name)
@@ -248,15 +257,77 @@ fun WelcomeScreen(navController: NavController) {
     }
 }
 
+@Composable
+private fun WelcomeImageBackground(
+    index: Int,
+    modifier: Modifier = Modifier
+) {
+    val imageRes = if (index == 0) R.drawable.welcome_cubic_bg_one else R.drawable.welcome_cubic_bg_two
+    Box(modifier = modifier.background(Color(0xFF050713))) {
+        Crossfade(
+            targetState = imageRes,
+            animationSpec = tween(durationMillis = 1600),
+            label = "welcomeBackground"
+        ) { res ->
+            Image(
+                painter = painterResource(res),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.04f
+                        scaleY = 1.04f
+                    }
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.18f),
+                        0.42f to Color(0xFF09051A).copy(alpha = 0.34f),
+                        0.78f to Color(0xFF09020F).copy(alpha = 0.70f),
+                        1f to Color.Black.copy(alpha = 0.92f)
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFF4FD8).copy(alpha = 0.20f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.28f)
+                        ),
+                        center = Offset(0.18f, 0.12f),
+                        radius = 920f
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White.copy(alpha = 0.035f))
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WelcomeContent(onComplete: (String, String) -> Unit) {
+fun WelcomeContent(
+    initialCity: String = "",
+    onComplete: (String, String) -> Unit
+) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val keyboardController = LocalSoftwareKeyboardController.current
     
     var name by remember { mutableStateOf("") }
-    var city by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf(initialCity) }
     var animated by remember { mutableStateOf(false) }
     
     // ADDED: Auto-scroll state
@@ -286,12 +357,12 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
             1 -> { // Name field focused
                 // Scroll to show name field better
                 delay(100) // Small delay for keyboard animation
-                scrollState.animateScrollTo(0)
+                scrollState.animateScrollTo((scrollState.maxValue * 0.38f).roundToInt())
             }
             2 -> { // City field focused
                 // Scroll down a bit to show city field better
                 delay(100)
-                scrollState.animateScrollTo(150)
+                scrollState.animateScrollTo((scrollState.maxValue * 0.58f).roundToInt())
             }
             3 -> { // Button focused
                 // Scroll to bottom to show button
@@ -303,11 +374,18 @@ fun WelcomeContent(onComplete: (String, String) -> Unit) {
     
     LaunchedEffect(Unit) {
         animated = true
-        city = DataStoreUtils.getStringBlocking(context, KEY_CITY, "")
+        city = initialCity.ifBlank { DataStoreUtils.getStringBlocking(context, KEY_CITY, "") }
         
         // AUTO-FOCUS for TV: Start with name field focused
+        delay(350)
         nameFocusRequester.requestFocus()
         focusedField = 1
+    }
+
+    LaunchedEffect(initialCity) {
+        if (city.isBlank() && initialCity.isNotBlank()) {
+            city = initialCity
+        }
     }
     
     // ADDED: Main scrollable column

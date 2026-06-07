@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -28,10 +29,12 @@ import androidx.compose.material3.Button as MaterialButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,6 +44,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
@@ -60,19 +65,22 @@ import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.bold
 import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
+import app.it.fast4x.rimusic.utils.PlaybackContextStore
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid13
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showFoldersOnDeviceKey
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.onEach
 import app.kreate.android.me.knighthat.component.FolderItem
 import app.kreate.android.me.knighthat.component.SongItem
 import app.kreate.android.me.knighthat.component.tab.ItemSelector
 import app.kreate.android.me.knighthat.component.tab.Search
+import app.kreate.android.themed.rimusic.component.AlphabetIndexBar
+import app.kreate.android.themed.rimusic.component.buildSongAlphabetIndex
 import app.kreate.android.me.knighthat.utils.PathUtils
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.kreate.android.me.knighthat.utils.getLocalSongs
+import kotlinx.coroutines.launch
 
 @UnstableApi
 @ExperimentalFoundationApi
@@ -89,6 +97,7 @@ fun OnDeviceSong(
     // Essentials
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
+    val coroutineScope = rememberCoroutineScope()
 
     //<editor-fold defaultstate="collapsed" desc="Settings">
     val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
@@ -139,7 +148,6 @@ fun OnDeviceSong(
 
         context.getLocalSongs( odSort.sortBy, odSort.sortOrder )
                .distinctUntilChanged()
-               .onEach { lazyListState.scrollToItem( 0, 0 ) }
                .collect { songsMap ->
                    songsOnDevice = songsMap
                    val availablePaths = songsMap.values.map(PathUtils::normalizePath).toSet()
@@ -151,7 +159,7 @@ fun OnDeviceSong(
     }
     LaunchedEffect( songsOnDevice, search.inputValue, currentPath ) {
         val normalizedCurrentPath = PathUtils.normalizePath(currentPath)
-        songsOnDevice.keys.filter { !parentalControlEnabled || !it.title.startsWith( EXPLICIT_PREFIX, true ) }
+        val filteredSongs = songsOnDevice.keys.filter { !parentalControlEnabled || !it.title.startsWith( EXPLICIT_PREFIX, true ) }
                           .filter {
                               val songPath = songsOnDevice[it]?.let(PathUtils::normalizePath) ?: return@filter false
                               // [showFolder4LocalSongs] must be false and
@@ -168,10 +176,8 @@ fun OnDeviceSong(
 
                               containsTitle || containsArtist
                           }
-                          .let {
-                              itemsOnDisplay.clear()
-                              itemsOnDisplay.addAll( it )
-                          }
+        itemsOnDisplay.clear()
+        itemsOnDisplay.addAll(filteredSongs)
     }
     LaunchedEffect( Unit ) {
         buttons.add( 0, odSort )
@@ -229,11 +235,24 @@ fun OnDeviceSong(
             }
         }
 
-    LazyColumn(
-        state = lazyListState,
-        userScrollEnabled = songsOnDevice.isNotEmpty(),
-        contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer )
-    ) {
+    val alphabetIndex = remember(itemsOnDisplay.toList()) {
+        buildSongAlphabetIndex(itemsOnDisplay)
+    }
+    val listHeaderOffset = if (showFolder4LocalSongs && songsOnDevice.isNotEmpty()) {
+        1 + PathUtils.getAvailablePaths(songsOnDevice.values, currentPath).size
+    } else {
+        0
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = lazyListState,
+            userScrollEnabled = songsOnDevice.isNotEmpty(),
+            contentPadding = PaddingValues(
+                end = 34.dp,
+                bottom = Dimensions.bottomSpacer
+            )
+        ) {
         if( showFolder4LocalSongs && songsOnDevice.isNotEmpty() ) {
             item( "folder_paths" ) {
                 PathUtils.AddressBar(
@@ -277,9 +296,24 @@ fun OnDeviceSong(
                         search.hideIfEmpty()
 
                         val mediaItems = itemsOnDisplay.fastMap( Song::asMediaItem )
+                        PlaybackContextStore.set("Playing from On Device")
                         binder?.player?.forcePlayAtIndex( mediaItems, index )
                     }
                 )
+            }
+        }
+        }
+
+        if (search.inputValue.isBlank() && alphabetIndex.size > 1 && itemsOnDisplay.size >= 20) {
+            AlphabetIndexBar(
+                alphabetIndex = alphabetIndex,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) { letter ->
+                alphabetIndex[letter]?.let { songIndex ->
+                    coroutineScope.launch {
+                        lazyListState.animateScrollToItem(songIndex + listHeaderOffset)
+                    }
+                }
             }
         }
     }

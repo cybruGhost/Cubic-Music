@@ -12,11 +12,13 @@ import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.MenuState
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
+import app.kreate.android.me.knighthat.utils.Toaster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @UnstableApi
 class Radio private constructor(
@@ -149,25 +151,25 @@ class Radio private constructor(
      * Show error message
      */
     private fun showError(message: String) {
-        // TODO: Implement your error display mechanism
-        // This could be a Toast, Snackbar, or custom error state
-        println("Radio Error: $message")
+        Toaster.e(message)
     }
 
     /**
      * Log radio start for debugging
      */
     private fun logRadioStart(song: Song) {
-        println("Radio: Starting radio with song: ${song.title}")
-        println("Radio: Recently played: ${recentlyPlayed.size} songs")
+        Timber.i("Radio: starting with %s; recently played=%d", song.title, recentlyPlayed.size)
     }
 
     /**
      * Log errors for debugging
      */
     private fun logError(message: String, exception: Exception? = null) {
-        println("Radio Error: $message")
-        exception?.printStackTrace()
+        if (exception != null) {
+            Timber.e(exception, "Radio: %s", message)
+        } else {
+            Timber.w("Radio: %s", message)
+        }
     }
 
     /**
@@ -175,6 +177,6 @@ class Radio private constructor(
      */
     fun clearHistory() {
         recentlyPlayed.clear()
-        println("Radio: Cleared recently played history")
+        Timber.i("Radio: cleared recently played history")
     }
 }

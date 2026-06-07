@@ -82,32 +82,106 @@ class ChangelogsDialog(
         var currentTitle: String? = null
         val currentChanges = mutableListOf<String>()
 
-        fun packSection( title: String = currentTitle!! ) {
+        fun packSection( title: String? = currentTitle ) {
+            val sectionTitle = title?.takeIf { it.isNotBlank() } ?: return
+            if (currentChanges.isEmpty()) return
             // Because [currentChanges] is a mutable list, passing it here
             // will only pass the reference, any subsequent changes will be
             // updated to this list.
-            sections.add( Section(title, currentChanges.toList()) )
+            sections.add( Section(sectionTitle, currentChanges.toList()) )
             currentChanges.clear()
         }
 
         lines.forEach {  line ->
+            val trimmedLine = line.trim()
             when {
-                line.endsWith( ":" ) -> {
+                trimmedLine.isBlank() -> Unit
+
+                trimmedLine.endsWith( ":" ) -> {
                     // If [currentTitle] is not null, it means another section is reached.
                     // Therefore, pack last section to a [Section]
-                    currentTitle?.let( ::packSection )
+                    packSection()
 
-                    currentTitle = line.removeSuffix(":")
+                    currentTitle = trimmedLine.removeSuffix(":")
                 }
-                line.trim().startsWith("-") -> {
-                    if( line.isNotBlank() )
-                        currentChanges.add( line.trim() )
+
+                trimmedLine.startsWith("-") -> {
+                    currentChanges.add( trimmedLine )
+                }
+
+                currentTitle == null -> {
+                    currentTitle = trimmedLine
+                }
+
+                currentChanges.isEmpty() -> {
+                    currentChanges.add(trimmedLine)
+                }
+
+                else -> {
+                    packSection()
+                    currentTitle = trimmedLine
                 }
             }
         }
         packSection()
 
-        return sections
+        return sections.ifEmpty {
+            listOf(Section("Release notes", listOf("No release notes are available for this version.")))
+        }
+    }
+
+    @Composable
+    private fun CollapsibleReleaseNotesSection(section: Section, expandedByDefault: Boolean) {
+        var expanded by remember(section.title) { mutableStateOf(expandedByDefault) }
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 5.dp),
+            colors = CardDefaults.cardColors(containerColor = colorPalette().background2),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expanded = !expanded },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BasicText(
+                        text = section.title,
+                        style = typography().s.semiBold.copy(color = colorPalette().text),
+                        modifier = Modifier.weight(1f)
+                    )
+                    BasicText(
+                        text = if (expanded) "Hide" else "${section.changes.size}",
+                        style = typography().xxs.semiBold.copy(color = colorPalette().accent)
+                    )
+                }
+
+                if (expanded) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    section.changes.forEach { change ->
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            modifier = Modifier.padding(vertical = 3.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(colorPalette().accent)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            BasicText(
+                                text = change.removePrefix("- "),
+                                style = typography().xs.copy(color = colorPalette().text),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @OptIn(ExperimentalAnimationApi::class)
@@ -203,9 +277,49 @@ class ChangelogsDialog(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tabs with animations
             AnimatedVisibility(
                 visible = true,
+                enter = fadeIn(animationSpec = tween(400)) + scaleIn(
+                    animationSpec = tween(400),
+                    initialScale = 0.9f
+                )
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (colorPalette() === PureBlackColorPalette || colorPalette() === ModernBlackColorPalette || colorPaletteMode == ColorPaletteMode.PitchBlack) {
+                            Color(0xFF1A1A1A)
+                        } else {
+                            colorPalette().background1
+                        }
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 220.dp, max = (windowInfo.containerSize.height * .5f).dp)
+                    ) {
+                        items(
+                            items = sections,
+                            key = { it.title }
+                        ) { section ->
+                            CollapsibleReleaseNotesSection(
+                                section = section,
+                                expandedByDefault = section == sections.firstOrNull()
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Tabs with animations
+            AnimatedVisibility(
+                visible = false,
                 enter = fadeIn(animationSpec = tween(400)) + scaleIn(
                     animationSpec = tween(400),
                     initialScale = 0.9f
@@ -283,7 +397,7 @@ class ChangelogsDialog(
 
             // content with animations
             AnimatedVisibility(
-                visible = true,
+                visible = false,
                 enter = fadeIn(animationSpec = tween(500)) + scaleIn(
                     animationSpec = tween(500),
                     initialScale = 0.9f

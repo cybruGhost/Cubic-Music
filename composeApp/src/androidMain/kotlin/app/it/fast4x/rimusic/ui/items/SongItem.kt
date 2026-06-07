@@ -343,8 +343,8 @@ fun SongItem(
     downloadedStateMedia = if (!mediaItem.isLocal) downloadedStateMedia(mediaItem.mediaId)
     else DownloadedStateMedia.DOWNLOADED
 
-    val title = mediaItem.mediaMetadata.title.toString()
-    val authors = mediaItem.mediaMetadata.artist.toString()
+    val title = mediaItem.mediaMetadata.title?.toString()?.takeUnless { it.equals("null", true) }.orEmpty()
+    val authors = mediaItem.mediaMetadata.artist?.toString()?.takeUnless { it.equals("null", true) }.orEmpty()
     val duration = mediaItem.mediaMetadata.extras?.getString("durationText")
 
     val playlistindicator by rememberPreference(playlistindicatorKey,false)
@@ -709,12 +709,9 @@ fun SongItem(
                             },
                             modifier = Modifier.size(20.dp)
                         )
-                        if (
-                            downloadedStateMedia == DownloadedStateMedia.CACHED ||
-                            downloadedStateMedia == DownloadedStateMedia.CACHED_AND_DOWNLOADED
-                        ) {
-                            BasicText(
-                                text = "\u273F",
+                      if (downloadedStateMedia == DownloadedStateMedia.CACHED) {
+                          BasicText(
+                              text = "\u273F",
                                 style = typography().xxs.medium.copy(color = androidx.compose.ui.graphics.Color(0xFFF5C542)),
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)

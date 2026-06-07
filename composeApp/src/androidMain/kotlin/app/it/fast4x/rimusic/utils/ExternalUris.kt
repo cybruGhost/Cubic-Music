@@ -18,6 +18,9 @@ object ExternalUris {
     fun cubicMusicFallback(videoId: String): String =
         "$CUBIC_FALLBACK_BASE_URL?v=$videoId"
 
+    fun cubicMusicShare(videoId: String): String =
+        cubicMusicFallback(videoId)
+
     fun cubicMusicSong(videoId: String): String {
         val fallbackUrl = Uri.encode(cubicMusicFallback(videoId))
         return "intent://cubicmusic/song/$videoId#Intent;" +

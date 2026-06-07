@@ -137,22 +137,20 @@ fun SnakeGame(
                         invincible = true
                         invincibleTimer = 40  // Invincibility for 40 moves
                     }
-                }
 
-                // Update star food timer
-                if (starFood != null && currentTime - lastStarFoodTime >= snakeSpeed) {
-                    starFoodTimer--
-                    lastStarFoodTime = currentTime
-                    if (starFoodTimer <= 0) {
-                        starFood = null
+                    // Tick timed power-ups exactly once per move.
+                    if (starFood != null) {
+                        starFoodTimer--
+                        if (starFoodTimer <= 0) {
+                            starFood = null
+                        }
                     }
-                }
-
-                // Update invincibility timer
-                if (invincible && currentTime - lastMoveTime >= snakeSpeed) {
-                    invincibleTimer--
-                    if (invincibleTimer <= 0) {
-                        invincible = false
+                    if (invincible) {
+                        invincibleTimer--
+                        if (invincibleTimer <= 0) {
+                            invincible = false
+                            invincibleTimer = 0
+                        }
                     }
                 }
 

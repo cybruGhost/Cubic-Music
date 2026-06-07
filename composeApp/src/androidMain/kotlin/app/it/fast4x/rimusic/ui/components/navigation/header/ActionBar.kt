@@ -1,5 +1,6 @@
 package app.it.fast4x.rimusic.ui.components.navigation.header
 
+import android.content.Intent
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import app.kreate.android.R
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import app.it.fast4x.rimusic.RescueCenterActivity
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.FontType
 import app.it.fast4x.rimusic.enums.NavRoutes
@@ -29,7 +31,9 @@ import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
 import app.it.fast4x.rimusic.extensions.youtubelogin.YoutubeSession
 import app.it.fast4x.rimusic.ui.components.navigation.header.HeaderIcon
 import app.it.fast4x.rimusic.utils.enablePictureInPictureKey
+import app.it.fast4x.rimusic.utils.logDebugEnabledKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.showRescueCenterInMenuKey
 import app.it.fast4x.rimusic.utils.ytCookieKey
 import app.it.fast4x.rimusic.ui.styling.Typography
 import app.it.fast4x.rimusic.ui.styling.typographyOf
@@ -40,26 +44,33 @@ import androidx.compose.ui.window.PopupProperties
 private fun HamburgerMenu(
     expanded: Boolean,
     onItemClick: (NavRoutes) -> Unit,
+    onRescueClick: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
     val enablePictureInPicture by rememberPreference(enablePictureInPictureKey, false)
+    val showRescueCenterInMenu by rememberPreference(showRescueCenterInMenuKey, true)
+    val logDebugEnabled by rememberPreference(logDebugEnabledKey, false)
     val pipHandler = rememberPipHandler()
+    val showRescueCenter = showRescueCenterInMenu || logDebugEnabled
     
     // Get typography instance
     val typography = typographyOf(
         color = colorPalette().text,
         useSystemFont = false,
         applyFontPadding = true,
-        fontType = FontType.Rubik
+        fontType = FontType.GothicBold
     )
 
     // Menu items data
-    val menuItems = remember {
+    val menuItems = remember(showRescueCenter, enablePictureInPicture) {
         buildList {
             add(MenuItem(R.drawable.history, R.string.history, NavRoutes.history))
             add(MenuItem(R.drawable.stats_chart, R.string.statistics, NavRoutes.statistics))
             add(MenuItem(R.drawable.trophy, R.string.rewind, NavRoutes.rewind))
             add(MenuItem(R.drawable.heart_gift, R.string.donate, NavRoutes.donate))
+            if (showRescueCenter) {
+                add(MenuItem(R.drawable.rescue, R.string.rescue_center, isRescueItem = true))
+            }
             if (isPipSupported && enablePictureInPicture) {
                 add(MenuItem(
                     iconRes = R.drawable.images_sharp,
@@ -104,6 +115,8 @@ private fun HamburgerMenu(
                             onClick = {
                                 if (item.isPipItem) {
                                     pipHandler.enterPictureInPictureMode()
+                                } else if (item.isRescueItem) {
+                                    onRescueClick()
                                 } else {
                                     onItemClick(item.route!!)
                                 }
@@ -205,6 +218,7 @@ private data class MenuItem(
     val route: NavRoutes? = null,
     val isDivider: Boolean = false,
     val isPipItem: Boolean = false,
+    val isRescueItem: Boolean = false,
     val isLast: Boolean = false
 )
 
@@ -255,12 +269,17 @@ fun ActionBar(
         expanded = false
         navController.navigate(it.name)
     }
+    val onRescueClick: () -> Unit = {
+        expanded = false
+        context.startActivity(Intent(context, RescueCenterActivity::class.java))
+    }
     val onDismissRequest: () -> Unit = { expanded = false }
 
     // Hamburger menu
     HamburgerMenu(
         expanded = expanded,
         onItemClick = onItemClick,
+        onRescueClick = onRescueClick,
         onDismissRequest = onDismissRequest
     )
 }

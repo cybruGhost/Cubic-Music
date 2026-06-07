@@ -27,8 +27,8 @@ import kotlin.math.min
 
 private const val LYRICS_SHARE_WIDTH = 1080
 private const val LYRICS_SHARE_HEIGHT = 1920
-private const val MAX_SHARE_LINES = 6
-private const val MAX_SHARE_VISUAL_LINES = 8
+private const val DEFAULT_SHARE_LINES = 6
+private const val MAX_SHARE_LINES = 11
 private const val SHARE_BASE_URL = "https://thecub.netlify.app/cubicmusic"
 
 suspend fun shareLyricsCard(
@@ -39,9 +39,11 @@ suspend fun shareLyricsCard(
     lyricsText: String,
     artworkUrl: String?,
     deeplinkUrl: String = buildLyricsShareLink(mediaId, title, artist),
+    maxLines: Int = DEFAULT_SHARE_LINES,
 ): Result<Unit> = runCatching {
+    val requestedMaxLines = maxLines.coerceIn(1, MAX_SHARE_LINES)
     val shareLines = buildLyricsShareLines(lyricsText)
-    val clippedLyrics = buildLyricsShareSlice(shareLines)
+    val clippedLyrics = buildLyricsShareSlice(shareLines, maxLines = requestedMaxLines)
 
     val artwork = artworkUrl
         ?.takeIf { it.isNotBlank() }
@@ -131,9 +133,15 @@ suspend fun shareLyricsCard(
             textSize = 26f
             typeface = subtitleTypeface
         }
+        val lyricLineCount = clippedLyrics.lines().size.coerceAtLeast(1)
+        val initialLyricsSize = when {
+            lyricLineCount >= 10 -> 46f
+            lyricLineCount >= 8 -> 52f
+            else -> 61f
+        }
         val lyricsPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = bodyTextColor
-            textSize = 61f
+            textSize = initialLyricsSize
             isFakeBoldText = true
             typeface = bodyTypeface
         }
@@ -170,13 +178,14 @@ suspend fun shareLyricsCard(
 
         val maxTextWidth = (cardRect.width() - 110f).toInt()
         val lyricsTop = cardTop + 264f
-        val lyricsBottom = cardBottom - 152f
+        val lyricsBottom = cardBottom - 136f
         val availableLyricsHeight = (lyricsBottom - lyricsTop).toInt()
         val lyricsLayout = buildShareLyricsLayout(
             text = clippedLyrics,
             width = maxTextWidth,
             availableHeight = availableLyricsHeight,
-            basePaint = lyricsPaint
+            basePaint = lyricsPaint,
+            maxLines = requestedMaxLines
         )
 
         canvas.save()
@@ -278,16 +287,17 @@ fun buildLyricsShareLines(text: String): List<String> {
 fun buildLyricsShareSlice(
     lines: List<String>,
     startIndex: Int = 0,
-    maxLines: Int = MAX_SHARE_LINES
+    maxLines: Int = DEFAULT_SHARE_LINES
 ): String {
     if (lines.isEmpty()) return "No lyrics available yet."
+    val safeMaxLines = maxLines.coerceIn(1, MAX_SHARE_LINES)
     val safeStartIndex = startIndex.coerceIn(0, lines.lastIndex)
     val selectedLines = lines
         .drop(safeStartIndex)
-        .take(maxLines)
+        .take(safeMaxLines)
         .toMutableList()
 
-    while (selectedLines.size < maxLines) {
+    while (selectedLines.size < safeMaxLines) {
         selectedLines += ""
     }
 
@@ -396,25 +406,27 @@ private fun buildShareLyricsLayout(
     text: String,
     width: Int,
     availableHeight: Int,
-    basePaint: TextPaint
+    basePaint: TextPaint,
+    maxLines: Int
 ): StaticLayout {
     var textSize = basePaint.textSize
+    val safeMaxLines = maxLines.coerceIn(1, MAX_SHARE_LINES)
     var layout = createShareLayout(
         text = text,
         width = width,
         paint = basePaint,
         textSize = textSize,
-        maxLines = MAX_SHARE_VISUAL_LINES
+        maxLines = safeMaxLines
     )
 
-    while (layout.height > availableHeight && textSize > 46f) {
+    while (layout.height > availableHeight && textSize > 34f) {
         textSize -= 2f
         layout = createShareLayout(
             text = text,
             width = width,
             paint = basePaint,
             textSize = textSize,
-            maxLines = MAX_SHARE_VISUAL_LINES
+            maxLines = safeMaxLines
         )
     }
 
@@ -434,7 +446,7 @@ private fun createShareLayout(
     return StaticLayout.Builder
         .obtain(text, 0, text.length, adjustedPaint, width)
         .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-        .setLineSpacing(8f, 1.0f)
+        .setLineSpacing(if (maxLines > 8) 4f else 8f, 1.0f)
         .setIncludePad(false)
         .setMaxLines(maxLines)
         .build()

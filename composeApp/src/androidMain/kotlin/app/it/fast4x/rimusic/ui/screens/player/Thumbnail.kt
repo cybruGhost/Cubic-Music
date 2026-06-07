@@ -1,5 +1,6 @@
 package app.it.fast4x.rimusic.ui.screens.player
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
@@ -18,6 +19,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,13 +30,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -63,9 +70,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.kreate.android.R
 import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
+import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.ThumbnailCoverType
 import app.it.fast4x.rimusic.enums.ThumbnailType
 import app.it.fast4x.rimusic.service.LoginRequiredException
@@ -79,21 +88,35 @@ import app.it.fast4x.rimusic.service.VideoIdMismatchException
 import app.it.fast4x.rimusic.service.modern.isLocal
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.ui.components.themed.RotateThumbnailCoverAnimation
+import app.it.fast4x.rimusic.ui.screens.player.components.YoutubePlayer
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.utils.DisposableListener
+import app.it.fast4x.rimusic.utils.ExternalUris
+import app.it.fast4x.rimusic.utils.OmadaSearchClient
+import app.it.fast4x.rimusic.utils.OmadaSearchResult
+import app.it.fast4x.rimusic.utils.buildThumbnailShareLink
 import app.it.fast4x.rimusic.utils.clickOnLyricsTextKey
 import app.it.fast4x.rimusic.utils.coverThumbnailAnimationKey
 import app.it.fast4x.rimusic.utils.doubleShadowDrop
+import app.it.fast4x.rimusic.utils.shareThumbnailCard
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.platform.LocalConfiguration
 import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.playerVideoModeActiveKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerVideoKey
 import app.it.fast4x.rimusic.utils.showCoverThumbnailAnimationKey
 import app.it.fast4x.rimusic.utils.showlyricsthumbnailKey
 import app.it.fast4x.rimusic.utils.showvisthumbnailKey
 import app.it.fast4x.rimusic.utils.thumbnailTypeKey
 import app.it.fast4x.rimusic.utils.thumbnailpauseKey
+import it.fast4x.innertube.Innertube
+import it.fast4x.innertube.Innertube.SearchFilter
+import it.fast4x.innertube.models.bodies.SearchBody
+import it.fast4x.innertube.requests.searchPage
+import it.fast4x.innertube.utils.from
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -104,6 +127,7 @@ import timber.log.Timber
 import java.net.UnknownHostException
 import java.nio.channels.UnresolvedAddressException
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -134,8 +158,16 @@ data class CommentResponse(
     val continuation: String?
 )
 
-// Function to fetch comments with pagination support
+private const val YOUTUBEI_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX3"
+
+// Function to fetch comments with pagination support. Innertube is tried first, Omada stays as fallback.
 suspend fun fetchCommentsPage(videoId: String, continuation: String? = null): CommentResponse = withContext(Dispatchers.IO) {
+    runCatching { fetchInnertubeCommentsPage(videoId, continuation) }
+        .onFailure { Timber.w(it, "Innertube comments failed, falling back to Omada for %s", videoId) }
+        .getOrNull()
+        ?.takeIf { it.comments.isNotEmpty() }
+        ?.let { return@withContext it }
+
     val comments = mutableListOf<Comment>()
     var nextContinuation: String? = null
     
@@ -206,6 +238,122 @@ suspend fun fetchCommentsPage(videoId: String, continuation: String? = null): Co
     }
 
     return@withContext CommentResponse(comments, nextContinuation)
+}
+
+private fun innertubeContextJson(): JSONObject = JSONObject()
+    .put("client", JSONObject()
+        .put("clientName", "WEB")
+        .put("clientVersion", "2.20240605.01.00")
+        .put("hl", java.util.Locale.getDefault().language.ifBlank { "en" })
+        .put("gl", java.util.Locale.getDefault().country.ifBlank { "US" })
+    )
+
+private fun innertubeText(obj: JSONObject?): String =
+    obj?.optString("simpleText")?.takeIf { it.isNotBlank() }
+        ?: obj?.optJSONArray("runs")?.let { runs ->
+            buildString {
+                for (i in 0 until runs.length()) {
+                    append(runs.optJSONObject(i)?.optString("text").orEmpty())
+                }
+            }.trim()
+        }.orEmpty()
+
+private fun parseCompactCount(text: String): Int {
+    val cleaned = text.trim().replace(",", "")
+    if (cleaned.isBlank()) return 0
+    val multiplier = when {
+        cleaned.endsWith("K", ignoreCase = true) -> 1_000
+        cleaned.endsWith("M", ignoreCase = true) -> 1_000_000
+        else -> 1
+    }
+    return (cleaned.dropLast(if (multiplier == 1) 0 else 1).toDoubleOrNull() ?: 0.0).times(multiplier).toInt()
+}
+
+private fun parseInnertubeComment(renderer: JSONObject): Comment? {
+    val author = innertubeText(renderer.optJSONObject("authorText")).ifBlank { "Unknown" }
+    val content = innertubeText(renderer.optJSONObject("contentText"))
+    if (content.isBlank()) return null
+
+    val thumbnails = mutableListOf<AuthorThumbnail>()
+    renderer.optJSONObject("authorThumbnail")?.optJSONArray("thumbnails")?.let { array ->
+        for (i in 0 until array.length()) {
+            val item = array.optJSONObject(i) ?: continue
+            thumbnails.add(
+                AuthorThumbnail(
+                    url = item.optString("url", ""),
+                    width = item.optInt("width", 0),
+                    height = item.optInt("height", 0)
+                )
+            )
+        }
+    }
+
+    return Comment(
+        id = renderer.optString("commentId").ifBlank { renderer.optString("trackingParams", content.hashCode().toString()) },
+        author = author,
+        content = content,
+        timestamp = innertubeText(renderer.optJSONObject("publishedTimeText")),
+        likes = parseCompactCount(innertubeText(renderer.optJSONObject("voteCount"))),
+        authorThumbnails = thumbnails
+    )
+}
+
+private fun collectInnertubeComments(node: Any?, comments: MutableList<Comment>, continuations: MutableList<String>) {
+    when (node) {
+        is JSONObject -> {
+            node.optJSONObject("commentThreadRenderer")
+                ?.optJSONObject("comment")
+                ?.optJSONObject("commentRenderer")
+                ?.let { parseInnertubeComment(it) }
+                ?.let { comments.add(it) }
+
+            node.optJSONObject("commentRenderer")
+                ?.let { parseInnertubeComment(it) }
+                ?.let { comments.add(it) }
+
+            node.optJSONObject("continuationCommand")?.optString("token")?.takeIf { it.isNotBlank() }?.let(continuations::add)
+            node.optJSONObject("nextContinuationData")?.optString("continuation")?.takeIf { it.isNotBlank() }?.let(continuations::add)
+
+            val keys = node.keys()
+            while (keys.hasNext()) collectInnertubeComments(node.opt(keys.next()), comments, continuations)
+        }
+        is JSONArray -> {
+            for (i in 0 until node.length()) collectInnertubeComments(node.opt(i), comments, continuations)
+        }
+    }
+}
+
+private fun fetchInnertubeCommentsPage(videoId: String, continuation: String?): CommentResponse {
+    val endpoint = if (continuation == null) "next" else "browse"
+    val body = JSONObject()
+        .put("context", innertubeContextJson())
+        .apply {
+            if (continuation == null) put("videoId", videoId) else put("continuation", continuation)
+        }
+        .toString()
+
+    val connection = (URL("https://www.youtube.com/youtubei/v1/$endpoint?key=$YOUTUBEI_KEY").openConnection() as HttpURLConnection).apply {
+        requestMethod = "POST"
+        connectTimeout = 8000
+        readTimeout = 8000
+        doOutput = true
+        setRequestProperty("Content-Type", "application/json")
+        setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    }
+
+    connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
+    if (connection.responseCode !in 200..299) error("Innertube comments HTTP ${connection.responseCode}")
+
+    val response = BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
+    val comments = mutableListOf<Comment>()
+    val continuations = mutableListOf<String>()
+    collectInnertubeComments(JSONObject(response), comments, continuations)
+    val uniqueComments = comments.distinctBy { it.id }
+    val nextContinuation = continuations.firstOrNull { it != continuation }
+    if (continuation == null && uniqueComments.isEmpty() && nextContinuation != null) {
+        return fetchInnertubeCommentsPage(videoId, nextContinuation)
+    }
+    return CommentResponse(uniqueComments, nextContinuation)
 }
 
 @Composable
@@ -757,6 +905,12 @@ fun Thumbnail(
     var showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, false)
  
     val showCommentsButton by rememberPreference("show_comments_button", true)
+    val showVideoButton by rememberPreference(showButtonPlayerVideoKey, false)
+    var showVideo by rememberPreference(playerVideoModeActiveKey, false)
+
+    LaunchedEffect(showVideoButton) {
+        if (!showVideoButton) showVideo = false
+    }
 
     var error by remember {
         mutableStateOf<PlaybackException?>(player.playerError)
@@ -790,12 +944,15 @@ fun Thumbnail(
     
     // State for comments visibility
     var showComments by remember { mutableStateOf(false) }
+    var showThumbnailShareDialog by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     player.DisposableListener {
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 // Hide comments when song changes
                 showComments = false
+                showVideo = false
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -810,6 +967,10 @@ fun Thumbnail(
     }
 
     val displayedMediaItem = displayedPlayerState.mediaItem ?: return
+    val baseVideoId = remember(displayedMediaItem.mediaId) {
+        displayedMediaItem.mediaId.toYoutubeVideoId().takeIf { it.isYoutubeVideoId() }
+    }
+    val resolvedVideoId = baseVideoId
 
     LaunchedEffect(displayedMediaItem.mediaId, displayedMediaItem.mediaMetadata.artworkUri) {
         artImageAvailable = true
@@ -835,6 +996,13 @@ fun Thumbnail(
             artImageAvailable = true 
         }
     )
+    if (showThumbnailShareDialog) {
+        ThumbnailShareDialog(
+            mediaItem = displayedMediaItem,
+            currentThumbnailUrl = displayedMediaItem.mediaMetadata.artworkUri?.toString(),
+            onDismiss = { showThumbnailShareDialog = false }
+        )
+    }
 
     val showCoverThumbnailAnimation by rememberPreference(showCoverThumbnailAnimationKey, false)
     var coverThumbnailAnimation by rememberPreference(coverThumbnailAnimationKey, ThumbnailCoverType.Vinyl)
@@ -900,19 +1068,31 @@ fun Thumbnail(
             modifier = modifierUiType
         ) {
             if (showthumbnail) {
-                if ((!isShowingLyrics && !isShowingVisualizer) || (isShowingVisualizer && showvisthumbnail) || (isShowingLyrics && showlyricsthumbnail))
+                if (showVideoButton && showVideo && resolvedVideoId != null) {
+                    YoutubePlayer(
+                        ytVideoId = resolvedVideoId,
+                        lifecycleOwner = lifecycleOwner,
+                        showPlayer = true,
+                        syncPlayer = player,
+                        onCurrentSecond = {},
+                        onSwitchToAudioPlayer = { showVideo = false }
+                    )
+                } else if ((!isShowingLyrics && !isShowingVisualizer) || (isShowingVisualizer && showvisthumbnail) || (isShowingLyrics && showlyricsthumbnail))
                     if (artImageAvailable) {
                         if (showCoverThumbnailAnimation)
                             RotateThumbnailCoverAnimation(
                                 painter = coverPainter,
                                 isSongPlaying = displayedPlayerState.shouldBePlaying,
                                 modifier = Modifier
-                                    .clickable {
+                                    .combinedClickable(
+                                        onClick = {
                                         if (thumbnailTapEnabledKey && !showComments) {
                                             onShowLyrics(true)
                                             onShowEqualizer(false)
                                         }
-                                    }
+                                    },
+                                        onLongClick = { showThumbnailShareDialog = true }
+                                    )
                                     .graphicsLayer { alpha = thumbnailAlpha },
                                 type = coverThumbnailAnimation
                             )
@@ -922,12 +1102,15 @@ fun Thumbnail(
                                 contentDescription = null,
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier
-                                    .clickable {
+                                    .combinedClickable(
+                                        onClick = {
                                         if (thumbnailTapEnabledKey && !showComments) {
                                             onShowLyrics(true)
                                             onShowEqualizer(false)
                                         }
-                                    }
+                                    },
+                                        onLongClick = { showThumbnailShareDialog = true }
+                                    )
                                     .fillMaxSize()
                                     .clip(thumbnailShape())
                                     .graphicsLayer { alpha = thumbnailAlpha }
@@ -937,12 +1120,15 @@ fun Thumbnail(
                         Image(
                             painter = painterResource(R.drawable.ic_launcher_box),
                             modifier = Modifier
-                                .clickable {
+                                .combinedClickable(
+                                    onClick = {
                                     if (thumbnailTapEnabledKey && !showComments) {
                                         onShowLyrics(true)
                                         onShowEqualizer(false)
                                     }
-                                }
+                                },
+                                    onLongClick = { showThumbnailShareDialog = true }
+                                )
                                 .fillMaxSize()
                                 .clip(thumbnailShape())
                                 .graphicsLayer { alpha = thumbnailAlpha },
@@ -952,7 +1138,7 @@ fun Thumbnail(
                     }
 
                 // Comments toggle button (comments icon) - only show when comments are not visible
-           if (!showComments && showCommentsButton) {
+                if (!showVideo && !showComments && showCommentsButton) {
                     Image(
                         painter = painterResource(R.drawable.comments),
                         contentDescription = "Toggle comments",
@@ -966,9 +1152,36 @@ fun Thumbnail(
                     )
                 }
 
+                if (!showComments && showVideoButton && resolvedVideoId != null) {
+                    Image(
+                        painter = painterResource(if (showVideo) R.drawable.musical_notes else R.drawable.video),
+                        contentDescription = if (showVideo) "Return to audio" else "Show video",
+                        colorFilter = ColorFilter.tint(Color.White),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(
+                                top = if (showCommentsButton && !showVideo) 58.dp else 8.dp,
+                                end = 8.dp
+                            )
+                            .shadow(8.dp, RoundedCornerShape(12.dp), clip = false)
+                            .size(width = 50.dp, height = 36.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.62f))
+                            .clickable {
+                                showVideo = !showVideo && resolvedVideoId != null
+                                if (showVideo) {
+                                    showComments = false
+                                    onShowLyrics(false)
+                                    onShowEqualizer(false)
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    )
+                }
+
                 // Comments overlay
                 CommentsOverlay(
-                    videoId = currentDisplayedMediaItem.mediaId,
+                    videoId = resolvedVideoId ?: currentDisplayedMediaItem.mediaId.toYoutubeVideoId(),
                     isVisible = showComments,
                     onDismiss = { showComments = false }
                 )
@@ -999,16 +1212,16 @@ fun Thumbnail(
                     )
                 }
 
-                var errorCounter by remember { mutableIntStateOf(0) }
+                var lastPlaybackError by remember { mutableStateOf<PlaybackException?>(null) }
 
-                if (error != null) {
-                    errorCounter = errorCounter.plus(1)
-                    if (errorCounter < 3) {
-                        Timber.e("Playback error: ${error?.cause?.cause}")
+                LaunchedEffect(error) {
+                    val currentError = error
+                    if (currentError != null && currentError !== lastPlaybackError) {
+                        lastPlaybackError = currentError
                         Toaster.e(
                             if (currentDisplayedMediaItem.isLocal)
                                 localMusicFileNotFoundError
-                            else when (error?.cause?.cause) {
+                            else when (currentError.cause?.cause) {
                                 is UnresolvedAddressException, is UnknownHostException -> networkerror
                                 is PlayableFormatNotFoundException -> notfindplayableaudioformaterror
                                 is UnplayableException -> originalvideodeletederror
@@ -1021,7 +1234,7 @@ fun Thumbnail(
                                 else -> unknownplaybackerror
                             }
                         )
-                    } else errorCounter = 0
+                    }
                 }
             }
         }
@@ -1038,5 +1251,239 @@ fun Modifier.thumbnailpause(
         .graphicsLayer {
             scaleX = scale
             scaleY = scale
-        }
+    }
 }
+
+@Composable
+private fun ThumbnailShareDialog(
+    mediaItem: MediaItem,
+    currentThumbnailUrl: String?,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var thumbnailUrl by remember(mediaItem.mediaId) { mutableStateOf(currentThumbnailUrl.orEmpty()) }
+    var loadingAlternative by remember { mutableStateOf(false) }
+    var creatingShare by remember { mutableStateOf(false) }
+    var alternatives by remember(mediaItem.mediaId) { mutableStateOf<List<OmadaSearchResult>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    val title = mediaItem.mediaMetadata.title?.toString().orEmpty()
+    val artist = mediaItem.mediaMetadata.artist?.toString().orEmpty()
+    val videoId = mediaItem.mediaId.toYoutubeVideoId()
+    val shareLink = buildThumbnailShareLink(videoId)
+    val cubicShareLink = ExternalUris.cubicMusicShare(videoId)
+    val shareFailed = stringResource(R.string.thumbnail_share_failed)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colorPalette().background1,
+        titleContentColor = colorPalette().text,
+        textContentColor = colorPalette().textSecondary,
+        shape = RoundedCornerShape(22.dp),
+        title = { Text(stringResource(R.string.thumbnail_share_title)) },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    colorPalette().background2.copy(alpha = 0.96f),
+                                    colorPalette().background1.copy(alpha = 0.86f)
+                                )
+                            )
+                        )
+                        .padding(14.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        ImageCacheFactory.Thumbnail(
+                            thumbnailUrl = thumbnailUrl.ifBlank { currentThumbnailUrl },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(20.dp))
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.ic_launcher),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(title.ifBlank { stringResource(R.string.thumbnail_share_app_name) }, color = colorPalette().text, maxLines = 2)
+                                Text(artist, color = colorPalette().textSecondary, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                if (alternatives.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.thumbnail_share_pick_art),
+                        color = colorPalette().text,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp, bottom = 8.dp)
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(alternatives) { result ->
+                            val candidate = result.thumbnailUrl.orEmpty()
+                            if (candidate.isNotBlank()) {
+                                ImageCacheFactory.Thumbnail(
+                                    thumbnailUrl = candidate,
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(colorPalette().background2)
+                                        .clickable { thumbnailUrl = candidate }
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                ThumbnailShareAction(
+                    text = if (creatingShare) stringResource(R.string.thumbnail_share_creating) else stringResource(R.string.thumbnail_share_card_with_link_action),
+                    enabled = !creatingShare,
+                    accent = true,
+                    onClick = {
+                        scope.launch {
+                            creatingShare = true
+                            shareThumbnailCard(
+                                context = context,
+                                mediaId = videoId,
+                                title = title,
+                                artist = artist,
+                                artworkUrl = thumbnailUrl.ifBlank { currentThumbnailUrl },
+                                includeSongLink = true
+                            ).onFailure { Toaster.e(it.message ?: shareFailed) }
+                            creatingShare = false
+                        }
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                ThumbnailShareAction(
+                    text = stringResource(R.string.thumbnail_share_card_action),
+                    enabled = !creatingShare,
+                    onClick = {
+                        scope.launch {
+                            creatingShare = true
+                            shareThumbnailCard(
+                                context = context,
+                                mediaId = videoId,
+                                title = title,
+                                artist = artist,
+                                artworkUrl = thumbnailUrl.ifBlank { currentThumbnailUrl },
+                                includeSongLink = false
+                            ).onFailure { Toaster.e(it.message ?: shareFailed) }
+                            creatingShare = false
+                        }
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                ThumbnailShareAction(
+                    text = stringResource(R.string.thumbnail_share_text_action),
+                    onClick = {
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "$title\n$artist\n$shareLink")
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.thumbnail_share_chooser)))
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                ThumbnailShareAction(
+                    text = stringResource(R.string.thumbnail_share_cubic_link_action),
+                    enabled = !creatingShare,
+                    onClick = {
+                        scope.launch {
+                            creatingShare = true
+                            shareThumbnailCard(
+                                context = context,
+                                mediaId = videoId,
+                                title = title,
+                                artist = artist,
+                                artworkUrl = thumbnailUrl.ifBlank { currentThumbnailUrl },
+                                includeSongLink = true,
+                                songLinkOverride = cubicShareLink
+                            ).onFailure { Toaster.e(it.message ?: shareFailed) }
+                            creatingShare = false
+                        }
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                ThumbnailShareAction(
+                    text = if (loadingAlternative) stringResource(R.string.thumbnail_share_finding) else stringResource(R.string.thumbnail_share_try_omada),
+                    enabled = !loadingAlternative,
+                    onClick = {
+                        scope.launch {
+                            loadingAlternative = true
+                            val query = listOf(title, artist).filter { it.isNotBlank() }.joinToString(" ")
+                            val found = OmadaSearchClient.search(query, type = "video")
+                                .getOrNull()
+                                .orEmpty()
+                                .filter { it.thumbnailUrl?.isNotBlank() == true }
+                                .distinctBy { it.thumbnailUrl }
+                                .take(8)
+                            alternatives = found
+                            thumbnailUrl = found.firstOrNull()?.thumbnailUrl.orEmpty().ifBlank { thumbnailUrl }
+                            loadingAlternative = false
+                        }
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+        dismissButton = {}
+    )
+}
+
+@Composable
+private fun ThumbnailShareAction(
+    text: String,
+    enabled: Boolean = true,
+    accent: Boolean = false,
+    onClick: () -> Unit
+) {
+    val bg = if (accent) colorPalette().accent else colorPalette().background2
+    val fg = if (accent) colorPalette().onAccent else colorPalette().text
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (enabled) bg else bg.copy(alpha = 0.45f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = text, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+private fun String.toYoutubeVideoId(): String =
+    removePrefix("e:")
+        .substringAfterLast("watch?v=")
+        .substringAfterLast("/")
+        .substringBefore("&")
+        .substringBefore("?")
+
+private fun String.isYoutubeVideoId(): Boolean =
+    matches(Regex("^[A-Za-z0-9_-]{11}$"))

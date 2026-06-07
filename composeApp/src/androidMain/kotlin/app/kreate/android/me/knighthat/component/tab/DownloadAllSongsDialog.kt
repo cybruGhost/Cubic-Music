@@ -29,30 +29,42 @@ import kotlinx.coroutines.withContext
 class DownloadAllSongsDialog(
     activeState: MutableState<Boolean>,
     getSongs: () -> List<Song>,
-    private val activeBinder: PlayerServiceModern.Binder?
+    private val activeBinder: PlayerServiceModern.Binder?,
+    private val redownloadExisting: Boolean = false,
+    private val titleId: Int = R.string.do_you_really_want_to_download_all,
+    private val menuTitleId: Int = R.string.download,
+    private val messageTitleId: Int = R.string.info_download_all_songs,
 ) : MediaDownloadDialog(activeState, getSongs, activeBinder), MenuIcon, Descriptive {
 
     companion object {
         @Composable
         operator fun invoke(
-            getSongs: () -> List<Song>
+            getSongs: () -> List<Song>,
+            redownloadExisting: Boolean = false,
+            titleId: Int = R.string.do_you_really_want_to_download_all,
+            menuTitleId: Int = R.string.download,
+            messageTitleId: Int = R.string.info_download_all_songs,
         ) = DownloadAllSongsDialog(
             remember { mutableStateOf(false) },
             getSongs,
-            LocalPlayerServiceBinder.current
+            LocalPlayerServiceBinder.current,
+            redownloadExisting,
+            titleId,
+            menuTitleId,
+            messageTitleId
         )
     }
 
-    override val messageId: Int = R.string.info_download_all_songs
+    override val messageId: Int = messageTitleId
     override val iconId: Int = R.drawable.downloaded
 
     override val dialogTitle: String
         @Composable
-        get() = stringResource(R.string.do_you_really_want_to_download_all)
+        get() = stringResource(titleId)
 
     override val menuIconTitle: String
         @Composable
-        get() = stringResource(R.string.download)
+        get() = stringResource(menuTitleId)
 
     override fun onShortClick() = super.onShortClick()
 
@@ -60,6 +72,9 @@ class DownloadAllSongsDialog(
         val songsToDownload = getSongs()
             .distinctBy(Song::id)
             .filterNot(Song::isLocal)
+            .let { songs ->
+                if (redownloadExisting) songs else songs.filterNot { song -> MyDownloadHelper.isSongDownloaded(song.id) }
+            }
 
         if (songsToDownload.isEmpty()) {
             onDismiss()
@@ -82,7 +97,7 @@ class DownloadAllSongsDialog(
                     MyDownloadHelper.addDownload(appContext(), song.asMediaItem)
                 }
 
-                if ((index + 1) % 5 == 0) delay(50)
+                if ((index + 1) % 3 == 0) delay(150)
             }
         }
     }

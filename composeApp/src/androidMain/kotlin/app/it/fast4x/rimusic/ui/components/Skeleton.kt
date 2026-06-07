@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -58,6 +60,7 @@ fun Skeleton(
     tabIndex: Int = 0,
     onTabChanged: (Int) -> Unit = {},
     miniPlayer: @Composable (() -> Unit)? = null,
+    swipeTabCount: Int = 0,
     navBarContent: @Composable (@Composable (Int, String, Int) -> Unit) -> Unit,
     content: @Composable AnimatedVisibilityScope.(Int) -> Unit
 ) {
@@ -121,12 +124,31 @@ fun Skeleton(
                     navigationBar.Draw()
 
                 val topPadding = if ( UiType.ViMusic.isCurrent() ) 30.dp else 0.dp
+                var horizontalDragTotal = 0f
+                val swipeModifier = if (swipeTabCount > 1) {
+                    Modifier.pointerInput(tabIndex, swipeTabCount) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { horizontalDragTotal = 0f },
+                            onHorizontalDrag = { _, dragAmount -> horizontalDragTotal += dragAmount },
+                            onDragEnd = {
+                                when {
+                                    horizontalDragTotal < -90f && tabIndex < swipeTabCount - 1 -> onTabChanged(tabIndex + 1)
+                                    horizontalDragTotal > 90f && tabIndex > 0 -> onTabChanged(tabIndex - 1)
+                                }
+                            }
+                        )
+                    }
+                } else Modifier
+
                 AnimatedContent(
                     targetState = tabIndex,
                     transitionSpec = transition(),
                     content = content,
                     label = "",
-                    modifier = Modifier.fillMaxHeight().padding( top = topPadding )
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding( top = topPadding )
+                        .then(swipeModifier)
                 )
 
                 if( NavigationBarPosition.Right.isCurrent() )

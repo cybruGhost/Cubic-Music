@@ -134,6 +134,7 @@ import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.isNowPlaying
 import app.it.fast4x.rimusic.utils.loadedDataKey
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
+import app.it.fast4x.rimusic.utils.PlaybackContextStore
 import app.it.fast4x.rimusic.utils.playEventsTypeKey
 import app.it.fast4x.rimusic.utils.playVideo
 import app.it.fast4x.rimusic.utils.quickPicsDiscoverPageKey
@@ -472,6 +473,14 @@ fun HomeQuickPicks(
             .filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
             .take(limit)
 
+    suspend fun localDiscoverySongs(limit: Int = localCount * 4): List<Song> =
+        Database.songTable
+            .all(excludeHidden = true)
+            .first()
+            .filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
+            .shuffled()
+            .take(limit)
+
     fun casualFallbackSongs(personalizedHomeSongs: List<Song>): List<Song> =
         personalizedHomeSongs.ifEmpty {
             chartsPageResult?.getOrNull()?.songs
@@ -481,30 +490,63 @@ fun HomeQuickPicks(
             .filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
             .distinctBy { it.id }
 
+    fun Song.primaryArtistKey(): String =
+        artistsText
+            ?.split(",", "&", "feat.", "ft.", ignoreCase = true)
+            ?.firstOrNull()
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+            ?: title.substringBefore("-").trim().lowercase()
+
+    fun List<Song>.artistVariety(maxPerArtist: Int = 2): List<Song> {
+        val counts = mutableMapOf<String, Int>()
+        return filter { song ->
+            val artist = song.primaryArtistKey()
+            val count = counts[artist] ?: 0
+            if (count >= maxPerArtist) {
+                false
+            } else {
+                counts[artist] = count + 1
+                true
+            }
+        }
+    }
+
     suspend fun buildCasualMix(
         personalizedHomeSongs: List<Song>,
-        favoriteSongs: List<Song>
+        favoriteSongs: List<Song>,
+        discoverySongs: List<Song>
     ): Pair<List<Song>, Result<Innertube.RelatedPage?>?> {
-        val ytmPool = casualFallbackSongs(personalizedHomeSongs)
-        val preferredSeed = when {
-            personalizedHomeSongs.isNotEmpty() -> personalizedHomeSongs.randomOrNull()
-            favoriteSongs.isNotEmpty() -> favoriteSongs.randomOrNull()
-            else -> ytmPool.randomOrNull()
-        }
+        val playedIds = favoriteSongs.map { it.id }.toSet()
+        val freshDiscoverySongs = discoverySongs
+            .filter { song -> song.id !in playedIds }
+            .distinctBy { it.id }
+        val ytmPool = (casualFallbackSongs(personalizedHomeSongs) + freshDiscoverySongs)
+            .distinctBy { it.id }
+        val seedCandidates = (personalizedHomeSongs + freshDiscoverySongs + favoriteSongs + ytmPool)
+            .filter { it.id.isNotBlank() }
+            .shuffled()
+            .artistVariety(maxPerArtist = 1)
+        val preferredSeed = seedCandidates.firstOrNull()
+        val seedSongs = seedCandidates.take(3).ifEmpty { listOfNotNull(preferredSeed) }
 
         mostPopularSong = preferredSeed ?: favoriteSongs.firstOrNull()
         if (preferredSeed == null) return ytmPool.shuffled().take(localCount) to null
 
-        val relatedResult = runCatching {
-            Innertube.relatedPage(NextBody(videoId = preferredSeed.id))
-        }.getOrNull()
-
-        val relatedSongs = relatedResult
-            ?.getOrNull()
-            ?.songs
-            ?.map { it.asSong }
-            ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
-            .orEmpty()
+        var firstRelatedResult: Result<Innertube.RelatedPage?>? = null
+        val relatedSongs = seedSongs.flatMapIndexed { index, seed ->
+            val relatedResult = runCatching {
+                Innertube.relatedPage(NextBody(videoId = seed.id))
+            }.getOrNull()
+            if (index == 0) firstRelatedResult = relatedResult
+            relatedResult
+                ?.getOrNull()
+                ?.songs
+                ?.map { it.asSong }
+                ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
+                .orEmpty()
+        }
 
         val ytmQuota = if (personalizedHomeSongs.isNotEmpty()) {
             (localCount * 0.65f).toInt().coerceAtLeast(1)
@@ -525,9 +567,10 @@ fun HomeQuickPicks(
             )
             .distinctBy { it.id }
             .shuffled()
+            .artistVariety(maxPerArtist = 2)
             .take(localCount)
 
-        return mixedSongs to relatedResult
+        return mixedSongs to firstRelatedResult
     }
 
     var downloadState by remember {
@@ -697,6 +740,7 @@ fun HomeQuickPicks(
             }.takeIf { it >= 0 }
             ?: 0
         binder?.stopRadio()
+        PlaybackContextStore.set("Playing from Quick Picks", targetTitle.ifBlank { "Home" })
         binder?.player?.forcePlayAtIndex(playableItems, startIndex)
     }
 
@@ -731,6 +775,7 @@ fun HomeQuickPicks(
         val startIndex = listOf(exactIndex, idIndex, metadataIndex).firstOrNull { it >= 0 } ?: 0
 
         binder?.stopRadio()
+        PlaybackContextStore.set("Playing from Quick Picks", clickedTitle.ifBlank { "Home" })
         binder?.player?.forcePlayAtIndex(queuedSongs.map { it.second }, startIndex)
     }
 
@@ -906,6 +951,7 @@ fun HomeQuickPicks(
                             .distinctUntilChanged()
                             .first()
                         val accountLikedSongs = if (isYouTubeLoggedIn()) currentAccountLikedSongs() else emptyList()
+                        val discoverySongs = localDiscoverySongs()
                         val personalizedHomeSongs = if (isYouTubeLoggedIn()) {
                             (homePersonalizedSongs() + accountLikedSongs).distinctBy { it.id }
                         } else {
@@ -916,7 +962,8 @@ fun HomeQuickPicks(
 
                         val (mixedSongs, relatedResult) = buildCasualMix(
                             personalizedHomeSongs = personalizedHomeSongs,
-                            favoriteSongs = favoriteSongs
+                            favoriteSongs = favoriteSongs,
+                            discoverySongs = discoverySongs
                         )
 
                         trendingList = mixedSongs.ifEmpty { casualSongs.shuffled().take(localCount) }
@@ -1022,6 +1069,7 @@ fun HomeQuickPicks(
                             .distinctUntilChanged()
                             .collect { favoriteSongs ->
                                 val accountLikedSongs = if (isYouTubeLoggedIn()) currentAccountLikedSongs() else emptyList()
+                                val discoverySongs = localDiscoverySongs()
                                 val personalizedHomeSongs = if (isYouTubeLoggedIn()) {
                                     (homePersonalizedSongs() + accountLikedSongs).distinctBy { it.id }
                                 } else {
@@ -1032,7 +1080,8 @@ fun HomeQuickPicks(
 
                                 val (mixedSongs, relatedResult) = buildCasualMix(
                                     personalizedHomeSongs = personalizedHomeSongs,
-                                    favoriteSongs = favoriteSongs
+                                    favoriteSongs = favoriteSongs,
+                                    discoverySongs = discoverySongs
                                 )
 
                                 trendingList = mixedSongs.ifEmpty { casualSongs.shuffled().take(localCount) }
@@ -1322,12 +1371,19 @@ fun HomeQuickPicks(
                             // Play icon
                             IconButton(
                                 onClick = {
-                                    val queue = buildList {
-                                        trending?.let { add(it.asMediaItem) }
-                                        addAll(relatedInit?.songs?.map { it.asMediaItem }.orEmpty())
-                                    }.distinctBy { it.mediaId }
-                                    binder?.stopRadio()
-                                    binder?.player?.forcePlayAtIndex(queue, 0)
+                                    refreshScope.launch {
+                                        val queue = buildList {
+                                            trending?.let { add(preferredCachedSong(it).asMediaItem) }
+                                            addAll(
+                                                relatedInit?.songs
+                                                    ?.map { preferredCachedSong(it.asSong).asMediaItem }
+                                                    .orEmpty()
+                                            )
+                                        }.distinctBy { it.mediaId }
+                                        binder?.stopRadio()
+                                        PlaybackContextStore.set("Playing from Quick Picks", context.resources.getString(playEventType.textId))
+                                        binder?.player?.forcePlayAtIndex(queue, 0)
+                                    }
                                 },
                                 modifier = Modifier.size(24.dp)
                             ) {
@@ -1430,7 +1486,10 @@ fun HomeQuickPicks(
                                 app.kreate.android.me.knighthat.component.SongItem(
                                     song = song,
                                     navController = navController,
-                                    onClick = { binder?.startRadio(song, true) },
+                                    onClick = {
+                                        PlaybackContextStore.set("Playing from Quick Picks", context.resources.getString(playEventType.textId))
+                                        binder?.startRadio(song, true)
+                                    },
                                     modifier = Modifier.width(itemInHorizontalGridWidth),
                                     thumbnailOverlay = {
                                         if (playEventType != PlayEventsType.CasualPlayed &&
@@ -2025,6 +2084,7 @@ fun HomeQuickPicks(
                                                             val mediaItems = songs.map { preferredCachedMediaItem(it) }
                                                             val mediaItemIndex = mediaItems.indexOfFirst { it.mediaId == song.key }
                                                             binder?.stopRadio()
+                                                            PlaybackContextStore.set("Playing from Quick Picks", "Top songs")
                                                             binder?.player?.forcePlayAtIndex(
                                                                 mediaItems,
                                                                 mediaItemIndex.takeIf { it >= 0 } ?: 0
@@ -2464,6 +2524,8 @@ private fun RemoteConfigQuickPicksCard(
     onOpenAboutUpdate: () -> Unit,
 ) {
     val context = LocalContext.current
+    var contentExpanded by remember(notification.contents) { mutableStateOf(false) }
+    val canExpandContent = notification.contents.length > 220
 
     Column(
         modifier = Modifier
@@ -2519,9 +2581,18 @@ private fun RemoteConfigQuickPicksCard(
                 BasicText(
                     text = notification.contents,
                     style = typography().s.color(colorPalette().textSecondary),
-                    maxLines = if (notification.showImage) 4 else 6,
+                    maxLines = if (contentExpanded) Int.MAX_VALUE else if (notification.showImage) 4 else 6,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (canExpandContent) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    BasicText(
+                        text = if (contentExpanded) "Read less" else "Read more",
+                        style = typography().xs.semiBold.color(colorPalette().accent),
+                        modifier = Modifier.clickable { contentExpanded = !contentExpanded }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

@@ -18,6 +18,8 @@ enum class BuiltInPlaylist(
 
     Downloaded( R.drawable.downloaded, R.string.downloaded ),
 
+    CorruptDownloads( R.drawable.alert_circle, R.string.corrupt_downloads ),
+
     Top( R.drawable.trending, R.string.playlist_top ),
 
     OnDevice( R.drawable.musical_notes, R.string.on_device )

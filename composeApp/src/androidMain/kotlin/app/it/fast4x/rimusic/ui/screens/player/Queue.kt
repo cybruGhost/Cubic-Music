@@ -7,6 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -28,25 +30,39 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
@@ -60,6 +76,7 @@ import app.it.fast4x.compose.persist.persistList
 import app.it.fast4x.compose.reordering.draggedItem
 import app.it.fast4x.compose.reordering.rememberReorderingState
 import app.it.fast4x.compose.reordering.reorder
+import app.it.fast4x.rimusic.EXPLICIT_PREFIX
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.QueueLoopType
@@ -76,9 +93,11 @@ import app.it.fast4x.rimusic.ui.components.themed.IconButton
 import app.it.fast4x.rimusic.ui.components.themed.PlaylistsMenu
 import app.it.fast4x.rimusic.ui.items.SongItemPlaceholder
 import app.it.fast4x.rimusic.ui.styling.Dimensions
+import app.it.fast4x.rimusic.utils.DiscoverQueueTrigger
 import app.it.fast4x.rimusic.utils.DisposableListener
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.asSong
+import app.it.fast4x.rimusic.utils.discoverKey
 import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.findMediaItemIndexById
 import app.it.fast4x.rimusic.utils.isDownloadedSong
@@ -86,23 +105,25 @@ import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.isNowPlaying
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.mediaItems
+import app.it.fast4x.rimusic.utils.offlineQueueNetworkRefillKey
 import app.it.fast4x.rimusic.utils.queueTypeKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.shouldBePlaying
-import app.it.fast4x.rimusic.utils.showButtonPlayerDiscoverKey
 import app.kreate.android.me.knighthat.component.SongItem
 import app.kreate.android.me.knighthat.component.tab.ExportSongsToCSVDialog
 import app.kreate.android.me.knighthat.component.tab.ItemSelector
 import app.kreate.android.me.knighthat.component.tab.Locator
 import app.kreate.android.me.knighthat.component.tab.Search
 import app.kreate.android.me.knighthat.component.ui.screens.player.DeleteFromQueue
-import app.kreate.android.me.knighthat.component.ui.screens.player.Discover
+import app.kreate.android.me.knighthat.component.ui.screens.player.OfflineQueueNetworkRefill
 import app.kreate.android.me.knighthat.component.ui.screens.player.QueueArrow
 import app.kreate.android.me.knighthat.component.ui.screens.player.Repeat
 import app.kreate.android.me.knighthat.component.ui.screens.player.ShuffleQueue
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import app.kreate.android.themed.rimusic.component.playlist.PositionLock
+import kotlin.math.roundToInt
 
 
 @ExperimentalTextApi
@@ -139,6 +160,17 @@ fun Queue(
                     currentMediaId = mediaItem?.mediaId.orEmpty()
                 }
 
+                override fun onEvents(player: Player, events: Player.Events) {
+                    if (
+                        events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) ||
+                        events.contains(Player.EVENT_TIMELINE_CHANGED) ||
+                        events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)
+                    ) {
+                        currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
+                        items = player.currentTimeline.mediaItems.map(MediaItem::asSong)
+                    }
+                }
+
                 override fun onPositionDiscontinuity(
                     oldPosition: Player.PositionInfo,
                     newPosition: Player.PositionInfo,
@@ -150,7 +182,10 @@ fun Queue(
         }
         var itemsOnDisplay by persistList<Song>( "queue/on_display" )
         val nowPlayingSong by remember(items, currentMediaId) {
-            derivedStateOf { items.firstOrNull { it.id == currentMediaId } }
+            derivedStateOf {
+                val normalizedCurrent = currentMediaId.normalizedQueueSongId()
+                items.firstOrNull { it.id.normalizedQueueSongId() == normalizedCurrent }
+            }
         }
 
         val lazyListState = rememberLazyListState()
@@ -173,7 +208,7 @@ fun Queue(
         fun getSongs() = itemSelector.ifEmpty { items }
 
         val search = Search(lazyListState)
-        LaunchedEffect( items, search.inputValue ) {
+        LaunchedEffect( items, currentMediaId, search.inputValue ) {
             items.filter {
                     // Without cleaning, user can search explicit songs with "e:"
                     // I kinda want this to be a feature, but it seems unnecessary
@@ -193,8 +228,18 @@ fun Queue(
             playlistName = plistName.value,
             songs = ::getSongs
         )
+        val isDownloadedQueue = items.isNotEmpty() && items.all { it.isLocal || isDownloadedSong(it.id) }
+        val currentSongIsOffline = nowPlayingSong?.let { it.isLocal || isDownloadedSong(it.id) } == true ||
+            currentMediaId.isNotBlank() && isDownloadedSong(currentMediaId)
+        var offlineQueueNetworkRefillEnabled by rememberPreference( offlineQueueNetworkRefillKey, false )
+        val showNetworkRefill = isDownloadedQueue || currentSongIsOffline
+        var showNetworkRefillInfo by rememberSaveable { mutableStateOf(false) }
+        var refillOffsetX by rememberSaveable { mutableStateOf(0f) }
+        var refillOffsetY by rememberSaveable { mutableStateOf(0f) }
         val shuffle = ShuffleQueue( player, reorderingState )
-        val discover = Discover( onDiscoverClick )
+        var discoverIsEnabled by rememberPreference(discoverKey, false)
+        var discoverOffsetX by rememberSaveable { mutableStateOf(0f) }
+        var discoverOffsetY by rememberSaveable { mutableStateOf(0f) }
         val repeat = Repeat.init()
         val deleteDialog = DeleteFromQueue {
             if( itemSelector.isEmpty() ) {
@@ -229,9 +274,64 @@ fun Queue(
         val queueArrow = QueueArrow { onDismiss( repeat.type ) }
         val locator = Locator( lazyListState, ::getSongs )
 
+        fun queueIndexOf(songId: String): Int {
+            val directIndex = player.findMediaItemIndexById(songId)
+            if (directIndex >= 0) return directIndex
+            val normalized = songId.normalizedQueueSongId()
+            return (0 until player.mediaItemCount).firstOrNull { index ->
+                player.getMediaItemAt(index).mediaId.normalizedQueueSongId() == normalized
+            } ?: -1
+        }
+
+        fun playQueueSong(song: Song) {
+            if (player.isNowPlaying(song.id)) {
+                if (player.shouldBePlaying) player.pause() else player.play()
+                return
+            }
+            val actualIndex = queueIndexOf(song.id)
+            if (actualIndex >= 0) {
+                player.seekToDefaultPosition(actualIndex)
+                player.prepare()
+                player.playWhenReady = true
+            } else {
+                Toaster.w(R.string.playing_song_not_found_on_current_list)
+            }
+        }
+
         // Dialog renders
         exportDialog.Render()
         (deleteDialog as Dialog).Render()
+        if (showNetworkRefillInfo) {
+            AlertDialog(
+                onDismissRequest = { showNetworkRefillInfo = false },
+                containerColor = colorPalette().background1,
+                titleContentColor = colorPalette().text,
+                textContentColor = colorPalette().textSecondary,
+                title = { Text(stringResource(R.string.queue_network_refill_dialog_title)) },
+                text = { Text(stringResource(R.string.queue_network_refill_dialog_text)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            offlineQueueNetworkRefillEnabled = true
+                            showNetworkRefillInfo = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = colorPalette().accent)
+                    ) {
+                        Text(stringResource(R.string.turn_on))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            offlineQueueNetworkRefillEnabled = false
+                            showNetworkRefillInfo = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.turn_off))
+                    }
+                }
+            )
+        }
 
         Column {
             val queueType by rememberPreference( queueTypeKey, QueueType.Essential )
@@ -271,16 +371,7 @@ fun Queue(
                                 navController = navController,
                                 trailingContent = { Box(Modifier.width(24.dp)) },
                                 onClick = {
-                                    if (player.isNowPlaying(song.id)) {
-                                        if (player.shouldBePlaying) player.pause() else player.play()
-                                    } else {
-                                        val actualIndex = player.findMediaItemIndexById(song.id)
-                                        if (actualIndex >= 0) {
-                                            player.seekToDefaultPosition(actualIndex)
-                                            player.prepare()
-                                            player.playWhenReady = true
-                                        }
-                                    }
+                                    playQueueSong(song)
                                     search.hideIfEmpty()
                                 }
                             )
@@ -330,7 +421,7 @@ fun Queue(
                             mediaItem = mediaItem,
                             onPlayNext = {
                                 val currentIndex = binder.player.currentMediaItemIndex
-                                val actualIndex = binder.player.findMediaItemIndexById(song.id)
+                                val actualIndex = queueIndexOf(song.id)
                                 val targetIndex = (currentIndex + 1).coerceAtMost(binder.player.mediaItemCount - 1)
                                 if (actualIndex != targetIndex && actualIndex in 0 until binder.player.mediaItemCount) {
                                     binder.player.moveMediaItem(actualIndex, targetIndex)
@@ -356,7 +447,7 @@ fun Queue(
                                      To bypass it, pass another function that requires
                                      computation to extract data.
                                 */
-                                val actualIndex = player.findMediaItemIndexById( song.id )
+                                val actualIndex = queueIndexOf( song.id )
                                 if (actualIndex in 0 until player.mediaItemCount) {
                                     player.removeMediaItem( actualIndex )
                                     Toaster.s(
@@ -381,19 +472,7 @@ fun Queue(
                                         Box( Modifier.width( 24.dp ) )
                                 },
                                 onClick = {
-                                    if( player.isNowPlaying(song.id) ) {
-                                        if(player.shouldBePlaying)
-                                            player.pause()
-                                        else
-                                            player.play()
-                                    } else {
-                                        val actualIndex = player.findMediaItemIndexById(song.id)
-                                        if (actualIndex >= 0) {
-                                            player.seekToDefaultPosition(actualIndex)
-                                            player.prepare()
-                                            player.playWhenReady = true
-                                        }
-                                    }
+                                    playQueueSong(song)
 
                                     /*
                                         Due to the small size of checkboxes,
@@ -489,8 +568,6 @@ fun Queue(
                         buttons = mutableListOf<Button>().apply {
                             add( locator )
                             add( search )
-                            if( rememberPreference( showButtonPlayerDiscoverKey, false ).value )
-                                add( discover )
                             add( positionLock )
                             add( repeat )
                             add( shuffle )
@@ -511,5 +588,172 @@ fun Queue(
             lazyListState = reorderingState.lazyListState,
             modifier = Modifier.padding(bottom = Dimensions.miniPlayerHeight)
         )
+
+        if (showNetworkRefill) {
+            QueueNetworkRefillChip(
+                enabled = offlineQueueNetworkRefillEnabled,
+                onToggle = {
+                    offlineQueueNetworkRefillEnabled = !offlineQueueNetworkRefillEnabled
+                },
+                onInfo = { showNetworkRefillInfo = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(windowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.End).asPaddingValues())
+                    .padding(top = 12.dp, end = 12.dp)
+                    .offset { IntOffset(refillOffsetX.roundToInt(), refillOffsetY.roundToInt()) }
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            refillOffsetX = (refillOffsetX + dragAmount.x).coerceIn(-900f, 0f)
+                            refillOffsetY = (refillOffsetY + dragAmount.y).coerceIn(0f, 600f)
+                        }
+                    }
+                    .zIndex(4f)
+            )
+        }
+
+        if (discoverIsEnabled) {
+            QueueDiscoverChip(
+                onApply = {
+                    onDiscoverClick(true)
+                    DiscoverQueueTrigger.request()
+                },
+                onTurnOff = {
+                    discoverIsEnabled = false
+                    onDiscoverClick(false)
+                },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(windowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Start).asPaddingValues())
+                    .padding(top = 72.dp, start = 12.dp)
+                    .offset { IntOffset(discoverOffsetX.roundToInt(), discoverOffsetY.roundToInt()) }
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            discoverOffsetX = (discoverOffsetX + dragAmount.x).coerceIn(0f, 1000f)
+                            discoverOffsetY = (discoverOffsetY + dragAmount.y).coerceIn(-80f, 1600f)
+                        }
+                    }
+                    .zIndex(5f)
+            )
+        }
     }
 }
+
+@Composable
+private fun QueueDiscoverChip(
+    onApply: () -> Unit,
+    onTurnOff: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onApply),
+        color = colorPalette().background1.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFB76CFF))
+            )
+            Column(modifier = Modifier.width(126.dp)) {
+                BasicText(
+                    text = stringResource(R.string.discover_queue_banner_title),
+                    style = typography().xxs.semiBold.copy(color = colorPalette().text),
+                    maxLines = 1
+                )
+                BasicText(
+                    text = stringResource(R.string.discover_queue_banner_text),
+                    style = typography().xxs.copy(color = colorPalette().textSecondary),
+                    maxLines = 1
+                )
+            }
+            BasicText(
+                text = stringResource(R.string.turn_off),
+                style = typography().xxs.semiBold.copy(color = Color.White),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .clickable(onClick = onTurnOff)
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun QueueNetworkRefillChip(
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    onInfo: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val containerColor = if (enabled) Color(0xFF167D4A) else colorPalette().background1
+    val contentColor = if (enabled) Color.White else colorPalette().text
+    val dotColor = if (enabled) Color(0xFF70F2A4) else Color(0xFFFF5A5F)
+
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onInfo),
+        color = containerColor,
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(dotColor)
+            )
+            Column(modifier = Modifier.width(112.dp)) {
+                BasicText(
+                    text = stringResource(R.string.queue_network_refill_button),
+                    style = typography().xxs.semiBold.copy(color = contentColor),
+                    maxLines = 1
+                )
+                BasicText(
+                    text = if (enabled) {
+                        stringResource(R.string.queue_network_refill_on)
+                    } else {
+                        stringResource(R.string.queue_network_refill_off)
+                    },
+                    style = typography().xxs.copy(
+                        color = if (enabled) Color.White.copy(alpha = 0.78f) else colorPalette().textSecondary
+                    ),
+                    maxLines = 1
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = { onToggle() }
+            )
+            BasicText(
+                text = "?",
+                style = typography().xxs.semiBold.copy(color = contentColor),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = if (enabled) 0.18f else 0.08f))
+                    .clickable(onClick = onInfo)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            )
+        }
+    }
+}
+
+private fun String.normalizedQueueSongId(): String =
+    removePrefix(EXPLICIT_PREFIX)
+        .substringAfterLast("/")
+        .substringBefore("?")

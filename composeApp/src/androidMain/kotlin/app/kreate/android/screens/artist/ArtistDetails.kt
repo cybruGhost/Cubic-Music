@@ -190,7 +190,7 @@ fun ArtistDetails(
 
     //<editor-fold defaultstate="collapsed" desc="Translator">
     val translate = Translate.init()
-    val translator = Translator(NetworkClientFactory.getKtorClient())
+    val translator = Translator(NetworkClientFactory.getTranslatorKtorClient())
     val languageDestination = languageDestination()
     //</editor-fold>
 

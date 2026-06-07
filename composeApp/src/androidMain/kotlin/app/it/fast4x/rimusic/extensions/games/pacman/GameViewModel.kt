@@ -16,6 +16,11 @@ class GameViewModel : ViewModel() {
     private var rightPress: Boolean = false
     private var downPress: Boolean = false
     private var upPress: Boolean = false
+    private var leftJob: Job? = null
+    private var rightJob: Job? = null
+    private var upJob: Job? = null
+    private var downJob: Job? = null
+    private val movementDelayMs = 120L
 
 
     /* handles the direction the character is facing
@@ -32,11 +37,14 @@ class GameViewModel : ViewModel() {
 
     // handle presses
     fun rightPress(characterXOffset: MutableState<Float>, characterYOffset: MutableState<Float>) {
+        if (rightPress) return
+        releaseLeft()
+        releaseUp()
+        releaseDown()
         rightPress = true
         _characterStartAngle.postValue(25f) // change direction character is facing
-        viewModelScope.launch {
+        rightJob = viewModelScope.launch {
             while (rightPress) {
-                delay(500)
                 // move character to opposite wall
                 if (characterXOffset.value > 315f) characterXOffset.value = -400f
 
@@ -66,16 +74,20 @@ class GameViewModel : ViewModel() {
                     "rightpress: x:  ${characterXOffset.value} y: ${characterYOffset.value}"
                 )
 
+                delay(movementDelayMs)
             }
         }
     }
 
     fun leftPress(characterXOffset: MutableState<Float>, characterYOffset: MutableState<Float>) {
+        if (leftPress) return
+        releaseRight()
+        releaseUp()
+        releaseDown()
         leftPress = true
         _characterStartAngle.postValue(200f) // change direction character is facing
-        viewModelScope.launch {
+        leftJob = viewModelScope.launch {
             while (leftPress) {
-                delay(500)
                 // move character to opposite wall
                 if (characterXOffset.value <= -290f) characterXOffset.value = +450f
 
@@ -105,17 +117,20 @@ class GameViewModel : ViewModel() {
                     "leftPress: X: ${characterXOffset.value} Y: ${characterYOffset.value}"
                 )
 
+                delay(movementDelayMs)
             }
         }
     }
 
     fun upPress(characterYOffset: MutableState<Float>, characterXOffset: MutableState<Float>) {
+        if (upPress) return
+        releaseLeft()
+        releaseRight()
+        releaseDown()
         upPress = true
         _characterStartAngle.postValue(280f) // change direction character is facing
-        viewModelScope.launch {
+        upJob = viewModelScope.launch {
             while (upPress) {
-                delay(500)
-
                 // implement barrier constraints
 
                 if (
@@ -140,17 +155,20 @@ class GameViewModel : ViewModel() {
                 ) characterYOffset.value -= 0f else characterYOffset.value -= incrementValue
 
                 Log.d(logTag, "UpPress: Y: ${characterYOffset.value} x: ${characterXOffset.value}")
+                delay(movementDelayMs)
             }
         }
     }
 
     fun downPress(characterYOffset: MutableState<Float>, characterXOffset: MutableState<Float>) {
+        if (downPress) return
+        releaseLeft()
+        releaseRight()
+        releaseUp()
         downPress = true
         _characterStartAngle.postValue(100f) // change direction character is facing
-        viewModelScope.launch {
+        downJob = viewModelScope.launch {
             while (downPress) {
-                delay(500)
-
                 if (
                 // keep inside border
                     characterYOffset.value >= 0f ||
@@ -174,6 +192,7 @@ class GameViewModel : ViewModel() {
 
                 Log.d(logTag, "downPress: y: ${characterYOffset.value}, x: ${characterXOffset.value}")
 
+                delay(movementDelayMs)
             }
         }
     }
@@ -182,18 +201,26 @@ class GameViewModel : ViewModel() {
 
     fun releaseLeft() {
         leftPress = false
+        leftJob?.cancel()
+        leftJob = null
     }
 
     fun releaseRight() {
         rightPress = false
+        rightJob?.cancel()
+        rightJob = null
     }
 
     fun releaseUp() {
         upPress = false
+        upJob?.cancel()
+        upJob = null
     }
 
     fun releaseDown() {
         downPress = false
+        downJob?.cancel()
+        downJob = null
     }
 
 

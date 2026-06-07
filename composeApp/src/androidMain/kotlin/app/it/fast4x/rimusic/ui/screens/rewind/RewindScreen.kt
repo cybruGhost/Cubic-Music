@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.ui.styling.LocalAppearance
 import app.it.fast4x.rimusic.utils.DataStoreUtils
 import kotlinx.coroutines.delay
@@ -157,7 +158,7 @@ fun RewindScreen(
                         )
                         9 -> DonateSlide(
                             onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(0) }
+                                navController.navigate(NavRoutes.donate.name)
                             }
                         )
                     }

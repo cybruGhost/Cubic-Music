@@ -5,9 +5,13 @@ import app.kreate.android.me.knighthat.enums.TextView
 
 enum class FontType: TextView {
     Rubik,
-    Poppins;
+    Poppins,
+    GothicBold;
 
     override val text: String
         @Composable
-        get() = this.name
+        get() = when (this) {
+            GothicBold -> "Gothic Bold"
+            else -> this.name
+        }
 }

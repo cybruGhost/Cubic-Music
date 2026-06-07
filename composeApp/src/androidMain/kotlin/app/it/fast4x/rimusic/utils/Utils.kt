@@ -41,6 +41,8 @@ import app.it.fast4x.rimusic.MODIFIED_PREFIX
 import app.it.fast4x.rimusic.appContext
 import app.it.fast4x.rimusic.cleanPrefix
 import app.it.fast4x.rimusic.context
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
 import app.it.fast4x.rimusic.models.Album
 import app.it.fast4x.rimusic.models.Lyrics
 import app.it.fast4x.rimusic.models.Song
@@ -54,6 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import app.kreate.android.me.knighthat.utils.Toaster
+import timber.log.Timber
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -418,7 +421,7 @@ val Song.asMediaItem: MediaItem
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(cleanPrefix(title))
-                .setArtist(artistsText)
+                .setArtist(artistsText?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) })
                 .setArtworkUri(thumbnailUrl?.toUri())
                 .setExtras(
                     bundleOf(
@@ -460,8 +463,8 @@ val MediaItem.asSong: Song
             mediaId.startsWith("file://", true) -> mediaId
             else -> mediaId.split("/").lastOrNull() ?: mediaId
         },
-        title = cleanPrefix(mediaMetadata.title.toString()),
-        artistsText = mediaMetadata.artist.toString(),
+        title = cleanPrefix(mediaMetadata.title?.toString()?.takeIf { !it.equals("null", ignoreCase = true) }.orEmpty()),
+        artistsText = mediaMetadata.artist?.toString()?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) },
         durationText = mediaMetadata.extras?.getString("durationText"),
         thumbnailUrl = mediaMetadata.artworkUri
             ?.toString()
@@ -502,26 +505,30 @@ val MediaItem.isExplicit: Boolean
 
 fun formatAsDuration(millis: Long) = DateUtils.formatElapsedTime(millis / 1000).removePrefix("0")
 fun durationToMillis(duration: String): Long {
-    val parts = duration.split(":")
-    if (parts.size == 3){
-        val hours = parts[0].toLong()
-        val minutes = parts[1].toLong()
-        val seconds = parts[2].toLong()
-        return hours * 3600000 + minutes * 60000 + seconds * 1000
-    } else {
-        val minutes = parts[0].toLong()
-        val seconds = parts[1].toLong()
-        return minutes * 60000 + seconds * 1000
+    val parts = duration
+        .trim()
+        .split(":")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+
+    return when (parts.size) {
+        1 -> (parts[0].toLongOrNull() ?: 0L) * 1000L
+        2 -> {
+            val minutes = parts[0].toLongOrNull() ?: 0L
+            val seconds = parts[1].toLongOrNull() ?: 0L
+            minutes * 60_000L + seconds * 1000L
+        }
+        3 -> {
+            val hours = parts[0].toLongOrNull() ?: 0L
+            val minutes = parts[1].toLongOrNull() ?: 0L
+            val seconds = parts[2].toLongOrNull() ?: 0L
+            hours * 3_600_000L + minutes * 60_000L + seconds * 1000L
+        }
+        else -> 0L
     }
 }
 
-fun durationTextToMillis(duration: String): Long {
-    return try {
-        durationToMillis(duration)
-    } catch (e: Exception) {
-        0L
-    }
-}
+fun durationTextToMillis(duration: String): Long = durationToMillis(duration)
 
 fun plainLyricsFromTimedText(timedLyrics: String?): String? =
     timedLyrics
@@ -796,6 +803,21 @@ suspend fun downloadSyncedLyrics( song: Song ) {
 }
 
 suspend fun addToYtPlaylist(localPlaylistId: Long, position: Int, ytplaylistId: String, mediaItems: List<MediaItem>){
+    if (isYouTubeSyncEnabled()) {
+        addVideosToYtmPlaylistDirect(ytplaylistId, mediaItems.map { it.mediaId })
+            ?.onSuccess {
+                Database.playlistTable
+                    .findById(localPlaylistId)
+                    .first()
+                    ?.let { playlist -> Database.mapIgnore(playlist, *mediaItems.toTypedArray()) }
+                Toaster.n("${mediaItems.size} " + appContext().resources.getString(R.string.songs_added_in_yt))
+                return
+            }
+            ?.onFailure {
+                Timber.w(it, "Direct YouTube Music playlist insert failed; falling back to Innertube")
+            }
+    }
+
     val mediaItemsChunks = mediaItems.chunked(50)
     mediaItemsChunks.forEachIndexed { index, items ->
         if (mediaItems.size <= 50) {}
@@ -849,6 +871,18 @@ suspend fun addToYtPlaylist(localPlaylistId: Long, position: Int, ytplaylistId: 
 
 suspend fun addSongToYtPlaylist(localPlaylistId: Long, position: Int, ytplaylistId: String, mediaItem: MediaItem){
     if (isYouTubeSyncEnabled()) {
+        addVideosToYtmPlaylistDirect(ytplaylistId, listOf(mediaItem.mediaId))
+            ?.onSuccess {
+                Database.playlistTable.findById(localPlaylistId).first()?.let {
+                    Database.mapIgnore(it, mediaItem)
+                }
+                Toaster.s(R.string.songs_add_yt_success)
+                return
+            }
+            ?.onFailure {
+                Timber.w(it, "Direct YouTube Music playlist insert failed; falling back to Innertube")
+            }
+
         addToPlaylist(ytplaylistId,mediaItem.mediaId)
             .onSuccess {
                 Database.playlistTable.findById( localPlaylistId ).first()?.let {
@@ -861,6 +895,21 @@ suspend fun addSongToYtPlaylist(localPlaylistId: Long, position: Int, ytplaylist
             }
 
     }
+}
+
+private suspend fun addVideosToYtmPlaylistDirect(
+    playlistId: String,
+    mediaIds: List<String>
+): Result<Int>? {
+    val session = YouTubeSessionStore.applyCurrentSession(appContext()) ?: return null
+    if (!YouTubeSessionStore.hasAuthCookies(session.cookie)) return null
+    return YtmSessionApi.addVideosToPlaylist(
+        cookies = session.cookie,
+        playlistId = playlistId,
+        videoIds = mediaIds,
+        authUser = session.authUser.ifBlank { null },
+        pageId = session.pageId.ifBlank { null }
+    )
 }
 
 

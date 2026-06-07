@@ -96,6 +96,100 @@ fun DialogText(
     Spacer(Modifier.height(spacerHeight))
 }
 
+private data class RemoteChangelogSection(
+    val title: String,
+    val body: String
+)
+
+private fun splitRemoteChangelog(markdown: String): List<RemoteChangelogSection> {
+    val lines = markdown.ifBlank { return emptyList() }.lines()
+    val sections = mutableListOf<RemoteChangelogSection>()
+    var currentTitle = "Highlights"
+    val currentBody = mutableListOf<String>()
+
+    fun flush() {
+        val body = currentBody.joinToString("\n").trim()
+        if (body.isNotBlank()) sections += RemoteChangelogSection(currentTitle, body)
+        currentBody.clear()
+    }
+
+    lines.forEach { line ->
+        val trimmed = line.trim()
+        val markdownHeading = trimmed.takeIf { it.startsWith("#") }?.trimStart('#')?.trim()
+        val colonHeading = trimmed.takeIf {
+            it.endsWith(":") && it.length <= 48 && !it.startsWith("-")
+        }?.removeSuffix(":")?.trim()
+
+        if (!markdownHeading.isNullOrBlank() || !colonHeading.isNullOrBlank()) {
+            flush()
+            currentTitle = markdownHeading ?: colonHeading ?: currentTitle
+        } else {
+            currentBody += line
+        }
+    }
+    flush()
+
+    return sections.ifEmpty {
+        markdown.lines()
+            .chunked(8)
+            .mapIndexed { index, chunk ->
+                RemoteChangelogSection("Part ${index + 1}", chunk.joinToString("\n").trim())
+            }
+            .filter { it.body.isNotBlank() }
+    }
+}
+
+@Composable
+private fun CollapsibleRemoteChangelogSection(
+    section: RemoteChangelogSection,
+    expandedByDefault: Boolean
+) {
+    var expanded by remember(section.title) { mutableStateOf(expandedByDefault) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+        colors = CardDefaults.cardColors(containerColor = colorPalette().background2),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                BasicText(
+                    text = section.title,
+                    style = typography().xs.semiBold.copy(color = colorPalette().text),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                BasicText(
+                    text = if (expanded) "-" else "+",
+                    style = typography().s.bold.copy(color = colorPalette().accent),
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                MarkdownText(
+                    modifier = Modifier.padding(top = 10.dp),
+                    markdown = section.body,
+                    maxLines = 80,
+                    style = typography().xs.copy(color = colorPalette().text)
+                )
+            }
+        }
+    }
+}
+
 object NewUpdateAvailableDialog {
 
     /**
@@ -431,18 +525,29 @@ private fun reDownloadApk() {
                             shape = RoundedCornerShape(12.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
+                            val changelogSections = remember(changelogText) {
+                                splitRemoteChangelog(changelogText)
+                            }
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp)
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                MarkdownText(
-                                    modifier = Modifier.padding(8.dp),
-                                    markdown = changelogText.ifEmpty { stringResource(R.string.no_changelog_available) },
-                                    maxLines = 100,
-                                    style = typography().xs.semiBold.copy(color = colorPalette().text)
-                                )
+                                if (changelogSections.isEmpty()) {
+                                    BasicText(
+                                        text = stringResource(R.string.no_changelog_available),
+                                        style = typography().xs.semiBold.copy(color = colorPalette().text),
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                } else {
+                                    changelogSections.forEachIndexed { index, section ->
+                                        CollapsibleRemoteChangelogSection(
+                                            section = section,
+                                            expandedByDefault = index == 0
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

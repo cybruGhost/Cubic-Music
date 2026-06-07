@@ -85,6 +85,7 @@ import app.it.fast4x.rimusic.utils.getWeatherEmoji
 private const val KEY_USERNAME = "username"
 private const val KEY_CITY = "weather_city"
 private const val KEY_NAME_SOURCE = "welcome_name_source"
+private const val KEY_JOINED_AT = "welcome_joined_at"
 private const val PREF_TEMP_UNIT = "temperature_unit"
 private const val DEFAULT_TEMP_UNIT = "celsius"
 private const val NAME_SOURCE_CUSTOM = "custom"
@@ -149,12 +150,21 @@ private fun sanitizedYouTubeAccountName(): String? {
 }
 
 private fun joinedSinceLabel(context: Context): String {
-    val installedAt = runCatching {
+    val storedJoinedAt = DataStoreUtils.getStringBlocking(context, KEY_JOINED_AT).toLongOrNull()
+    val packageInstalledAt = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime
     }.getOrDefault(System.currentTimeMillis())
+    val installedAt = listOfNotNull(storedJoinedAt, packageInstalledAt)
+        .filter { it > 0L }
+        .minOrNull()
+        ?: System.currentTimeMillis()
+
+    if (storedJoinedAt == null || installedAt < storedJoinedAt) {
+        DataStoreUtils.saveStringBlocking(context, KEY_JOINED_AT, installedAt.toString())
+    }
 
     val formatter = SimpleDateFormat("d MMMM yyyy", Locale.getDefault())
-    return "Joined ${formatter.format(java.util.Date(installedAt))} - today"
+    return "Joined ${formatter.format(java.util.Date(installedAt))}"
 }
 
 @Composable
@@ -242,11 +252,12 @@ fun WelcomeMessage(
         }
     }
     
-    if (showInputPage) {
-        UsernameInputPage { enteredUsername ->
-            DataStoreUtils.saveStringBlocking(context, KEY_USERNAME, enteredUsername)
-            username = enteredUsername
-            showInputPage = false
+       if (showInputPage) {
+       UsernameInputPage { enteredUsername ->
+           DataStoreUtils.saveStringBlocking(context, KEY_JOINED_AT, System.currentTimeMillis().toString())
+           DataStoreUtils.saveStringBlocking(context, KEY_USERNAME, enteredUsername)
+           username = enteredUsername
+           showInputPage = false
         }
     } else {
         Column {

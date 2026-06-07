@@ -77,13 +77,28 @@ open class Sort<T: Enum<T>> (
     open var sortOrder: SortOrder by sortOrderState
     override var menuStyle: MenuStyle by styleState
 
-    /** Flip oder. */
-    override fun onShortClick() { sortOrder = !sortOrder }
+    /** Open options on tap so sort choices are discoverable. */
+    override fun onShortClick() = openMenu()
 
-    override fun onLongClick() = openMenu()
+    override fun onLongClick() { sortOrder = !sortOrder }
 
     @Composable
     override fun ListMenu() = ListMenu.Menu {
+        ListMenu.Entry(
+            text = sortOrder.name,
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.arrow_up),
+                    contentDescription = sortOrder.name,
+                    tint = colorPalette().text,
+                    modifier = Modifier
+                        .size(TabToolBar.TOOLBAR_ICON_SIZE)
+                        .graphicsLayer { rotationZ = sortOrder.rotationZ }
+                )
+            },
+            onClick = { sortOrder = !sortOrder }
+        )
+
         val enumConstants = sortBy.javaClass.enumConstants?.map { it as T }.orEmpty()
         // Ignore error "Cannot access 'java. lang. constant. Constable' which is a supertype of 'java. lang. Class'"
         enumConstants.forEach {
@@ -111,6 +126,26 @@ open class Sort<T: Enum<T>> (
 
     @Composable
     override fun GridMenu() = GridMenu.Menu {
+        items(
+            items = listOf(sortOrder),
+            key = { "sort_order" }
+        ) {
+            GridMenu.Entry(
+                text = sortOrder.name,
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.arrow_up),
+                        contentDescription = sortOrder.name,
+                        tint = colorPalette().text,
+                        modifier = Modifier
+                            .size(TabToolBar.TOOLBAR_ICON_SIZE)
+                            .graphicsLayer { rotationZ = sortOrder.rotationZ }
+                    )
+                },
+                onClick = { sortOrder = !sortOrder }
+            )
+        }
+
         val enumConstants = sortBy.javaClass.enumConstants?.map { it as T }.orEmpty()
         items(
             items = enumConstants,
