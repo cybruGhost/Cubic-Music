@@ -8,7 +8,7 @@
 
 If you enjoy our work and want to support development, you can buy me a coffee ☕  
 
-👉 **[ko-fi.com/anonghost40418](https://ko-fi.com/anonghost40418)**
+👉 **[https://cyberghost-shop.fourthwall.com/](https://cyberghost-shop.fourthwall.com/)**
 
 Every bit of support helps keep cubicmusic growing 🚀  
 
