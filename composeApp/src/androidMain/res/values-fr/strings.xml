@@ -283,7 +283,7 @@
   <string name="square">Carré</string>
   <string name="circular_ribbed">Cercle Ondulé</string>
   <string name="play_button">Bouton Lecture</string>
-  <string name="portuguese_brazilian">Portuguais, Brézilien</string>
+  <string name="portuguese_brazilian">Portugais, Brésilien</string>
   <string name="portuguese">Portugais (Portugal)</string>
   <string name="indonesian">Indonésien (Indonesian)</string>
   <string name="odia">Odia (Inde)</string>
@@ -305,7 +305,7 @@
   <string name="audio_quality_format">Qualité Audio</string>
   <string name="persian">Perse (Iran)</string>
   <string name="hungarian">Hongrois (Magyar)</string>
-  <string name="korean">Coréen (Corée)</string>
+  <string name="korean">Coréen</string>
   <string name="background_player">"LECTEUR D'ARRIÈRE PLAN "</string>
   <string name="show_favorite_button">Afficher le bouton Favoris</string>
   <string name="show_favorite_button_in_lock_screen_and_notification_area">Afficher le bouton Favoris sur l\'écran de verrouillage et dans la zone de notification</string>
@@ -745,7 +745,7 @@ Volume BAS : titre précédent</string>
   <string name="paste">Coller</string>
   <string name="searches_no_suggestions">Aucune suggestion</string>
   <string name="youtube_search">Youtube</string>
-  <string name="search_youtube_hint">Saisissez un mot-clé pour rechercher des titres, des vidéos, des artistes et des playlists sur YouTube.</string>
+  <string name="search_youtube_hint">Faites une recherche pour trouver des titres, artistes et playlists sur Youtube</string>
   <string name="action_bar_show_discover_button">Montrer Activer Découvrir &#x1F31F;</string>
   <string name="playertype">Type de lecteur</string>
   <string name="noblur">Pas de flou quand les paroles sont désactivées</string>
@@ -1167,7 +1167,7 @@ Volume BAS : titre précédent</string>
   <string name="recommendations">Recommandations</string>
   <!-- Auto-install strings -->
   <string name="apk_update_title">Mise à jour de Cubic Music</string>
-  <string name="apk_download_started_message">Enregistrement de la mise à jour dans %1$s</string>
+  <string name="apk_download_started_message">Téléchargement de la MAJ à %1$s</string>
   <string name="apk_download_progress_message">%1$d%% - %2$s</string>
   <string name="apk_download_ready_message">Mise à jour téléchargée. Installez depuis %1$s</string>
   <string name="apk_download_invalid_file">L\'APK téléchargé est incomplet. The fichier cassé a été retiré, téléchargez le à nouveau </string>
@@ -1413,7 +1413,7 @@ Volume BAS : titre précédent</string>
   <string name="app_announcements_channel_name">Annonces</string>
   <string name="app_announcements_channel_description">Mises à jour, promotions et messages personnalisés de l\'application</string>
   <string name="cshare_title">C-Share</string>
-  <string name="cshare_create_description">Create a private playlist invite that expires in 6 hours. Friends can open it in Cubic Music and import the songs with their details.</string>
+  <string name="cshare_create_description">Créer une invitation de playlist privée qui expire dans 6 heures. Les amis peuvent l\'ouvrir dans Cubic Music et importer les titres avec leurs informations.</string>
   <string name="cshare_tap_to_copy">Appuyez pour copier le code C-Share</string>
   <string name="cshare_expires_at">Date d\'expiration : %1$s</string>
   <string name="cshare_song_count">%1$d titres</string>
