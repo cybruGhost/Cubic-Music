@@ -2,7 +2,7 @@
 <resources>
   <string name="cancel">Annuler</string>
   <string name="done">Terminé</string>
-  <string name="play">Lire</string>
+  <string name="play">Lecture</string>
   <string name="hidesong">Voulez-vous vraiment masquer ce titre ? Son temps de lecture et son cache seront effacés. Cette action est irréversible.</string>
   <string name="new_playlist">Nouvelle playlist</string>
   <string name="start_radio">Écouter la radio</string>
