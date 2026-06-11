@@ -41,8 +41,9 @@ It features a sleek, modern UI focused on performance and user freedom, offering
 Short looping visuals (3–8s) replace static album covers during playback, enhancing the mood and identity of each track.
 
 <p align="center">
-  <img src="assets/screensho2.jpeg" width="280" alt="Cubic Music Screenshot 1"/>
-  <img src="assets/scrrenshot.jpeg" width="280" alt="Cubic Music Screenshot 2"/>
+  <img src="https://github.com/user-attachments/assets/00de30f0-b436-4a3d-8b59-5af9a0a44881" width="280" alt="Cubic Music Screenshot 1"/>
+  <img src="https://github.com/user-attachments/assets/a40120a1-73b1-455a-860d-68e75175d2c2" width="280" alt="Cubic Music Screenshot 2"/>
+  <img src="https://github.com/user-attachments/assets/830f4a15-ac76-422f-9762-a69e17b34568" width="280" alt="Cubic Music Screenshot 3"/>
 </p>
 
 ---
