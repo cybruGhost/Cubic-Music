@@ -1,329 +1,131 @@
-## Cubic Music
----
+# 🎵 Cubic Music
 
+<div align= »center »>
 
----
+[ ![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
+[ ![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases)  
+[ ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
+[ ![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
+[ ![License : GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
 
-## ❤️ Support the project❣️💓
+<br/>
 
-If you enjoy our work and want to support development, you can buy me a coffee ☕  
+**Cubic Music** is a powerful, multilingual YouTube Music frontend for Android. Built with a sleek, modern UI focused on performance and user freedom, it features seamless streaming, full downloads, and stunning visuals.
 
-👉 **[https://cyberghost-shop.fourthwall.com/](https://cyberghost-shop.fourthwall.com/)**
+*While it might not be as polished as some mature apps yet, it’s a solid, good-looking, and lightweight alternative. The project is actively maintained and regularly updated with new features and bug fixes.*
 
-Every bit of support helps keep cubicmusic growing 🚀  
-
----
-
-<div align="center">
-  
-[![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
-[![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases)  
-[![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
-[![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
-[![License: GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
-
-<p><b>Cubic Music</b> is an evolving streaming app focused on smooth music playback and user experience.  
-- While it might not be as polished as some mature apps yet, it's a solid, good-looking, and lightweight alternative.  
-- The project is maintained and will only be updated when I fix bugs or add features</p>
-
-**⭐ STAR AND FOLLOW 😅 NOW!!! The way to go**
+🚀 **[Download Latest Release](https://github.com/cybruGhost/Cubic-Music/releases/latest)** • ⭐ **Star this repository to support development !**
 
 </div>
 
----
-New feature (v1.8.2)
-<b>Spotify Canvas(beta)</b>
 
-What is Spotify Canvas?
+## 🚀 Current Version : `v1.8.2` (Beta)
+🔧 **Status :** Active development — continuously improving and adding new features.
 
-<p>Spotify Canvas is a short, looping visual (3–8 second video) that appears in place of static album artwork while a song is playing in the Spotify mobile app. Instead of a still image, listeners see a subtle, animated visual that enhances the mood and identity of the track.
+### 🆕 What’s New in v1.8.2
+#### 🖼️ Spotify Canvas (Beta)
+Enjoy short, looping visuals (3–8 second silent vertical videos) in place of static album artwork while a song is playing, enhancing the mood and identity of the track.
 
-- Canvas videos are silent, vertical, and loop seamlessly, designed to complement music without distracting from it.<p>
-
-<p align="center">
-  <img src="assets/screensho2.jpeg" width="280" alt="Cubic Music Screenshot"/>
-</p>
-<p align="center">
-  <img src="assets/scrrenshot.jpeg" width="280" alt="Cubic Music Screenshot"/>
+<p align= »center »>
+  <img src= »assets/screensho2.jpeg » width= »280 » alt= »Cubic Music Screenshot 1 »/>
+  <img src= »assets/scrrenshot.jpeg » width= »280 » alt= »Cubic Music Screenshot 2 »/>
 </p>
 
-----
-## 🌍 Help Translate Cubic Music!
-
-We welcome contributors to help make **Cubic Music** accessible in more languages!  
-
-Join our translation project on Crowdin:  
-
-[![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
-
-----
-
-## 🎵 About Cubic Music
-
-**Cubic Music** is a very powerful, multilingual YouTube Music frontend for Android. It features streaming, full downloads, and stunning visuals—built with a sleek, modern UI focused on performance and user freedom.
-
----
-
-## 🚀 Current Version: `v1.8.2`  
-🔧 **Status:** Beta — actively improving and adding more features
-
----
 
 ## ✨ Key Features
-## 🔁 Music Rewind (new)
 
-**Cubic Music Rewind** is Cubic Music’s version of Spotify Wrapped — a smart recap of your listening habits.
+### 🔁 Music Rewind
+Our unique take on *Spotify Wrapped* — a smart, shareable recap of your listening habits :
+* 🎧 Top songs & artists
+* ⏱️ Total listening time
+* 🔥 Favorite genres & moods
+* 📅 Listening streaks & highlights
 
-It shows:
-- 🎧 Top songs & artists  
-- ⏱️ Total listening time  
-- 🔥 Favorite genres & moods  
-- 📅 Listening streaks & highlights  
-
-Your music. Your stats. Your story — ready to relive and share.
 ### 🆕 Latest Additions
-- **Spotify Playlists Support** - Import your favorite playlists
-- **Explicit Content Tags** - Know what you're listening to  
-- **Comments Feature** - Engage with the music community
+* **Spotify Playlists Support :** Import your favorite playlists effortlessly.
+* **Explicit Content Tags :** Easily identify explicit tracks.
+* **Comments Feature :** Engage directly with the music community.
 
-### 🎧 Core Features
-- **Smart Caching** for offline listening (custom cache size)
-- **Batch Downloads** of songs & full playlists
-- **Offline Mode** even without an internet connection
-- **Background Playback**
-- **Listening Statistics & History**
-- **Audio Visualizer** with multiple styles
+### 🎧 Core Capabilities
+* **Smart Caching :** Offline listening with customizable cache size limits.
+* **Batch Downloads :** Download full playlists or individual songs at once.
+* **100% Offline Mode :** Play your downloaded/cached content without an internet connection.
+* **Background Playback :** Keep the music running while using other apps.
+* **Advanced Audio Controls :** Adjust playback speed, pitch, volume normalization, and skip silence.
+* **Audio Visualizer :** Multiple stunning visualizer styles to choose from.
 
+### 🎨 Customization & UI
+* **Dynamic Themes :** UI colors that adapt to your style or artwork.
+* **Lyrics Engine :** Fetch, edit, translate, and view synced or unsynced lyrics.
+* **Playlist Management :** Import/Export playlists (fully compatible with RiMusic backups).
+* **Custom Sleep Timer :** Fully adjustable to stop playback whenever you want.
 
-### 📝 Lyrics & Playlists
-- **Lyrics** (fetch, edit, translate, synced/unsynced)
-- **Playlist Management** (Import/Export, RiMusic-compatible)
-- **Import backups from RiMusic**
+### 📱 Integration & Utilities
+* **Android Auto & Android TV** support.
+* **Homescreen Widgets** *(experimental)*.
+* **In-app Update Checker :** Toggle automatic updates directly in settings.
+* **Full Data Export :** Backup your settings, downloaded tracks, and cached media.
 
-### 🎨 Customization
-- **Dynamic Themes**
-- **Sleep Timer** (fully customizable)
-- **Audio Controls:**  
-  - Playback speed, pitch, volume, normalization  
-  - Skip silence toggle
+## 🛠️ Roadmap & To-Do
 
-### 📱 Platform Support
-- **Widget Support** *(experimental)*
-- **Android Auto & TV Support**
-- **Fixed on-device performance**
-
-### ⚙️ Utilities
-- **Check for Updates** enabled toggle in settings
-- **Export:** settings, downloaded, and cached media
-- **Expand localization and language support**
+- [ ] Improved playlist mood detection.
+- [ ] Optimize memory allocation for large cache usage.
+- [ ] Refine UI components to align closer with RiMusic layout.
+- [ ] General performance tweaks and bug fixes.
+- [ ] Expand localization and language support.
 
 ---
 
-## 🛠 To-Do & Roadmap
+## 📋 Supported Playlist Formats
 
-- [ ] Improved playlist mood detection
-- [ ] Optimize memory for large cache usage  
-- [ ] Fix UI to be more like RiMusic
-- [ ] Add general improvements
-- [ ] Expand localization and language support
+Cubic Music allows you to import playlists using various CSV structures.
 
----
+### 🧩 1. Compatible App Format (Native)
+Directly imported without conversion. Uses raw YouTube video IDs.
+```csv
+PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
+,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,[https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg](https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg)
+```markdown
+## 📊 Live System Status & Stats
 
-## 📊 Download Statistics (Live Tracking)
+### 📥 Download Counters
+| Metric | Badge | Description |
+| :--- | :--- | :--- |
+| **All-Time Downloads** | [ ![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads&color=blue)](https://github.com/cybruGhost/Cubic-Music/releases) | Total across all versions |
+| **Current Release** | [ ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green)](https://github.com/cybruGhost/Cubic-Music/releases/latest) | `v1.8.2` downloads only |
+| **Version-Specific** | [ ![v1.8.2 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.8.0/total?label=v1.8.0%20Downloads&color=orange)](https://github.com/cybruGhost/Cubic-Music/releases/tag/v1.8.2) | Specific build tracking |
 
-**All downloads in real-time:**
-
-<div align="center">
-
-### 📥 Real-time Download Counters
-
-| Metric | Badge | Live Count |
-|--------|-------|------------|
-| **All-Time Downloads** | [![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads&color=blue)](https://github.com/cybruGhost/Cubic-Music/releases) | **Every download ever made** |
-| **Current Release** | [![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green)](https://github.com/cybruGhost/Cubic-Music/releases/latest) | **v1.8.2 downloads only** |
-| **Version-Specific** | [![v1.8.2 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.8.0/total?label=v1.8.0%20Downloads&color=orange)](https://github.com/cybruGhost/Cubic-Music/releases/tag/v1.8.2) | **This version only** |
-| **All Releases** | [![All Releases](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=All%20Releases&color=success)](https://github.com/cybruGhost/Cubic-Music/releases) | **Across all versions** |
-
-</div>
-
----
-
-## ⚖️ Legal Notice
-
-Cubic Music respects music copyrights and **does not enable illegal downloads**.  
-All content is streamed via licensed APIs or legitimate external sources only.
-
----
-
-## ⚠️ Disclaimer
-
-This project is **not affiliated with, endorsed by, or sponsored by YouTube, Google LLC, or their affiliates**.  
-All trademarks and intellectual property belong to their respective owners.
-
----
-## CONVERT API STATUS 
+### ⚙️ API Status
 ![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
 ![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
 ![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
 
-<div align="center">
 
-**Made with ❤️ by ** [cybruGhost](https://github.com/cybruGhost)
+## 🌍 Help Translate Cubic Music !
 
-**⭐ Don't forget to star and follow for updates! 🚀**
+We want to make Cubic Music accessible to everyone around the world. If you want to contribute or improve translations for your language, join our Crowdin project :
+
+[ ![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
+
+
+## ❤️ Support the Project
+
+If you enjoy Cubic Music and want to help keep development alive, consider buying me a coffee ! Every bit of support is highly appreciated.
+
+☕ **[Support via Fourthwall Shop](https://cyberghost-shop.fourthwall.com/)**
+
+
+## ⚖️ Legal Notice & Disclaimer
+
+* **Copyrights :** Cubic Music respects music copyrights and **does not enable illegal downloads**. All content is streamed via licensed APIs or legitimate public external sources only.
+* **Affiliation :** This project is **not** affiliated with, endorsed by, or sponsored by YouTube, Google LLC, or any of their affiliates. All trademarks belong to their respective owners.
+
+<div align= »center »>
+
+Made with ❤️ by [cybruGhost](https://github.com/cybruGhost)
+
+**⭐ Don’t forget to star and follow for updates ! 🚀**
+
 </div>
 
----
 
-## 📋 **Supported Playlist Formats**
-
-### 🧩 **1. Compatible App Format (Native Format)**
-```csv
-PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
-,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
-,Swipefy,yuPIdLtcqf0,Elastic Heart,Lauren Spencer Smith,270,https://inv.perditum.com/vi/yuPIdLtcqf0/hqdefault.jpg
-,Swipefy,s5vP_JVJ524,empty room,Isaac Levi,167,https://inv.perditum.com/vi/s5vP_JVJ524/hqdefault.jpg
-```
-Required Columns:
-
-
-PlaylistBrowseId (optional)
-
-PlaylistName
-
-MediaId (YouTube video ID, e.g., 1pEe7-tWv2M)
-
-- Title
-
-- Artists
-
-- Duration (in seconds)
-
-- ThumbnailUrl
----
-🧱 2. Extended App Format (With Album Info)
-```csv
-PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl,AlbumId,AlbumTitle,ArtistIds
-,MyPlaylist,abc123,Song Title,Artist Name,180,https://example.com/thumb.jpg,album123,Album Name,artist123
-```
-Required Columns:
-
-- PlaylistBrowseId
-
-- PlaylistName
-
-- MediaId
-
-- Title
-
-- Artists
-
-- Duration
-
-- ThumbnailUrl
-
-- AlbumId
-
-- AlbumTitle
-
-- ArtistIds
-
-🎧 3. Spotify Export Format
-```csv
-Track Name,Artist Name(s),Track Duration (ms),Album Name,Album Image URL,Explicit
-Blinding Lights,The Weeknd,200040,After Hours,https://i.scdn.co/image/ab67616d0000b273,false
-Dance Monkey,Tones and I,209320,The Kids Are Coming,https://i.scdn.co/image/ab67616d0000b273,false
-```
-Required Columns:
-
-- Track Name
-
-- Artist Name(s)
-
-- Track Duration (ms) (milliseconds)
-
-- Album Name
-
-- Album Image URL
-
-- Explicit (true/false)
-
-💽 4. Exportify Format (Enhanced Spotify Export)
-```csv
-Track URI,Track Name,Artist Name(s),Album Name,Album Image URL,Track Duration (ms),Explicit,Playlist Name
-spotify:track:123,Blinding Lights,The Weeknd,After Hours,https://i.scdn.co/image/ab67616d0000b273,200040,false,My Spotify Playlist
-spotify:track:456,Dance Monkey,Tones and I,The Kids Are Coming,https://i.scdn.co/image/ab67616d0000b273,209320,false,My Spotify Playlist
-```
-Required Columns:
-
-- Track URI
-
-- Track Name
-
-- Artist Name(s)
-
-- Album Name
-
-- Album Image URL
-
-- Track Duration (ms)
-
-- Explicit
-
-- Playlist Name
-
-🪶 5. Custom Format (Minimal)
-```csv
-PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration
-,MyPlaylist,abc123,Song Title,Artist Name,180
-,MyPlaylist,def456,Another Song,Another Artist,240
-```
-Required Columns:
-
-- PlaylistBrowseId
-
-- PlaylistName
-
-- MediaId
-
-- Title
-
-- Artists
-
-- Duration
-
-⚙️ How Cubic Music Handles Each Format
-✅ Compatible Formats (No Conversion Needed)
-These formats are imported directly using the exact MediaId values:
-
-App Format
-
-Extended App Format
-
-Custom Format
-
-🔄 Conversion Formats (YouTube API Conversion)
-These formats are converted to playable YouTube tracks:
-
-Spotify Export
-
-Exportify
-
-📦 Expected Output Format After Import
-All imported playlists are standardized into this format:
-
-```csv
-PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
-,Imported Playlist,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://yt.omada.cafe/vi/1pEe7-tWv2M/hqdefault.jpg
-```
-Key Points:
-
-- MediaId → raw YouTube video ID (no prefixes)
-
-- Duration → in seconds
-
-- ThumbnailUrl → Invidious format (https://yt.omada.cafe//vi/<MediaId>/hqdefault.jpg)
-
-- PlaylistName → derived from CSV or filename
-
-All songs are playable immediately after import
