@@ -3,7 +3,7 @@
   <img width="1024" height="1024" alt="Image" src="https://github.com/user-attachments/assets/15bd0440-9b2d-4de9-b823-ecd8434889f9" />
 </p>
 
-<p align="center">Cubic Music</p>
+<h1 align="center" style="font-size: 3.2rem;">Cubic Music</h1>
 
 <div align="center">
 
