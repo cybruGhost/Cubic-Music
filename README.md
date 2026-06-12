@@ -28,7 +28,7 @@ It features a sleek, modern UI focused on performance and user freedom, offering
 
 ---
 
-## 🚀 Current Version: `v1.8.2` (Beta)
+## 🚀 Current Version: `v1.8.3` (latest)
 
 🔧 **Status:** Active development — continuous improvements and new features.
 
