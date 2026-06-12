@@ -34,7 +34,7 @@ It features a sleek, modern UI focused on performance and user freedom, offering
 
 ---
 
-## 🆕 What’s New in v1.8.2
+## 🆕 What’s New in v1.8.3
 
 ### 🖼️ Spotify Canvas (Beta)
 
