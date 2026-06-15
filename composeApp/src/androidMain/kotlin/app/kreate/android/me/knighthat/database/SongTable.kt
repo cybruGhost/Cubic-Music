@@ -373,7 +373,8 @@ interface SongTable {
         FROM Song S 
         LEFT JOIN Event E ON E.songId = S.id 
         WHERE totalPlayTimeMs >= :excludeHidden
-        ORDER BY E.timestamp
+        GROUP BY S.id
+        ORDER BY MAX(E.timestamp)
         LIMIT :limit
     """)
     fun sortAllByDatePlayed( limit: Int = Int.MAX_VALUE, excludeHidden: Boolean = false ): Flow<List<Song>>
@@ -484,7 +485,8 @@ interface SongTable {
         FROM Song S 
         LEFT JOIN Event E ON E.songId = S.id 
         WHERE likedAt IS NOT NULL AND likedAt > 0
-        ORDER BY E.timestamp
+        GROUP BY S.id
+        ORDER BY MAX(E.timestamp)
         LIMIT :limit
     """)
     fun sortFavoritesByDatePlayed( limit: Int = Int.MAX_VALUE ): Flow<List<Song>>
@@ -543,7 +545,7 @@ interface SongTable {
         SongSortBy.Artist           -> sortFavoritesByArtist()
         SongSortBy.Duration         -> sortFavoritesByDuration()
         SongSortBy.AlbumName        -> sortFavoritesByAlbumName()
-    }.map( sortOrder::applyTo ).take( limit )
+    }.map { list -> sortOrder.applyTo(list).take(limit) }
     //</editor-fold>
 
     @Transaction
@@ -552,7 +554,7 @@ interface SongTable {
         FROM Song S
         JOIN SongArtistMap ON S.id = SongArtistMap.songId
         WHERE SongArtistMap.artistId = :artistId
-        AND totalPlayTimeMs > 0
+        AND totalPlayTimeMs >= 0
         ORDER BY S.ROWID DESC
     """)
     fun artistSongs(artistId: String): Flow<List<Song>>

@@ -364,7 +364,7 @@ class AlbumItemMenu private constructor(
         }.collectAsState(emptyList(), Dispatchers.IO)
 
         // Group actions (Download/Delete all)
-        val downloadAll = DownloadAllSongsDialog { songs }
+        val downloadAll = DownloadAllSongsDialog(getSongs = { songs })
         val deleteAll = DeleteAllDownloadedSongsDialog { songs }
 
         // Initialize buttons

@@ -2306,18 +2306,6 @@ if (!isLandscape) {
                 onCheckedChange = { showButtonPlayerVideo = it }
             )
 
-        if (search.inputValue.isBlank() || stringResource(R.string.action_bar_show_discover_button).contains(
-                search.inputValue,
-                true
-            )
-        )
-            SwitchSettingEntry(
-                title = stringResource(R.string.action_bar_show_discover_button),
-                text = "",
-                isChecked = showButtonPlayerDiscover,
-                onCheckedChange = { showButtonPlayerDiscover = it }
-            )
-
         if (search.inputValue.isBlank() || stringResource(R.string.action_bar_show_download_button).contains(
                 search.inputValue,
                 true

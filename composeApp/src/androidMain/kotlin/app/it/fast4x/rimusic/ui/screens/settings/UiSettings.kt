@@ -236,8 +236,8 @@ fun DefaultUiSettings() {
 
     var skipSilence by rememberPreference(skipSilenceKey, false)
     skipSilence = false
-    var skipMediaOnError by rememberPreference(skipMediaOnErrorKey, false)
-    skipMediaOnError = false
+    var skipMediaOnError by rememberPreference(skipMediaOnErrorKey, true)
+    skipMediaOnError = true
     var volumeNormalization by rememberPreference(volumeNormalizationKey, false)
     volumeNormalization = false
 
@@ -264,8 +264,7 @@ fun DefaultUiSettings() {
         HomeScreenTabs.Default
     )
     indexNavigationTab = HomeScreenTabs.Default
-    var fontType by rememberPreference(fontTypeKey, FontType.Rubik)
-    fontType = FontType.Rubik
+    var fontType by rememberPreference(fontTypeKey, FontType.GothicBold)
     var useSystemFont by rememberPreference(useSystemFontKey, false)
     useSystemFont = false
     var applyFontPadding by rememberPreference(applyFontPaddingKey, false)
@@ -300,7 +299,6 @@ fun DefaultUiSettings() {
     var showDownloadedPlaylist by rememberPreference(showDownloadedPlaylistKey, true)
     showDownloadedPlaylist = true
     var showOnDevicePlaylist by rememberPreference(showOnDevicePlaylistKey, true)
-    showOnDevicePlaylist = true
     var shakeEventEnabled by rememberPreference(shakeEventEnabledKey, false)
     shakeEventEnabled = false
     var useVolumeKeysToChangeSong by rememberPreference(useVolumeKeysToChangeSongKey, false)
@@ -546,7 +544,7 @@ fun UiSettings(
         indexNavigationTabKey,
         HomeScreenTabs.Default
     )
-    var fontType by rememberPreference(fontTypeKey, FontType.Rubik)
+    var fontType by rememberPreference(fontTypeKey, FontType.GothicBold)
     var useSystemFont by rememberPreference(useSystemFontKey, false)
     var applyFontPadding by rememberPreference(applyFontPaddingKey, false)
     var isSwipeToActionEnabled by rememberPreference(isSwipeToActionEnabledKey, true)

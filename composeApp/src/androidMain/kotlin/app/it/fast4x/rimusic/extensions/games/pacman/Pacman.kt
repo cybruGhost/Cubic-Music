@@ -35,21 +35,21 @@ import app.it.fast4x.rimusic.extensions.games.pacman.utils.GameConstants
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Pacman() {
-    val gameViewModel = GameViewModel()
-    var gameStarted = remember { mutableStateOf(false) }
-    var reverseMode = remember { mutableStateOf(false) } // used when bonus food is eaten
-    var characterYOffset = remember { mutableStateOf(0f) }
-    var characterXOffset = remember { mutableStateOf(0f) }
-    var gameStatsModel = GameStatsModel(characterXOffset, characterYOffset, gameStarted , reverseMode)
-    var enemyMovementModel = remember { mutableStateOf(EnemyMovementModel()) }
-    var gameOverDialogState = remember {
+    val gameViewModel = remember { GameViewModel() }
+    val gameStarted = remember { mutableStateOf(false) }
+    val reverseMode = remember { mutableStateOf(false) } // used when bonus food is eaten
+    val characterYOffset = remember { mutableStateOf(0f) }
+    val characterXOffset = remember { mutableStateOf(0f) }
+    val gameStatsModel = remember { GameStatsModel(characterXOffset, characterYOffset, gameStarted , reverseMode) }
+    val enemyMovementModel = remember { mutableStateOf(EnemyMovementModel()) }
+    val gameOverDialogState = remember {
         DialogState(
             shouldShow = mutableStateOf(false),
             mutableStateOf("")
         )
     }
-    var foodCounter = remember { mutableStateOf(100) }
-    var pacFoodState = remember { PacFood() }
+    val foodCounter = remember { mutableStateOf(100) }
+    val pacFoodState = remember { PacFood() }
 
 
     @ExperimentalFoundationApi
@@ -214,4 +214,3 @@ fun Pacman() {
 
 
 }
-

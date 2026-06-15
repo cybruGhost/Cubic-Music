@@ -11,15 +11,18 @@ import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
 import app.kreate.android.R
 import app.kreate.android.Threads
-import app.kreate.android.network.innertube.Store
+import app.cubic.android.core.network.Store
 import app.kreate.android.utils.CharUtils
 import com.google.gson.Gson
 import com.grack.nanojson.JsonObject
 import io.ktor.client.statement.bodyAsText
 import it.fast4x.innertube.Innertube
+import it.fast4x.innertube.clients.YouTubeClient
+import it.fast4x.innertube.clients.YouTubeLocale
 import app.it.fast4x.rimusic.models.Song
 import it.fast4x.innertube.Innertube.createPoTokenChallenge
 import it.fast4x.innertube.Innertube.SearchFilter
+import it.fast4x.innertube.models.Context
 import it.fast4x.innertube.models.PlayerResponse
 import it.fast4x.innertube.models.bodies.NextBody
 import it.fast4x.innertube.models.bodies.SearchBody
@@ -33,24 +36,33 @@ import app.it.fast4x.rimusic.isConnectionMeteredEnabled
 import app.it.fast4x.rimusic.models.Format
 import app.it.fast4x.rimusic.service.LoginRequiredException
 import app.it.fast4x.rimusic.service.MyDownloadHelper
+import app.it.fast4x.rimusic.service.NoInternetException
+import app.it.fast4x.rimusic.service.PlayableFormatNotFoundException
 import app.it.fast4x.rimusic.service.UnknownException
 import app.it.fast4x.rimusic.service.UnplayableException
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
 import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeLoggedIn
+import app.it.fast4x.rimusic.utils.SecureApiConfig
+import app.it.fast4x.rimusic.utils.isNetworkConnected
 import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeRequestThrottler
 import app.it.fast4x.rimusic.utils.isConnectionMetered
 import app.it.fast4x.rimusic.utils.okHttpDataSourceFactory
 import app.it.fast4x.rimusic.utils.getPipedSession
-import com.dd3boh.outertune.utils.potoken.PoTokenGenerator
+import app.it.fast4x.rimusic.utils.preferences
+import app.cubic.android.core.network.NetworkClientFactory
+import app.cubic.android.core.utils.cipher.CipherDeobfuscator
+import app.cubic.android.core.utils.potoken.PoTokenGenerator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import app.kreate.android.me.knighthat.utils.Toaster
 import it.fast4x.invidious.Invidious
@@ -61,17 +73,40 @@ import org.json.JSONArray
 import org.schabi.newpipe.extractor.localization.ContentCountry
 import org.schabi.newpipe.extractor.localization.Localization
 import org.schabi.newpipe.extractor.services.youtube.PoTokenResult
-import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
 import org.schabi.newpipe.extractor.services.youtube.YoutubeStreamHelper
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.net.UnknownHostException
 import it.fast4x.innertube.requests.player
+import it.fast4x.innertube.utils.NewPipeUtils
 import it.fast4x.innertube.utils.from
 import timber.log.Timber
 
 private const val CHUNK_LENGTH = 512 * 1024L     // 512Kb
+private const val STREAM_RESOLVE_RETRIES = 3
+private const val FORMAT_CACHE_EXPIRY_SAFETY_MS = 30_000L
+private const val INNERTUBE_CLIENT_TIMEOUT_MS = 5_000L
+private const val LAST_SUCCESSFUL_YT_CLIENT_AUTH_KEY = "last_successful_yt_client_auth"
+private const val LAST_SUCCESSFUL_YT_CLIENT_NOAUTH_KEY = "last_successful_yt_client_noauth"
+
+private val formatCache = mutableMapOf<String, Uri>()
+private val formatCacheLock = Any()
+
+private val FALLBACK_CLIENTS = listOf(
+    YouTubeClient.ANDROID_VR_1_43_32,
+    YouTubeClient.ANDROID_VR_1_61_48,
+    YouTubeClient.ANDROID_VR_NO_AUTH,
+    YouTubeClient.IOS,
+    YouTubeClient.MOBILE,
+    YouTubeClient.ANDROID_CREATOR,
+    YouTubeClient.IPADOS,
+    YouTubeClient.WEB_REMIX,
+    YouTubeClient.TVHTML5_SIMPLY_EMBEDDED_PLAYER,
+    YouTubeClient.TVHTML5,
+    YouTubeClient.WEB,
+    YouTubeClient.WEB_CREATOR
+)
 
 enum class PlaybackSourceKind(val label: String) {
     Unknown("Waiting"),
@@ -169,17 +204,20 @@ private fun upsertSongFormat( videoId: String, format: PlayerResponse.StreamingD
     if( videoId == justInserted ) return
 
     runCatching {
+        val itag = format.itagValue ?: return@runCatching
+        val bitrate = format.bitrateValue ?: 0
+
         Database.asyncTransaction {
                   // Ensure Song exists first to satisfy Foreign Key constraint
             songTable.insertIgnore(Song.makePlaceholder(videoId))
 
             formatTable.insertIgnore(Format(
                 videoId,
-                format.itag,
+                itag,
                 format.mimeType,
-                format.bitrate.toLong(),
-                format.contentLength,
-                format.lastModified,
+                bitrate.toLong(),
+                format.contentLengthValue,
+                format.lastModifiedValue,
                 format.loudnessDb?.toFloat()
             ))
         }
@@ -198,6 +236,14 @@ private val jsonParser =
         explicitNulls = false
     }
 
+private val decimalThumbnailDimensionRegex =
+    Regex("""("(?:height|width)"\s*:\s*)(\d+)\.0(?=[,}])""")
+
+private fun normalizePlayerResponseJson(json: String): String =
+    decimalThumbnailDimensionRegex.replace(json) { match ->
+        "${match.groupValues[1]}${match.groupValues[2]}"
+    }
+
 @UnstableApi
 private fun checkPlayability( playabilityStatus: PlayerResponse.PlayabilityStatus? ) {
     if( playabilityStatus?.status != "OK" )
@@ -208,21 +254,75 @@ private fun checkPlayability( playabilityStatus: PlayerResponse.PlayabilityStatu
         }
 }
 
+private fun PlayerResponse.hasPlayableAudioFormats(): Boolean =
+    streamingData?.adaptiveFormats?.any { it.isAudio && (!it.url.isNullOrBlank() || !it.signatureCipher.isNullOrBlank()) } == true ||
+        streamingData?.formats?.any { it.isAudio && (!it.url.isNullOrBlank() || !it.signatureCipher.isNullOrBlank()) } == true
+
+private val knownAudioItags = setOf(139, 140, 141, 171, 249, 250, 251, 774)
+private val preferredAudioItags = listOf(140, 251, 250, 249, 139, 171, 774, 141)
+private val supportedAudioCodecHints = listOf("mp4a.", "opus")
+
+private fun PlayerResponse.StreamingData.Format.hasStreamUrl(): Boolean =
+    !url.isNullOrBlank() || !signatureCipher.isNullOrBlank()
+
+private fun PlayerResponse.StreamingData.Format.isPlayableAudioCandidate(): Boolean {
+    if (!isAudio || !hasStreamUrl()) return false
+
+    val itag = itagValue
+    if (itag != null) return itag in knownAudioItags
+
+    val normalizedMimeType = mimeType.lowercase()
+    val hasSupportedCodecHint = supportedAudioCodecHints.any { normalizedMimeType.contains(it) }
+    if (!hasSupportedCodecHint) {
+        Timber.w("Rejecting audio format with unknown itag and codec for mime=%s", mimeType)
+    } else {
+        Timber.d("Accepting audio format with missing itag via mime/codec fallback: %s", mimeType)
+    }
+    return hasSupportedCodecHint
+}
+
+private fun List<PlayerResponse.StreamingData.Format>.preferAudioItag(order: List<Int>): PlayerResponse.StreamingData.Format? =
+    order.firstNotNullOfOrNull { preferredItag -> firstOrNull { it.itagValue == preferredItag } }
+
 private fun extractFormat(
     streamingData: PlayerResponse.StreamingData?,
     audioQualityFormat: AudioQualityFormat,
     connectionMetered: Boolean
-): PlayerResponse.StreamingData.Format? =
-    when (audioQualityFormat) {
-        AudioQualityFormat.High -> streamingData?.highestQualityFormat
-        AudioQualityFormat.Medium -> streamingData?.mediumQualityFormat
-        AudioQualityFormat.Low -> streamingData?.lowestQualityFormat
+): PlayerResponse.StreamingData.Format? {
+    val audioFormats = buildList {
+        streamingData?.adaptiveFormats
+            ?.filter { it.isPlayableAudioCandidate() }
+            ?.let(::addAll)
+        streamingData?.formats
+            ?.filter { it.isPlayableAudioCandidate() }
+            ?.let(::addAll)
+    }.distinctBy { it.itagValue ?: it.mimeType + it.url.orEmpty() + it.signatureCipher.orEmpty() }
+
+    if (audioFormats.isEmpty()) return null
+
+    return when (audioQualityFormat) {
+        AudioQualityFormat.High ->
+            audioFormats.preferAudioItag(listOf(140, 251, 141, 250, 249, 139, 171, 774))
+                ?: audioFormats.maxByOrNull { it.bitrateValue ?: 0 }
+
+        AudioQualityFormat.Medium ->
+            audioFormats.preferAudioItag(listOf(140, 250, 251, 249, 139, 171, 774))
+                ?: audioFormats.maxByOrNull { it.bitrateValue ?: 0 }
+
+        AudioQualityFormat.Low ->
+            audioFormats.preferAudioItag(listOf(139, 249, 250, 140, 251, 171, 774))
+                ?: audioFormats.minByOrNull { it.bitrateValue ?: Int.MAX_VALUE }
+
         AudioQualityFormat.Auto ->
-            if (connectionMetered && isConnectionMeteredEnabled())
-                streamingData?.mediumQualityFormat
-            else
-                streamingData?.autoMaxQualityFormat
+            if (connectionMetered && isConnectionMeteredEnabled()) {
+                audioFormats.preferAudioItag(listOf(140, 250, 249, 139, 171, 251, 774))
+                    ?: audioFormats.minByOrNull { it.bitrateValue ?: Int.MAX_VALUE }
+            } else {
+                audioFormats.preferAudioItag(preferredAudioItags)
+                    ?: audioFormats.maxByOrNull { it.bitrateValue ?: 0 }
+            }
     }
+}
 
 @UnstableApi
 private fun getFormatUrl(
@@ -231,27 +331,43 @@ private fun getFormatUrl(
     responseJson: JsonObject,
     audioQualityFormat: AudioQualityFormat,
     connectionMetered: Boolean,
+    streamingDataPoToken: String? = null,
+    appendPlaybackParameters: Boolean = true,
 ): Uri {
-    val jsonString = Gson().toJson( responseJson )
+    val jsonString = normalizePlayerResponseJson(Gson().toJson(responseJson))
     val playerResponse = jsonParser.decodeFromString<PlayerResponse>( jsonString )
 
     checkPlayability( playerResponse.playabilityStatus )
 
     val format = extractFormat( playerResponse.streamingData, audioQualityFormat, connectionMetered )
-    format?.let {
-        CoroutineScope( Threads.DATASPEC_DISPATCHER ).launch { upsertSongFormat( videoId, it ) }
-    }
+        ?: throw PlayableFormatNotFoundException()
+    val formatUrl = runBlocking(Dispatchers.IO) {
+        format.signatureCipher?.takeIf { it.isNotBlank() }?.let { signatureCipher ->
+            CipherDeobfuscator.deobfuscateStreamUrl(signatureCipher, videoId)
+                ?: NewPipeUtils.decodeSignatureCipher(videoId, signatureCipher)
+        } ?: NewPipeUtils.getStreamUrl(format, videoId)
+            .onFailure { Timber.w(it, "Failed to resolve YouTube stream URL for %s", videoId) }
+            .getOrNull()
+    } ?: throw PlayableFormatNotFoundException()
 
-    return YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated( videoId, format?.url.orEmpty() )
-                                         .toUri()
-                                         .buildUpon()
-                                         .appendQueryParameter( "range", "0-${format?.contentLength ?: 1_000_000}" )
-                                         .appendQueryParameter( "cpn", cpn )
-                                         .build()
+    Timber.d("Resolved audio stream for %s: itag=%s mime=%s bitrate=%s contentLength=%s isAudio=%s", videoId, format.itagValue, format.mimeType, format.bitrateValue, format.contentLengthValue, format.isAudio)
+    CoroutineScope( Threads.DATASPEC_DISPATCHER ).launch { upsertSongFormat( videoId, format ) }
+
+    val uri = formatUrl.toUri()
+    if (!appendPlaybackParameters) return uri
+
+    return uri.buildUpon()
+        .appendQueryParameter( "cpn", cpn )
+        .apply {
+            streamingDataPoToken
+                ?.takeIf { it.isNotBlank() }
+                ?.let { appendQueryParameter("pot", it) }
+        }
+        .build()
 }
 
 @UnstableApi
-fun getAndroidReelFormatUrl(
+suspend fun getAndroidReelFormatUrl(
     videoId: String,
     audioQualityFormat: AudioQualityFormat,
     connectionMetered: Boolean
@@ -288,7 +404,7 @@ suspend fun getIosFormatUrl(
     if (isYouTubeLoggedIn()) {
         YouTubeSessionStore.applyCurrentSession()
         val authenticated = runCatching {
-            val poToken = PoTokenGenerator().getWebClientPoToken(videoId)?.playerRequestPoToken
+            val poToken = PoTokenGenerator().getWebClientPoToken(videoId, Store.getIosVisitorData())?.playerRequestPoToken
             val response = YouTubeRequestThrottler.run {
                 Innertube.player(videoId = videoId, poToken = poToken)
             }?.getOrThrow() ?: throw IllegalStateException("Null player response")
@@ -321,40 +437,144 @@ suspend fun getInnertubePlayerFormatUrl(
     audioQualityFormat: AudioQualityFormat,
     connectionMetered: Boolean
 ): Uri {
-    val response = YouTubeRequestThrottler.run {
-        Innertube.player(videoId = videoId)
-    }?.getOrThrow() ?: throw IllegalStateException("Null Innertube player response")
+    YouTubeSessionStore.applyCurrentSession()
 
-    val jsonString = Gson().toJson(response)
-    return getFormatUrl(
-        videoId = videoId,
-        cpn = CharUtils.randomString(16),
-        responseJson = Gson().fromJson(jsonString, JsonObject::class.java),
-        audioQualityFormat = audioQualityFormat,
-        connectionMetered = connectionMetered
+    val locale = YouTubeLocale(
+        gl = java.util.Locale.getDefault().country.takeIf { it.isNotEmpty() } ?: "US",
+        hl = java.util.Locale.getDefault().language.takeIf { it.isNotEmpty() } ?: "en"
     )
-}
+    val visitorData = Store.getIosVisitorData().ifBlank { Innertube.visitorData.ifBlank { Innertube.DEFAULT_VISITOR_DATA } }
+    val isLoggedIn = !Innertube.cookie.isNullOrBlank() && Innertube.cookie?.contains("SAPISID") == true
+    val prefs = appContext().preferences
+    val rememberedClientKey = if (isLoggedIn) LAST_SUCCESSFUL_YT_CLIENT_AUTH_KEY else LAST_SUCCESSFUL_YT_CLIENT_NOAUTH_KEY
+    val rememberedClientName = prefs.getString(rememberedClientKey, null)
+    val clientsToTry = rememberedClientName
+        ?.let { clientName ->
+            FALLBACK_CLIENTS.firstOrNull { it.clientName == clientName }
+                ?.let { rememberedClient ->
+                    Timber.d(
+                        "Prioritizing remembered Innertube client: %s (%s)",
+                        rememberedClient.clientName,
+                        if (isLoggedIn) "auth" else "noauth"
+                    )
+                    listOf(rememberedClient) + FALLBACK_CLIENTS.filterNot { it.clientName == clientName }
+                }
+        }
+        ?: FALLBACK_CLIENTS
 
+    val signatureTimestamp = NewPipeUtils.getSignatureTimestamp(videoId)
+        .onFailure { Timber.w(it, "Could not get signature timestamp for %s; using default", videoId) }
+        .getOrNull()
+
+    val poToken = runCatching {
+        PoTokenGenerator().getWebClientPoToken(videoId, visitorData)
+    }.onFailure {
+        Timber.w(it, "Innertube PoToken generation failed for %s; continuing with fallback clients", videoId)
+    }.getOrNull()
+
+    var firstError: Throwable? = null
+    var lastFailureReason: String? = null
+
+    clientsToTry.forEachIndexed { index, ytClient ->
+        if (ytClient.loginRequired && !isLoggedIn) {
+            Timber.d("Skipping Innertube client %s for %s because login is required", ytClient.clientName, videoId)
+            return@forEachIndexed
+        }
+
+        val context = ytClient.toContext(
+            locale = locale,
+            visitorData = visitorData,
+            dataSyncId = if (isLoggedIn) Innertube.dataSyncId else null
+        )
+
+        val playerResponse = runCatching {
+            Timber.d("Trying Innertube client (%d/%d): %s for %s", index + 1, clientsToTry.size, ytClient.clientName, videoId)
+            withTimeout(INNERTUBE_CLIENT_TIMEOUT_MS) {
+                YouTubeRequestThrottler.run {
+                    Innertube.player(
+                        videoId = videoId,
+                        poToken = if (ytClient.useWebPoTokens) poToken?.playerRequestPoToken else null,
+                        context = context,
+                        signatureTimestamp = if (ytClient.useSignatureTimestamp) signatureTimestamp else null
+                    )
+                }?.getOrThrow() ?: throw IllegalStateException("Null Innertube player response")
+            }
+        }.onFailure { error ->
+            if (firstError == null) firstError = error
+            lastFailureReason = "${ytClient.clientName}: ${error::class.simpleName}: ${error.message}"
+            Timber.w(error, "Innertube client %s failed for %s", ytClient.clientName, videoId)
+        }.getOrNull() ?: return@forEachIndexed
+
+        Timber.d(
+            "Innertube client %s for %s returned status=%s audioFormats=%d",
+            ytClient.clientName,
+            videoId,
+            playerResponse.playabilityStatus?.status,
+            playerResponse.streamingData?.adaptiveFormats?.count { it.isAudio } ?: 0
+        )
+
+        if (playerResponse.playabilityStatus?.status != "OK") {
+            lastFailureReason = "${ytClient.clientName}: status=${playerResponse.playabilityStatus?.status} reason=${playerResponse.playabilityStatus?.reason}"
+            return@forEachIndexed
+        }
+
+        if (!playerResponse.hasPlayableAudioFormats()) {
+            lastFailureReason = "${ytClient.clientName}: no playable audio formats"
+            return@forEachIndexed
+        }
+
+        val cpn = CharUtils.randomString(16)
+        val uri = runCatching {
+            withTimeout(INNERTUBE_CLIENT_TIMEOUT_MS) {
+                val jsonString = Gson().toJson(playerResponse)
+                getFormatUrl(
+                    videoId = videoId,
+                    cpn = cpn,
+                    responseJson = Gson().fromJson(jsonString, JsonObject::class.java),
+                    audioQualityFormat = audioQualityFormat,
+                    connectionMetered = connectionMetered,
+                    streamingDataPoToken = if (ytClient.useWebPoTokens) poToken?.streamingDataPoToken else null,
+                    appendPlaybackParameters = false
+                )
+            }
+        }.onFailure { error ->
+            if (firstError == null) firstError = error
+            lastFailureReason = "${ytClient.clientName}: URL resolution failed: ${error.message}"
+            Timber.w(error, "Innertube client %s URL resolution failed for %s", ytClient.clientName, videoId)
+        }.getOrNull() ?: return@forEachIndexed
+
+        val isValid = NetworkClientFactory.validateStreamUrl(uri.toString(), expectedContentTypePrefix = "audio/")
+        if (!isValid) {
+            lastFailureReason = "${ytClient.clientName}: stream URL validation failed"
+            Timber.w("Innertube client %s stream URL validation failed for %s", ytClient.clientName, videoId)
+            return@forEachIndexed
+        }
+
+        Timber.d("Innertube client %s stream resolved successfully for %s", ytClient.clientName, videoId)
+        prefs.edit().putString(rememberedClientKey, ytClient.clientName).apply()
+        return uri.buildUpon()
+            .appendQueryParameter("cpn", cpn)
+            .apply {
+                if (ytClient.useWebPoTokens) {
+                    poToken?.streamingDataPoToken
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { appendQueryParameter("pot", it) }
+                }
+            }
+            .build()
+    }
+
+    Timber.e("Innertube playback failed for %s: %s", videoId, lastFailureReason)
+    throw (firstError as? Exception ?: UnplayableException())
+}
 private suspend fun resolvePrimaryFormatUrl(
     videoId: String,
     audioQualityFormat: AudioQualityFormat,
     connectionMetered: Boolean,
     isFallback: Boolean = false
 ): Uri =
-    try {
-        getAndroidReelFormatUrl(videoId, audioQualityFormat, connectionMetered)
-            .also { PlaybackSourceMonitor.report(PlaybackSourceKind.YouTubeAndroid, videoId, isFallback) }
-    } catch (primaryError: Exception) {
-        runCatching {
-            getIosFormatUrl(videoId, audioQualityFormat, connectionMetered)
-                .also { PlaybackSourceMonitor.report(PlaybackSourceKind.YouTubeIos, videoId, isFallback) }
-        }.recoverCatching {
-            getInnertubePlayerFormatUrl(videoId, audioQualityFormat, connectionMetered)
-                .also { PlaybackSourceMonitor.report(PlaybackSourceKind.YouTubeInnertube, videoId, isFallback) }
-        }.getOrElse {
-            throw primaryError
-        }
-    }
+    getInnertubePlayerFormatUrl(videoId, audioQualityFormat, connectionMetered)
+        .also { PlaybackSourceMonitor.report(PlaybackSourceKind.YouTubeInnertube, videoId, isFallback) }
 
 private fun <T> pickPreferredFormat(
     high: T?,
@@ -544,7 +764,7 @@ private suspend fun findReplacementVideoId(videoId: String): String? {
         queries.forEach { query ->
             runCatching {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val connection = URL("https://yt.omada.cafe/api/v1/search?q=$encodedQuery")
+                val connection = URL("${SecureApiConfig.resolveOmadaSearchApi()}?q=$encodedQuery")
                     .openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 8000
@@ -581,50 +801,68 @@ private suspend fun findReplacementVideoId(videoId: String): String? {
 }
 //</editor-fold>
 
+private fun formatCacheKey(
+    videoId: String,
+    audioQualityFormat: AudioQualityFormat,
+    connectionMetered: Boolean
+): String = "$videoId:${audioQualityFormat.name}:$connectionMetered"
+
+private fun Uri.isExpiredSoon(): Boolean {
+    val expiresAt = getQueryParameter("expire")?.toLongOrNull()?.times(1000) ?: return false
+    return System.currentTimeMillis() >= expiresAt - FORMAT_CACHE_EXPIRY_SAFETY_MS
+}
+
 @UnstableApi
 fun DataSpec.process(
     videoId: String,
     audioQualityFormat: AudioQualityFormat,
     connectionMetered: Boolean
 ): DataSpec = runBlocking( Dispatchers.IO ) {
-    val formatUri = runBlocking( Dispatchers.IO ) {
-        var replacementVideoId: String? = null
-        try {
-            resolvePrimaryFormatUrl(videoId, audioQualityFormat, connectionMetered, isFallback = false)
-        } catch (primaryError: Exception) {
-            if (replacementVideoId.isNullOrBlank()) {
-                replacementVideoId = findReplacementVideoId(videoId)
-            }
+    if (!isNetworkConnected(appContext())) {
+        throw NoInternetException()
+    }
 
-            val candidateVideoIds = buildList {
-                add(videoId)
-                replacementVideoId
-                    ?.takeIf { it.isNotBlank() && it != videoId }
-                    ?.let(::add)
-            }
-
-            candidateVideoIds.firstNotNullOfOrNull { candidateVideoId ->
-                runCatching {
-                    resolveAlternateProviderFormatUrl(candidateVideoId, audioQualityFormat, connectionMetered, isFallback = true)
-                }.getOrNull()
-            } ?: runCatching {
-                replacementVideoId?.takeIf { it.isNotBlank() }?.let { fallbackVideoId ->
-                    resolvePrimaryFormatUrl(fallbackVideoId, audioQualityFormat, connectionMetered, isFallback = true)
+    val cacheKey = formatCacheKey(videoId, audioQualityFormat, connectionMetered)
+    var formatUri = synchronized(formatCacheLock) {
+        formatCache[cacheKey]?.takeUnless { cachedUri ->
+            cachedUri.isExpiredSoon().also { expired ->
+                if (expired) {
+                    Timber.d("Cached stream URL expired/near-expired for %s; resolving again", videoId)
+                    formatCache.remove(cacheKey)
                 }
-            }.getOrNull() ?: throw primaryError
+            }
         }
     }
 
-    withUri( formatUri ).subrange( uriPositionOffset )
-}
+    if (formatUri == null) {
+        var attempt = 0
+        var lastException: Exception? = null
 
-private fun fallbackPlaybackDataSpec(
-    original: DataSpec,
-    videoId: String,
-): DataSpec = original.buildUpon()
-    .setUri("https://music.youtube.com/watch?v=$videoId")
-    .setKey(videoId)
-    .build()
+        while (attempt < STREAM_RESOLVE_RETRIES && formatUri == null) {
+            attempt++
+            try {
+                formatUri = resolvePrimaryFormatUrl(videoId, audioQualityFormat, connectionMetered, isFallback = false)
+            } catch (e: Exception) {
+                lastException = e
+                Timber.w(e, "Stream extraction failed on attempt %d/%d for %s", attempt, STREAM_RESOLVE_RETRIES, videoId)
+                if (attempt < STREAM_RESOLVE_RETRIES) {
+                    delay(500L * attempt)
+                }
+            }
+        }
+
+        val newlyResolvedUri = formatUri ?: throw (lastException ?: UnplayableException())
+        synchronized(formatCacheLock) {
+            formatCache[cacheKey] = newlyResolvedUri
+        }
+        formatUri = newlyResolvedUri
+    } else {
+        Timber.d("Using cached stream URL for %s", videoId)
+    }
+
+    val resolvedFormatUri = formatUri ?: throw UnplayableException()
+    withUri( resolvedFormatUri ).subrange( uriPositionOffset )
+}
 
 //<editor-fold defaultstate="collapsed" desc="Data source factories">
 @UnstableApi
@@ -652,10 +890,8 @@ fun PlayerServiceModern.createDataSourceFactory(): DataSource.Factory {
                 .setKey(videoId)
                 .build()
         }.onFailure {
-            Timber.e(it, "Failed to resolve playback DataSpec for %s. Falling back to safe source.", videoId)
-        }.getOrElse {
-            fallbackPlaybackDataSpec(dataSpec, videoId)
-        }
+            Timber.e(it, "Failed to resolve playback DataSpec for %s.", videoId)
+        }.getOrThrow()
     }
 
     // LRU Cache (Writable) - Upstream is the Resolver
@@ -686,10 +922,8 @@ fun MyDownloadHelper.createDataSourceFactory(): DataSource.Factory {
                 .setKey(videoId)
                 .build()
         }.onFailure {
-            Timber.e(it, "Failed to resolve download DataSpec for %s. Falling back to safe source.", videoId)
-        }.getOrElse {
-            fallbackPlaybackDataSpec(dataSpec, videoId)
-        }
+            Timber.e(it, "Failed to resolve download DataSpec for %s.", videoId)
+        }.getOrThrow()
     }
 
     // Download Cache (Writable for downloads? No, CacheWriter handles writing)

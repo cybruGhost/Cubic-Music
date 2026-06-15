@@ -530,7 +530,20 @@ fun ControlsEssential(
                 trackColor = colorPalette().text,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .size(if (playerPlayButtonType == PlayerPlayButtonType.Disabled) 40.dp else 30.dp),
+                    .size(if (playerPlayButtonType == PlayerPlayButtonType.Disabled) 40.dp else 30.dp)
+                    .combinedClickable(
+                        indication = ripple(bounded = false),
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = {
+                            if (shouldBePlaying) {
+                                binder.gracefulPause()
+                            } else {
+                                binder.gracefulPlay()
+                            }
+                            if (effectRotationEnabled) isRotated = !isRotated
+                        },
+                        onLongClick = onShowSpeedPlayerDialog
+                    ),
                 stroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 4.dp.toPx() }),
                 trackStroke = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 4.dp.toPx() })
             )

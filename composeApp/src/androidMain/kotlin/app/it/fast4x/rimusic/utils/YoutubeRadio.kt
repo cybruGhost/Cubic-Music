@@ -58,27 +58,27 @@ data class YouTubeRadio @OptIn(UnstableApi::class) constructor(
             }
 
             result?.getOrNull()?.let { songsPage ->
-                mediaItems = songsPage.items?.map(Innertube.SongItem::asMediaItem)
+                mediaItems = songsPage.items
+                    ?.map(Innertube.SongItem::asMediaItem)
+                    ?.distinctBy { it.mediaId }
                 songsPage.continuation?.takeUnless { nextContinuation == it }
             }
         }
 
-        fun songsInQueue(mediaId: String): String? {
-            var mediaIdFound = false
+        fun currentQueueIds(): Set<String> {
+            var ids = emptySet<String>()
             runBlocking {
                 withContext(Dispatchers.Main) {
                     val itemCount = binder?.player?.mediaItemCount ?: 0
-                    for (i in 0 until itemCount - 1) {
-                        val currentMediaId = binder?.player?.getMediaItemAt(i)?.mediaId
-                        if (mediaId == currentMediaId) {
-                            mediaIdFound = true
-                            return@withContext
-                        }
-                    }
+                    ids = (0 until itemCount)
+                        .mapNotNull { index -> binder?.player?.getMediaItemAt(index)?.mediaId }
+                        .toSet()
                 }
             }
-            return if (mediaIdFound) mediaId else null
+            return ids
         }
+
+        val queuedIds = currentQueueIds()
 
         if (isDiscoverEnabled) {
             val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
@@ -90,7 +90,7 @@ data class YouTubeRadio @OptIn(UnstableApi::class) constructor(
             val filteredMediaItems = mediaItems?.filter { item ->
                 val isMapped = Database.songPlaylistMapTable.isMapped(item.mediaId).first()
                 val isLiked = Database.songTable.isLiked(item.mediaId).first()
-                val notInQueue = item.mediaId != songsInQueue(item.mediaId)
+                val notInQueue = item.mediaId !in queuedIds
                 val wasAlreadyListened = item.mediaId in listenedSongIds
                 
                 !isMapped && !isLiked && !wasAlreadyListened && notInQueue
@@ -109,7 +109,8 @@ data class YouTubeRadio @OptIn(UnstableApi::class) constructor(
         }
 
         val finalMediaItems = mediaItems
-            ?.distinct()
+            ?.filter { it.mediaId !in queuedIds }
+            ?.distinctBy { it.mediaId }
             ?: emptyList()
 
         return finalMediaItems

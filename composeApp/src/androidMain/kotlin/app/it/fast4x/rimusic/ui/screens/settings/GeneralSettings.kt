@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
@@ -33,12 +34,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.media3.common.util.UnstableApi
@@ -51,6 +54,7 @@ import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.DurationInMilliseconds
 import app.it.fast4x.rimusic.enums.DurationInMinutes
 import app.it.fast4x.rimusic.enums.ExoPlayerMinTimeForEvent
+import app.it.fast4x.rimusic.enums.InnertubePlayerSource
 import app.it.fast4x.rimusic.enums.Languages
 import app.it.fast4x.rimusic.enums.MaxSongs
 import app.it.fast4x.rimusic.enums.MusicAnimationType
@@ -107,17 +111,23 @@ import app.it.fast4x.rimusic.utils.handleAudioFocusEnabledKey
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid12
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid6
 import app.it.fast4x.rimusic.utils.isPauseOnVolumeZeroEnabledKey
+import app.it.fast4x.rimusic.utils.innertubePlayerSourceKey
 import app.it.fast4x.rimusic.utils.jumpPreviousKey
 import app.it.fast4x.rimusic.utils.keepPlayerMinimizedKey
 import app.it.fast4x.rimusic.utils.languageAppKey
+import app.it.fast4x.rimusic.utils.logDebugEnabledKey
 import app.it.fast4x.rimusic.utils.loudnessBaseGainKey
 import app.it.fast4x.rimusic.utils.maxSongsInQueueKey
 import app.it.fast4x.rimusic.utils.minimumSilenceDurationKey
 import app.it.fast4x.rimusic.utils.navigationBarPositionKey
 import app.it.fast4x.rimusic.utils.navigationBarTypeKey
 import app.it.fast4x.rimusic.utils.newReleaseNotificationsEnabledKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerVideoKey
+import app.it.fast4x.rimusic.utils.showPlayerOutputDeviceKey
+import app.it.fast4x.rimusic.utils.showPlayerPlaybackContextKey
 import app.it.fast4x.rimusic.utils.notificationTypeKey
 import app.it.fast4x.rimusic.utils.nowPlayingIndicatorKey
+import app.it.fast4x.rimusic.utils.nowPlayingProgressRingKey
 import app.it.fast4x.rimusic.utils.pauseBetweenSongsKey
 import app.it.fast4x.rimusic.utils.persistentQueueKey
 import app.it.fast4x.rimusic.utils.pipModuleKey
@@ -128,7 +138,10 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.resumePlaybackOnStartKey
 import app.it.fast4x.rimusic.utils.resumePlaybackWhenDeviceConnectedKey
 import app.it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.utils.settingsAssistantAutoPopupKey
+import app.it.fast4x.rimusic.utils.settingsAssistantEnabledKey
 import app.it.fast4x.rimusic.utils.shakeEventEnabledKey
+import app.it.fast4x.rimusic.utils.showRescueCenterInMenuKey
 import app.it.fast4x.rimusic.utils.showLyricsSourceSwitcherKey
 import app.it.fast4x.rimusic.utils.skipMediaOnErrorKey
 import app.it.fast4x.rimusic.utils.skipSilenceKey
@@ -148,6 +161,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -158,6 +173,7 @@ import app.it.fast4x.rimusic.ui.screens.spotify.getMaskedSpDc
 import app.it.fast4x.rimusic.ui.screens.spotify.getSpotifySessionInfo
 import app.it.fast4x.rimusic.ui.screens.spotify.isSpotifyLoggedIn
 import app.it.fast4x.rimusic.ui.screens.spotify.renewSpotifySession
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -227,6 +243,7 @@ fun GeneralSettings(
     var excludeSongWithDurationLimit by rememberPreference(excludeSongsWithDurationLimitKey, DurationInMinutes.Disabled)
     var playlistindicator            by rememberPreference(playlistindicatorKey, false)
     var nowPlayingIndicator          by rememberPreference(nowPlayingIndicatorKey, MusicAnimationType.Bubbles)
+    var nowPlayingProgressRing       by rememberPreference(nowPlayingProgressRingKey, true)
     var discoverIsEnabled            by rememberPreference(discoverKey, false)
     var isPauseOnVolumeZeroEnabled   by rememberPreference(isPauseOnVolumeZeroEnabledKey, false)
 
@@ -248,6 +265,21 @@ fun GeneralSettings(
     var notificationType       by rememberPreference(notificationTypeKey, NotificationType.Default)
     var newReleaseNotificationsEnabled by rememberPreference(newReleaseNotificationsEnabledKey, false)
     var showCommentsButton     by rememberPreference("show_comments_button", true)
+    var settingsAssistantEnabled by rememberPreference(settingsAssistantEnabledKey, true)
+    var settingsAssistantAutoPopup by rememberPreference(settingsAssistantAutoPopupKey, true)
+    var showRescueCenterInMenu by rememberPreference(showRescueCenterInMenuKey, true)
+    val logDebugEnabled by rememberPreference(logDebugEnabledKey, false)
+    var showSettingsAssistant by rememberSaveable { mutableStateOf(false) }
+    val settingsAssistantShown = rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(settingsAssistantEnabled, settingsAssistantAutoPopup) {
+        if (settingsAssistantEnabled && settingsAssistantAutoPopup && !settingsAssistantShown.value) {
+            settingsAssistantShown.value = true
+            showSettingsAssistant = true
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -260,7 +292,7 @@ fun GeneralSettings(
                 ) 1f
                 else Dimensions.contentWidthRightBar
             )
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
     ) {
         HeaderWithIcon(
             title    = stringResource(R.string.tab_general),
@@ -281,6 +313,24 @@ fun GeneralSettings(
 
         search.ToolBarButton()
         search.SearchBar(this)
+
+        if (showSettingsAssistant) {
+            SettingsAssistantDialog(
+                onDismiss = { showSettingsAssistant = false },
+                onResultSelected = { result ->
+                    showSettingsAssistant = false
+                    if (result.tabIndex == 0) {
+                        search.input = TextFieldValue(result.query)
+                        search.isVisible = true
+                        coroutineScope.launch {
+                            scrollState.animateScrollTo(result.scrollHint)
+                        }
+                    } else {
+                        SettingsAssistantNavigation.request(result.tabIndex)
+                    }
+                }
+            )
+        }
 
         // ── Confirmation dialogs (light / dark theme reset) ───────────────────
         if (resetCustomLightThemeDialog) {
@@ -355,6 +405,32 @@ fun GeneralSettings(
                         )
                     }
 
+                    OtherSwitchSettingEntry(
+                        title = stringResource(R.string.settings_assistant_popup),
+                        text = stringResource(R.string.settings_assistant_popup_description),
+                        isChecked = settingsAssistantEnabled,
+                        onCheckedChange = { settingsAssistantEnabled = it },
+                        icon = R.drawable.search
+                    )
+
+                    AnimatedVisibility(visible = settingsAssistantEnabled) {
+                        Column(modifier = Modifier.padding(start = 25.dp)) {
+                            OtherSwitchSettingEntry(
+                                title = stringResource(R.string.settings_assistant_auto_popup),
+                                text = stringResource(R.string.settings_assistant_auto_popup_description),
+                                isChecked = settingsAssistantAutoPopup,
+                                onCheckedChange = { settingsAssistantAutoPopup = it },
+                                icon = R.drawable.search_circle
+                            )
+                            OtherSettingsEntry(
+                                title = stringResource(R.string.settings_advanced_search),
+                                text = stringResource(R.string.settings_advanced_search_description),
+                                onClick = { showSettingsAssistant = true },
+                                icon = R.drawable.search
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
 
                     DebugRescueCenterLauncher(
@@ -364,6 +440,18 @@ fun GeneralSettings(
                                 ?.set("settings_tab_index", 7)
                             navController.navigate(app.it.fast4x.rimusic.enums.NavRoutes.settings.name)
                         }
+                    )
+
+                    OtherSwitchSettingEntry(
+                        title = stringResource(R.string.show_rescue_center_in_menu),
+                        text = if (logDebugEnabled) {
+                            stringResource(R.string.show_rescue_center_in_menu_debug_description)
+                        } else {
+                            stringResource(R.string.show_rescue_center_in_menu_description)
+                        },
+                        isChecked = showRescueCenterInMenu,
+                        onCheckedChange = { showRescueCenterInMenu = it },
+                        icon = R.drawable.rescue
                     )
                 }
             )
@@ -1008,31 +1096,47 @@ fun GeneralSettings(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Alternate Source Retry
+        // Playback source is Innertube-only now; keep this hidden so settings do not expose fake source choices.
         AnimatedVisibility(
-            visible = true,
+            visible = false,
             enter   = androidx.compose.animation.fadeIn(animationSpec = tween(675)) +
                       androidx.compose.animation.scaleIn(animationSpec = tween(675), initialScale = 0.9f)
         ) {
             SettingsSectionCard(
-                title   = "Alternate Source Retry",
+                title   = "Playback Source",
                 icon    = R.drawable.refresh,
                 content = {
-                    var alternateSourceRetryEnabled by rememberPreference("alternateSourceRetryKey", true)
+                    var innertubePlayerSource by rememberPreference(
+                        innertubePlayerSourceKey,
+                        InnertubePlayerSource.OldInnertube
+                    )
+                    var showInnertubeSourceDialog by remember { mutableStateOf(false) }
                     val playbackSourceStatus by PlaybackSourceMonitor.status.collectAsState()
-                    if (search.inputValue.isBlank() || "Alternate Source Retry".contains(search.inputValue, true)) {
-                        OtherSwitchSettingEntry(
-                            title           = "Alternate Source Retry",
-                            text            = "After a playback error, retry with another YouTube result, then Invidious, then Piped if connected",
-                            isChecked       = alternateSourceRetryEnabled,
-                            onCheckedChange = { alternateSourceRetryEnabled = it },
-                            icon            = R.drawable.refresh
+                    if (search.inputValue.isBlank() || "Playback Source".contains(search.inputValue, true)) {
+                        OtherSettingsEntry(
+                            title = "Playback source",
+                            text = "Locked to ${innertubePlayerSource.text}",
+                            onClick = { showInnertubeSourceDialog = true },
+                            icon = R.drawable.ytmusic
                         )
                         SettingsDescription(
-                            text      = "Fallback order: normal YouTube resolver, alternate YouTube match, Invidious, then your connected Piped account. This only runs after playback errors.",
-                            modifier  = Modifier.padding(start = 25.dp, top = 4.dp),
+                            text = "Playback is locked to Innertube only. Lovable, MetroList, Invidious, Piped, Android, and iOS source fallbacks are disabled.",
+                            modifier = Modifier.padding(start = 25.dp, top = 4.dp),
                             textAlign = TextAlign.Start
                         )
+                        if (showInnertubeSourceDialog) {
+                            ValueSelectorDialog(
+                                title = "Playback source",
+                                selectedValue = innertubePlayerSource,
+                                onValueSelected = {
+                                    innertubePlayerSource = it
+                                    showInnertubeSourceDialog = false
+                                },
+                                valueText = { it.text },
+                                values = listOf(InnertubePlayerSource.OldInnertube),
+                                onDismiss = { showInnertubeSourceDialog = false }
+                            )
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -1055,8 +1159,8 @@ fun GeneralSettings(
                             Spacer(modifier = Modifier.width(8.dp))
                             BasicText(
                                 text = buildString {
-                                    append("Current source: ")
-                                    append(playbackSourceStatus.source.label)
+                                    append("Selected source: ")
+                                    append(innertubePlayerSource.text)
                                     if (playbackSourceStatus.isFallback) append(" fallback")
                                 },
                                 style = typography().xxs.copy(color = colorPalette().text)
@@ -1076,12 +1180,15 @@ fun GeneralSettings(
                       androidx.compose.animation.scaleIn(animationSpec = tween(687), initialScale = 0.9f)
         ) {
             SettingsSectionCard(
-                title   = "Comments Button",
+                title   = "Cool buttons",
                 icon    = R.drawable.comments,
                 content = {
                     var showCommentsButton by rememberPreference("show_comments_button", true)
+                    var showVideoButton by rememberPreference(showButtonPlayerVideoKey, false)
                     var showLyricsSourceSwitcher by rememberPreference(showLyricsSourceSwitcherKey, true)
-                    if (search.inputValue.isBlank() || "Comments Button".contains(search.inputValue, true)) {
+                    var showPlayerPlaybackContext by rememberPreference(showPlayerPlaybackContextKey, true)
+                    var showPlayerOutputDevice by rememberPreference(showPlayerOutputDeviceKey, true)
+                    if (search.inputValue.isBlank() || "Cool buttons comments video".contains(search.inputValue, true)) {
                         OtherSwitchSettingEntry(
                             title           = "Show comments button",
                             text            = "Display comments button on album art",
@@ -1095,11 +1202,32 @@ fun GeneralSettings(
                             textAlign = TextAlign.Start
                         )
                         OtherSwitchSettingEntry(
+                            title           = "Show video button",
+                            text            = "Display instant video switch on album art",
+                            isChecked       = showVideoButton,
+                            onCheckedChange = { showVideoButton = it },
+                            icon            = R.drawable.video
+                        )
+                        OtherSwitchSettingEntry(
                             title           = "Show lyrics sources",
                             text            = "Display source pills in the lyrics screen",
                             isChecked       = showLyricsSourceSwitcher,
                             onCheckedChange = { showLyricsSourceSwitcher = it },
                             icon            = R.drawable.song_lyrics
+                        )
+                        OtherSwitchSettingEntry(
+                            title           = "Show playing source",
+                            text            = "Show where the current queue started from",
+                            isChecked       = showPlayerPlaybackContext,
+                            onCheckedChange = { showPlayerPlaybackContext = it },
+                            icon            = R.drawable.playlist
+                        )
+                        OtherSwitchSettingEntry(
+                            title           = "Show listening device",
+                            text            = "Display the active Bluetooth or wired output",
+                            isChecked       = showPlayerOutputDevice,
+                            onCheckedChange = { showPlayerOutputDevice = it },
+                            icon            = R.drawable.music
                         )
                         ImportantSettingsDescription(text = "Changes take effect immediately")
                     }
@@ -1450,6 +1578,14 @@ fun GeneralSettings(
                             onDismiss       = { showNowPlayingIndicatorDialog = false }
                         )
                     }
+                    if (search.inputValue.isBlank() || stringResource(R.string.now_playing_progress_ring).contains(search.inputValue, true))
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.now_playing_progress_ring),
+                            text = stringResource(R.string.now_playing_progress_ring_info),
+                            isChecked = nowPlayingProgressRing,
+                            onCheckedChange = { nowPlayingProgressRing = it },
+                            icon = R.drawable.playing_indicator
+                        )
                 }
             )
         }
@@ -1803,3 +1939,177 @@ fun GeneralSettings(
     }
 }
 
+private data class SettingsAssistantResult(
+    val title: String,
+    val section: String,
+    val query: String,
+    val scrollHint: Int,
+    val tabIndex: Int = 0,
+)
+
+@Composable
+private fun SettingsAssistantDialog(
+    onDismiss: () -> Unit,
+    onResultSelected: (SettingsAssistantResult) -> Unit,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val results = remember(query) {
+        val normalizedQuery = query.trim()
+        settingsAssistantResults()
+            .map { result -> result to result.matchScore(normalizedQuery) }
+            .filter { (_, score) ->
+                normalizedQuery.isBlank() || score > 0
+            }
+            .sortedWith(
+                compareByDescending<Pair<SettingsAssistantResult, Int>> { it.second }
+                    .thenBy { it.first.tabIndex }
+                    .thenBy { it.first.title }
+            )
+            .map { it.first }
+            .take(7)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth(0.92f),
+        containerColor = colorPalette().background1.copy(alpha = 0.92f),
+        titleContentColor = colorPalette().text,
+        textContentColor = colorPalette().textSecondary,
+        shape = RoundedCornerShape(22.dp),
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(17.dp))
+                        .background(colorPalette().accent.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("*", color = colorPalette().accent, style = typography().m.semiBold)
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(stringResource(R.string.settings_assistant_title), color = colorPalette().text, style = typography().s.semiBold)
+                    Text(
+                        text = "Search every settings screen",
+                        color = colorPalette().accent,
+                        style = typography().xxs
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colorPalette().background0.copy(alpha = 0.34f))
+                    .padding(10.dp)
+            ) {
+                Text(stringResource(R.string.settings_assistant_prompt), style = typography().xs)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.search)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colorPalette().text,
+                        unfocusedTextColor = colorPalette().text,
+                        focusedContainerColor = colorPalette().background2,
+                        unfocusedContainerColor = colorPalette().background2,
+                        focusedBorderColor = colorPalette().accent,
+                        unfocusedBorderColor = colorPalette().textSecondary.copy(alpha = 0.45f),
+                        cursorColor = colorPalette().accent,
+                        focusedLabelColor = colorPalette().accent,
+                        unfocusedLabelColor = colorPalette().textSecondary
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                results.forEach { result ->
+                    TextButton(
+                        onClick = { onResultSelected(result) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(colorPalette().background2.copy(alpha = 0.42f))
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(result.title, color = colorPalette().text, style = typography().xs.semiBold)
+                            Text(result.section, color = colorPalette().textSecondary, style = typography().xxs)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                if (results.isEmpty()) {
+                    Text(stringResource(R.string.no_results_found), style = typography().xs)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.ok))
+            }
+        }
+    )
+}
+
+private fun settingsAssistantResults() = listOf(
+    SettingsAssistantResult("App language", "GeneralSettings.kt > Languages", "App language", 400, 0),
+    SettingsAssistantResult("Settings assistant", "GeneralSettings.kt > Languages", "Settings assistant advanced search", 450, 0),
+    SettingsAssistantResult("Cubic Canvas", "GeneralSettings.kt > Cubic Canvas", "Cubic Canvas Spotify Canvas", 900, 0),
+    SettingsAssistantResult("New release notifications", "GeneralSettings.kt > Notifications", "New release notifications app alerts", 2400, 0),
+    SettingsAssistantResult("Auto load songs in queue", "GeneralSettings.kt > Player", "Auto load songs in queue", 3100, 0),
+    SettingsAssistantResult("Discover", "GeneralSettings.kt > Player", "Discover queue radio recommendations", 3300, 0),
+    SettingsAssistantResult("Now playing indicator", "GeneralSettings.kt > Player", "Now Playing Indicator locator", 3400, 0),
+    SettingsAssistantResult("Skip media on error", "GeneralSettings.kt > Playback", "Skip media on error retry playback", 3900, 0),
+    SettingsAssistantResult("Audio bass boost", "GeneralSettings.kt > Audio", "Audio bass boost equalizer", 4300, 0),
+    SettingsAssistantResult("Audio focus", "GeneralSettings.kt > Audio", "Audio focus calls interruptions", 4600, 0),
+    SettingsAssistantResult("Picture-in-picture", "GeneralSettings.kt > Picture-in-picture", "Picture in picture miniplayer", 5200, 0),
+    SettingsAssistantResult("Theme mode", "UiSettings.kt > Theme", "theme dark light colors palette", 0, 1),
+    SettingsAssistantResult("Home tabs", "UiSettings.kt > Home", "home tabs quick picks songs artists albums", 0, 1),
+    SettingsAssistantResult("Show On Device", "UiSettings.kt > Home", "show on device songs tab", 0, 1),
+    SettingsAssistantResult("Player appearance", "AppearanceSettings.kt", "player appearance thumbnail lyrics controls", 0, 2),
+    SettingsAssistantResult("Lyrics appearance", "AppearanceSettings.kt > Lyrics", "lyrics karaoke size alignment animation", 0, 2),
+    SettingsAssistantResult("Mini player", "AppearanceSettings.kt > Player", "mini player appearance controls", 0, 2),
+    SettingsAssistantResult("Quick picks", "AIRecommendationSettings.kt > Home recommendations", "quick picks recommendations casual discover", 0, 3),
+    SettingsAssistantResult("AI recommendations", "AIRecommendationSettings.kt", "ai recommendations discovery moods", 0, 3),
+    SettingsAssistantResult("Cache location", "DataSettings.kt > Cache", "cache location private system storage", 0, 4),
+    SettingsAssistantResult("Image cache", "DataSettings.kt > Cache", "image cache thumbnails coil", 0, 4),
+    SettingsAssistantResult("Song cache", "DataSettings.kt > Cache", "song cache exoplayer cached songs", 0, 4),
+    SettingsAssistantResult("Downloads", "DataSettings.kt > Downloads", "downloads storage downloaded songs", 0, 4),
+    SettingsAssistantResult("Backup and restore", "DataSettings.kt > Backup", "backup restore export import database settings migration", 0, 4),
+    SettingsAssistantResult("Restart player", "DataSettings.kt > Player", "restart player service", 0, 4),
+    SettingsAssistantResult("YouTube Music login", "AccountsSettings.kt > YouTube Music", "youtube music ytm account cookies login", 0, 5),
+    SettingsAssistantResult("Discord presence", "AccountsSettings.kt > Discord", "discord presence rich presence login", 0, 5),
+    SettingsAssistantResult("Spotify", "AccountsSettings.kt > Spotify", "spotify account canvas login", 0, 5),
+    SettingsAssistantResult("Proxy", "NetworkSettings.kt > Proxy", "proxy hostname port mode", 0, 6),
+    SettingsAssistantResult("Network quality", "NetworkSettings.kt", "network quality wifi data internet", 0, 6),
+    SettingsAssistantResult("On Device songs", "OtherSettings.kt > On Device", "On Device songs local files", 0, 7),
+    SettingsAssistantResult("On Device folders", "OtherSettings.kt > On Device", "folders on device blacklist default folder", 0, 7),
+    SettingsAssistantResult("Battery optimization", "OtherSettings.kt > Android", "battery optimization background", 0, 7),
+    SettingsAssistantResult("Debug logs", "OtherSettings.kt > Debug", "debug logs logcat", 0, 7),
+    SettingsAssistantResult("About app", "About.kt", "about changelog version update", 0, 8),
+)
+
+private fun SettingsAssistantResult.matchScore(rawQuery: String): Int {
+    if (rawQuery.isBlank()) return 1
+    val searchable = "$title $section $query".lowercase()
+    val terms = rawQuery.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (terms.isEmpty()) return 1
+
+    return terms.sumOf { term ->
+        when {
+            title.lowercase() == term -> 80
+            title.lowercase().contains(term) -> 50
+            section.lowercase().contains(term) -> 35
+            query.lowercase().contains(term) -> 25
+            searchable.contains(term) -> 10
+            else -> 0
+        }
+    }
+}

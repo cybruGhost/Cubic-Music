@@ -51,6 +51,7 @@ import app.it.fast4x.rimusic.models.Playlist
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
+import app.it.fast4x.rimusic.utils.SecureApiConfig
 import app.it.fast4x.rimusic.utils.asSong
 import app.it.fast4x.rimusic.utils.formatAsDuration
 import app.kreate.android.R
@@ -230,6 +231,14 @@ class ImportSongsFromCSV(
                 .trim()
                 .ifBlank { "Imported playlist" }
 
+        private fun inferTitleAndArtist(title: String, artists: String): Pair<String, String> {
+            if (artists.isNotBlank()) return title to artists
+            val separator = " - ".takeIf { title.contains(it) } ?: return title to artists
+            val artist = title.substringBefore(separator).trim()
+            val cleanTitle = title.substringAfter(separator).trim()
+            return if (artist.isNotBlank() && cleanTitle.isNotBlank()) cleanTitle to artist else title to artists
+        }
+
         private fun hasInternetConnection(): Boolean = try {
             val connection = URL("https://www.google.com").openConnection() as HttpURLConnection
             connection.connectTimeout = 5_000
@@ -250,7 +259,7 @@ class ImportSongsFromCSV(
             repeat(maxRetries) { attempt ->
                 try {
                     val encoded = URLEncoder.encode(query, "UTF-8")
-                    val connection = (URL("https://yt.omada.cafe/api/v1/search?q=$encoded&type=video").openConnection() as HttpURLConnection).apply {
+                    val connection = (URL("${SecureApiConfig.resolveOmadaSearchApi()}?q=$encoded&type=video").openConnection() as HttpURLConnection).apply {
                         requestMethod = "GET"
                         connectTimeout = 15_000
                         readTimeout = 15_000
@@ -517,22 +526,35 @@ class ImportSongsFromCSV(
                             else -> rawDuration
                         }
 
-                        val mediaId = row["MediaId"].orEmpty()
+                        val inferred = inferTitleAndArtist(
+                            title = row["Title"].orEmpty(),
+                            artists = row["Artists"].orEmpty()
+                        )
+                        val rawMediaId = row["MediaId"].orEmpty()
+                        val mediaId = if (rawMediaId.contains("spotify:", true) || rawMediaId.contains("spotify.com/", true)) {
+                            val query = listOf(inferred.first, inferred.second)
+                                .filter { it.isNotBlank() }
+                                .joinToString(" ")
+                                .trim()
+                            runCatching { fetchYoutubeVideoId(query) }.getOrNull().orEmpty()
+                        } else {
+                            rawMediaId
+                        }
                         if (mediaId.isNotBlank()) {
                             converted += SongCSV(
                                 songId = mediaId,
                                 playlistBrowseId = browseId,
                                 playlistName = playlistName,
-                                title = row["Title"].orEmpty(),
-                                artists = row["Artists"].orEmpty(),
+                                title = inferred.first,
+                                artists = inferred.second,
                                 duration = convertedDuration,
                                 thumbnailUrl = row["ThumbnailUrl"].orEmpty()
                             )
                             successCount++
                             CsvImportConversionTracker.markFinished(
                                 index = index,
-                                title = row["Title"].orEmpty(),
-                                artists = row["Artists"].orEmpty(),
+                                title = inferred.first,
+                                artists = inferred.second,
                                 status = CsvImportEntryStatus.Success,
                                 message = appContext().getString(R.string.csv_import_status_kept_media_id)
                             )
@@ -699,6 +721,15 @@ class ImportSongsFromCSV(
 
             return remember(launcher) { ImportSongsFromCSV(launcher) }
         }
+    }
+
+    private fun inferTitleAndArtist(title: String, artists: String): Pair<String, String> {
+        if (artists.isNotBlank()) return title to artists
+        val separators = listOf(" - ", " – ", " — ")
+        val separator = separators.firstOrNull { title.contains(it) } ?: return title to artists
+        val artist = title.substringBefore(separator).trim()
+        val cleanTitle = title.substringAfter(separator).trim()
+        return if (artist.isNotBlank() && cleanTitle.isNotBlank()) cleanTitle to artist else title to artists
     }
 
     override val supportedMimes: Array<String> = arrayOf("text/csv", "text/comma-separated-values")

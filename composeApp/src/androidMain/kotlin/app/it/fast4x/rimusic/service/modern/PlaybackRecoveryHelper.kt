@@ -88,8 +88,8 @@ class PlaybackRecoveryHelper {
             ?: snapshot.currentPositionMs
 
         if (
-            failure.category == PlaybackFailureCategory.NETWORK ||
-            (!snapshot.isNetworkAvailable && failure.isRecoverable)
+            !snapshot.isNetworkAvailable &&
+            (failure.category == PlaybackFailureCategory.NETWORK || failure.isRecoverable)
         ) {
             if (mediaId.isNullOrBlank()) return Decision.Pause("Connection issue detected. Please retry playback.")
             return Decision.WaitForNetwork(
@@ -107,6 +107,20 @@ class PlaybackRecoveryHelper {
                 delayMs = 500L,
                 message = "Stream issue on $title. Retrying (${snapshot.currentRetryCount + 1}/$maxRetries).",
             )
+        }
+
+        if (
+            failure.canRetryCurrent &&
+            snapshot.currentRetryCount >= maxRetries &&
+            snapshot.skipOnErrorEnabled &&
+            snapshot.hasNextMediaItem &&
+            snapshot.isNetworkAvailable
+        ) {
+            return Decision.SkipNext("Couldn't play $title after $maxRetries retries. Skipping to the next track.")
+        }
+
+        if (failure.canRetryCurrent && snapshot.currentRetryCount >= maxRetries) {
+            return Decision.Pause("Couldn't play $title after $maxRetries retries. Cubic paused instead of looping.")
         }
 
         if (snapshot.skipOnErrorEnabled && snapshot.hasNextMediaItem) {

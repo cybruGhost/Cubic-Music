@@ -61,6 +61,7 @@ import app.it.fast4x.rimusic.utils.proxyPortKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFoldersOnDeviceKey
+import app.it.fast4x.rimusic.utils.showOnDevicePlaylistKey
 import app.it.fast4x.rimusic.utils.textCopyToClipboard
 import app.kreate.android.me.knighthat.utils.Toaster
 import java.io.File
@@ -90,6 +91,7 @@ fun OtherSettings() {
 
     var defaultFolder by rememberPreference(defaultFolderKey, "/")
     var isKeepScreenOnEnabled by rememberPreference(isKeepScreenOnEnabledKey, false)
+    var showOnDevicePlaylist by rememberPreference(showOnDevicePlaylistKey, true)
     var showFolders by rememberPreference(showFoldersOnDeviceKey, true)
 
     var blackListedPaths by remember {
@@ -183,6 +185,13 @@ fun OtherSettings() {
                     }
                     
 
+                    OtherSwitchSettingEntry(
+                        title = "${stringResource(R.string.show)} ${stringResource(R.string.on_device)}",
+                        text = "Show or hide the On Device tab in Songs.",
+                        isChecked = showOnDevicePlaylist,
+                        onCheckedChange = { showOnDevicePlaylist = it },
+                        icon = R.drawable.musical_notes
+                    )
 
                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.folders),

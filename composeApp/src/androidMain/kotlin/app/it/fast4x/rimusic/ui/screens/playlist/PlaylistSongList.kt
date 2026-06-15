@@ -133,6 +133,7 @@ import app.it.fast4x.rimusic.utils.languageDestination
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.medium
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
+import app.it.fast4x.rimusic.utils.PlaybackContextStore
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
@@ -237,7 +238,7 @@ fun PlaylistSongList(
         mutableStateOf(false)
     }
 
-    val translator = Translator(NetworkClientFactory.getKtorClient())
+    val translator = Translator(NetworkClientFactory.getTranslatorKtorClient())
     val languageDestination = languageDestination()
 
     val localPlaylist by remember( saveCheck ) {
@@ -1026,6 +1027,10 @@ fun PlaylistSongList(
                                                 ?.map(Innertube.SongItem::asMediaItem)
                                                 ?.let { mediaItems ->
                                                     binder?.stopRadio()
+                                                    PlaybackContextStore.set(
+                                                        "Playing from Playlist",
+                                                        playlistPage?.playlist?.title.orEmpty()
+                                                    )
                                                     binder?.player?.forcePlayAtIndex(
                                                         mediaItems,
                                                         mediaItems.indexOf( ytSong.asMediaItem )
@@ -1065,6 +1070,3 @@ fun PlaylistSongList(
         }
     }
 }
-
-
-

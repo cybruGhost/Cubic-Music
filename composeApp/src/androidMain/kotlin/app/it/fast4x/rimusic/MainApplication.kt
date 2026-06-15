@@ -9,6 +9,10 @@ import coil3.SingletonImageLoader
 import coil3.ImageLoader
 
 import app.kreate.android.R
+import app.cubic.android.core.network.NetworkClientFactory
+import app.cubic.android.core.network.Store
+import app.cubic.android.core.utils.cipher.CipherDeobfuscator
+import app.cubic.android.core.utils.potoken.PoTokenGenerator
 import app.it.fast4x.rimusic.notifications.AppAnnouncementNotifier
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.service.MyDownloadHelper
@@ -16,15 +20,30 @@ import app.it.fast4x.rimusic.utils.CaptureCrash
 import app.it.fast4x.rimusic.utils.FileLoggingTree
 import app.it.fast4x.rimusic.utils.logDebugEnabledKey
 import app.it.fast4x.rimusic.utils.preferences
+import app.it.fast4x.rimusic.utils.ytCookieKey
+import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
+import app.it.fast4x.rimusic.utils.ytVisitorDataKey
+import it.fast4x.innertube.Innertube
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
+import kotlin.random.Random
 
 class MainApplication : Application(), SingletonImageLoader.Factory {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         //DatabaseInitializer()
         Dependencies.init(this)
+        CipherDeobfuscator.initialize(this)
+        NetworkClientFactory.configure(proxy = null, cacheDir = cacheDir)
+        initializeYouTubeSession()
 
         createNotificationChannels()
 
@@ -57,6 +76,36 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         /**** LOG *********/
 
         AppAnnouncementNotifier.maybeShow(this)
+        AppAnnouncementNotifier.scheduleBackgroundChecks(this)
+        prewarmPoToken()
+    }
+
+    private fun prewarmPoToken() {
+        applicationScope.launch {
+            delay(Random.nextLong(3_000L, 5_001L))
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val sessionId = Store.getIosVisitorData()
+                        .ifBlank { Innertube.visitorData.ifBlank { Innertube.DEFAULT_VISITOR_DATA } }
+                    PoTokenGenerator().getWebClientPoToken("", sessionId)
+                }
+            }.onSuccess {
+                Timber.d("PoToken pre-warmed")
+            }.onFailure {
+                Timber.w(it, "PoToken pre-warm skipped; on-demand generation will be used")
+            }
+        }
+    }
+
+    private fun initializeYouTubeSession() {
+        val savedCookie = preferences.getString(ytCookieKey, "").orEmpty()
+        if (savedCookie.isBlank()) return
+
+        Innertube.cookie = savedCookie
+        Innertube.visitorData = preferences.getString(ytVisitorDataKey, "").orEmpty()
+            .ifBlank { Innertube.DEFAULT_VISITOR_DATA }
+        Innertube.dataSyncId = preferences.getString(ytDataSyncIdKey, "").orEmpty()
+            .ifBlank { null }
     }
 
     private fun createNotificationChannels() {

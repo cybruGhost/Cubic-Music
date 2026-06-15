@@ -49,6 +49,7 @@ import app.it.fast4x.rimusic.models.ui.UiMedia
 import app.it.fast4x.rimusic.models.ui.toUiMedia
 import app.it.fast4x.rimusic.ui.screens.player.components.controls.InfoAlbumAndArtistEssential
 import app.it.fast4x.rimusic.ui.screens.player.components.controls.InfoAlbumAndArtistModern
+import app.it.fast4x.rimusic.ui.screens.player.components.controls.PlayerContextBadges
 import app.it.fast4x.rimusic.utils.GetControls
 import app.it.fast4x.rimusic.utils.GetSeekBar
 import app.it.fast4x.rimusic.utils.buttonzoomoutKey
@@ -103,8 +104,8 @@ fun Controls(
     isShowingLyrics = isShowingLyrics,
     media = mediaItem.toUiMedia( positionAndDuration.second ),
     mediaId = mediaItem.mediaId,
-    title = cleanPrefix( mediaItem.mediaMetadata.title.toString() ),
-    artist = cleanPrefix( mediaItem.mediaMetadata.artist.toString() ),
+    title = cleanPrefix( mediaItem.mediaMetadata.title?.toString()?.takeUnless { it.equals("null", true) }.orEmpty() ),
+    artist = cleanPrefix( mediaItem.mediaMetadata.artist?.toString()?.takeUnless { it.equals("null", true) }.orEmpty() ),
     artistIds = artistIds,
     albumId = albumId,
     shouldBePlaying = shouldBePlaying,
@@ -267,6 +268,7 @@ fun Controls(
                     .padding(horizontal = playerTimelineSize.size.dp)
             ) {
                 if (!isShowingLyrics || titleExpanded) {
+                    PlayerContextBadges(disableScrollingText = disableScrollingText)
                     if (playerInfoType == PlayerInfoType.Modern)
                         InfoAlbumAndArtistModern(
                             binder = binder,
@@ -345,6 +347,8 @@ fun Controls(
                     .padding(horizontal = playerTimelineSize.size.dp)
                     //.fillMaxHeight(0.40f)
             ) {
+
+                PlayerContextBadges(disableScrollingText = disableScrollingText)
 
                 if (playerInfoType == PlayerInfoType.Modern)
                     InfoAlbumAndArtistModern(
@@ -444,6 +448,8 @@ fun Controls(
                 .fillMaxWidth()
                 .padding(horizontal = playerTimelineSize.size.dp)
         ) {
+
+            PlayerContextBadges(disableScrollingText = disableScrollingText)
 
             if (playerInfoType == PlayerInfoType.Modern)
                 InfoAlbumAndArtistModern(

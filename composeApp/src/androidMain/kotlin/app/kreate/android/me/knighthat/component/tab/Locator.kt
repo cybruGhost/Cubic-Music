@@ -12,14 +12,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.util.UnstableApi
 import app.kreate.android.R
+import app.it.fast4x.rimusic.EXPLICIT_PREFIX
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.DynamicColor
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
-import kotlinx.coroutines.runBlocking
 import app.kreate.android.me.knighthat.utils.Toaster
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @UnstableApi
@@ -51,7 +54,13 @@ class Locator private constructor(
     }
 
     val position: Int
-        get() = getSongs().map( Song::id ).indexOf( binder?.player?.currentMediaItem?.mediaId )
+        get() {
+            val mediaId = binder?.player?.currentMediaItem?.mediaId.orEmpty()
+            val normalizedMediaId = mediaId.normalizedSongId()
+            return getSongs().indexOfFirst { song ->
+                song.id.normalizedSongId() == normalizedMediaId
+            }
+        }
 
     override val iconId: Int = R.drawable.locate
     override val messageId: Int = R.string.info_find_the_song_that_is_playing
@@ -62,24 +71,45 @@ class Locator private constructor(
     override var isFirstColor: Boolean by firstColorState
 
     override fun onShortClick() {
-        if( isFirstColor ) {
-            val mediaItem = binder?.player?.currentMediaItem
-            // Capture songs here to prevent unwanted outcome
-            // when a list is captured multiple times
+        val mediaItem = binder?.player?.currentMediaItem
+        isFirstColor = mediaItem != null
+
+        if( mediaItem != null ) {
+            // Capture songs here to prevent unwanted outcome when a list is captured multiple times.
             val songs = getSongs()
 
             Timber.tag("locator").d("LocateComponent.onShortClick songs ${songs.size} -> mediaItem ${mediaItem?.mediaId}")
 
-            if( position == -1 )      // Playing song isn't inside [songs()]
+            val normalizedMediaId = mediaItem.mediaId.normalizedSongId()
+            val targetPosition = songs.indexOfFirst { song ->
+                song.id.normalizedSongId() == normalizedMediaId
+            }
+            if( targetPosition == -1 )      // Playing song isn't inside [songs()]
                 Toaster.i( R.string.playing_song_not_found_on_current_list )
             else
-                runBlocking {
-                    when( scrollableState ) {
-                        is LazyListState -> scrollableState.scrollToItem( position )
-                        is LazyGridState -> scrollableState.scrollToItem( position )
+                CoroutineScope(Dispatchers.Main).launch {
+                    try {
+                        when( scrollableState ) {
+                            is LazyListState -> {
+                                val lastIndex = scrollableState.layoutInfo.totalItemsCount - 1
+                                scrollableState.animateScrollToItem(targetPosition.coerceIn(0, lastIndex.coerceAtLeast(0)))
+                            }
+                            is LazyGridState -> {
+                                val lastIndex = scrollableState.layoutInfo.totalItemsCount - 1
+                                scrollableState.animateScrollToItem(targetPosition.coerceIn(0, lastIndex.coerceAtLeast(0)))
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Locator failed to scroll to playing song")
+                        Toaster.i(R.string.playing_song_not_found_on_current_list)
                     }
                 }
         } else
             Toaster.i( R.string.no_songs_playing )
     }
 }
+
+private fun String.normalizedSongId(): String =
+    removePrefix(EXPLICIT_PREFIX)
+        .substringAfterLast("/")
+        .substringBefore("?")

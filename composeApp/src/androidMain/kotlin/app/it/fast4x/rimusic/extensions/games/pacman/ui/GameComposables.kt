@@ -392,6 +392,11 @@ fun Controls(
     rightButtonDrawable: Int
 ) {
 
+    fun startIfNeeded() {
+        if (!gameStatsModel.isGameStarted.value) {
+            gameStatsModel.isGameStarted.value = true
+        }
+    }
 
     Row(
         horizontalArrangement = Arrangement.SpaceAround,
@@ -410,18 +415,17 @@ fun Controls(
                         bottom.linkTo(leftArrow.top)
                         start.linkTo(leftArrow.end)
                     }
-                    .size(30.dp)
+                    .size(54.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                if (gameStatsModel.isGameStarted.value) {
-                                    gameViewModel.upPress(
-                                        characterYOffset = gameStatsModel.CharacterYOffset,
-                                        characterXOffset = gameStatsModel.CharacterXOffset
-                                    )
-                                    tryAwaitRelease()
-                                    gameViewModel.releaseUp()
-                                }
+                                startIfNeeded()
+                                gameViewModel.upPress(
+                                    characterYOffset = gameStatsModel.CharacterYOffset,
+                                    characterXOffset = gameStatsModel.CharacterXOffset
+                                )
+                                tryAwaitRelease()
+                                gameViewModel.releaseUp()
                             }
                         )
                     }
@@ -434,18 +438,17 @@ fun Controls(
                         start.linkTo(parent.start)
                         bottom.linkTo(parent.bottom)
                     }
-                    .size(30.dp)
+                    .size(54.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                if (gameStatsModel.isGameStarted.value) {
-                                    gameViewModel.leftPress(
-                                        characterYOffset = gameStatsModel.CharacterYOffset,
-                                        characterXOffset = gameStatsModel.CharacterXOffset
-                                    )
-                                    tryAwaitRelease()
-                                    gameViewModel.releaseLeft()
-                                }
+                                startIfNeeded()
+                                gameViewModel.leftPress(
+                                    characterYOffset = gameStatsModel.CharacterYOffset,
+                                    characterXOffset = gameStatsModel.CharacterXOffset
+                                )
+                                tryAwaitRelease()
+                                gameViewModel.releaseLeft()
                             }
                         )
                     }
@@ -457,18 +460,17 @@ fun Controls(
                         start.linkTo(upArrow.end)
                         bottom.linkTo(parent.bottom)
                     }
-                    .size(30.dp)
+                    .size(54.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                if (gameStatsModel.isGameStarted.value) {
-                                    gameViewModel.rightPress(
-                                        characterYOffset = gameStatsModel.CharacterYOffset,
-                                        characterXOffset = gameStatsModel.CharacterXOffset
-                                    )
-                                    tryAwaitRelease()
-                                    gameViewModel.releaseRight()
-                                }
+                                startIfNeeded()
+                                gameViewModel.rightPress(
+                                    characterYOffset = gameStatsModel.CharacterYOffset,
+                                    characterXOffset = gameStatsModel.CharacterXOffset
+                                )
+                                tryAwaitRelease()
+                                gameViewModel.releaseRight()
                             }
                         )
                     }
@@ -481,18 +483,17 @@ fun Controls(
                         top.linkTo(rightArrow.bottom)
                         start.linkTo(leftArrow.end)
                     }
-                    .size(30.dp)
+                    .size(54.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                if (gameStatsModel.isGameStarted.value) {
-                                    gameViewModel.downPress(
-                                        characterYOffset = gameStatsModel.CharacterYOffset,
-                                        characterXOffset = gameStatsModel.CharacterXOffset
-                                    )
-                                    tryAwaitRelease()
-                                    gameViewModel.releaseDown()
-                                }
+                                startIfNeeded()
+                                gameViewModel.downPress(
+                                    characterYOffset = gameStatsModel.CharacterYOffset,
+                                    characterXOffset = gameStatsModel.CharacterXOffset
+                                )
+                                tryAwaitRelease()
+                                gameViewModel.releaseDown()
                             }
                         )
                     }

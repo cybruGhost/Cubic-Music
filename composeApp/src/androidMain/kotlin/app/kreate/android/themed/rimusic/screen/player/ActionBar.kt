@@ -135,6 +135,18 @@ import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
 import app.kreate.android.me.knighthat.component.player.PlaybackSpeed
 import app.kreate.android.me.knighthat.utils.Toaster
+import timber.log.Timber
+
+private suspend fun PagerState.safeAnimateScrollToPageIfPresent(targetPage: Int, reason: String) {
+    val count = pageCount
+    if (count <= 0) return
+    val page = targetPage.coerceIn(0, count - 1)
+    runCatching {
+        animateScrollToPage(page)
+    }.onFailure {
+        Timber.w(it, "Ignored pager scroll while queue was changing: %s", reason)
+    }
+}
 
 private class PagerViewPort(
     private val showSongsState: MutableState<SongsNumber>,
@@ -296,9 +308,7 @@ fun BoxScope.ActionBar(
                                 .takeIf { it >= 0 }
                                 ?.coerceIn(0, pagerStateQueue.pageCount - 1)
                                 ?: 0
-                            if (targetPage < pagerStateQueue.pageCount) {
-                                pagerStateQueue.animateScrollToPage(targetPage)
-                            }
+                            pagerStateQueue.safeAnimateScrollToPageIfPresent(targetPage, "next preview changed")
                         }
                     }
 
@@ -328,10 +338,11 @@ fun BoxScope.ActionBar(
                                                ) {
                                                    coroutine.launch {
                                                        if (queuePreviewItems.isNotEmpty() && pagerStateQueue.pageCount > 0) {
-                                                           pagerStateQueue.animateScrollToPage(
+                                                           pagerStateQueue.safeAnimateScrollToPageIfPresent(
                                                                nextPreviewIndex.takeIf { it >= 0 }
                                                                    ?.coerceIn(0, pagerStateQueue.pageCount - 1)
-                                                                   ?: 0
+                                                                   ?: 0,
+                                                               "queue preview button"
                                                            )
                                                        }
                                                    }
@@ -446,7 +457,7 @@ fun BoxScope.ActionBar(
                                 Box {
                                     val artistsText by remember {
                                         derivedStateOf {
-                                            cleanPrefix( currentPreviewItem.mediaMetadata.artist.toString() )
+                                            cleanPrefix( currentPreviewItem.mediaMetadata.artist?.toString()?.takeUnless { it.equals("null", true) }.orEmpty() )
                                         }
                                     }
 

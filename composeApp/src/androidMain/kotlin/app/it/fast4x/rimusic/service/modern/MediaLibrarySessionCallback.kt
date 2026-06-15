@@ -70,6 +70,8 @@ import app.it.fast4x.rimusic.utils.getEnum
 import app.it.fast4x.rimusic.utils.persistentQueueKey
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.isPlayable
+import app.it.fast4x.rimusic.utils.playbackVideoIdOrNull
+import app.it.fast4x.rimusic.utils.sanitizePlaybackUri
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.guava.future
@@ -194,7 +196,15 @@ override fun onSearch(
                     MediaItemMapper.mapSongToMediaItem(song)
                 }
             }
-        }.getOrNull() ?: firstItem
+        }.getOrNull()
+            ?: firstItem.playbackVideoIdOrNull()?.let { videoId ->
+                firstItem.buildUpon()
+                    .setMediaId(videoId)
+                    .setUri(sanitizePlaybackUri(videoId))
+                    .setCustomCacheKey(videoId)
+                    .build()
+            }
+            ?: return MediaSession.MediaItemsWithStartPosition(emptyList(), 0, 0)
 
         return MediaSession.MediaItemsWithStartPosition(
             listOf(fallbackItem),
@@ -905,9 +915,14 @@ override fun onConnect(
             packageName = controller.packageName,
             mediaIds = mediaItems.map { it.mediaId }
         )
-        mediaItems.fastMap { item ->
-            val songId = item.mediaId.split("/").lastOrNull() ?: item.mediaId
-            database.songTable.findById(songId).first()?.asMediaItem ?: item.buildUpon().setMediaId(songId).build()
+        mediaItems.mapNotNull { item ->
+            val songId = item.playbackVideoIdOrNull() ?: return@mapNotNull null
+            database.songTable.findById(songId).first()?.asMediaItem
+                ?: item.buildUpon()
+                    .setMediaId(songId)
+                    .setUri(sanitizePlaybackUri(songId))
+                    .setCustomCacheKey(songId)
+                    .build()
         }.toMutableList()
     }
 

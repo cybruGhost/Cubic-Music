@@ -59,11 +59,15 @@ object MediaItemMapper {
         return if (path.contains(MediaSessionConstants.ID_SEARCH_VIDEOS)) {
             baseItem.buildUpon()
                 .setMediaId("$path/${song.id}")
+                .setUri(song.id)
+                .setCustomCacheKey(song.id)
                 .setMediaMetadata(baseItem.mediaMetadata.buildUpon().setMediaType(MediaMetadata.MEDIA_TYPE_VIDEO).build())
                 .build()
         } else {
             baseItem.buildUpon()
                 .setMediaId("$path/${song.id}")
+                .setUri(song.id)
+                .setCustomCacheKey(song.id)
                 .build()
         }
     }

@@ -31,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,7 +84,19 @@ import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.kreate.android.me.knighthat.component.dialog.RestartAppDialog
 import app.kreate.android.me.knighthat.utils.Toaster
+import kotlinx.coroutines.flow.MutableStateFlow
 
+object SettingsAssistantNavigation {
+    val requestedTabIndex = MutableStateFlow<Int?>(null)
+
+    fun request(tabIndex: Int) {
+        requestedTabIndex.value = tabIndex
+    }
+
+    fun consume() {
+        requestedTabIndex.value = null
+    }
+}
 
 @ExperimentalTextApi
 @ExperimentalFoundationApi
@@ -109,16 +122,15 @@ fun SettingsScreen(
         mutableIntStateOf(requestedTabIndex)
     }
 
-    androidx.compose.runtime.LaunchedEffect(requestedTabIndex) {
-        if (requestedTabIndex != tabIndex) {
-            onTabChanged(requestedTabIndex)
+    val liveRequestedTabIndex by SettingsAssistantNavigation.requestedTabIndex.collectAsState()
+
+    androidx.compose.runtime.LaunchedEffect(liveRequestedTabIndex) {
+        liveRequestedTabIndex?.let { requested ->
+            if (requested != tabIndex) {
+                onTabChanged(requested)
+            }
+            SettingsAssistantNavigation.consume()
         }
-        navController.currentBackStackEntry
-            ?.savedStateHandle
-            ?.remove<Int>("settings_tab_index")
-        navController.previousBackStackEntry
-            ?.savedStateHandle
-            ?.remove<Int>("settings_tab_index")
     }
 
     Skeleton(
@@ -126,6 +138,7 @@ fun SettingsScreen(
         tabIndex,
         onTabChanged,
         miniPlayer,
+        swipeTabCount = 9,
         navBarContent = { item ->
             item(0, stringResource(R.string.tab_general), R.drawable.ic_launcher_monochrome)
             item(1, stringResource(R.string.ui_tab), R.drawable.ui)

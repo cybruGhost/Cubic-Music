@@ -32,6 +32,19 @@ var GlobalVolume: Float = 0.5f
 
 private val youtubeIdRegex = Regex("^[A-Za-z0-9_-]{11}$")
 
+fun String.isYouTubeVideoId(): Boolean = youtubeIdRegex.matches(trim())
+
+fun MediaItem.playbackVideoIdOrNull(): String? =
+    mediaId
+        .trim()
+        .split("/")
+        .lastOrNull()
+        ?.takeIf { it.isYouTubeVideoId() }
+        ?: localConfiguration?.uri
+            ?.toString()
+            ?.trim()
+            ?.takeIf { it.isYouTubeVideoId() }
+
 fun MediaItem.isPlayable(): Boolean {
     val id = mediaId.trim()
     val uri = localConfiguration?.uri
@@ -39,10 +52,13 @@ fun MediaItem.isPlayable(): Boolean {
     if (id.startsWith(LOCAL_KEY_PREFIX, ignoreCase = true)) {
         return uri != null
     }
-    if (uri != null) return true
     if (id.startsWith("http", ignoreCase = true)) return true
-    if (id.contains("/", ignoreCase = true)) return true
-    return youtubeIdRegex.matches(id)
+    if (uri != null) {
+        val uriText = uri.toString().trim()
+        return uri.scheme in setOf("http", "https", "content", "file") || uriText.isYouTubeVideoId()
+    }
+    if (id.contains("/", ignoreCase = true)) return id.split("/").lastOrNull()?.isYouTubeVideoId() == true
+    return id.isYouTubeVideoId()
 }
 
 private fun MediaItem.isPlaybackSourceValid(): Boolean {
@@ -386,17 +402,19 @@ fun Player.forceSeekToNext() =
 fun Player.playNext() {
     seekToNextMediaItem()
     //seekToNext()
-    prepare()
+    safePrepare()
     restoreGlobalVolume()
     playWhenReady = true
+    play()
 }
 
 fun Player.playPrevious() {
     seekToPreviousMediaItem()
     //seekToPrevious()
-    prepare()
+    safePrepare()
     restoreGlobalVolume()
     playWhenReady = true
+    play()
 }
 
 @UnstableApi

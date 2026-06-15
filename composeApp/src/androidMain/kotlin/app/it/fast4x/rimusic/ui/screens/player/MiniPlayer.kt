@@ -20,6 +20,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -81,6 +82,7 @@ import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.BackgroundProgress
 import app.it.fast4x.rimusic.enums.MiniPlayerType
 import app.it.fast4x.rimusic.enums.NavRoutes
+import app.it.fast4x.rimusic.enums.ThumbnailRoundness
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.typography
@@ -99,10 +101,12 @@ import app.it.fast4x.rimusic.utils.getUnlikedIcon
 import app.it.fast4x.rimusic.utils.intent
 import app.it.fast4x.rimusic.utils.isExplicit
 import app.it.fast4x.rimusic.utils.miniPlayerTypeKey
+import app.it.fast4x.rimusic.utils.nowPlayingProgressRingKey
 import app.it.fast4x.rimusic.utils.playNext
 import app.it.fast4x.rimusic.utils.playPrevious
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.utils.thumbnailRoundnessKey
 import app.kreate.android.R
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
 import app.kreate.android.me.knighthat.sync.YouTubeSync
@@ -242,6 +246,8 @@ fun MiniPlayer(
     val effectRotationEnabled           by rememberPreference(effectRotationKey, true)
     val disableClosingPlayerSwipingDown by rememberPreference(disableClosingPlayerSwipingDownKey, false)
     val disableScrollingText            by rememberPreference(disableScrollingTextKey, false)
+    val nowPlayingProgressRing          by rememberPreference(nowPlayingProgressRingKey, true)
+    val thumbnailRoundness              by rememberPreference(thumbnailRoundnessKey, ThumbnailRoundness.Heavy)
 
     // ── Play/pause pill shape ─────────────────────────────────────────────────
     val shouldBePlayingTransition = updateTransition(shouldBePlaying, label = "shouldBePlaying")
@@ -429,37 +435,63 @@ fun MiniPlayer(
                 val crossfadeArtProgress = 0f
                 val thumbnailShape = thumbnailShape()
 
-                Box(
-                    modifier = Modifier
-                        .clip(thumbnailShape)
-                        .size(48.dp)
-                ) {
-                    ImageCacheFactory.Thumbnail(
-                        thumbnailUrl = currentArtwork,
-                        contentScale = ContentScale.FillHeight,
-                        modifier = Modifier.fillMaxSize()  // Changed from matchParentSize()
-                    )
-                    if (isCrossfading && !incomingArtwork.isNullOrBlank()) {
+                val artworkContent: @Composable BoxScope.() -> Unit = {
+                    Box(
+                        modifier = Modifier
+                            .clip(thumbnailShape)
+                            .fillMaxSize()
+                    ) {
                         ImageCacheFactory.Thumbnail(
-                            thumbnailUrl = incomingArtwork,
+                            thumbnailUrl = currentArtwork,
                             contentScale = ContentScale.FillHeight,
-                            modifier = Modifier
-                                 .fillMaxSize()  // Changed from matchParentSize()
-                                .drawWithContent {
-                                    val split = size.width * crossfadeArtProgress
-                                    val path = Path().apply {
-                                        moveTo(0f, 0f)
-                                        lineTo(split, 0f)
-                                        lineTo(size.width, size.height)
-                                        lineTo(0f, size.height)
-                                        close()
-                                    }
-                                    clipPath(path) {
-                                        this@drawWithContent.drawContent()
-                                    }
-                                }
+                            modifier = Modifier.fillMaxSize()
                         )
+                        if (isCrossfading && !incomingArtwork.isNullOrBlank()) {
+                            ImageCacheFactory.Thumbnail(
+                                thumbnailUrl = incomingArtwork,
+                                contentScale = ContentScale.FillHeight,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .drawWithContent {
+                                        val split = size.width * crossfadeArtProgress
+                                        val path = Path().apply {
+                                            moveTo(0f, 0f)
+                                            lineTo(split, 0f)
+                                            lineTo(size.width, size.height)
+                                            lineTo(0f, size.height)
+                                            close()
+                                        }
+                                        clipPath(path) {
+                                            this@drawWithContent.drawContent()
+                                        }
+                                    }
+                            )
+                        }
                     }
+                }
+                if (nowPlayingProgressRing) {
+                    val progressCornerRadius = when (thumbnailRoundness) {
+                        ThumbnailRoundness.None -> 0.dp
+                        ThumbnailRoundness.Light -> 8.dp
+                        ThumbnailRoundness.Medium -> 12.dp
+                        ThumbnailRoundness.Heavy -> 16.dp
+                    }
+                    NowPlayingProgressOutline(
+                        position = positionAndDuration.first,
+                        duration = positionAndDuration.second,
+                        modifier = Modifier.size(48.dp),
+                        strokeWidth = 2.dp,
+                        contentPadding = 0.dp,
+                        cornerRadius = progressCornerRadius,
+                        content = artworkContent
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .clip(thumbnailShape)
+                            .size(48.dp),
+                        content = artworkContent
+                    )
                 }
                 NowPlayingSongIndicator(mediaItem.mediaId, binder.player)
             }
@@ -482,7 +514,7 @@ fun MiniPlayer(
                             modifier = Modifier.size(14.dp)
                         )
                     BasicText(
-                        text     = cleanPrefix(mediaItem.mediaMetadata.title.toString()),
+                        text     = cleanPrefix(mediaItem.mediaMetadata.title?.toString()?.takeUnless { it.equals("null", true) }.orEmpty()),
                         style    = typography().xxs.semiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -492,7 +524,7 @@ fun MiniPlayer(
                     )
                 }
                 BasicText(
-                    text     = cleanPrefix(mediaItem.mediaMetadata.artist.toString()),
+                    text     = cleanPrefix(mediaItem.mediaMetadata.artist?.toString()?.takeUnless { it.equals("null", true) }.orEmpty()),
                     style    = typography().xxs.semiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

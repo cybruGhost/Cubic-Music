@@ -52,6 +52,7 @@ import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
+import app.it.fast4x.rimusic.utils.PlaybackContextStore
 import app.it.fast4x.rimusic.utils.playVideo
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.ui.items.ArtistItemPlaceholder
@@ -113,6 +114,7 @@ fun OnlineSearchList(
                         navController = navController,
                         modifier = Modifier,
                         onClick = {
+                            PlaybackContextStore.set("Playing from Search", "\"$query\" in Search")
                             binder?.startRadio(item.asMediaItem, false, item.info?.endpoint)
                         }
                     )
@@ -143,6 +145,7 @@ fun OnlineSearchList(
                                 },
                                 onClick = {
                                     binder?.stopRadio()
+                                    PlaybackContextStore.set("Playing from Search", "\"$query\" in Search")
                                     if (isVideoEnabled) binder?.player?.playVideo(item.asMediaItem)
                                     else binder?.player?.forcePlay(item.asMediaItem)
                                 }

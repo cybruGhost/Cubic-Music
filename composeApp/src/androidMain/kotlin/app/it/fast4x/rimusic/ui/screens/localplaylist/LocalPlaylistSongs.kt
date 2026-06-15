@@ -126,6 +126,7 @@ import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.isPipedEnabledKey
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
+import app.it.fast4x.rimusic.utils.PlaybackContextStore
 import app.it.fast4x.rimusic.utils.recommendationsNumberKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.removeFromPipedPlaylist
@@ -925,6 +926,10 @@ fun LocalPlaylistSongs(
                             },
                             onClick = {
                                 binder?.stopRadio()
+                                PlaybackContextStore.set(
+                                    "Playing from Playlist",
+                                    playlist?.name.orEmpty()
+                                )
                                 binder?.player?.forcePlayAtIndex(
                                     itemsOnDisplay.map( Song::asMediaItem ),
                                     index

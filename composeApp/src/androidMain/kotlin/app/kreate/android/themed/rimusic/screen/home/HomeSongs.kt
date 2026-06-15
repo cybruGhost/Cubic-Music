@@ -4,6 +4,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,13 +16,13 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
@@ -35,8 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
 import androidx.documentfile.provider.DocumentFile
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
@@ -83,6 +82,7 @@ import app.it.fast4x.rimusic.utils.importYTMLikedSongs
 import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
+import app.it.fast4x.rimusic.utils.PlaybackContextStore
 import app.it.fast4x.rimusic.utils.recommendationsNumberKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
@@ -102,6 +102,9 @@ import app.kreate.android.me.knighthat.component.tab.HiddenSongs
 import app.kreate.android.me.knighthat.component.tab.ItemSelector
 import app.kreate.android.me.knighthat.component.tab.Search
 import app.kreate.android.me.knighthat.database.ext.FormatWithSong
+import app.kreate.android.themed.rimusic.component.AlphabetIndexBar
+import app.kreate.android.themed.rimusic.component.buildSongAlphabetIndex
+import kotlinx.coroutines.launch
 
 @UnstableApi
 @ExperimentalFoundationApi
@@ -122,6 +125,7 @@ fun HomeSongs(
     // Essentials
     val binder = LocalPlayerServiceBinder.current
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     //<editor-fold defaultstate="collapsed" desc="Settings">
     val parentalControlEnabled by rememberPreference( parentalControlEnabledKey, false )
@@ -132,10 +136,8 @@ fun HomeSongs(
     //</editor-fold>
 
     var items by remember { mutableStateOf(emptyList<Song>()) }
+    var customFolderSongs by remember { mutableStateOf(emptyList<Song>()) }
     var ytmFavoritesSynced by remember { mutableStateOf(false) }
-    var currentPlayingMediaId by remember {
-        mutableStateOf(binder?.player?.currentMediaItem?.mediaId.orEmpty())
-    }
 
     val songSort = Sort ( HOME_SONGS_SORT_BY, HOME_SONGS_SORT_ORDER )
     val topPlaylists = PeriodSelector( Preference.HOME_SONGS_TOP_PLAYLIST_PERIOD )
@@ -144,7 +146,25 @@ fun HomeSongs(
         playlistName = builtInPlaylist.text,
         songs = getSongs
     )
-    val downloadAllDialog = DownloadAllSongsDialog( getSongs )
+    val downloadAllDialog = DownloadAllSongsDialog(
+        getSongs = getSongs,
+        redownloadExisting = builtInPlaylist == BuiltInPlaylist.CorruptDownloads,
+        titleId = if (builtInPlaylist == BuiltInPlaylist.CorruptDownloads) {
+            R.string.do_you_really_want_to_redownload_corrupt
+        } else {
+            R.string.do_you_really_want_to_download_all
+        },
+        menuTitleId = if (builtInPlaylist == BuiltInPlaylist.CorruptDownloads) {
+            R.string.redownload_all_corrupt_songs
+        } else {
+            R.string.download
+        },
+        messageTitleId = if (builtInPlaylist == BuiltInPlaylist.CorruptDownloads) {
+            R.string.redownload_all_corrupt_songs
+        } else {
+            R.string.info_download_all_songs
+        }
+    )
     val deleteDownloadsDialog = DeleteAllDownloadedSongsDialog( getSongs )
 
     /**
@@ -158,6 +178,13 @@ fun HomeSongs(
      * and should **_NOT_** be set to `true` while in **second** phrase.
      */
     var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(customDownloadUri) {
+        customFolderSongs = emptyList()
+        if (customDownloadUri.isBlank()) return@LaunchedEffect
+
+        customFolderSongs = loadCustomDownloadFolderSongs(context, customDownloadUri)
+    }
 
     //<editor-fold defaultstate="collapsed" desc="Smart recommendation state">
     val recommendationsNumber by rememberPreference( recommendationsNumberKey, RecommendationsNumber.Adaptive )
@@ -173,25 +200,9 @@ fun HomeSongs(
         }
     }
 
-    DisposableEffect(binder?.player) {
-        val player = binder?.player
-        if (player == null) {
-            onDispose { }
-        } else {
-            val listener = object : Player.Listener {
-                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    currentPlayingMediaId = mediaItem?.mediaId.orEmpty()
-                }
-            }
-            currentPlayingMediaId = player.currentMediaItem?.mediaId.orEmpty()
-            player.addListener(listener)
-            onDispose { player.removeListener(listener) }
-        }
-    }
-
     // This phrase loads all songs across types into [items]
     // No filtration applied to this stage, only sort
-    LaunchedEffect( builtInPlaylist, topPlaylists.period, songSort.sortBy, songSort.sortOrder, hiddenSongs.isFirstIcon, customDownloadUri ) {
+    LaunchedEffect( builtInPlaylist, topPlaylists.period, songSort.sortBy, songSort.sortOrder, hiddenSongs.isFirstIcon, customFolderSongs ) {
         isLoading = true
 
         val retrievedSongs = when( builtInPlaylist ) {
@@ -200,33 +211,65 @@ fun HomeSongs(
                                            .map { list ->
                                                // Include local songs if enabled
                                                list.fastFilter {
-                                                   !includeLocalSongs || !it.id.startsWith( LOCAL_KEY_PREFIX, true )
+                                                   includeLocalSongs || !it.id.startsWith( LOCAL_KEY_PREFIX, true )
                                                }
                                            }
 
             BuiltInPlaylist.Downloaded -> {
                 // [MyDownloadHelper] provide a list of downloaded songs, which is faster to retrieve
                 // than using `Cache.isCached()` call
-                val downloaded: List<String> = MyDownloadHelper.downloads
+                val downloaded: Set<String> = MyDownloadHelper.downloads
                                                                .value
                                                                .values
-                                                               .filter { it.state == Download.STATE_COMPLETED }
+                                                               .filter {
+                                                                   it.state == Download.STATE_COMPLETED &&
+                                                                       MyDownloadHelper.isDownloadCached(it.request.id)
+                                                               }
                                                                .fastMap { it.request.id }
-                val customFolderSongs = loadCustomDownloadFolderSongs(context, customDownloadUri)
+                                                               .toSet()
+                val customFolderSongsSnapshot = customFolderSongs
                 Database.songTable
                         .sortAll( songSort.sortBy, songSort.sortOrder )
                         .map { list ->
-                            (list.fastFilter { it.id in downloaded } + customFolderSongs)
+                            (list.fastFilter { it.id in downloaded } + customFolderSongsSnapshot)
                                 .distinctBy(Song::id)
+                                .sortedForHome(songSort.sortBy, songSort.sortOrder)
                         }
+            }
+
+            BuiltInPlaylist.CorruptDownloads -> {
+                val corruptDownloaded: Set<String> = MyDownloadHelper.downloads
+                    .value
+                    .values
+                    .filter {
+                        it.state == Download.STATE_FAILED ||
+                            (
+                                it.state == Download.STATE_COMPLETED &&
+                                    !MyDownloadHelper.isDownloadCached(it.request.id)
+                                )
+                    }
+                    .fastMap { it.request.id }
+                    .toSet()
+                Database.songTable
+                    .sortAll(songSort.sortBy, songSort.sortOrder)
+                    .map { list ->
+                        list.fastFilter { it.id in corruptDownloaded }
+                            .sortedForHome(songSort.sortBy, songSort.sortOrder)
+                    }
             }
 
             BuiltInPlaylist.Offline -> Database.formatTable
                                                .sortAllWithSongs( songSort.sortBy, songSort.sortOrder, excludeHidden = hiddenSongs.isHiddenExcluded() )
                                                .map { list ->
                                                    list.fastFilter {
-                                                        val contentLength = it.format.contentLength ?: return@fastFilter false
-                                                        binder?.cache?.isCached( it.song.id, 0, contentLength ) == true
+                                                        val hasAnyCachedSpan = runCatching {
+                                                            binder?.cache?.getCachedSpans(it.song.id)?.isNotEmpty() == true
+                                                        }.getOrDefault(false)
+                                                        val contentLength = it.format.contentLength
+                                                        hasAnyCachedSpan || (
+                                                            contentLength != null &&
+                                                                binder?.cache?.isCached( it.song.id, 0, contentLength ) == true
+                                                            )
                                                     }.map( FormatWithSong::song )
                                                }
 
@@ -334,8 +377,9 @@ fun HomeSongs(
         onRecommendationsLoadingChange(false)
     }
 
-    LaunchedEffect( items, search.inputValue, isRecommendationEnabled, relatedSongsPositions, currentPlayingMediaId ) {
-        val filteredItems = items.toMutableList()
+    LaunchedEffect( items, search.inputValue, isRecommendationEnabled, relatedSongsPositions ) {
+        val filteredItems = items
+             .toMutableList()
              .apply {
                  if (isRecommendationEnabled) {
                      relatedSongsPositions.forEach { (song, position) ->
@@ -353,30 +397,8 @@ fun HomeSongs(
                  containsTitle || containsArtist
              }
 
-        val reorderedItems = if (builtInPlaylist in setOf(
-                BuiltInPlaylist.Downloaded,
-                BuiltInPlaylist.Offline,
-                BuiltInPlaylist.Favorites
-            )
-        ) {
-            val normalizedPlayingId = currentPlayingMediaId.substringAfterLast("/", currentPlayingMediaId)
-            val currentIndex = filteredItems.indexOfFirst { song ->
-                song.id == currentPlayingMediaId || song.id == normalizedPlayingId
-            }
-            if (currentIndex > 0) {
-                filteredItems.toMutableList().apply {
-                    add(0, removeAt(currentIndex))
-                }
-            } else {
-                filteredItems
-            }
-        } else {
-            filteredItems
-        }
-
         itemsOnDisplay.clear()
-        itemsOnDisplay.addAll(reorderedItems)
-
+        itemsOnDisplay.addAll(filteredItems)
     }
 
     LaunchedEffect( relatedSongs.size, isRecommendationEnabled ) {
@@ -389,10 +411,13 @@ fun HomeSongs(
 
     LaunchedEffect( builtInPlaylist ) {
         val firstButton = if( builtInPlaylist == BuiltInPlaylist.Top ) topPlaylists else songSort
+        buttons.removeAll { it === songSort || it === topPlaylists || it === downloadAllDialog || it === deleteDownloadsDialog || it === exportDialog }
         buttons.add( 0, firstButton )
-        buttons.add( 3, downloadAllDialog )
-        buttons.add( 4, deleteDownloadsDialog )
-        buttons.add( exportDialog )
+        buttons.add( minOf(3, buttons.size), downloadAllDialog )
+        if (builtInPlaylist != BuiltInPlaylist.CorruptDownloads) {
+            buttons.add( minOf(4, buttons.size), deleteDownloadsDialog )
+        }
+        if( exportDialog !in buttons ) buttons.add( exportDialog )
     }
 
     //<editor-fold defaultstate="collapsed" desc="Dialog Renders">
@@ -405,18 +430,39 @@ fun HomeSongs(
     val downloadProgresses by MyDownloadHelper.progresses.collectAsState()
     val downloadStates by MyDownloadHelper.downloads.collectAsState()
 
-    val visibleBulkDownloadSongs = remember(itemsOnDisplay, bulkDownloadIds) {
-        itemsOnDisplay.filter { it.id in bulkDownloadIds }
+    val visibleBulkDownloadSongs = remember(items, bulkDownloadIds, downloadStates) {
+        val songsById = items.associateBy { it.id }
+        bulkDownloadIds.mapNotNull { id ->
+            songsById[id]?.takeIf { song ->
+                downloadStates[song.id]?.state in setOf(
+                    Download.STATE_DOWNLOADING,
+                    Download.STATE_QUEUED,
+                    Download.STATE_RESTARTING,
+                    Download.STATE_COMPLETED
+                )
+            }
+        }
     }
 
-    LazyColumn(
-        state = lazyListState,
-        userScrollEnabled = !isLoading,
-        contentPadding = PaddingValues( bottom = Dimensions.bottomSpacer ),
+    val alphabetIndex = remember(itemsOnDisplay.toList()) {
+        buildSongAlphabetIndex(itemsOnDisplay)
+    }
+    val listHeaderOffset = if (visibleBulkDownloadSongs.isNotEmpty()) 1 else 0
+
+    Box(
         modifier = Modifier
             .background(colorPalette().background0)
             .fillMaxSize()
     ) {
+        LazyColumn(
+            state = lazyListState,
+            userScrollEnabled = !isLoading,
+            contentPadding = PaddingValues(
+                end = 34.dp,
+                bottom = Dimensions.bottomSpacer
+            ),
+            modifier = Modifier.fillMaxSize()
+        ) {
         if (visibleBulkDownloadSongs.isNotEmpty()) {
             val total = visibleBulkDownloadSongs.size
             val completed = visibleBulkDownloadSongs.count { song ->
@@ -575,11 +621,26 @@ fun HomeSongs(
                         binder?.stopRadio()
 
                         val mediaItems = itemsOnDisplay.fastMap( Song::asMediaItem )
+                        PlaybackContextStore.set("Playing from ${context.resources.getString(builtInPlaylist.textId)}")
                         binder?.player?.forcePlayAtIndex( mediaItems, index )
                     }
                 )
             }
 
+        }
+        }
+
+        if (!isLoading && search.inputValue.isBlank() && alphabetIndex.size > 1 && itemsOnDisplay.size >= 20) {
+            AlphabetIndexBar(
+                alphabetIndex = alphabetIndex,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) { letter ->
+                alphabetIndex[letter]?.let { songIndex ->
+                    coroutineScope.launch {
+                        lazyListState.animateScrollToItem(songIndex + listHeaderOffset)
+                    }
+                }
+            }
         }
     }
 }
@@ -593,14 +654,18 @@ private suspend fun loadCustomDownloadFolderSongs(
     val root = DocumentFile.fromTreeUri(context, Uri.parse(treeUriString)) ?: return@withContext emptyList()
     root.walkAudioFiles().mapNotNull { file ->
         val fileUri = file.uri
+        val fileName = file.name?.substringBeforeLast(".").orEmpty()
         val retriever = MediaMetadataRetriever()
         runCatching {
             retriever.setDataSource(context, fileUri)
-            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+            val metadataTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
                 ?.takeIf { it.isNotBlank() }
-                ?: file.name?.substringBeforeLast(".").orEmpty()
-            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+            val metadataArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?.takeIf { it.isNotBlank() }
+                ?.takeUnless { it.equals("unknown", ignoreCase = true) || it.equals("<unknown>", ignoreCase = true) }
+            val filenameParts = splitArtistTitle(fileName)
+            val title = metadataTitle ?: filenameParts?.second ?: fileName
+            val artist = metadataArtist ?: filenameParts?.first
             val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()
             Song(
@@ -626,6 +691,33 @@ private fun DocumentFile.walkAudioFiles(): List<DocumentFile> {
             else -> emptyList()
         }
     }
+}
+
+private fun List<Song>.sortedForHome(sortBy: SongSortBy, sortOrder: app.it.fast4x.rimusic.enums.SortOrder): List<Song> {
+    if (sortBy in setOf(SongSortBy.DateAdded, SongSortBy.DatePlayed, SongSortBy.AlbumName)) {
+        return toList()
+    }
+
+    val sorted = when (sortBy) {
+        SongSortBy.PlayTime -> sortedBy(Song::totalPlayTimeMs)
+        SongSortBy.RelativePlayTime -> sortedBy(Song::relativePlayTime)
+        SongSortBy.Title -> sortedBy { it.cleanTitle().lowercase() }
+        SongSortBy.Artist -> sortedBy { it.cleanArtistsText().lowercase() }
+        SongSortBy.Duration -> sortedBy { durationTextToMillis(it.durationText.orEmpty()) }
+        SongSortBy.DateLiked -> sortedBy { it.likedAt ?: Long.MIN_VALUE }
+        SongSortBy.DateAdded,
+        SongSortBy.DatePlayed,
+        SongSortBy.AlbumName -> toList()
+    }
+    return sortOrder.applyTo(sorted)
+}
+
+private fun splitArtistTitle(name: String): Pair<String, String>? {
+    val parts = name.split(Regex("\\s+-\\s+"), limit = 2)
+    if (parts.size != 2) return null
+    val artist = parts[0].trim()
+    val title = parts[1].trim()
+    return if (artist.isNotBlank() && title.isNotBlank()) artist to title else null
 }
 
 private fun DocumentFile.isPlayableAudioFile(): Boolean {

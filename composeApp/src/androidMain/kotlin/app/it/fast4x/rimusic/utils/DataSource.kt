@@ -12,10 +12,7 @@ import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
 import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
-import it.fast4x.innertube.utils.ProxyPreferences
-import it.fast4x.innertube.utils.getProxy
-import okhttp3.OkHttpClient
-import java.time.Duration
+import app.cubic.android.core.network.NetworkClientFactory
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -74,37 +71,27 @@ val Context.defaultDataSourceFactory
     @OptIn(UnstableApi::class)
     get() = DefaultDataSource.Factory(
         this,
-        DefaultHttpDataSource.Factory().setConnectTimeoutMs(16000)
-            .setReadTimeoutMs(8000)
-            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0")
+        DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(30_000)
+            .setAllowCrossProtocolRedirects(true)
+            .setDefaultRequestProperties(streamingRequestHeaders)
     )
 
 val Context.okHttpDataSourceFactory
     @OptIn(UnstableApi::class)
     get() = DefaultDataSource.Factory(
         this,
-        OkHttpDataSource.Factory(okHttpClient())
-            .setUserAgent("Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Mobile Safari/537.36")
+        OkHttpDataSource.Factory(NetworkClientFactory.getClientWithTimeout(15, 30))
+            .setDefaultRequestProperties(streamingRequestHeaders)
     )
         .handleRangeErrors()
         .handleCatchingErrors()
 
-private fun okHttpClient(): OkHttpClient {
-    ProxyPreferences.preference?.let {
-        return OkHttpClient.Builder()
-            .proxy(
-                getProxy(it)
-            )
-            .connectTimeout(Duration.ofSeconds(16))
-            .readTimeout(Duration.ofSeconds(8))
-            .build()
-    }
-    return OkHttpClient.Builder()
-        .connectTimeout(Duration.ofSeconds(16))
-        .readTimeout(Duration.ofSeconds(20))
-        .retryOnConnectionFailure(true)
-        .build()
-}
+private val streamingRequestHeaders = mapOf(
+    "Accept" to "*/*",
+    "Accept-Encoding" to "identity"
+)
 
 
 @OptIn(UnstableApi::class)

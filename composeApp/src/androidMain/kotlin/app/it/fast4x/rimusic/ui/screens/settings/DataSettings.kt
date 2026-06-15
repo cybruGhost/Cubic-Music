@@ -49,6 +49,7 @@ import app.it.fast4x.rimusic.utils.pauseListenHistoryKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -241,8 +242,11 @@ fun DataSettings() {
                 description = stringResource(R.string.cache_cleared),
                 content = {
                     ImageCacheFactory.getDiskCache()?.let { diskCache ->
-                        val diskCacheSize = remember(diskCache.size, cleanCacheImages) {
-                            diskCache.size
+                        val diskCacheSize by produceState(initialValue = diskCache.size, cacheCleanedCounter) {
+                            while (true) {
+                                value = diskCache.size
+                                delay(1000)
+                            }
                         }
 
                         var showImageCacheDialog by remember { mutableStateOf(false) }
@@ -302,8 +306,11 @@ fun DataSettings() {
                         }
                     }
                     binder?.cache?.let { cache ->
-                        val diskCacheSize = remember(cache.cacheSpace, cleanCacheOfflineSongs) {
-                            cache.cacheSpace
+                        val diskCacheSize by produceState(initialValue = cache.cacheSpace, cacheCleanedCounter) {
+                            while (true) {
+                                value = cache.cacheSpace
+                                delay(1000)
+                            }
                         }
 
                         var showSongCacheDialog by remember { mutableStateOf(false) }
@@ -362,8 +369,11 @@ fun DataSettings() {
                     }
 
                     binder?.downloadCache?.let { downloadCache ->
-                        val diskDownloadCacheSize = remember(downloadCache.cacheSpace, cleanDownloadCache) {
-                            downloadCache.cacheSpace
+                        val diskDownloadCacheSize by produceState(initialValue = downloadCache.cacheSpace, cacheCleanedCounter) {
+                            while (true) {
+                                value = downloadCache.cacheSpace
+                                delay(1000)
+                            }
                         }
 
                         var showDownloadCacheDialog by remember { mutableStateOf(false) }

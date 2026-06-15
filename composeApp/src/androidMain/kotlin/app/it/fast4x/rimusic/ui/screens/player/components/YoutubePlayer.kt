@@ -3,11 +3,9 @@ package app.it.fast4x.rimusic.ui.screens.player.components
 import android.view.ViewGroup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,10 +23,8 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -67,6 +63,7 @@ fun YoutubePlayer(
     ytVideoId: String,
     lifecycleOwner: LifecycleOwner,
     showPlayer: Boolean = true,
+    syncPlayer: Player? = null,
     onCurrentSecond: (second: Float) -> Unit,
     onSwitchToAudioPlayer: () -> Unit
 ) {
@@ -90,9 +87,9 @@ fun YoutubePlayer(
     val player = remember(ytVideoId, resolvedVideoState) {
         (resolvedVideoState as? ResolvedYoutubeVideoState.Ready)?.video?.let { video ->
             ExoPlayer.Builder(context).build().apply {
-                volume = 1f
+                volume = if (syncPlayer == null) 1f else 0f
                 repeatMode = Player.REPEAT_MODE_OFF
-                playWhenReady = true
+                playWhenReady = syncPlayer?.playWhenReady ?: true
                 videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
                 setMediaItem(
                     MediaItem.Builder()
@@ -101,8 +98,9 @@ fun YoutubePlayer(
                         .build()
                 )
                 prepare()
-                if (lastYTVideoSeconds > 0f) {
-                    seekTo((lastYTVideoSeconds * 1000).toLong())
+                val startPosition = syncPlayer?.currentPosition ?: (lastYTVideoSeconds * 1000).toLong()
+                if (startPosition > 0L) {
+                    seekTo(startPosition)
                 }
                 addListener(
                     object : Player.Listener {
@@ -125,6 +123,15 @@ fun YoutubePlayer(
 
     LaunchedEffect(player) {
         while (player != null) {
+            syncPlayer?.let { audioPlayer ->
+                val targetPosition = (audioPlayer.currentPosition + 120L).coerceAtLeast(0L)
+                if (kotlin.math.abs(player.currentPosition - targetPosition) > 140L) {
+                    player.seekTo(targetPosition)
+                }
+                player.playWhenReady = audioPlayer.playWhenReady
+                if (audioPlayer.isPlaying && !player.isPlaying) player.play()
+                if (!audioPlayer.isPlaying && player.isPlaying) player.pause()
+            }
             val currentSecond = player.currentPosition / 1000f
             onCurrentSecond(currentSecond)
             lastYTVideoSeconds = currentSecond
@@ -139,38 +146,11 @@ fun YoutubePlayer(
     }
 
     Box {
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 60.dp, start = 12.dp)
-                .background(
-                    color = colorPalette().background0.copy(alpha = 0.9f),
-                )
-                .clip(RoundedCornerShape(20.dp))
-                .clickable { onSwitchToAudioPlayer() }
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Image(
-                painter = painterResource(R.drawable.musical_notes),
-                contentDescription = stringResource(R.string.return_to_audio_mode),
-                colorFilter = ColorFilter.tint(colorPalette().text),
-                modifier = Modifier.size(28.dp)
-            )
-            Text(
-                text = stringResource(R.string.return_to_audio_mode),
-                style = typography().xs.semiBold,
-                color = colorPalette().text
-            )
-        }
-
         when {
             player != null -> {
                 AndroidView(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 130.dp)
                         .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                         .zIndex(2f),
                     factory = {
@@ -282,8 +262,8 @@ private suspend fun resolveYoutubeVideo(videoId: String): ResolvedYoutubeVideoSt
         ?.asSequence()
         ?.filter { !it.isAudio }
         ?.sortedWith(
-            compareByDescending<PlayerResponse.StreamingData.Format> { it.height ?: 0 }
-                .thenByDescending { it.bitrate }
+            compareByDescending<PlayerResponse.StreamingData.Format> { it.heightValue ?: 0 }
+                .thenByDescending { it.bitrateValue ?: 0 }
         )
         ?.firstOrNull { it.mimeType.startsWith("video/mp4") }
         ?: playerResponse.streamingData

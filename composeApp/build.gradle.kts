@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 val APP_NAME = "Cubic-Music"
+val DESKTOP_APP_NAME = "Cubic Music"
 
 plugins {
     // Multiplatform
@@ -48,12 +49,20 @@ kotlin {
         }
 
         val desktopMain by getting
+        desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/ThreeColumnsApp.kt")
+        desktopMain.kotlin.exclude("it/fast4x/rimusic/player/vlcj/VlcjFrameController.kt")
+        desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/screens/ArtistScreen.kt")
+        desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/components/LayoutWithAdaptiveThumbnail.kt")
+        desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/components/PlayerEssential.kt")
         desktopMain.dependencies {
             implementation(compose.components.resources)
             implementation(compose.desktop.currentOs)
+            implementation(projects.oldtube)
 
             implementation(libs.material.icon.desktop)
             implementation(libs.vlcj)
+            implementation(libs.hypnoticcanvas)
+            implementation(libs.hypnoticcanvas.shaders)
 
             implementation(libs.coil.network.okhttp)
             runtimeOnly(libs.kotlinx.coroutines.swing)
@@ -71,6 +80,8 @@ kotlin {
     // OkHttp dependencies
     implementation(libs.okhttp3.okhttp)
     implementation(libs.okhttp3.logging.interceptor)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.media3:media3-ui:1.8.0")
     
     // Ktor OkHttp engine (THIS WAS MISSING)
     implementation(libs.ktor.client.okhttp)
@@ -78,20 +89,36 @@ kotlin {
     // Your existing dependencies
     implementation(libs.media3.session)
     implementation(libs.kotlinx.coroutines.guava)
+    implementation("com.google.guava:guava:31.1-android")
     implementation(libs.newpipe.extractor)
     implementation(libs.nanojson)
     implementation(libs.androidx.webkit)
     implementation(libs.compose.runtime.livedata)
+    implementation(libs.compose.activity)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.datasource.okhttp)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.appcompat.resources)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.monetcompat)
+    implementation(libs.androidmaterial)
+    implementation(libs.androidx.crypto)
+    implementation(libs.toasty)
+    implementation(libs.androidyoutubeplayer)
+    implementation(libs.androidx.glance.widgets)
+    implementation(libs.kizzy.rpc)
 }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            implementation(compose.materialIconsExtended)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
 
-            implementation(projects.innertube)
+            implementation(projects.oldtube)
             implementation(projects.piped)
             implementation(projects.invidious)
 
@@ -102,7 +129,6 @@ kotlin {
             implementation(libs.mediaplayer.kmp)
 
             implementation(libs.navigation.kmp)
-            implementation("androidx.compose.material:material-icons-extended:1.6.0")
             //coil3 mp
             implementation(libs.coil.compose.core)
             implementation(libs.coil.compose)
@@ -143,7 +169,7 @@ android {
         minSdk = 23
         targetSdk = 36
         versionCode = 108
-        versionName = "1.7.9"
+        versionName = "1.8.3"
 
         /*
                 UNIVERSAL VARIABLES
@@ -216,6 +242,8 @@ android {
         kotlin.srcDir("src/$name/kotlin")
     }
 
+    sourceSets.getByName("main").jniLibs.srcDir("src/androidMain/jniLibs")
+
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_21
@@ -245,11 +273,11 @@ compose.desktop {
         //jpackage
         nativeDistributions {
             //conveyor
-            vendor = "RiMusic.DesktopApp"
-            description = "RiMusic Desktop Music Player"
+            vendor = DESKTOP_APP_NAME
+            description = "$DESKTOP_APP_NAME Desktop Music Player"
 
-            targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
-            packageName = "RiMusic.DesktopApp"
+            targetFormats(TargetFormat.Exe, TargetFormat.Msi)
+            packageName = "CubicMusic"
             packageVersion = "0.0.1"
         }
     }
@@ -260,51 +288,37 @@ compose.resources {
     generateResClass = always
 }
 
+tasks.matching { it.name == "proguardReleaseJars" }.configureEach {
+    enabled = false
+}
+
 room {
     schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
-    implementation(libs.compose.activity)
     implementation(libs.compose.foundation)
     implementation(libs.compose.ui)
     implementation(libs.compose.shimmer)
     implementation(libs.androidx.palette)
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.datasource.okhttp)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.appcompat.resources)
     implementation(libs.material3)
-    implementation(libs.androidx.constraintlayout)
     implementation(libs.compose.animation)
     implementation(libs.kotlin.csv)
-    implementation(libs.monetcompat)
-    implementation(libs.androidmaterial)
     implementation(libs.timber)
-    implementation(libs.androidx.crypto)
     implementation(libs.math3)
-    implementation(libs.toasty)
-    implementation(libs.androidyoutubeplayer)
-    implementation(libs.androidx.glance.widgets)
-    implementation(libs.kizzy.rpc)
     implementation(libs.gson)
     implementation (libs.hypnoticcanvas)
     implementation (libs.hypnoticcanvas.shaders)
     implementation(libs.github.jeziellago.compose.markdown)
-// In your build.gradle.kts or build.gradle
-    implementation("io.coil-kt:coil-compose:2.6.0")
-    implementation("androidx.media3:media3-exoplayer:1.2.0")
-    implementation("androidx.media3:media3-ui:1.2.0")
     implementation(libs.room)
-    ksp(libs.room.compiler)
+    add("kspAndroid", libs.room.compiler)
+    add("kspDesktop", libs.room.compiler)
 
-    implementation(projects.innertube)
     implementation(projects.oldtube)
     implementation(projects.kugou)
     implementation(projects.lrclib)
     implementation(projects.piped)
-
-    coreLibraryDesugaring(libs.desugaring.nio)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     // Debug only
     debugImplementation(libs.ui.tooling.preview.android)

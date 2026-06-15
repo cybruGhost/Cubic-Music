@@ -1,6 +1,5 @@
 package app.cubic.android.core.network
 
-import android.content.Context
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.statement.bodyAsText
@@ -78,14 +77,18 @@ object Store {
         visitorMutex.withLock {
             iosVisitorData?.let { return@withLock it }
 
+            val currentLocale = java.util.Locale.getDefault()
+            val localization = Localization(currentLocale.language.takeIf { it.isNotBlank() } ?: "en")
+            val contentCountry = ContentCountry(currentLocale.country.takeIf { it.isNotBlank() } ?: "GB")
+
             val headers: MutableMap<String, List<String>> = mutableMapOf()
-            headers["User-Agent"] = listOf(YoutubeParsingHelper.getIosUserAgent(Localization.DEFAULT))
+            headers["User-Agent"] = listOf(YoutubeParsingHelper.getIosUserAgent(localization))
             headers.putAll(YoutubeParsingHelper.getOriginReferrerHeaders("https://www.youtube.com"))
 
             val data = YoutubeParsingHelper.getVisitorDataFromInnertube(
                 InnertubeClientRequestInfo.ofIosClient(),
-                Localization.DEFAULT,
-                ContentCountry.DEFAULT,
+                localization,
+                contentCountry,
                 headers,
                 YoutubeParsingHelper.YOUTUBEI_V1_URL,
                 null,

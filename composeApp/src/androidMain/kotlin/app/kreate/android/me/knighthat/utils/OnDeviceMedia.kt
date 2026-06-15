@@ -148,8 +148,13 @@ fun Context.getLocalSongs(
                             "%02d:%02d".format( mins, secs )
                     }
             val id = cursor.getLong( idColumn )
-            val title = cursor.getString( titleColumn ) ?: cursor.getString( nameColumn )
-            val artist = cursor.getString( artistColumn )
+            val displayName = cursor.getString( nameColumn ).orEmpty()
+            val filename = displayName.substringBeforeLast(".")
+            val rawTitle = cursor.getString( titleColumn )?.takeIf { it.isNotBlank() } ?: filename
+            val rawArtist = cursor.getString( artistColumn ).asKnownMetadata()
+            val filenameParts = splitArtistTitle(rawTitle) ?: splitArtistTitle(filename)
+            val title = if (rawArtist == null && filenameParts != null) filenameParts.second else rawTitle
+            val artist = rawArtist ?: filenameParts?.first
             val albumUri = ContentUris.withAppendedId( ALBUM_URI, cursor.getLong( albumIdColumn ) )
             val song = Song( "$LOCAL_KEY_PREFIX$id", title, artist, durationText, albumUri.toString() )
 
@@ -170,3 +175,19 @@ fun Context.getLocalSongs(
 
     emit( results )
 }.stateIn( CoroutineScope(Dispatchers.IO), SharingStarted.Eagerly, mapOf() )
+
+private fun String?.asKnownMetadata(): String? =
+    this
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.takeUnless { it.equals("unknown", ignoreCase = true) }
+        ?.takeUnless { it.equals("<unknown>", ignoreCase = true) }
+        ?.takeUnless { it.equals("null", ignoreCase = true) }
+
+private fun splitArtistTitle(name: String): Pair<String, String>? {
+    val parts = name.split(Regex("\\s+-\\s+"), limit = 2)
+    if (parts.size != 2) return null
+    val artist = parts[0].trim()
+    val title = parts[1].trim()
+    return if (artist.isNotBlank() && title.isNotBlank()) artist to title else null
+}

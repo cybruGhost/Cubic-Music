@@ -135,6 +135,26 @@ object CanvasPlayerManager {
     fun bindPlayerView(playerView: PlayerView) {
         configurePlayerView(playerView, currentPlayer)
     }
+
+    fun attachOrUpdate(
+        playerView: PlayerView,
+        context: Context,
+        canvasUrl: String,
+        isPlaying: Boolean,
+        mediaItemId: String? = null
+    ) {
+        val needsPlayer = currentPlayer == null ||
+            currentCanvasUrl != canvasUrl ||
+            currentMediaItemId != mediaItemId ||
+            !isPlayerActive
+
+        if (needsPlayer) {
+            setupPlayer(context, canvasUrl, isPlaying, mediaItemId)
+        }
+
+        configurePlayerView(playerView, currentPlayer)
+        updatePlayState(isPlaying)
+    }
     
     fun stopAndClear() {
         scheduleRelease("CanvasPlayer: Stopping and clearing player", NORMAL_RELEASE_DELAY_MS)
@@ -154,6 +174,9 @@ object CanvasPlayerManager {
             player.repeatMode = Player.REPEAT_MODE_ONE
             
             if (isPlaying && !player.isPlaying) {
+                if (player.playbackState == Player.STATE_IDLE) {
+                    player.prepare()
+                }
                 player.play()
                 Timber.d("CanvasPlayer: Started playing")
             } else if (!isPlaying) {

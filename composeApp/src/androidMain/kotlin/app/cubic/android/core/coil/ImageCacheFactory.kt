@@ -27,6 +27,7 @@ import coil3.decode.DataSource
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.CachePolicy
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
@@ -306,20 +307,20 @@ object ImageCacheFactory {
                 hasCachedImage(candidateUrl, candidateQuality)
             }
 
+        if (cachedSource != null) {
+            return ResolvedImageSource(
+                url = cachedSource.first,
+                quality = cachedSource.second,
+                useNetwork = false,
+            )
+        }
+
         if (!decision.useNetwork) {
-            return if (cachedSource != null) {
-                ResolvedImageSource(
-                    url = cachedSource.first,
-                    quality = cachedSource.second,
-                    useNetwork = false,
-                )
-            } else {
-                ResolvedImageSource(
-                    url = validUrl.thumbnail(decision.quality.size),
-                    quality = decision.quality,
-                    useNetwork = false,
-                )
-            }
+            return ResolvedImageSource(
+                url = validUrl.thumbnail(decision.quality.size),
+                quality = decision.quality,
+                useNetwork = false,
+            )
         }
 
         if (networkConnected) {
@@ -330,13 +331,7 @@ object ImageCacheFactory {
             )
         }
 
-        return if (cachedSource != null) {
-            ResolvedImageSource(
-                url = cachedSource.first,
-                quality = cachedSource.second,
-                useNetwork = false,
-            )
-        } else if (networkAvailable) {
+        return if (networkAvailable) {
             ResolvedImageSource(
                 url = validUrl,
                 quality = NetworkQuality.LOW,
@@ -441,6 +436,7 @@ object ImageCacheFactory {
             .data(currentUrl)
             .diskCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
             .memoryCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
+            .networkCachePolicy(if (currentSource.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
             .listener(
                 onSuccess = { _, result ->
                     val dataSource = result.dataSource
@@ -520,6 +516,7 @@ object ImageCacheFactory {
             .data(currentUrl)
             .diskCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
             .memoryCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
+            .networkCachePolicy(if (currentSource.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
             .listener(
                 onSuccess = { _, result ->
                     val dataSource = result.dataSource
@@ -598,6 +595,7 @@ object ImageCacheFactory {
             .data(currentUrl)
             .diskCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
             .memoryCacheKey(generateCacheKeySync(currentUrl, currentSource.quality))
+            .networkCachePolicy(if (currentSource.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
             .listener(
                 onSuccess = { _, result ->
                     val dataSource = result.dataSource
@@ -680,6 +678,7 @@ object ImageCacheFactory {
                 .data(currentUrl)
                 .diskCacheKey(generateCacheKeySync(currentUrl, requestQuality))
                 .memoryCacheKey(generateCacheKeySync(currentUrl, requestQuality))
+                .networkCachePolicy(if (resolvedSource.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
                 .allowHardware(allowHardware)
                 .build()
                 

@@ -25,6 +25,7 @@ import org.json.JSONObject
 import timber.log.Timber
 import java.io.IOException
 import java.net.URLEncoder
+import java.security.MessageDigest
 import java.util.Collections
 import java.util.concurrent.TimeUnit
 
@@ -339,6 +340,48 @@ object YtmSessionApi {
         authUser: String? = null,
         pageId: String? = null
     ): Result<List<YtmSong>> = postLibrary("liked_songs", cookies, authUser, pageId, ::parseSongs)
+
+    suspend fun addVideosToPlaylist(
+        cookies: String,
+        playlistId: String,
+        videoIds: List<String>,
+        authUser: String? = null,
+        pageId: String? = null
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        runCatching {
+            val normalizedCookies = YouTubeSessionStore.normalizeCookieString(cookies)
+            require(normalizedCookies.isNotBlank()) { "No YouTube Music cookies found yet" }
+            val normalizedPlaylistId = playlistId.removePrefix("VL").trim()
+            require(normalizedPlaylistId.isNotBlank()) { "Missing playlistId" }
+            val validVideoIds = videoIds
+                .map { it.substringAfterLast("/").trim() }
+                .filter { VIDEO_ID_REGEX.matches(it) }
+                .distinct()
+            require(validVideoIds.isNotEmpty()) { "No valid YouTube video ids to add" }
+
+            var inserted = 0
+            validVideoIds.chunked(100).forEach { chunk ->
+                val request = Request.Builder()
+                    .url("https://music.youtube.com/youtubei/v1/browse/edit_playlist?prettyPrint=false")
+                    .post(buildEditPlaylistBody(normalizedPlaylistId, chunk).toString().toRequestBody(jsonMediaType))
+                    .ytmEditPlaylistHeaders(
+                        cookies = normalizedCookies,
+                        authUser = authUser,
+                        pageId = pageId
+                    )
+                    .build()
+
+                execute(request).use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) {
+                        throw IOException(parseError(body, response.code))
+                    }
+                    inserted += chunk.size
+                }
+            }
+            inserted
+        }
+    }
 
     suspend fun fetchHistory(
         cookies: String,
@@ -742,6 +785,72 @@ object YtmSessionApi {
 
     private fun String.queryValue(): String =
         URLEncoder.encode(this, Charsets.UTF_8.name())
+
+    private val VIDEO_ID_REGEX = Regex("^[A-Za-z0-9_-]{11}$")
+
+    private fun buildEditPlaylistBody(playlistId: String, videoIds: List<String>): JSONObject =
+        JSONObject()
+            .put(
+                "context",
+                JSONObject().put(
+                    "client",
+                    JSONObject()
+                        .put("clientName", "WEB_REMIX")
+                        .put("clientVersion", "1.20241120.01.00")
+                        .put("hl", "en")
+                        .put("gl", "US")
+                        .put("platform", "DESKTOP")
+                )
+            )
+            .put("playlistId", playlistId)
+            .put(
+                "actions",
+                JSONArray().also { actions ->
+                    videoIds.forEach { videoId ->
+                        actions.put(
+                            JSONObject()
+                                .put("action", "ACTION_ADD_VIDEO")
+                                .put("addedVideoId", videoId)
+                        )
+                    }
+                }
+            )
+
+    private fun Builder.ytmEditPlaylistHeaders(
+        cookies: String,
+        authUser: String?,
+        pageId: String?
+    ): Builder {
+        header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Content-Type", "application/json")
+            .header("Cookie", cookies)
+            .header("Origin", "https://music.youtube.com")
+            .header("Referer", "https://music.youtube.com/")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+            .header("X-Origin", "https://music.youtube.com")
+            .header("X-Youtube-Client-Name", "67")
+            .header("X-Youtube-Client-Version", "1.20241120.01.00")
+            .header("Authorization", sapisidHash(cookies))
+        if (!authUser.isNullOrBlank()) header("X-Goog-Authuser", authUser)
+        if (!pageId.isNullOrBlank()) header("X-Goog-PageId", pageId)
+        return this
+    }
+
+    private fun sapisidHash(cookies: String): String {
+        val sapisid = Regex("""(?:^|;\s*)(?:SAPISID|__Secure-3PAPISID)=([^;]+)""")
+            .find(cookies)
+            ?.groupValues
+            ?.getOrNull(1)
+            .orEmpty()
+        require(sapisid.isNotBlank()) { "Missing SAPISID cookie for YouTube Music playlist edits" }
+        val timestamp = System.currentTimeMillis() / 1000L
+        val input = "$timestamp $sapisid https://music.youtube.com"
+        val digest = MessageDigest.getInstance("SHA-1")
+            .digest(input.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        return "SAPISIDHASH ${timestamp}_$digest"
+    }
 
     private fun Builder.sessionHeaders(): Builder =
         header("Accept", "*/*")

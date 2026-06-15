@@ -44,8 +44,10 @@ import app.it.fast4x.rimusic.utils.exoPlayerCustomCacheKey
 import app.it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.getEnum
 import app.it.fast4x.rimusic.utils.isNetworkConnected
+import app.it.fast4x.rimusic.utils.playbackVideoIdOrNull
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.removeDownload
+import app.it.fast4x.rimusic.utils.sanitizePlaybackUri
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -168,7 +170,7 @@ object MyDownloadHelper {
     }
 
     fun getDownloadCacheDirectory(context: Context): File {
-        return defaultDownloadRootDirectory(context).resolve(CACHE_DIRNAME)
+        return defaultDownloadRootDirectory(context)
     }
 
     fun getDownloadRootDirectory(context: Context): File {
@@ -194,27 +196,34 @@ object MyDownloadHelper {
         context.preferences.getString(CUSTOM_DOWNLOAD_PATH_KEY, "").orEmpty()
 
 private fun defaultDownloadRootDirectory(context: Context): File {
-    // Priority 1: Legacy "RiMusic/Downloads" folder (for backward compatibility)
-    val legacyDir = File(Environment.getExternalStorageDirectory(), ROOT_DOWNLOAD_DIR)
-    if (legacyDir.exists() && legacyDir.isDirectory) {
-        return legacyDir
-    }
-
-    // Priority 2: Custom user‑selected folder (SAF)
-    val customUri = getCustomDownloadTreeUri(context)
-    if (customUri != null) {
-        return DocumentFile.fromTreeUri(context, customUri)?.uri?.path?.let { File(it) }
-            ?: context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)!!
-    }
-
-    // Priority 3: App‑specific external music directory (default for new installs)
-    return when (context.preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System)) {
-        ExoPlayerCacheLocation.System -> {
-            context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: context.filesDir
-        }
+    val selectedLocation = context.preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System)
+    val preferredDir = when (selectedLocation) {
+        ExoPlayerCacheLocation.System -> context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: context.filesDir
         ExoPlayerCacheLocation.Private -> context.filesDir
     }
+
+    if (preferredDir.looksLikeExoCacheDirectory()) return preferredDir
+
+    val alternateDir = when (selectedLocation) {
+        ExoPlayerCacheLocation.System -> context.filesDir
+        ExoPlayerCacheLocation.Private -> context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: context.filesDir
+    }
+    if (alternateDir.looksLikeExoCacheDirectory()) return alternateDir
+
+    val legacyDir = File(Environment.getExternalStorageDirectory(), ROOT_DOWNLOAD_DIR)
+    if (legacyDir.looksLikeExoCacheDirectory()) return legacyDir
+
+    return preferredDir
 }
+
+private fun File.looksLikeExoCacheDirectory(): Boolean =
+    exists() && isDirectory && (listFiles()?.any { file ->
+        file.isFile && (
+            file.name.endsWith(".exo", ignoreCase = true) ||
+            file.name.startsWith("cached_content_index", ignoreCase = true) ||
+            file.name.endsWith(".uid", ignoreCase = true)
+        )
+    } == true)
 
     @Synchronized
     fun getDownloadCache(context: Context): Cache {
@@ -320,7 +329,7 @@ private fun defaultDownloadRootDirectory(context: Context): File {
                 executor
             ).apply {
                 maxParallelDownloads = 3
-                minRetryCount = 2
+                minRetryCount = 1
                 requirements = Requirements(Requirements.NETWORK)
 
                 addListener(
@@ -460,18 +469,30 @@ private fun defaultDownloadRootDirectory(context: Context): File {
             return
         }
 
+        val videoId = mediaItem.playbackVideoIdOrNull()
+        if (videoId.isNullOrBlank()) {
+            Timber.w("Ignoring download request with non-video mediaId=%s", mediaItem.mediaId)
+            return
+        }
+
+        val safeMediaItem = mediaItem.buildUpon()
+            .setMediaId(videoId)
+            .setUri(sanitizePlaybackUri(videoId))
+            .setCustomCacheKey(videoId)
+            .build()
+
         val downloadRequest = DownloadRequest
             .Builder(
-                /* id      = */ mediaItem.mediaId,
-                /* uri     = */ mediaItem.requestMetadata.mediaUri
-                    ?: Uri.parse(ExternalUris.youtubeMusic(mediaItem.mediaId))
+                /* id      = */ videoId,
+                /* uri     = */ safeMediaItem.requestMetadata.mediaUri
+                    ?: Uri.parse(ExternalUris.youtubeMusic(videoId))
             )
-            .setCustomCacheKey(mediaItem.mediaId)
-            .setData("${mediaItem.mediaMetadata.artist ?: ""} - ${mediaItem.mediaMetadata.title ?: ""}".encodeToByteArray()) // Title in notification
+            .setCustomCacheKey(videoId)
+            .setData("${safeMediaItem.mediaMetadata.artist ?: ""} - ${safeMediaItem.mediaMetadata.title ?: ""}".encodeToByteArray()) // Title in notification
             .build()
 
        coroutineScope.launch(Dispatchers.IO) {
-    Database.upsert(mediaItem)
+    Database.upsert(safeMediaItem)
 }
 
          val imageUrl = mediaItem.mediaMetadata.artworkUri?.toString()?.thumbnail(1000)?.toUri()
@@ -485,8 +506,8 @@ coroutineScope.launch {
 
     // 2. Do the rest in a separate coroutine – they don’t need to finish for the download to start
     launch {
-        downloadSyncedLyrics(mediaItem.asSong)
-        ImageCacheFactory.preloadImage(mediaItem.mediaMetadata.artworkUri?.toString())
+        downloadSyncedLyrics(safeMediaItem.asSong)
+        ImageCacheFactory.preloadImage(safeMediaItem.mediaMetadata.artworkUri?.toString())
     }
 }
 }
@@ -591,6 +612,11 @@ coroutineScope.launch {
     fun isSongDownloaded(songId: String): Boolean {
         val download = downloads.value[songId]
         return download?.state == Download.STATE_COMPLETED
+    }
+
+    fun isDownloadCached(songId: String): Boolean {
+        if (!MyDownloadHelper::downloadCache.isInitialized) return false
+        return runCatching { downloadCache.getCachedSpans(songId).isNotEmpty() }.getOrDefault(false)
     }
 
     fun getDownloadedSongsCount(): Int {

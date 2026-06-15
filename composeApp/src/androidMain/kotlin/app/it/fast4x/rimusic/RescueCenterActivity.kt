@@ -23,7 +23,7 @@ class RescueCenterActivity : ComponentActivity() {
                     color = DefaultDarkColorPalette.text,
                     useSystemFont = false,
                     applyFontPadding = false,
-                    fontType = FontType.Rubik
+                    fontType = FontType.GothicBold
                 ),
                 thumbnailShape = RoundedCornerShape(16.dp)
             )

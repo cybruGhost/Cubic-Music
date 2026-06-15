@@ -27,6 +27,7 @@ fun RestartPlayerService(
 ) {
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
+    var restartActivity by rememberPreference(restartActivityKey, false)
     AnimatedVisibility(visible = restartService) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             SettingsDescription(
@@ -37,7 +38,9 @@ fun RestartPlayerService(
             SecondaryTextButton(
                 text = stringResource(R.string.restart_service),
                 onClick = {
-                    binder?.restartForegroundOrStop().let { onRestart() }
+                    binder?.restartForegroundOrStop()
+                    restartActivity = !restartActivity
+                    onRestart()
                     Toaster.done()
                 },
                 modifier = Modifier

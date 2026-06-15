@@ -347,7 +347,7 @@ fun AppNavigation(
         composable(route = NavRoutes.rewind.name) {
             RewindScreen(
                 navController = navController,
-                miniPlayer = miniPlayer,
+                miniPlayer = {},
             )
         }
   // Fixed Donate screen 

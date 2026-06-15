@@ -97,6 +97,7 @@ import app.kreate.android.R
 import app.kreate.android.Threads
 import android.graphics.Bitmap
 import androidx.palette.graphics.Palette
+import app.cubic.android.core.network.NetworkClientFactory
 import com.kieronquinn.monetcompat.core.MonetActivityAccessException
 import com.kieronquinn.monetcompat.core.MonetCompat
 import com.kieronquinn.monetcompat.interfaces.MonetColorsChangedListener
@@ -115,6 +116,7 @@ import it.fast4x.innertube.utils.LocalePreferences
 import it.fast4x.innertube.utils.NewPipeDownloaderImpl
 import it.fast4x.innertube.utils.ProxyPreferenceItem
 import it.fast4x.innertube.utils.ProxyPreferences
+import it.fast4x.innertube.utils.getProxy
 import app.it.fast4x.rimusic.enums.AnimatedGradient
 import app.it.fast4x.rimusic.enums.AudioQualityFormat
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
@@ -469,13 +471,16 @@ class MainActivity :
             Toaster.e( "Your Proxy Hostname is invalid, please check it" )
     }
 
-    val proxy = Innertube.proxy ?: Proxy.NO_PROXY
+    val proxy = ProxyPreferences.preference?.let { getProxy(it) } ?: Proxy.NO_PROXY
+    Innertube.proxy = proxy
+    NetworkClientFactory.configure(
+        proxy = proxy,
+        cacheDir = externalCacheDir ?: cacheDir
+    )
     // Fix: Pass a lambda that returns OkHttpClient, not the proxy directly
     NewPipe.init( 
         NewPipeDownloaderImpl {
-            OkHttpClient.Builder()
-                .proxy(proxy)
-                .build()
+            NetworkClientFactory.getClient()
         } 
     )
 }
@@ -538,7 +543,7 @@ class MainActivity :
                     var colorPalette =
                         colorPaletteOf(colorPaletteName, colorPaletteMode, !lightTheme)
 
-                    val fontType = getEnum(fontTypeKey, FontType.Rubik)
+                    val fontType = getEnum(fontTypeKey, FontType.GothicBold)
 
                     if (colorPaletteName == ColorPaletteName.MaterialYou) {
                         colorPalette = dynamicColorPaletteOf(
@@ -754,6 +759,7 @@ class MainActivity :
                             customThemeDark_textDisabledKey,
                             customThemeDark_iconButtonPlayerKey,
                             customThemeDark_accentKey,
+                            customColorKey,
                                 -> {
                                 val colorPaletteName =
                                     sharedPreferences.getEnum(
@@ -833,7 +839,7 @@ class MainActivity :
                                 val applyFontPadding =
                                     sharedPreferences.getBoolean(applyFontPaddingKey, false)
                                 val fontType =
-                                    sharedPreferences.getEnum(fontTypeKey, FontType.Rubik)
+                                    sharedPreferences.getEnum(fontTypeKey, FontType.GothicBold)
 
                                 appearance = appearance.copy(
                                     typography = typographyOf(

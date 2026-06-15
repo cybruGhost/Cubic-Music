@@ -295,7 +295,6 @@ fun HomeSongsScreen(navController: NavController) {
                         val showMyTopPlaylist by rememberPreference(showMyTopPlaylistKey, true)
                         val showDownloadedPlaylist by rememberPreference(showDownloadedPlaylistKey, true)
                         val showOnDeviceChip by rememberPreference(showOnDevicePlaylistKey, true)
-
                         val chips = remember(
                             showFavoritesPlaylist,
                             showCachedPlaylist,
@@ -308,6 +307,7 @@ fun HomeSongsScreen(navController: NavController) {
                                 if (showFavoritesPlaylist) add(BuiltInPlaylist.Favorites)
                                 if (showCachedPlaylist) add(BuiltInPlaylist.Offline)
                                 if (showDownloadedPlaylist) add(BuiltInPlaylist.Downloaded)
+                                if (showDownloadedPlaylist) add(BuiltInPlaylist.CorruptDownloads)
                                 if (showMyTopPlaylist) add(BuiltInPlaylist.Top)
                                 if (showOnDeviceChip) add(BuiltInPlaylist.OnDevice)
                             }

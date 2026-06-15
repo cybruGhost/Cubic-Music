@@ -184,6 +184,8 @@ import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
 import app.it.fast4x.rimusic.ui.styling.favoritesOverlay
 import app.it.fast4x.rimusic.utils.DisposableListener
 import app.it.fast4x.rimusic.utils.SearchYoutubeEntity
+import app.it.fast4x.rimusic.utils.SecureApiConfig
+import app.it.fast4x.rimusic.utils.playerVideoModeActiveKey
 import app.it.fast4x.rimusic.utils.VerticalfadingEdge2
 import app.it.fast4x.rimusic.utils.VinylSizeKey
 import app.it.fast4x.rimusic.utils.albumCoverRotationKey
@@ -231,6 +233,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.shouldBePlaying
 import app.it.fast4x.rimusic.utils.showButtonPlayerMenuKey
+import app.it.fast4x.rimusic.utils.showButtonPlayerVideoKey
 import app.it.fast4x.rimusic.utils.showCoverThumbnailAnimationKey
 import app.it.fast4x.rimusic.utils.showTopActionsBarKey
 import app.it.fast4x.rimusic.utils.showTotalTimeQueueKey
@@ -256,6 +259,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import app.kreate.android.me.knighthat.component.player.BlurAdjuster
 import app.kreate.android.me.knighthat.utils.Toaster
 import it.fast4x.innertube.Innertube
@@ -296,6 +300,7 @@ import androidx.media3.common.MimeTypes
 import app.it.fast4x.rimusic.ui.screens.spotify.CanvasPlayerManager
 import androidx.compose.material3.CircularProgressIndicator
 import app.it.fast4x.rimusic.service.MyDownloadHelper
+import timber.log.Timber
 
 // ─────────────────────────────────────────────────────────────
 // FIX 1 helper: network availability check.
@@ -403,6 +408,8 @@ private fun PlayerContent(
     val expandPlayerState = uiConfig.expandedPlayerState
     var expandedplayer by expandPlayerState
     val spotifyCanvasEnabled = uiConfig.spotifyCanvasEnabled
+    var playerVideoModeActive by rememberPreference(playerVideoModeActiveKey, false)
+    val showButtonPlayerVideo by rememberPreference(showButtonPlayerVideoKey, false)
     val showSpotifyCanvasLogs = uiConfig.showSpotifyCanvasLogs
     val alternateSourceRetryEnabled = uiConfig.alternateSourceRetryEnabled
     val playbackFadeAudioDuration = uiConfig.playbackFadeAudioDuration
@@ -563,7 +570,7 @@ private fun PlayerContent(
     //   half-buffered, playerError fires. We check connectivity first — if still
     //   offline, we skip the search and let ExoPlayer retry on its own.
     LaunchedEffect(playerError, alternateSourceRetryEnabled, retryWithAlternateSourcesNonce) {
-        if (alternateSourceRetryEnabled && playerError != null) {
+        if (false && alternateSourceRetryEnabled && playerError != null) {
             val currentItem = binder.displayedMediaItem ?: binder.player.currentMediaItem ?: return@LaunchedEffect
             if (currentItem.isLocal || isCurrentSongDownloaded) return@LaunchedEffect
 
@@ -695,7 +702,7 @@ private fun PlayerContent(
 
                         val encodedQuery = URLEncoder.encode(query, "UTF-8")
                         val result = runCatching {
-                            val connection = URL("https://yt.omada.cafe/api/v1/search?q=$encodedQuery")
+                            val connection = URL("${SecureApiConfig.resolveOmadaSearchApi()}?q=$encodedQuery")
                                 .openConnection() as HttpURLConnection
                             connection.requestMethod = "GET"
                             connection.connectTimeout = 8000
@@ -741,7 +748,9 @@ private fun PlayerContent(
                     return null
                 }
 
-                val replacementItem = findReplacement() ?: return@LaunchedEffect
+                val replacementItem = withContext(Dispatchers.IO) {
+                    findReplacement()
+                } ?: return@LaunchedEffect
                 lastSearchFallbackMediaId = currentMediaId
 
                 val wasPlaying = binder.player.isPlaying
@@ -757,6 +766,18 @@ private fun PlayerContent(
                 e.printStackTrace()
             }
         }
+    }
+
+    LaunchedEffect(retryWithAlternateSourcesNonce) {
+        if (retryWithAlternateSourcesNonce <= 0 || playerError == null) return@LaunchedEffect
+        val wasPlaying = binder.player.playWhenReady || binder.player.isPlaying
+        runCatching { binder.player.prepare() }
+            .onSuccess {
+                if (wasPlaying) runCatching { binder.player.play() }
+                playbackErrorMessage = null
+                playerError = null
+            }
+            .onFailure { Timber.e(it, "Manual playback retry failed for mediaId=%s", binder.player.currentMediaItem?.mediaId) }
     }
 
     val pagerState = rememberPagerState(pageCount = { mediaItems.size })
@@ -1255,6 +1276,7 @@ private fun PlayerContent(
                 Box {
                     val shouldShowCanvas = rememberShouldShowPlayerCanvas(
                         spotifyCanvasEnabled = spotifyCanvasEnabled,
+                        playerVideoModeActive = playerVideoModeActive,
                         mediaItem = mediaItem,
                         isShowingLyrics = isShowingLyrics,
                         isShowingVisualizer = isShowingVisualizer,
@@ -1264,6 +1286,11 @@ private fun PlayerContent(
                         shouldShowCanvas = shouldShowCanvas,
                         showSpotifyCanvasLogs = showSpotifyCanvasLogs,
                         screenWidth = screenWidth,
+                        showVideoButton = showButtonPlayerVideo,
+                        onVideoClick = {
+                            CanvasPlayerManager.pauseKeepingState()
+                            playerVideoModeActive = true
+                        },
                         modifier = Modifier.fillMaxSize().zIndex(0f)
                     )
                     if (!shouldShowCanvas) {
@@ -1477,8 +1504,7 @@ private fun PlayerContent(
                                         val pageSpacing = thumbnailSpacingL.toInt() * 0.01 * (screenWidth) - (2.5 * playerThumbnailSizeL.size.dp)
 
                                         LaunchedEffect(pagerState, displayedMediaItemIndex) {
-                                            if (appRunningInBackground || isShowingLyrics) pagerState.scrollToPage(displayedMediaItemIndex)
-                                            else pagerState.animateScrollToPage(displayedMediaItemIndex)
+                                            pagerState.scrollToPage(displayedMediaItemIndex)
                                         }
 
                                         LaunchedEffect(pagerState) {
@@ -1649,6 +1675,7 @@ private fun PlayerContent(
                 Box {
                     val shouldShowCanvas = rememberShouldShowPlayerCanvas(
                         spotifyCanvasEnabled = spotifyCanvasEnabled,
+                        playerVideoModeActive = playerVideoModeActive,
                         mediaItem = mediaItem,
                         isShowingLyrics = isShowingLyrics,
                         isShowingVisualizer = isShowingVisualizer,
@@ -1659,6 +1686,11 @@ private fun PlayerContent(
                         shouldShowCanvas = shouldShowCanvas,
                         showSpotifyCanvasLogs = showSpotifyCanvasLogs,
                         screenWidth = screenWidth,
+                        showVideoButton = showButtonPlayerVideo,
+                        onVideoClick = {
+                            CanvasPlayerManager.pauseKeepingState()
+                            playerVideoModeActive = true
+                        },
                         modifier = Modifier.fillMaxSize().zIndex(0f)
                     )
 
@@ -2244,7 +2276,7 @@ private fun PlayerContent(
             actionLabel = when {
                 playerError != null && isCurrentSongDownloaded && hasNetworkConnection ->
                     stringResource(R.string.redownload_song)
-                playerError != null && !isCurrentSongDownloaded && hasNetworkConnection && alternateSourceRetryEnabled ->
+                playerError != null && !isCurrentSongDownloaded && hasNetworkConnection ->
                     stringResource(R.string.retry_with_other_sources)
                 else -> null
             },
@@ -2253,7 +2285,7 @@ private fun PlayerContent(
                     stringResource(R.string.redownload_song_hint)
                 playerError != null && isCurrentSongDownloaded ->
                     stringResource(R.string.downloaded_song_corrupt_offline_message)
-                playerError != null && !isCurrentSongDownloaded && hasNetworkConnection && alternateSourceRetryEnabled ->
+                playerError != null && !isCurrentSongDownloaded && hasNetworkConnection ->
                     stringResource(R.string.retry_with_other_sources_hint)
                 else -> null
             },
@@ -2310,6 +2342,7 @@ private fun PlayerLyricsAndVisualizerOverlay(
 @Composable
 private fun rememberShouldShowPlayerCanvas(
     spotifyCanvasEnabled: Boolean,
+    playerVideoModeActive: Boolean,
     mediaItem: MediaItem,
     isShowingLyrics: Boolean,
     isShowingVisualizer: Boolean,
@@ -2318,6 +2351,7 @@ private fun rememberShouldShowPlayerCanvas(
     val currentMediaItemId = mediaItem.mediaId
     val isCanvasForCurrentSong = SpotifyCanvasState.currentMediaItemId == currentMediaItemId
     return spotifyCanvasEnabled &&
+            !playerVideoModeActive &&
             SpotifyCanvasState.currentCanvasUrl != null &&
             isCanvasForCurrentSong &&
             !isShowingLyrics &&
@@ -2330,6 +2364,8 @@ private fun PlayerCanvasLayer(
     shouldShowCanvas: Boolean,
     showSpotifyCanvasLogs: Boolean,
     screenWidth: Dp,
+    showVideoButton: Boolean,
+    onVideoClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!shouldShowCanvas) return
@@ -2339,6 +2375,8 @@ private fun PlayerCanvasLayer(
         isPlaying = SpotifyCanvasState.isPlaying,
         showLogs = showSpotifyCanvasLogs,
         maxWidth = screenWidth,
+        showVideoButton = showVideoButton,
+        onVideoClick = onVideoClick,
         modifier = modifier
     )
 }
@@ -2350,6 +2388,8 @@ private fun OptimizedSpotifyCanvasPlayer(
     isPlaying: Boolean,
     showLogs: Boolean,
     maxWidth: Dp,
+    showVideoButton: Boolean,
+    onVideoClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentCanvasUrl by rememberUpdatedState(canvasUrl)
@@ -2398,9 +2438,16 @@ private fun OptimizedSpotifyCanvasPlayer(
                 modifier = Modifier.align(Alignment.TopStart).padding(top = 48.dp, start = 12.dp).width(280.dp)
             )
         }
-        OptimizedCanvasBadge(
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 32.dp, end = 12.dp)
-        )
+        ) {
+            if (showVideoButton) {
+                OptimizedCanvasVideoButton(onClick = onVideoClick)
+            }
+            OptimizedCanvasBadge()
+        }
     }
 }
 
@@ -2427,8 +2474,13 @@ private fun OptimizedCanvasVideoPlayer(
             CanvasPlayerManager.setupPlayer(context = context, canvasUrl = canvasUrl, isPlaying = isPlaying, mediaItemId = mediaItemId)
         },
         update = { playerView ->
-            CanvasPlayerManager.bindPlayerView(playerView)
-            CanvasPlayerManager.updatePlayState(isPlaying)
+            CanvasPlayerManager.attachOrUpdate(
+                playerView = playerView,
+                context = context,
+                canvasUrl = canvasUrl,
+                isPlaying = isPlaying,
+                mediaItemId = mediaItemId
+            )
         },
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
@@ -2611,7 +2663,33 @@ data class CanvasPlayerState(val canvasUrl: String?, val mediaItemId: String?) {
 fun PagerState.LaunchedEffectScrollToPage(index: Int) {
     val pagerState = this
     LaunchedEffect(pagerState, index) {
-        if (!appRunningInBackground) pagerState.animateScrollToPage(index)
-        else pagerState.scrollToPage(index)
+        pagerState.scrollToPage(index)
+    }
+}
+
+@Composable
+private fun OptimizedCanvasVideoButton(onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .shadow(3.dp, RoundedCornerShape(8.dp), clip = false)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black.copy(alpha = 0.86f))
+            .clickable(onClick = onClick)
+            .drawBehind {
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.16f),
+                    style = Stroke(width = 0.5.dp.toPx()),
+                    cornerRadius = CornerRadius(8.dp.toPx())
+                )
+            }
+            .size(width = 42.dp, height = 34.dp)
+    ) {
+        Image(
+            painter = painterResource(R.drawable.video),
+            contentDescription = "Show video",
+            colorFilter = ColorFilter.tint(Color.White),
+            modifier = Modifier.size(18.dp)
+        )
     }
 }

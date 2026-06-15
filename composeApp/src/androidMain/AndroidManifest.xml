@@ -182,6 +182,15 @@
                 android:resource="@xml/rescue_widget_info" />
         </receiver>
         <receiver
+            android:name="app.it.fast4x.rimusic.notifications.AppAnnouncementNotifier$Receiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="app.it.fast4x.rimusic.notifications.CHECK_ANNOUNCEMENTS" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver
     android:name=".widget.WidgetActionReceiver"
     android:exported="false">
     <intent-filter>

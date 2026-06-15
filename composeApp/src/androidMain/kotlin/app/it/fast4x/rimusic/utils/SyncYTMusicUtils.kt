@@ -189,7 +189,7 @@ private fun SessionLibraryScope.syncIdentityKey(): String =
     listOf(cookie.take(48), authUser.orEmpty(), pageId.orEmpty()).joinToString("|")
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Song normalisation
+// Song normalisatio
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**

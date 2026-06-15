@@ -50,6 +50,7 @@ import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
@@ -82,6 +83,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionToken
 import app.kreate.android.R
+import app.kreate.android.service.PlaybackSourceMonitor
 import app.kreate.android.service.createDataSourceFactory
 import app.kreate.android.widget.Widget
 import com.google.common.collect.ImmutableList
@@ -118,6 +120,8 @@ import app.it.fast4x.rimusic.models.asMediaItem
 import app.it.fast4x.rimusic.service.BitmapProvider
 import app.it.fast4x.rimusic.service.MyDownloadHelper
 import app.it.fast4x.rimusic.service.MyDownloadService
+import app.it.fast4x.rimusic.service.NoInternetException
+import app.it.fast4x.rimusic.service.PlayableFormatNotFoundException
 import app.it.fast4x.rimusic.utils.CoilBitmapLoader
 import app.it.fast4x.rimusic.utils.TimerJob
 import app.it.fast4x.rimusic.utils.YouTubeRadio
@@ -163,6 +167,7 @@ import app.it.fast4x.rimusic.utils.notificationPlayerSecondIconKey
 import app.it.fast4x.rimusic.utils.notificationTypeKey
 import app.it.fast4x.rimusic.utils.pauseListenHistoryKey
 import app.it.fast4x.rimusic.utils.persistentQueueKey
+import app.it.fast4x.rimusic.utils.playbackVideoIdOrNull
 import app.it.fast4x.rimusic.utils.playNext
 import app.it.fast4x.rimusic.utils.playPrevious
 import app.it.fast4x.rimusic.utils.playbackFadeAudioDurationKey
@@ -171,6 +176,7 @@ import app.it.fast4x.rimusic.utils.playbackSpeedKey
 import app.it.fast4x.rimusic.utils.playbackVolumeKey
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.putEnum
+import app.it.fast4x.rimusic.utils.offlineQueueNetworkRefillKey
 import app.it.fast4x.rimusic.utils.queueLoopTypeKey
 import app.it.fast4x.rimusic.utils.resumePlaybackOnStartKey
 import app.it.fast4x.rimusic.utils.resumePlaybackWhenDeviceConnectedKey
@@ -212,11 +218,16 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
+import java.io.InterruptedIOException
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createTempDirectory
@@ -234,6 +245,23 @@ const val LOCAL_KEY_PREFIX = "local:"
 
 val MediaItem.isLocal get() = mediaId.startsWith(LOCAL_KEY_PREFIX) || localConfiguration?.uri?.scheme in setOf("content", "file")
 val Song.isLocal get() = id.startsWith(LOCAL_KEY_PREFIX) || id.startsWith("content://") || id.startsWith("file://")
+
+private fun Throwable.isNetworkUnavailablePlaybackFailure(): Boolean =
+    generateSequence(this) { it.cause }.any { cause ->
+        cause is NoInternetException ||
+            cause is UnknownHostException ||
+            cause is ConnectException ||
+            cause is NoRouteToHostException ||
+            cause is SocketTimeoutException ||
+            cause is InterruptedIOException ||
+            cause.message?.contains("Unable to resolve host", ignoreCase = true) == true ||
+            cause.message?.contains("Failed to connect", ignoreCase = true) == true ||
+            cause.message?.contains("timeout", ignoreCase = true) == true ||
+            cause.message?.contains("Read timed out", ignoreCase = true) == true ||
+            cause.message?.contains("ENETUNREACH", ignoreCase = true) == true ||
+            cause.message?.contains("EAI_NODATA", ignoreCase = true) == true ||
+            cause.message?.contains("ECONNABORTED", ignoreCase = true) == true
+    }
 
 @UnstableApi
 class PlayerServiceModern : MediaLibraryService(),
@@ -277,6 +305,8 @@ class PlayerServiceModern : MediaLibraryService(),
     private var discordPresenceManager: DiscordPresenceManager? = null
     private var lastReportedNotificationMediaId: String? = null
     private var lastPlaybackSurfaceRefreshMs = 0L
+    private var lastPlaybackSurfaceMediaId: String? = null
+    private var lastArtworkRefreshKey: String? = null
     private var lastNoInternetToastMs = 0L
     private var lastSmartMessageMs = 0L
     private var lastAutoSourceRecoveryMediaId: String? = null
@@ -286,13 +316,15 @@ class PlayerServiceModern : MediaLibraryService(),
     private var lastEndedRecoveryMediaId: String? = null
     private var lastEndedRecoveryMs = 0L
     private var currentSongRetryCount = 0
-    private val maxCurrentSongRetries = 3
     private var resumeOnNetworkRestore = false
     private var pauseTriggeredByNetworkWait = false
     private var networkRecoveryMediaId: String? = null
     private var lastPlaybackPositionMs = 0L
     private var lastBufferedPositionMs = 0L
     private val playbackRecoveryHelper = PlaybackRecoveryHelper()
+    private var consecutiveErrorSkipCount = 0
+    private val maxConsecutiveErrorSkips = 5
+    private val maxCurrentSongRetries = 2
     private var lastWidgetUpdateMs = 0L
     private var widgetUpdateJob: Job? = null
     private var cacheCompletionJob: Job? = null
@@ -495,6 +527,10 @@ class PlayerServiceModern : MediaLibraryService(),
             renderersFactory = createRendersFactory(),
         )
         player = playerSet.player
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+            .build()
         sessionPlayer = player
 
         // FIX: Request audio focus ONCE. Abandon any stale focus from previous crashed
@@ -535,6 +571,11 @@ class PlayerServiceModern : MediaLibraryService(),
                         .buildUpon()
                         .addAllCommands()
                         .build()
+                }
+
+                override fun getBufferedPercentage(): Int {
+                    return runCatching { super.getBufferedPercentage().coerceIn(0, 100) }
+                        .getOrDefault(0)
                 }
             }
 
@@ -672,13 +713,9 @@ class PlayerServiceModern : MediaLibraryService(),
         if (!playWhenReady) {
             releasePlaybackWakeLock()
             if (waitingForNetwork.value) {
-                if (pauseTriggeredByNetworkWait) {
-                    pauseTriggeredByNetworkWait = false
-                } else {
-                    waitingForNetwork.value = false
-                    resumeOnNetworkRestore = false
-                    networkRecoveryMediaId = null
-                }
+                // Keep restoration armed. Network-recovery pauses also trigger this callback;
+                // clearing the flags here makes playback stay paused after the stream returns.
+                pauseTriggeredByNetworkWait = false
             }
         }
     } catch (e: Exception) {
@@ -877,15 +914,27 @@ override fun onDestroy() {
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 Timber.d("Audio focus lost transient - ducking volume")
-                volumeBeforeDuck = player.volume
+                if (player.volume > 0.15f) {
+                    volumeBeforeDuck = player.volume
+                }
                 player.volume = (player.volume * 0.3f).coerceAtLeast(0.05f)
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 Timber.d("Audio focus regained")
-                player.volume = preferences.getFloat(playbackVolumeKey, volumeBeforeDuck.coerceAtLeast(0.05f))
-                if (wasPlayingBeforeFocusLoss && !player.isPlaying) {
+                val restoredVolume = preferences
+                    .getFloat(playbackVolumeKey, volumeBeforeDuck.coerceAtLeast(0.5f))
+                    .coerceIn(0.15f, 1f)
+                player.volume = restoredVolume
+                player.setGlobalVolume(restoredVolume)
+                if (wasPlayingBeforeFocusLoss) {
                     binder.gracefulPlay()
                 }
+                handler.postDelayed({
+                    if (isServiceReady && (player.isPlaying || player.playWhenReady) && player.volume < 0.15f) {
+                        player.volume = restoredVolume
+                        player.setGlobalVolume(restoredVolume)
+                    }
+                }, 350L)
                 wasPlayingBeforeFocusLoss = false
                 audioFocusGranted = true
             }
@@ -970,6 +1019,9 @@ private fun syncPlaybackWakeLockState() {
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         if (!isServiceReady) return
         currentSongRetryCount = 0
+        if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            consecutiveErrorSkipCount = 0
+        }
         waitingForNetwork.value = false
         resumeOnNetworkRestore = false
         pauseTriggeredByNetworkWait = false
@@ -1059,177 +1111,202 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
         super.onPlayerError(error)
 
         val currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
-        val controllerPackage = PlaybackSourceHints.currentControllerPackageName()
-        val isAndroidAutoStart = PlaybackSourceHints.shouldPreferSearchFallback(currentMediaId)
-        val deepestCause = generateSequence(error as Throwable?) { it.cause }.lastOrNull()
+        val errorCauses = generateSequence(error as Throwable?) { it.cause }.toList()
+        val deepestCause = errorCauses.lastOrNull()
+        val isInvalidResponse = errorCauses.any { it.javaClass.simpleName == "InvalidResponseCodeException" }
+        val isRefreshableStreamFailure =
+            isInvalidResponse ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
+                error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED
+        val isPlayableFormatMissing = errorCauses.any { it is PlayableFormatNotFoundException }
+        val isNetworkUnavailable = error.isNetworkUnavailablePlaybackFailure()
+
+        Timber.e(
+            error,
+            "PlayerServiceModern onPlayerError mediaId=%s retryCount=%d errorCode=%s errorName=%s rootCause=%s",
+            currentMediaId,
+            currentSongRetryCount,
+            error.errorCode,
+            error.errorCodeName,
+            deepestCause?.javaClass?.simpleName
+        )
+
+        if (!isNetworkAvailable.value || isNetworkUnavailable) {
+            applyRecoveryDecision(
+                PlaybackRecoveryHelper.Decision.WaitForNetwork(
+                    mediaId = currentMediaId.ifBlank { player.currentMediaItem?.mediaId.orEmpty() },
+                    positionMs = lastPlaybackPositionMs.takeIf { it > 0L }
+                        ?: player.currentPosition.coerceAtLeast(0L),
+                    message = "No internet. Will retry when connection returns.",
+                    resumeWhenNetworkReturns = player.isPlaying || player.playWhenReady
+                        || player.playbackState == Player.STATE_BUFFERING
+                )
+            )
+            return
+        }
+
         val isDecoderIssue =
             error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ||
                 error.errorCodeName.contains("DECOD", ignoreCase = true) ||
                 deepestCause?.javaClass?.simpleName?.contains("Codec", ignoreCase = true) == true
-        val isExtractorDriftIssue = isExtractorDriftError(error, deepestCause)
-        val shouldTryCurrentSongRecovery = shouldRecoverCurrentSong(error, deepestCause)
-        val isDownloadedCurrentSong =
-            currentSongStateDownload.value == Download.STATE_COMPLETED ||
-                (currentMediaId.isNotBlank() && MyDownloadHelper.isSongDownloaded(currentMediaId))
-
-        Timber.e(
-            error,
-            "PlayerServiceModern onPlayerError mediaId=%s controller=%s androidAuto=%s errorCode=%s errorName=%s message=%s rootCause=%s",
-            currentMediaId,
-            controllerPackage,
-            isAndroidAutoStart,
-            error.errorCode,
-            error.errorCodeName,
-            error.message,
-            deepestCause?.javaClass?.simpleName
-        )
 
         if (isDecoderIssue) {
-            Timber.w(error, "Decoder failure while playing %s. Preferring audio-only recovery path.", currentMediaId)
-            if (player.hasNextMediaItem()) {
-                val prev = player.currentMediaItem
-                player.playNext()
-                showSmartMessage(
-                    message = getString(
-                        R.string.skip_media_on_error_message,
-                        prev?.mediaMetadata?.title ?: prev?.mediaId.orEmpty()
-                    )
-                )
-            } else {
-                player.stop()
-                Toaster.e("Playback codec failed. Try retrying with another source.")
-            }
+            Timber.w("Decoder failure for %s - skipping.", currentMediaId)
+            skipOrPause("Codec error - skipping song.")
             return
         }
 
-        if (isExtractorDriftIssue) {
-            waitingForNetwork.value = false
-            resumeOnNetworkRestore = false
-            networkRecoveryMediaId = null
-            val now = SystemClock.elapsedRealtime()
-            if (
-                currentMediaId.isNotBlank() &&
-                lastExtractorRecoveryMediaId != currentMediaId &&
-                now - lastExtractorRecoveryMs > 5_000L
-            ) {
-                lastExtractorRecoveryMediaId = currentMediaId
-                lastExtractorRecoveryMs = now
-                Timber.w(error, "Extractor/source drift detected for mediaId=%s. Performing one gentle retry.", currentMediaId)
-                showSmartMessage("Source changed for this song. Retrying once.")
-                player.pause()
-                player.safePrepare()
-                handler.postDelayed(
-                    {
-                        if (isServiceReady && player.currentMediaItem?.mediaId == currentMediaId) {
-                            runCatching { player.play() }
-                                .onFailure { Timber.e(it, "Failed to resume extractor recovery for %s", currentMediaId) }
-                        }
-                    },
-                    1000L // FIX: Increased from 800ms for more stability
-                )
+        if (isNearEndPlaybackFailure()) {
+            Timber.w(
+                "Playback failed near the end for %s at %d/%dms - advancing instead of retrying tail chunk.",
+                currentMediaId,
+                player.currentPosition,
+                player.duration
+            )
+            skipOrPause("Stream failed near the end - moving on.")
+            return
+        }
+
+        if (currentMediaId.isNotBlank() && isRefreshableStreamFailure) {
+            val failedSource = PlaybackSourceMonitor.status.value
+                .takeIf { it.videoId == currentMediaId }
+                ?.source
+            Timber.w(
+                "Refreshable stream failure for %s from source=%s - retrying Innertube resolver",
+                currentMediaId,
+                failedSource?.label
+            )
+        }
+
+        if (isRefreshableStreamFailure && currentMediaId.isNotBlank() && currentSongRetryCount < maxCurrentSongRetries) {
+            val shouldAutoResume = player.playWhenReady || player.isPlaying || player.playbackState == Player.STATE_BUFFERING
+            currentSongRetryCount++
+            val delayMs = 450L
+            Timber.i(
+                "Refreshing blocked stream URL for %s (attempt %d/%d)",
+                currentMediaId,
+                currentSongRetryCount,
+                maxCurrentSongRetries
+            )
+            showSmartMessage("Refreshing stream link...")
+            runCatching { player.pause() }
+            player.playWhenReady = shouldAutoResume
+            val prepared = player.safePrepare()
+            player.playWhenReady = shouldAutoResume
+            if (!prepared) {
+                skipOrPause("Source unrecoverable for $currentMediaId.")
                 return
             }
-
-            player.pause()
-            player.playWhenReady = false
-            if (isDownloadedCurrentSong) {
-                showSmartMessage("This downloaded song looks corrupted. Re-download it when internet is available.")
-            } else {
-                showSmartMessage("This song source failed. Playback has been paused so you can retry or choose another source.")
-            }
-            Toaster.e("This song source failed. Playback paused.")
+            handler.postDelayed({
+                if (!isServiceReady) return@postDelayed
+                if (player.currentMediaItem?.mediaId != currentMediaId) return@postDelayed
+                player.safeSeekTo(lastPlaybackPositionMs.coerceAtLeast(0L))
+                if (shouldAutoResume) {
+                    player.playWhenReady = true
+                    runCatching { binder.gracefulPlay() }
+                        .onFailure { Timber.e(it, "Failed to resume after blocked stream refresh for %s", currentMediaId) }
+                }
+            }, delayMs)
             return
         }
 
-        val playbackConnectionExceptionList = listOf(
-            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
-        )
+        if (isRefreshableStreamFailure || isPlayableFormatMissing) {
+            skipOrPause("Source unavailable for this song.")
+            return
+        }
 
-        val isConnectionError = (error.cause?.cause is PlaybackException &&
-                (error.cause?.cause as PlaybackException).errorCode in playbackConnectionExceptionList) ||
-            error.cause is java.net.UnknownHostException ||
-            error.cause is java.nio.channels.UnresolvedAddressException
+        if (currentMediaId.isNotBlank() && currentSongRetryCount < maxCurrentSongRetries) {
+            val shouldAutoResume = player.playWhenReady || player.isPlaying || player.playbackState == Player.STATE_BUFFERING
+            currentSongRetryCount++
+            val delayMs = when (currentSongRetryCount) {
+                1 -> 800L
+                2 -> 1_500L
+                3 -> 2_500L
+                else -> 3_500L
+            }
+            Timber.i(
+                "Retrying %s (attempt %d/%d) in %dms",
+                currentMediaId, currentSongRetryCount, maxCurrentSongRetries, delayMs
+            )
+            showSmartMessage("Retrying... ($currentSongRetryCount/$maxCurrentSongRetries)")
 
-        if (!isNetworkAvailable.value || isConnectionError) {
+            runCatching { player.pause() }
+            player.playWhenReady = shouldAutoResume
+            val prepared = player.safePrepare()
+            player.playWhenReady = shouldAutoResume
+            if (!prepared) {
+                skipOrPause("Source unrecoverable for $currentMediaId.")
+                return
+            }
+            handler.postDelayed({
+                if (!isServiceReady) return@postDelayed
+                if (player.currentMediaItem?.mediaId != currentMediaId) return@postDelayed
+                player.safeSeekTo(lastPlaybackPositionMs.coerceAtLeast(0L))
+                if (shouldAutoResume) {
+                    player.playWhenReady = true
+                    runCatching { binder.gracefulPlay() }
+                        .onFailure { Timber.e(it, "Failed to resume after retry for %s", currentMediaId) }
+                }
+            }, delayMs)
+            return
+        }
+
+        Timber.w("All %d retries exhausted for %s", maxCurrentSongRetries, currentMediaId)
+        if (!preferences.getBoolean(skipMediaOnErrorKey, true)) {
             applyRecoveryDecision(
-                playbackRecoveryHelper.onPlayerError(
-                    error = error,
-                    snapshot = recoverySnapshot(),
-                    maxRetries = maxCurrentSongRetries
+                PlaybackRecoveryHelper.Decision.Pause("Playback stopped. Skip on error is disabled.")
+            )
+            return
+        }
+
+        consecutiveErrorSkipCount++
+        if (consecutiveErrorSkipCount >= maxConsecutiveErrorSkips) {
+            applyRecoveryDecision(
+                PlaybackRecoveryHelper.Decision.Pause(
+                    "Several songs failed in a row. Paused to avoid looping through the queue."
                 )
             )
             return
         }
 
-        val playbackHttpExceptionList = listOf(
-            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
-            PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE,
-            416
-        )
-
-        if (error.errorCode in playbackHttpExceptionList) {
-            Timber.e("PlayerServiceModern onPlayerError recovered occurred errorCodeName ${error.errorCodeName}")
-            player.pause()
-            player.safePrepare()
-            if (player.playWhenReady) {
-                runCatching { player.play() }
-                    .onFailure { Timber.e(it, "Failed to resume playback after HTTP recovery for %s", currentMediaId) }
-            }
-            return
-        }
-
-        if (shouldTryCurrentSongRecovery && currentMediaId.isNotBlank()) {
-            applyRecoveryDecision(
-                playbackRecoveryHelper.onPlayerError(
-                    error = error,
-                    snapshot = recoverySnapshot(),
-                    maxRetries = maxCurrentSongRetries
-                )
-            )
-            return
-        }
-
-        val now = SystemClock.elapsedRealtime()
-        if (
-            isAndroidAutoStart &&
-            currentMediaId.isNotBlank() &&
-            lastAutoSourceRecoveryMediaId != currentMediaId &&
-            now - lastAutoSourceRecoveryMs > 5_000L
-        ) {
-            lastAutoSourceRecoveryMediaId = currentMediaId
-            lastAutoSourceRecoveryMs = now
-            Timber.w(
-                "PlayerServiceModern onPlayerError forcing one Android Auto recovery attempt for mediaId=%s",
-                currentMediaId
-            )
-            player.pause()
-            player.safePrepare()
-            handler.postDelayed(
-                {
-                    if (isServiceReady && player.currentMediaItem?.mediaId == currentMediaId) {
-                        runCatching { player.play() }
-                            .onFailure { Timber.e(it, "Failed to resume Android Auto recovery for %s", currentMediaId) }
-                    }
-                },
-                700L // FIX: Slightly increased from 500ms
-            )
-            return
-        }
-
-        if (!preferences.getBoolean(skipMediaOnErrorKey, true))
-            return
-
-        val prev = player.currentMediaItem ?: return
+        val prev = player.currentMediaItem
         val skipped = player.skipBrokenMediaItem("onPlayerError ${error.errorCodeName}")
-        if (!skipped) return
-
-        showSmartMessage(
-            message = getString(
-                R.string.skip_media_on_error_message,
-                prev.mediaMetadata.title
+        if (skipped && prev != null) {
+            showSmartMessage(
+                getString(R.string.skip_media_on_error_message, prev.mediaMetadata.title)
             )
-        )
+        } else if (!skipped) {
+            applyRecoveryDecision(
+                PlaybackRecoveryHelper.Decision.Pause("Playback stopped - no more tracks to try.")
+            )
+        }
+    }
+
+    private fun isNearEndPlaybackFailure(): Boolean {
+        val durationMs = runCatching { player.duration }.getOrDefault(C.TIME_UNSET)
+        if (durationMs <= 0L || durationMs == C.TIME_UNSET) return false
+
+        val positionMs = maxOf(
+            lastPlaybackPositionMs,
+            runCatching { player.currentPosition }.getOrDefault(0L)
+        ).coerceAtLeast(0L)
+        val remainingMs = (durationMs - positionMs).coerceAtLeast(0L)
+
+        return positionMs >= 30_000L && remainingMs <= 12_000L
+    }
+
+    private fun skipOrPause(reason: String) {
+        if (!preferences.getBoolean(skipMediaOnErrorKey, true)) {
+            applyRecoveryDecision(PlaybackRecoveryHelper.Decision.Pause(reason))
+        } else if (player.hasNextMediaItem()) {
+            val prev = player.currentMediaItem
+            val skipped = player.skipBrokenMediaItem(reason)
+            if (skipped && prev != null) {
+                showSmartMessage(getString(R.string.skip_media_on_error_message, prev.mediaMetadata.title))
+            }
+        } else {
+            applyRecoveryDecision(PlaybackRecoveryHelper.Decision.Pause(reason))
+        }
     }
 
     private fun handleNetworkLossDuringPlayback(currentMediaId: String): Boolean {
@@ -1287,6 +1364,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         when (playbackState) {
             Player.STATE_READY -> {
                 waitingForNetwork.value = false
+                consecutiveErrorSkipCount = 0
                 syncPlaybackWakeLockState()
             }
             Player.STATE_BUFFERING -> {
@@ -1348,10 +1426,17 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         val isEnabled = preferences.getBoolean(autoLoadSongsInQueueKey, true)
         val isRepeatTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
         val remainingQueueItems = (player.mediaItemCount - player.currentMediaItemIndex - 1).coerceAtLeast(0)
+        val isDownloadedQueue = player.mediaItemCount > 0 &&
+            (0 until player.mediaItemCount).all { index ->
+                MyDownloadHelper.isSongDownloaded(player.getMediaItemAt(index).mediaId)
+            }
+        val canRefillDownloadedQueue = !isDownloadedQueue ||
+            preferences.getBoolean(offlineQueueNetworkRefillKey, false)
 
         if (
             isEnabled &&
             !isRepeatTransition &&
+            canRefillDownloadedQueue &&
             !binder.isLoadingRadio &&
             preferences.getBoolean(autoLoadSongsInQueueKey, true) &&
             remainingQueueItems <= 5
@@ -1476,7 +1561,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
                 }
 
                 override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
-                    if (isServiceReady && !player.isPlaying && addedDevices.any(::canPlayMusic)) {
+                    if (isServiceReady && player.playWhenReady && !player.isPlaying && addedDevices.any(::canPlayMusic)) {
                         runCatching { player.play() }
                             .onFailure { Timber.e(it, "Failed to resume playback after device connection") }
                     }
@@ -1549,9 +1634,9 @@ override fun onPlaybackStateChanged(playbackState: Int) {
 
     private fun warmCurrentSongCache(mediaItem: MediaItem?) {
         if (!isServiceReady) return
-        val mediaId = mediaItem?.mediaId
-            ?.substringAfterLast("/")
-            ?.takeIf { it.isNotBlank() && !it.startsWith(LOCAL_KEY_PREFIX) }
+        val mediaId = mediaItem
+            ?.takeUnless { it.isLocal }
+            ?.playbackVideoIdOrNull()
             ?: run {
                 cacheCompletionJob?.cancel()
                 cacheCompletionJob = null
@@ -1560,6 +1645,13 @@ override fun onPlaybackStateChanged(playbackState: Int) {
             }
 
         if (!isNetworkConnected(this) || MyDownloadHelper.isSongDownloaded(mediaId)) {
+            cacheCompletionJob?.cancel()
+            cacheCompletionJob = null
+            cacheCompletionMediaId = null
+            return
+        }
+
+        if (player.currentMediaItem?.mediaId == mediaItem?.mediaId && (player.isPlaying || player.playWhenReady)) {
             cacheCompletionJob?.cancel()
             cacheCompletionJob = null
             cacheCompletionMediaId = null
@@ -1801,7 +1893,12 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         if (now - lastPlaybackSurfaceRefreshMs < minIntervalMs) return
         lastPlaybackSurfaceRefreshMs = now
 
-        currentMediaItem.value = mediaItem ?: currentMediaItem.value
+        mediaItem?.let {
+            if (it.mediaId != lastPlaybackSurfaceMediaId) {
+                lastPlaybackSurfaceMediaId = it.mediaId
+                currentMediaItem.value = it
+            }
+        }
         updateDefaultNotification()
         if (includeWidgets) {
             updateWidgets()
@@ -1817,8 +1914,16 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         val now = SystemClock.elapsedRealtime()
         if (now - lastPlaybackSurfaceRefreshMs < minIntervalMs) return
         lastPlaybackSurfaceRefreshMs = now
+        mediaItem?.let {
+            if (it.mediaId != lastPlaybackSurfaceMediaId) {
+                lastPlaybackSurfaceMediaId = it.mediaId
+                currentMediaItem.value = it
+            }
+        }
 
-        if (::bitmapProvider.isInitialized) {
+        val artworkKey = "${mediaItem?.mediaId.orEmpty()}|${mediaItem?.mediaMetadata?.artworkUri}"
+        if (::bitmapProvider.isInitialized && artworkKey != lastArtworkRefreshKey) {
+            lastArtworkRefreshKey = artworkKey
             bitmapProvider.load(mediaItem?.mediaMetadata?.artworkUri) {
                 updateDefaultNotification()
                 if (includeWidgets) {
@@ -1995,7 +2100,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
             title = currentItem?.mediaMetadata?.title?.toString(),
             currentPositionMs = runCatching { player.currentPosition.coerceAtLeast(0L) }.getOrDefault(lastPlaybackPositionMs),
             bufferedPositionMs = lastBufferedPositionMs.coerceAtLeast(0L),
-            playWhenReady = player.playWhenReady,
+            playWhenReady = player.playWhenReady || (waitingForNetwork.value && resumeOnNetworkRestore),
             isNetworkAvailable = isNetworkAvailable.value,
             hasNextMediaItem = player.hasNextMediaItem(),
             skipOnErrorEnabled = preferences.getBoolean(skipMediaOnErrorKey, true),
@@ -2133,8 +2238,9 @@ override fun onPlaybackStateChanged(playbackState: Int) {
     }
 
     private fun maybeResumePlaybackOnStart() {
-        if (isPersistentQueueEnabled && preferences.getBoolean(resumePlaybackOnStartKey, false))
-            binder.gracefulPlay()
+        if (isPersistentQueueEnabled && preferences.getBoolean(resumePlaybackOnStartKey, false)) {
+            Timber.d("PlayerServiceModern: resumePlaybackOnStart is disabled for wake/start safety")
+        }
     }
 
     @ExperimentalCoroutinesApi
@@ -2415,6 +2521,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
                         ?.itemsPage
                         ?.items
                         ?.map(Innertube.SongItem::asMediaItem)
+                        ?.distinctBy { it.mediaId }
                         ?.let { relatedSongs ->
                             Database.asyncTransaction {
                                 relatedSongs.forEach(::insertIgnore)
@@ -2424,7 +2531,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
                                 player.mediaItems.fastMap(MediaItem::mediaId)
                             }
 
-                            relatedSongs.dropWhile { it.mediaId == sanitizedMediaItem.mediaId || it.mediaId in currentQueue }
+                            relatedSongs.filter { it.mediaId != sanitizedMediaItem.mediaId && it.mediaId !in currentQueue }
                         }
                         ?.also {
                             withContext(Dispatchers.Main) {

@@ -89,6 +89,63 @@ private fun canvasLog(
     }
 }
 
+private object CanvasVideoCache {
+    private const val DIR_NAME = "spotify_canvas_video"
+
+    private fun dir(context: android.content.Context): File =
+        File(context.cacheDir, DIR_NAME).also { it.mkdirs() }
+
+    private fun safeName(mediaId: String): String =
+        mediaId.replace(Regex("[^A-Za-z0-9._-]"), "_").take(96).ifBlank { "canvas" }
+
+    fun clearExcept(context: android.content.Context, mediaId: String? = null) {
+        val keep = mediaId?.let { "${safeName(it)}.mp4" }
+        dir(context).listFiles()?.forEach { file ->
+            if (file.name != keep) runCatching { file.delete() }
+        }
+    }
+
+    fun clearAll(context: android.content.Context) {
+        clearExcept(context, null)
+    }
+
+    fun cachedUri(context: android.content.Context, mediaId: String): String? {
+        val file = File(dir(context), "${safeName(mediaId)}.mp4")
+        return file.takeIf { it.exists() && it.length() > 64 * 1024L }?.toURI()?.toString()
+    }
+
+    fun cache(
+        context: android.content.Context,
+        mediaId: String,
+        canvasUrl: String,
+        client: OkHttpClient
+    ): String? {
+        cachedUri(context, mediaId)?.let { return it }
+
+        val cacheDir = dir(context)
+        val target = File(cacheDir, "${safeName(mediaId)}.mp4")
+        val pending = File(cacheDir, "${target.name}.pending")
+        runCatching { pending.delete() }
+
+        val response = client.newCall(Request.Builder().url(canvasUrl).build()).execute()
+        response.use {
+            if (!it.isSuccessful) return null
+            val body = it.body ?: return null
+            pending.outputStream().use { output ->
+                body.byteStream().use { input -> input.copyTo(output) }
+            }
+        }
+
+        if (pending.length() <= 64 * 1024L) {
+            runCatching { pending.delete() }
+            return null
+        }
+
+        runCatching { target.delete() }
+        return if (pending.renameTo(target)) target.toURI().toString() else null
+    }
+}
+
 private object SpotifySessionApi {
     private const val USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -728,6 +785,7 @@ fun SpotifyCanvasWorker() {
             SpotifyCanvasState.clearAll()
             CanvasPlayerManager.stopAndClear()
             SpotifyApiConfig.clearAllCache()
+            CanvasVideoCache.clearAll(context)
         }
     }
 
@@ -758,6 +816,7 @@ fun SpotifyCanvasWorker() {
         val songChanged = !SpotifyCanvasState.matchesCurrentSong(mediaId, title, artist)
         if (songChanged) {
             CanvasPlayerManager.stopAndClearForNewSong()
+            CanvasVideoCache.clearExcept(context, mediaId)
             SpotifyCanvasState.clearForNewSong(mediaId, title, artist)
         }
 
@@ -868,7 +927,13 @@ private suspend fun fetchCanvasForSong(
 
         if (mediaId == SpotifyCanvasState.currentMediaItemId) {
             if (canvasUrl != null) {
-                SpotifyCanvasState.currentCanvasUrl = canvasUrl
+                val canvasClient = OkHttpClient.Builder()
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(20, TimeUnit.SECONDS)
+                    .retryOnConnectionFailure(true)
+                    .build()
+                val cachedCanvasUrl = CanvasVideoCache.cache(context, mediaId, canvasUrl, canvasClient)
+                SpotifyCanvasState.currentCanvasUrl = cachedCanvasUrl ?: canvasUrl
                 SpotifyCanvasState.isPlaying = shouldPlayWhenReady
                 SpotifyCanvasState.error = null
                 SpotifyCanvasState.shouldRetryFetch = false

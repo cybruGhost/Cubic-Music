@@ -67,6 +67,7 @@ fun typographyOf(color: Color, useSystemFont: Boolean, applyFontPadding: Boolean
                         resId = when (fontType) {
                             FontType.Rubik -> R.font.rubik_w300
                             FontType.Poppins -> R.font.poppins_w300
+                            FontType.GothicBold -> R.font.poppins_w600
                         },
                         weight = FontWeight.Light
                     ),
@@ -74,6 +75,7 @@ fun typographyOf(color: Color, useSystemFont: Boolean, applyFontPadding: Boolean
                         resId = when (fontType) {
                             FontType.Rubik -> R.font.rubik_w400
                             FontType.Poppins -> R.font.poppins_w400
+                            FontType.GothicBold -> R.font.poppins_w600
                         },
                         weight = FontWeight.Normal
                     ),
@@ -81,6 +83,7 @@ fun typographyOf(color: Color, useSystemFont: Boolean, applyFontPadding: Boolean
                         resId = when (fontType) {
                             FontType.Rubik -> R.font.rubik_w500
                             FontType.Poppins -> R.font.poppins_w500
+                            FontType.GothicBold -> R.font.poppins_w700
                         },
                         weight = FontWeight.Medium
                     ),
@@ -88,6 +91,7 @@ fun typographyOf(color: Color, useSystemFont: Boolean, applyFontPadding: Boolean
                         resId = when (fontType) {
                             FontType.Rubik -> R.font.rubik_w600
                             FontType.Poppins -> R.font.poppins_w600
+                            FontType.GothicBold -> R.font.poppins_w700
                         },
                         weight = FontWeight.SemiBold
                     ),
@@ -95,6 +99,7 @@ fun typographyOf(color: Color, useSystemFont: Boolean, applyFontPadding: Boolean
                         resId = when (fontType) {
                             FontType.Rubik -> R.font.rubik_w700
                             FontType.Poppins -> R.font.poppins_w700
+                            FontType.GothicBold -> R.font.poppins_w700
                         },
                         weight = FontWeight.Bold
                     ),

@@ -387,10 +387,7 @@ fun SongItem(
                                     MyDownloadHelper.handleDownload( context, song, true )
                                 }
                             )
-                            if (
-                                cacheState == DownloadedStateMedia.CACHED ||
-                                cacheState == DownloadedStateMedia.CACHED_AND_DOWNLOADED
-                            ) {
+                            if (cacheState == DownloadedStateMedia.CACHED) {
                                 BasicText(
                                     text = "\u273F",
                                     style = typography().xxs.medium.copy(color = androidx.compose.ui.graphics.Color(0xFFF5C542)),
