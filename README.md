@@ -28,7 +28,7 @@ It features a sleek, modern UI focused on performance and user freedom, offering
 
 ---
 
-## 🚀 Current Version: `v1.8.3` (latest)
+## 🚀 Current Version: `v1.8.5` (latest)
 
 🔧 **Status:** Active development — continuous improvements and new features.
 
@@ -184,7 +184,7 @@ PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 | Metric | Badge | Description |
 |-------|--------|-------------|
 | **All-Time Downloads** | ![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads&color=blue) | Across all versions |
-| **Current Release** | ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green) | `v1.8.2` only |
+| **Current Release** | ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green) | `v1.8.5` only |
 | **Version-Specific** | ![v1.8.0 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.8.0/total?label=v1.8.0%20Downloads&color=orange) | Specific build |
 
 ---
