@@ -1447,7 +1447,7 @@ Volume BAS : titre précédent</string>
   <string name="rewind_most_played_stat">Votre titre le plus écouté cette année.</string>
   <string name="rewind_no_songs_title">Aucun titre pour le moment</string>
   <string name="rewind_no_songs_subtitle">Écoutez davantage de musique et votre playlist commencera à se constituer d\'elle-même.</string>
-  <string name="rewind_start">Commencer le rembobinage</string>
+  <string name="rewind_start">Commencer le Rewind</string>
   <string name="thumbnail_share_title">Partager une illustration</string>
   <string name="thumbnail_share_app_name">Cubic Music</string>
   <string name="thumbnail_share_pick_art">Choisissez une illustration</string>
