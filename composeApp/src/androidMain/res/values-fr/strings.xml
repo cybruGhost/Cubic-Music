@@ -290,7 +290,7 @@
   <string name="bashkir">Bachkir (Russie)</string>
   <string name="esperanto">Espéranto (Esperanto)</string>
   <string name="close_app_with_back_button">Fermer l\'application avec le bouton Retour</string>
-  <string name="when_you_use_the_back_button_from_the_home_page">Lorsque vous utilisez le bouton Retour depuis la page d\'accueil</string>
+  <string name="when_you_use_the_back_button_from_the_home_page">Lorsque vous utilisez le bouton « Retour » depuis la page d\'accueil</string>
   <string name="audio_quality_format_high">Élevée</string>
   <string name="audio_quality_format_medium">Moyenne</string>
   <string name="audio_quality_format_low">Basse</string>
