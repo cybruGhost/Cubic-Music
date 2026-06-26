@@ -212,7 +212,8 @@ Join our Crowdin project to help bring Cubic Music to more languages:
 
 If you enjoy Cubic Music, consider supporting development:
 
-☕ **[Support via Fourthwall Shop](https://cyberghost-shop.fourthwall.com/)**
+<a href="https://cyberghost-shop.fourthwall.com/
+"><img alt="Buy me a Coffee" height="50" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/buymeacoffee-singular_vector.svg"></a>
 
 ---
 
