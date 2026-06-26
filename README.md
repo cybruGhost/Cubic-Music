@@ -21,20 +21,23 @@ It features a sleek, modern UI focused on performance and user freedom, offering
 
 *While not as polished as some mature apps yet, it remains a solid, lightweight, and visually appealing alternative — actively maintained with frequent improvements.*
 
-🚀 **[Download Latest Release](https://github.com/cybruGhost/Cubic-Music/releases/latest)**  
+🚀 **Download Latest Release**
+
+<a href="https://github.com/cybruGhost/Cubic-Music/releases/latest"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a>
+
 ⭐ **Star this repository to support development!**
 
 </div>
 
 ---
 
-## 🚀 Current Version: `v1.8.6` (latest)
+## 🚀 Current Version: `v1.8.7` (latest)
 
 🔧 **Status:** Active development — continuous improvements and new features.
 
 ---
 
-## 🆕 What’s New in v1.8.3
+## 🆕 What’s New in v1.8.7
 
 ### 🖼️ Spotify Canvas (Beta)
 
@@ -93,7 +96,7 @@ Cubic Music’s take on *Spotify Wrapped* — a smart, shareable recap of your l
 
 ---
 
-## 🛠️ Roadmap & To‑Do
+### 🛠️ Roadmap & To‑Do
 
 - [ ] Improved playlist mood detection  
 - [ ] Memory optimization for large caches  
@@ -103,13 +106,13 @@ Cubic Music’s take on *Spotify Wrapped* — a smart, shareable recap of your l
 
 ---
 
-# 📋 Supported Playlist Formats
+## 📋 Supported Playlist Formats
 
 Cubic Music supports multiple CSV playlist formats.
 
 ---
 
-## 🧩 1. Compatible App Format (Native)
+### 🧩 1. Compatible App Format (Native)
 
 Imported directly — no conversion needed.  
 Uses raw YouTube video IDs.
@@ -121,7 +124,7 @@ PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 
 ---
 
-## 🧱 2. Extended App Format (With Album Info)
+### 🧱 2. Extended App Format (With Album Info)
 
 ```csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl,AlbumId,AlbumTitle,ArtistIds
@@ -130,7 +133,7 @@ PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl,AlbumI
 
 ---
 
-## 🎧 3. Spotify Export Format
+### 🎧 3. Spotify Export Format
 
 ```csv
 Track Name,Artist Name(s),Track Duration (ms),Album Name,Album Image URL,Explicit
@@ -139,7 +142,7 @@ Blinding Lights,The Weeknd,200040,After Hours,https://i.scdn.co/image/ab67616d00
 
 ---
 
-## 💽 4. Exportify Format (Enhanced Spotify Export)
+### 💽 4. Exportify Format (Enhanced Spotify Export)
 
 ```csv
 Track URI,Track Name,Artist Name(s),Album Name,Album Image URL,Track Duration (ms),Explicit,Playlist Name
@@ -148,7 +151,7 @@ spotify:track:123,Blinding Lights,The Weeknd,After Hours,https://i.scdn.co/image
 
 ---
 
-## 🪶 5. Custom Minimal Format
+### 🪶 5. Custom Minimal Format
 
 ```csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration
@@ -177,9 +180,9 @@ PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 
 ---
 
-# 📊 Live System Status & Stats
+## 📊 Live System Status & Stats
 
-## 📥 Download Counters
+### 📥 Download Counters
 
 | Metric | Badge | Description |
 |-------|--------|-------------|
@@ -197,7 +200,7 @@ PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 
 ---
 
-# 🌍 Help Translate Cubic Music
+## 🌍 Help Translate Cubic Music
 
 Join our Crowdin project to help bring Cubic Music to more languages:
 
@@ -205,7 +208,7 @@ Join our Crowdin project to help bring Cubic Music to more languages:
 
 ---
 
-# ❤️ Support the Project
+## ❤️ Support the Project
 
 If you enjoy Cubic Music, consider supporting development:
 
@@ -213,7 +216,7 @@ If you enjoy Cubic Music, consider supporting development:
 
 ---
 
-# ⚖️ Legal Notice & Disclaimer
+## ⚖️ Legal Notice & Disclaimer
 
 - **Copyright:** Cubic Music respects copyrights and **does not enable illegal downloads**.  
 - **Affiliation:** Not affiliated with YouTube, Google LLC, or their partners.  
