@@ -31,13 +31,13 @@ It features a sleek, modern UI focused on performance and user freedom, offering
 
 ---
 
-## 🚀 Current Version: `v1.8.7` (latest)
+## 🚀 Current Version: `v1.8.8` (latest)
 
 🔧 **Status:** Active development — continuous improvements and new features.
 
 ---
 
-## 🆕 What’s New in v1.8.7
+## 🆕 What’s New in v1.8.8
 
 ### 🖼️ Spotify Canvas (Beta)
 
