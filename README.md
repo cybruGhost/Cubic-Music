@@ -46,7 +46,6 @@ Short looping visuals (3–8s) replace static album covers during playback, enha
 <p align="center">
   <img src="https://github.com/user-attachments/assets/00de30f0-b436-4a3d-8b59-5af9a0a44881" width="280" alt="Cubic Music Screenshot 1"/>
   <img src="https://github.com/user-attachments/assets/a40120a1-73b1-455a-860d-68e75175d2c2" width="280" alt="Cubic Music Screenshot 2"/><img width="717" height="1600" alt="WhatsApp Image 2026-07-03 at 23 49 41" src="https://github.com/user-attachments/assets/24e40588-85d8-4028-8c7f-2b4ba78b6285" />
-
   <img src="https://github.com/user-attachments/assets/830f4a15-ac76-422f-9762-a69e17b34568" width="280" alt="Cubic Music Screenshot 3"/>
 </p>
 
