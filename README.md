@@ -211,7 +211,7 @@ Directly from the [latest GitHub release](https://github.com/cybruGhost/Cubic-Mu
 | Metric | Badge | Description |
 |-------|--------|-------------|
 | **All-Time Downloads** | ![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads&color=blue) | Across all versions |
-| **Current Release** | ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green) | `v1.8.8` only |
+| **Current Release** | ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green) | `v1.8.9` only |
 | **Version-Specific** | ![v1.8.0 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.8.0/total?label=v1.8.0%20Downloads&color=orange) | Specific build |
 
 ### ⚙️ API Status
