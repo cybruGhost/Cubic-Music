@@ -67,7 +67,7 @@ Cubic Music offers seamless streaming, full offline downloads, and rich visuals 
 
 ---
 
-## 🆕 What's New in v1.8.8
+## 🆕 What's New in cubic music
 
 ### 🖼️ Spotify Canvas (Beta)
 Short looping visuals (3–8s) replace static album covers during playback, adding mood and identity to each track.
@@ -124,7 +124,7 @@ Cubic Music's take on *Spotify Wrapped* — a smart, shareable recap of your lis
 ## 🛠️ Roadmap & To-Do
 - [ ] Improved playlist mood detection
 - [ ] Memory optimization for large caches
-- [ ] UI refinements inspired by RiMusic
+- [ ] UI refinements inspired by me
 - [ ] General performance improvements
 - [ ] More languages
 
