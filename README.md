@@ -1,11 +1,11 @@
 <p align="center">
-  <img width="220" src="https://github.com/user-attachments/assets/15bd0440-9b2d-4de9-b823-ecd8434889f9" alt="Cubic Music Logo" />
+  <img width="220" src="https://github.com/user-attachments/assets/15bd0440-9b2d-4de9-b823-ecd8434889f9" alt="Cubic Music - Free Open Source YouTube Music Player for Android Logo" />
 </p>
 
 <h1 align="center">Cubic Music</h1>
 
 <p align="center">
-A powerful, multilingual YouTube Music frontend for Android — sleek, fast, and built around user freedom.
+<b>Cubic Music</b> is a free, open-source YouTube Music frontend and offline music player for Android. Stream music, download songs and playlists for offline listening, get synced word-by-word karaoke lyrics, and enjoy an ad-free, privacy-respecting alternative to YouTube Music — no subscription required.
 </p>
 
 <div align="center">
@@ -19,15 +19,45 @@ A powerful, multilingual YouTube Music frontend for Android — sleek, fast, and
 
 </div>
 
+<p align="center">
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest/download/Cubic-Music-full.apk">
+    <img alt="Download Cubic Music APK Now" src="https://img.shields.io/badge/⬇️_DOWNLOAD_APK_NOW-2E3340?style=for-the-badge&logo=android&logoColor=3DDC84" />
+  </a>
+</p>
+
 Cubic Music offers seamless streaming, full offline downloads, and rich visuals — actively maintained with frequent improvements. While still catching up to more mature apps in polish, it's a lightweight, good-looking alternative that keeps getting better.
 
 <p align="center">
   <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest">
-    <img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="180">
+    <img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="180" alt="View Cubic Music releases on GitHub">
   </a>
 </p>
 
 <p align="center">⭐ Star this repository to support development!</p>
+
+---
+
+## 📌 Table of Contents
+
+- [What is Cubic Music?](#-what-is-cubic-music)
+- [Current Version](#-current-version-v189-latest)
+- [What's New](#-whats-new-in-v188)
+- [Key Features](#-key-features)
+- [Screenshots](#-whats-new-in-v188)
+- [Roadmap](#️-roadmap--to-do)
+- [Supported Playlist Formats](#-supported-playlist-formats)
+- [FAQ](#-frequently-asked-questions)
+- [Live Stats](#-live-system-status--stats)
+- [Translate](#-help-translate-cubic-music)
+- [Support](#️-support-the-project)
+
+---
+
+## 🎵 What is Cubic Music?
+
+**Cubic Music** is a free and open-source **YouTube Music client for Android**, built as a privacy-friendly alternative to the official YouTube Music app. If you're searching for a way to **download YouTube Music offline**, get a **free music streaming app without ads**, or find a **YouTube Music APK** with karaoke lyrics, background playback, and Android Auto support — Cubic Music is built for exactly that.
+
+**Keywords:** YouTube Music app · free music downloader Android · offline music player APK · open source music streaming app · karaoke lyrics app · YouTube Music alternative · Android Auto music app · GPL music player
 
 ---
 
@@ -46,10 +76,10 @@ Short looping visuals (3–8s) replace static album covers during playback, addi
 Sing along in real time. Lyrics now highlight **word by word** as the track plays, not just line by line — giving a true karaoke-style experience synced tightly to the audio. Works alongside the existing synced/unsynced lyrics engine, with support for editing and translating lyrics as before.
 
 <p align="center">
-  <img width="180" src="https://github.com/user-attachments/assets/51fd5bd4-55a5-4fe0-9204-1294c8b13f3a" alt="Screenshot 1"/>
-  <img width="180" src="https://github.com/user-attachments/assets/94dfbb46-5f6c-46e6-a657-8cecdb0e2af6" alt="Screenshot 2"/>
-  <img width="180" src="https://github.com/user-attachments/assets/24e40588-85d8-4028-8c7f-2b4ba78b6285" alt="Screenshot 3"/>
-  <img width="180" src="https://github.com/user-attachments/assets/830f4a15-ac76-422f-9762-a69e17b34568" alt="Screenshot 4"/>
+  <img width="180" src="https://github.com/user-attachments/assets/51fd5bd4-55a5-4fe0-9204-1294c8b13f3a" alt="Cubic Music karaoke word-by-word lyrics screenshot"/>
+  <img width="180" src="https://github.com/user-attachments/assets/94dfbb46-5f6c-46e6-a657-8cecdb0e2af6" alt="Cubic Music now playing screen screenshot"/>
+  <img width="180" src="https://github.com/user-attachments/assets/24e40588-85d8-4028-8c7f-2b4ba78b6285" alt="Cubic Music Spotify Canvas video background screenshot"/>
+  <img width="180" src="https://github.com/user-attachments/assets/830f4a15-ac76-422f-9762-a69e17b34568" alt="Cubic Music Android app interface screenshot"/>
 </p>
 
 ---
@@ -157,6 +187,25 @@ PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
 
 ---
 
+## ❓ Frequently Asked Questions
+
+**Is Cubic Music free?**
+Yes. Cubic Music is 100% free and open source under the GPL v3 license — no subscriptions, no hidden paywalls.
+
+**Can I download songs for offline playback?**
+Yes. Cubic Music supports full offline mode with batch downloads for songs and entire playlists.
+
+**Does Cubic Music work with Android Auto?**
+Yes. Cubic Music supports Android Auto and Android TV out of the box.
+
+**Can I import my Spotify playlists?**
+Yes. Cubic Music supports importing Spotify Export and Exportify CSV files, converting them automatically via the YouTube API.
+
+**Where can I download the Cubic Music APK?**
+Directly from the [latest GitHub release](https://github.com/cybruGhost/Cubic-Music/releases/latest/download/Cubic-Music-full.apk) — see the download button above.
+
+---
+
 ## 📊 Live System Status & Stats
 
 | Metric | Badge | Description |
@@ -202,5 +251,7 @@ If you enjoy Cubic Music, consider supporting development:
 
 Made with ❤️ by [cybruGhost](https://github.com/cybruGhost)
 ⭐ **Don't forget to star and follow for updates!** 🚀
+
+<sub>Cubic Music · Free YouTube Music App for Android · Offline Music Downloader · Open Source Music Streaming Client</sub>
 
 </div>
