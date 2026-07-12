@@ -61,7 +61,7 @@ Cubic Music offers seamless streaming, full offline downloads, and rich visuals 
 
 ---
 
-## 🚀 Current Version: `v1.8.9` (latest)
+## 🚀 Current Version: `v1.9.0` (latest)
 
 🔧 **Status:** Active development — continuous improvements and new features.
 <img width="1672" height="941" alt="03b8305d-d21e-4d8c-8a2a-a9d85a612650" src="https://github.com/user-attachments/assets/c387acbf-e295-40c4-b217-baf4e1da9805" />
@@ -213,7 +213,7 @@ Directly from the [latest GitHub release](https://github.com/cybruGhost/Cubic-Mu
 | Metric | Badge | Description |
 |-------|--------|-------------|
 | **All-Time Downloads** | ![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads&color=blue) | Across all versions |
-| **Current Release** | ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green) | `v1.8.9` only |
+| **Current Release** | ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green) | `v1.9.0` only |
 | **Version-Specific** | ![v1.8.0 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.8.0/total?label=v1.8.0%20Downloads&color=orange) | Specific build |
 
 ### ⚙️ API Status
