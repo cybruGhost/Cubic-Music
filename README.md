@@ -61,7 +61,7 @@ Cubic Music offers seamless streaming, full offline downloads, and rich visuals 
 
 ---
 
-## 🚀 Current Version: `v1.9.0` (latest)
+## 🚀 Current Version: `v1.9.2` (latest)
 
 🔧 **Status:** Active development — continuous improvements and new features.
 <img width="1672" height="941" alt="03b8305d-d21e-4d8c-8a2a-a9d85a612650" src="https://github.com/user-attachments/assets/c387acbf-e295-40c4-b217-baf4e1da9805" />
