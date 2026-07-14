@@ -123,7 +123,7 @@
   <string name="android_auto">ANDROID AUTO</string>
   <string name="enable_unknown_sources">N’oubliez pas d’activer \&quot;Sources inconnues\&quot; dans les paramètres développeur d’Android Auto.</string>
   <string name="android_auto_1">Android Auto</string>
-  <string name="enable_android_auto_support">Activer le support pour Android Auto</string>
+  <string name="enable_android_auto_support">Activer la prise en charge d\'Android Auto</string>
   <string name="search_history">Historique de Recherche</string>
   <string name="pause_search_history">Suspendre l’historique de recherche</string>
   <string name="neither_save_new_searched_query">Ne pas enregistrer de nouvelles recherches ni afficher l’historique</string>
@@ -301,7 +301,7 @@
   <string name="enqueue_all">Tout mettre en file d’attente</string>
   <string name="enqueue_selected">Mettre en file d’attente ce qui est sélectionné</string>
   <string name="greek">Grecque (Ελληνικά)</string>
-  <string name="catalan">Catalan (Català)</string>
+  <string name="catalan">Catalan (Espagne)</string>
   <string name="disable_scrolling_text">Désactiver le défilement du texte</string>
   <string name="scrolling_text_is_used_for_long_texts">Le défilement du texte est utilisé pour les longs textes</string>
   <string name="audio_quality_format">Qualité Audio</string>
@@ -349,7 +349,7 @@
   <string name="action_bar_show_shuffle_button">Afficher le bouton lecture aléatoire</string>
   <string name="action_bar_show_lyrics_button">Afficher le bouton des paroles</string>
   <string name="action_bar_show_arrow_button_to_open_queue">Afficher le bouton de la flèche pour ouvrir la file d’attente</string>
-  <string name="lang_finnish">Finnois (Finlande)</string>
+  <string name="lang_finnish">Finnois (suomi)</string>
   <string name="listening_time">Durée d’écoute</string>
   <string name="shows_the_number_of_songs_heard_and_their_listening_time">Afficher le nombre de titres écoutés et leur temps d’écoute</string>
   <string name="enable_language_in_discovery">Activer la langue dans Découverte</string>
@@ -362,7 +362,7 @@
   <string name="do_you_really_want_to_renumbering_positions_in_this_playlist">Voulez-vous vraiment renuméroter les positions dans cette playlist ?</string>
   <string name="renumber_songs_positions">Renuméroter les positions</string>
   <string name="do_you_really_want_to_delete_all_playback_events">Voulez-vous vraiment supprimer tous les événements de lecture ?</string>
-  <string name="lang_sinhala">Singhalais (Sri Lanka)</string>
+  <string name="lang_sinhala">Singhalais (சிங்களம்)</string>
   <string name="actions_you_can_do">Actions que vous pouvez faire :</string>
   <string name="open_the_github_releases_web_page_and_download_latest_version"> Cliquez ici pour ouvrir la page des versions GitHub et téléchargez manuellement le dernier fichier APK</string>
   <string name="download_latest_version_from_github_you_will_find_the_file_in_the_notification_area_and_you_can_install_by_clicking_on_it">Téléchargez la dernière version depuis GitHub. Vous trouverez le fichier dans la zone de notification et vous pourrez l\'installer en cliquant dessus.</string>
@@ -443,7 +443,7 @@
   <string name="pinned_playlists">Playlists Épinglées</string>
   <string name="locked">Verrouillé</string>
   <string name="sort_duration">Durée</string>
-  <string name="lang_serbian_cyrillic">Cyrillique Serbe (српска ћирилица)</string>
+  <string name="lang_serbian_cyrillic">Serbe Cyrillique (Српска ћирилица)</string>
   <string name="pause_between_songs">Mettre en pause entre les titres</string>
   <string name="navigation_bar_type">Type de barre de navigation</string>
   <string name="icon_and_text">Texte et icône</string>
@@ -463,7 +463,7 @@
   <string name="folders">Dossiers</string>
   <string name="show_folders_in_on_device_page">Afficher les dossiers dans la page « Sur l’appareil »</string>
   <string name="lang_danish">Danois (Danemark)</string>
-  <string name="lang_serbian_latin">Latin Serbe (Alphabet de Gaj)</string>
+  <string name="lang_serbian_latin">Serbe Latin (Српска латиница)</string>
   <string name="item_deselect">Désélectionner</string>
   <string name="show_next_songs_in_player">Afficher la file d’attente des titres suivants</string>
   <string name="show_remaining_song_time">Afficher le temps restant du titre</string>
@@ -608,7 +608,7 @@
   <string name="bg_colors_fluid_gradient_background_from_cover">Fond de gradient fluide à partir de la pochette d’album</string>
   <string name="show_background_in_lyrics">Assortir la couleur d’arrière-plan des paroles à celle du lecteur</string>
   <string name="bg_colors_blurred_cover_background">Arrière-plan de la pochette d’album floue</string>
-  <string name="lang_estonian">Estonien (Estonie)</string>
+  <string name="lang_estonian">Estonien (eesti)</string>
   <string name="pcontrols_modern">Moderne</string>
   <string name="pcontrols_essential">Minimale</string>
   <string name="pcontrols_type">Type de contrôle</string>
@@ -618,7 +618,7 @@
   <string name="position_bottom">En bas</string>
   <string name="added_to_favorites">Ajouté aux favoris</string>
   <string name="removed_from_favorites">Retiré des favoris</string>
-  <string name="lang_filipino">Philippin (Philippine)</string>
+  <string name="lang_filipino">Philippin (Pilipino)</string>
   <string name="action_bar_transparent_background">Arrière-plan transparent</string>
   <string name="pinfo_type">Type d’informations</string>
   <string name="pinfo_album_and_artist_name">Album et nom de l’artiste</string>
@@ -677,7 +677,7 @@
   <string name="info_connect_your_piped_account_first">Connectez d\'abord votre compte Piped ou désactivez la synchronisation Piped.</string>
   <string name="piped_playlists">Piped</string>
   <string name="lang_bengali">Bengali (Bangladesh, Inde)</string>
-  <string name="lang_irish">Irlandais (Irlande)</string>
+  <string name="lang_irish">Irlandais (Éireannach)</string>
   <string name="lyricsoutline">Contour des paroles</string>
   <string name="fluidrainbow">Arc-en-Ciel Fluide</string>
   <string name="fluidtheme">Thème Fluide</string>
@@ -799,7 +799,7 @@ Volume BAS : titre précédent</string>
   <string name="info_check_update_now">Vérifiez maintenant</string>
   <string name="info_no_update_available">Aucune mise à jour disponible</string>
   <string name="lang_galician">Galicien (Galice)</string>
-  <string name="lang_norwegian">Norvégien (Norvège)</string>
+  <string name="lang_norwegian">Norvégien (norsk)</string>
   <string name="translate_to">Traduire en %s</string>
   <string name="translate_to_other_language">Traduire en une autre langue</string>
   <string name="action_bar_show_video_button">Afficher le bouton vidéo</string>
@@ -859,9 +859,9 @@ Volume BAS : titre précédent</string>
   <string name="actionbar">Barre d’action</string>
   <string name="center">Centre</string>
   <string name="lyricsalignment">Alignement des paroles</string>
-  <string name="lang_azerbaijani">Azerbaïdjanais (Azerbaïdjan)</string>
+  <string name="lang_azerbaijani">Azerbaïdjanais (Azərbaycan dili)</string>
   <string name="translators">Concepteurs / Traducteurs</string>
-  <string name="lang_tamil">Tamoul (Inde, Sri Lanka)</string>
+  <string name="lang_tamil">Tamoul (தமிழ்)</string>
   <string name="player_auto_load_songs_in_queue">Charger automatiquement les titres dans la file d’attente</string>
   <string name="player_auto_load_songs_in_queue_description">Ajoute des titres quand la file d’attente est sur le point de se terminer</string>
   <string name="offline_queue_network_refill">Recharge réseau</string>
@@ -1601,13 +1601,13 @@ Volume BAS : titre précédent</string>
   <string name="rescue_center_widget_subtitle">Journaux d\'erreurs et de lecture</string>
   <string name="retry">Réessayer</string>
   <string name="rescue_center_widget_status">Fonctionne même lorsque le lecteur a besoin de récupérer</string>
-  <string name="playing_from_search">Playing from Search</string>
-  <string name="playing_from_search_detail">\"%1$s\" in Search</string>
-  <string name="playing_from_playlist">Playing from Playlist</string>
-  <string name="playing_from_album">Playing from Album</string>
-  <string name="playing_from_statistics">Playing from Statistics</string>
-  <string name="playing_from_quick_picks">Playing from Quick Picks</string>
-  <string name="playing_from_on_device">Playing from On Device</string>
-  <string name="playing_from_format">Playing from %1$s</string>
+  <string name="playing_from_search">Lecture à partir de la recherche</string>
+  <string name="playing_from_search_detail">« %1$s » dans la recherche</string>
+  <string name="playing_from_playlist">Lecture à partir de la playlist</string>
+  <string name="playing_from_album">Lecture à partir de l\'album</string>
+  <string name="playing_from_statistics">Lecture à partir des statistiques</string>
+  <string name="playing_from_quick_picks">Lecture à partir de la sélection rapide</string>
+  <string name="playing_from_on_device">Lecture depuis l\'appareil</string>
+  <string name="playing_from_format">Lecture à partir de %1$s</string>
   <string name="top_songs">Top songs</string>
 </resources>
