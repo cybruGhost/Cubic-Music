@@ -264,7 +264,7 @@
   <string name="listen_on_invidious">Écouter sur Invidious</string>
   <string name="disable_horizontal_swipe">Désactiver le glissement horizontal</string>
   <string name="disable_vertical_swipe">Désactiver le changement de titre via le balayage vertical</string>
-  <string name="disable_vertical_swipe_secondary">Cela n\'a d\'incidence que lorsque le lecteur étendu est désactivé.</string>
+  <string name="disable_vertical_swipe_secondary">Cela n\'a d\'incidence que lorsque le lecteur avancé est désactivé</string>
   <string name="disable_song_switching_via_swipe">Désactiver le changement de titre par balayage</string>
   <string name="interface_in_use">Interface en cours d’utilisation</string>
   <string name="user_interface">Interface Utilisateur</string>
@@ -663,7 +663,7 @@
   <string name="show_lyrics_thumbnail">Afficher la miniature pour les paroles</string>
   <string name="large">Large</string>
   <string name="miniplayertype">Type du mini-lecteur</string>
-  <string name="expanded">Étendu</string>
+  <string name="expanded">Avancé</string>
   <string name="lyricscolor">Couleur des paroles</string>
   <string name="accent">Couleur d’accentuation</string>
   <string name="lyrics_size">Taille des paroles</string>
@@ -671,9 +671,9 @@
   <string name="transparentbar">Barre de chronologie transparente</string>
   <string name="timelinesize">Taille de la chronologie du lecteur</string>
   <string name="actionspacedevenly">Espacement sévère</string>
-  <string name="expandedplayer">Lecteur étendu</string>
-  <string name="expandedlyrics">Affichage agrandi des paroles</string>
-  <string name="expandedlyricsinfo">Disponible lorsque les miniatures pour les paroles sont désactivées</string>
+  <string name="expandedplayer">Lecteur Avancé</string>
+  <string name="expandedlyrics">Affichage détaillé des paroles</string>
+  <string name="expandedlyricsinfo">Disponible lorsque l\'affichage des miniatures pour les paroles est désactivé</string>
   <string name="info_connect_your_piped_account_first">Connectez d\'abord votre compte Piped ou désactivez la synchronisation Piped.</string>
   <string name="piped_playlists">Piped</string>
   <string name="lang_bengali">Bengali (Bangladesh, Inde)</string>
@@ -753,7 +753,7 @@ Volume BAS : titre précédent</string>
   <string name="noblur">Pas de flou quand les paroles sont désactivées</string>
   <string name="fadingedge">Bord en dégradé</string>
   <string name="carousel">Vue Carrousel</string>
-  <string name="carouselsize">Taille de la miniature en mode étendu</string>
+  <string name="carouselsize">Taille des miniatures en mode avancé</string>
   <string name="addednext">Ajouté à la lecture suivante</string>
   <string name="info_paused_with_volume_zero">Mettre en pause quand le volume est à 0</string>
   <string name="effect_fade_audio">Fondu Audio</string>
@@ -1579,13 +1579,13 @@ Volume BAS : titre précédent</string>
   <string name="rescue_center_sorted_by_day">Trié par jour. Exportez uniquement la partie du journal dont vous avez besoin.</string>
   <string name="cubic_music_rescue_center">Centre de Secours de Cubic Music</string>
   <string name="cubic_listener">Cubic listener</string>
-  <string name="failed_to_fetch_weather_data">Failed to fetch weather data</string>
-  <string name="change_weather_location">Change Weather Location</string>
-  <string name="temperature_unit">Temperature Unit:</string>
+  <string name="failed_to_fetch_weather_data">Impossible de récupérer les données météo</string>
+  <string name="change_weather_location">Changer la localité pour la météo</string>
+  <string name="temperature_unit">Unité de température :</string>
   <string name="enter_your_city_name">Entrez le nom de votre ville :</string>
   <string name="city_name">Nom de la ville</string>
   <string name="weather_city_placeholder">par exemple, Londres, Tokyo, Nairobi</string>
-  <string name="weather_accuracy_tip">Tip: Weather conditions might not be very accurate</string>
+  <string name="weather_accuracy_tip">Conseil : les prévisions météo peuvent ne pas être très précises</string>
   <string name="cubic_music_signature">Cyberghost @2026 Cubic Music</string>
   <string name="welcome_title">Bienvenue</string>
   <string name="welcome_name_subtitle">Commençons par votre nom</string>
