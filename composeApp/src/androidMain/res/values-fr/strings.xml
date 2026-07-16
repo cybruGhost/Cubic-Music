@@ -375,7 +375,7 @@
   <string name="you_can_still_turn_it_on_or_off_from_the_settings">Vous pouvez toujours l\'activer ou le désactiver à partir des paramètres.</string>
   <string name="enable">Activer</string>
   <string name="don_t_enable">Désactiver</string>
-  <string name="lang_hindi">Hindi (हिंदी)</string>
+  <string name="lang_hindi">Hindi (नहीं)</string>
   <string name="default_page">Page par défaut</string>
   <string name="keep_screen_on">Garder l’écran allumé</string>
   <string name="prevents_screen_timeout">Empêche la mise en veille de l’écran</string>
@@ -439,7 +439,7 @@
   <string name="copy_lyrics">Copier les paroles</string>
   <string name="value_copied">Copié</string>
   <string name="do_you_really_want_to_delete_cache">Voulez-vous vraiment vider le cache ?</string>
-  <string name="lang_swedish">Suédois (Suède)</string>
+  <string name="lang_swedish">Suédois (Svenska)</string>
   <string name="pinned_playlists">Playlists Épinglées</string>
   <string name="locked">Verrouillé</string>
   <string name="sort_duration">Durée</string>
@@ -452,7 +452,7 @@
   <string name="sort_album">Album</string>
   <string name="use_gradient_background">Utiliser le dégradé d’arrière-plan</string>
   <string name="show_total_time_of_queue">Afficher la durée totale de la file d’attente</string>
-  <string name="lang_telugu">Télougou (తెలుగు)</string>
+  <string name="lang_telugu">Telugu (తెలుగు)</string>
   <string name="media_permission_required_please_grant">Autorisation du média requise, veuillez l’accorder.</string>
   <string name="open_permission_settings">Ouvrir les paramètres d’autorisation</string>
   <string name="background_progress_bar">Barre de progression en arrière-plan</string>
@@ -556,7 +556,7 @@
   <string name="month_october_s">Octobre %s</string>
   <string name="month_november_s">Novembre %s</string>
   <string name="month_december_s">Décembre %s</string>
-  <string name="info_cannot_renumbering_a_monthly_playlist">Impossible de mélanger les positions des titres dans une playlist mensuelle</string>
+  <string name="info_cannot_renumbering_a_monthly_playlist">Impossible de mélanger l\'ordre des titres dans une playlist mensuelle</string>
   <string name="info_cannot_rename_a_monthly_playlist">Impossible de renommer une playlist mensuelle</string>
   <string name="info_cannot_delete_a_monthly_playlist">Impossible de supprimer une playlist mensuelle</string>
   <string name="info_reorder_is_possible_only_in_ascending_sort">La réorganisation est possible uniquement dans le tri ascendant</string>
@@ -676,7 +676,7 @@
   <string name="expandedlyricsinfo">Disponible lorsque l\'affichage des miniatures pour les paroles est désactivé</string>
   <string name="info_connect_your_piped_account_first">Connectez d\'abord votre compte Piped ou désactivez la synchronisation Piped.</string>
   <string name="piped_playlists">Piped</string>
-  <string name="lang_bengali">Bengali (Bangladesh, Inde)</string>
+  <string name="lang_bengali">Bengali (বাংলা)</string>
   <string name="lang_irish">Irlandais (Éireannach)</string>
   <string name="lyricsoutline">Contour des paroles</string>
   <string name="fluidrainbow">Arc-en-Ciel Fluide</string>
@@ -798,7 +798,7 @@ Volume BAS : titre précédent</string>
   <string name="update_album">Mise à jour de l’album</string>
   <string name="info_check_update_now">Vérifiez maintenant</string>
   <string name="info_no_update_available">Aucune mise à jour disponible</string>
-  <string name="lang_galician">Galicien (Galice)</string>
+  <string name="lang_galician">Galicien (Galego)</string>
   <string name="lang_norwegian">Norvégien (norsk)</string>
   <string name="translate_to">Traduire en %s</string>
   <string name="translate_to_other_language">Traduire en une autre langue</string>
@@ -861,7 +861,7 @@ Volume BAS : titre précédent</string>
   <string name="lyricsalignment">Alignement des paroles</string>
   <string name="lang_azerbaijani">Azerbaïdjanais (Azərbaycan dili)</string>
   <string name="translators">Concepteurs / Traducteurs</string>
-  <string name="lang_tamil">Tamoul (தமிழ்)</string>
+  <string name="lang_tamil">Tamoul (நாகர்)</string>
   <string name="player_auto_load_songs_in_queue">Charger automatiquement les titres dans la file d’attente</string>
   <string name="player_auto_load_songs_in_queue_description">Ajoute des titres quand la file d’attente est sur le point de se terminer</string>
   <string name="offline_queue_network_refill">Recharge réseau</string>
