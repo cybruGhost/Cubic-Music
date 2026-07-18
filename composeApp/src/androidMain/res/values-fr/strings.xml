@@ -63,7 +63,7 @@
   <string name="album_no_alternative_version">Cet album n’a pas de version alternative</string>
   <string name="enqueue">Mettre en file d’attente</string>
   <string name="shuffle">Aléatoire</string>
-  <string name="view_all">Voir tout</string>
+  <string name="view_all">Tout afficher</string>
   <string name="from_wikipedia_cca">Extrait de Wikipédia sous licence Creative Commons Attribution CC-BY-SA 3.0</string>
   <string name="overview">Aperçu</string>
   <string name="singles">Titres</string>
@@ -87,7 +87,7 @@
   <string name="cached">En cache</string>
   <string name="loudness">Volume</string>
   <string name="clear">Effacer</string>
-  <string name="error">Une erreur est survenue.</string>
+  <string name="error">Une erreur s\'est produite.</string>
   <string name="online">En ligne</string>
   <string name="no_results_found">Aucun résultat trouvé. Veuillez essayer une autre recherche ou une autre catégorie.</string>
   <string name="videos">Vidéos</string>
