@@ -101,7 +101,7 @@
   <string name="thumbnail_roundness">Arrondi des miniatures</string>
   <string name="use_system_font">Utiliser la police du système</string>
   <string name="use_font_by_the_system">Utiliser la police appliquée par le système</string>
-  <string name="apply_font_padding">Appliquer un remplissage</string>
+  <string name="apply_font_padding">Appliquer un espacement entre les caractères</string>
   <string name="add_spacing_around_texts">Ajouter un espace autour des textes</string>
   <string name="lockscreen">ÉCRAN DE VERROUILLAGE</string>
   <string name="show_song_cover">Afficher la pochette d\'album</string>
