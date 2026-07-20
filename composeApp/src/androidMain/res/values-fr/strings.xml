@@ -161,8 +161,8 @@
   <string name="folder_cache">DOSSIER DE CACHE</string>
   <string name="cache_reset_by_clicking_button">Attention : en cliquant sur le bouton ci-dessous, le dossier d’emplacement du cache sera réinitialisé à sa valeur par défaut.</string>
   <string name="cache_location_folder">Emplacement du dossier</string>
-  <string name="custom_cache_from_android_10_may_not_be_available">À partir d’Android 10, cette fonctionnalité peut ne plus être disponible</string>
-  <string name="reset_cache_location_folder">RÉINITIALISER LE CACHE</string>
+  <string name="custom_cache_from_android_10_may_not_be_available">Depuis Android 10, cette fonctionnalité peut ne pas être disponible</string>
+  <string name="reset_cache_location_folder">RÉINITIALISER LE DOSSIER CACHE</string>
   <string name="used">"&quot; utilisé&quot;"</string>
   <string name="close_background_player">Fermer le lecteur en arrière-plan</string>
   <string name="when_app_swipe_out_from_task_manager">Lorsque l’application est fermée à partir du gestionnaire de tâches</string>
@@ -208,7 +208,7 @@
   <string name="social">SOCIAL</string>
   <string name="english">Anglais (English)</string>
   <string name="italian">Italien (Italie)</string>
-  <string name="czech">Tchèque (Čeština)</string>
+  <string name="czech">Tchèque (čeština)</string>
   <string name="german">Allemand (Allemagne)</string>
   <string name="spanish">Espagnol (Espagne)</string>
   <string name="french">Français (France)</string>
@@ -272,7 +272,7 @@
   <string name="system_language">Langue du système</string>
   <string name="biggest">Très gros</string>
   <string name="set_custom_cache">Définir un cache personnalisé</string>
-  <string name="enter_value_in_mb">Entrez la valeur en Mo</string>
+  <string name="enter_value_in_mb">Entrez une valeur en Mo</string>
   <string name="value_cannot_be_empty">La valeur ne peut pas être vide</string>
   <string name="value_must_be_greater_than">"&quot;La valeur doit être supérieure à &quot;"</string>
   <string name="custom">Personnalisé</string>
@@ -368,8 +368,8 @@
   <string name="download_latest_version_from_github_you_will_find_the_file_in_the_notification_area_and_you_can_install_by_clicking_on_it">Téléchargez la dernière version depuis GitHub. Vous trouverez le fichier dans la zone de notification et vous pourrez l\'installer en cliquant dessus.</string>
   <string name="f_droid_users_can_wait_for_the_update_info">Les utilisateurs de F-Droid peuvent attendre la mise à jour de F-Droid, qui arrive généralement en quelques heures avec le dépôt IzzyOnDroid, et en quelques jours avec le dépôt F-Droid.org.</string>
   <string name="check_update">Vérifier les mises à jour</string>
-  <string name="enable_check_for_update">Activer la vérification des mises à jour</string>
-  <string name="when_enabled_a_new_version_is_checked_and_notified_during_startup">Afficher une notification pour demander la mise à jour de l’application lorsqu’une nouvelle version est disponible.</string>
+  <string name="enable_check_for_update">Activer la vérification automatique des mises à jour</string>
+  <string name="when_enabled_a_new_version_is_checked_and_notified_during_startup">Afficher une notification pour inviter l\'utilisateur à mettre à jour l\'application lorsqu\'une nouvelle version est disponible.</string>
   <string name="check_at_github_for_updates">Vérifier les mises à jour sur GitHub ?</string>
   <string name="when_an_update_is_available_you_will_be_asked_if_you_want_to_install_info">Lorsqu’une mise à jour est disponible, vous serez invité à l’installer. Il n’y aura pas d’installation automatique à votre insu.</string>
   <string name="you_can_still_turn_it_on_or_off_from_the_settings">Vous pouvez toujours l\'activer ou le désactiver à partir des paramètres.</string>
@@ -424,7 +424,7 @@
   <string name="restore_from_backup">Restaurer depuis une sauvegarde</string>
   <string name="tab_miscellaneous">Divers</string>
   <string name="swipe_to_action">Action associée au balayage</string>
-  <string name="activate_the_action_menu_by_swiping_the_song_left_or_right">Activer le menu d’action en faisant glisser le titre vers la gauche ou la droite</string>
+  <string name="activate_the_action_menu_by_swiping_the_song_left_or_right">Effectuez des actions en balayant vers la gauche ou vers la droite sur un titre dans la liste verticale des titres</string>
   <string name="smart_recommendations">Recommandations Intelligentes</string>
   <string name="player_collapsed_disable_swiping_down">Désactiver le glissement vers le bas</string>
   <string name="avoid_closing_the_player_cleaning_queue_by_swiping_down">Éviter de fermer le lecteur et de nettoyer la file en glissant vers le bas pendant qu’il est minimisé</string>
