@@ -351,7 +351,7 @@
   <string name="action_bar_show_arrow_button_to_open_queue">Afficher le bouton de la flèche pour ouvrir la file d’attente</string>
   <string name="lang_finnish">Finnois (suomi)</string>
   <string name="listening_time">Durée d’écoute</string>
-  <string name="shows_the_number_of_songs_heard_and_their_listening_time">Afficher le nombre de titres écoutés et leur temps d’écoute</string>
+  <string name="shows_the_number_of_songs_heard_and_their_listening_time">Afficher le nombre total de titres écoutés et la durée de lecture</string>
   <string name="enable_language_in_discovery">Activer la langue dans Découverte</string>
   <string name="if_possible_allows_discovery_content_language">Si possible, il permet de recevoir du contenu de Découverte dans votre propre langue.</string>
   <string name="set_to">Régler sur</string>
@@ -577,14 +577,14 @@
   <string name="show_monthly_playlists_in_quick_picks">Afficher les playlists mensuelles dans la Sélection Rapide</string>
   <string name="show_monthly_playlists_in_library">Afficher les playlists mensuelles dans la bibliothèque</string>
   <string name="info_no_singles_yet">Pas encore de morceaux</string>
-  <string name="info_no_albums_yet">Pas encore d’albums</string>
-  <string name="info_no_songs_yet">Pas encore de titres</string>
+  <string name="info_no_albums_yet">Aucun album disponible</string>
+  <string name="info_no_songs_yet">Aucun titre disponible</string>
   <string name="theme_customized">Personnalisé</string>
   <string name="do_you_really_want_to_reset_the_custom_light_theme_colors">Voulez-vous vraiment réinitialiser les couleurs personnalisées du thème clair ?</string>
   <string name="do_you_really_want_to_reset_the_custom_dark_theme_colors">Voulez-vous vraiment réinitialiser les couleurs personnalisées du thème sombre ?</string>
-  <string name="info_reset_custom_light_theme_colors">Réinitialiser les couleurs du thème clair personnalisé</string>
+  <string name="info_reset_custom_light_theme_colors">Réinitialiser les couleurs personnalisées du thème clair</string>
   <string name="info_reset_custom_dark_theme_colors">Réinitialiser les couleurs personnalisées du thème sombre</string>
-  <string name="title_customized_light_theme_colors">Couleurs personnalisées pour le thème clair</string>
+  <string name="title_customized_light_theme_colors">Couleurs personnalisées du thème clair</string>
   <string name="title_reset_customized_light_colors">Réinitialiser les couleurs claires personnalisées</string>
   <string name="info_click_to_reset_default_light_colors">Cliquez pour réinitialiser les couleurs claires par défaut</string>
   <string name="color_background_1">Arrière-plan 1</string>
@@ -595,7 +595,7 @@
   <string name="color_text">Texte</string>
   <string name="color_text_secondary">Texte secondaire</string>
   <string name="color_text_disabled">Texte désactivé</string>
-  <string name="color_icon_button_player">Icône des boutons du lecteur</string>
+  <string name="color_icon_button_player">Icône du bouton « Lecteur »</string>
   <string name="color_accent">Couleur d’accentuation</string>
   <string name="title_customized_dark_theme_colors">Couleurs personnalisées du thème sombre</string>
   <string name="title_reset_customized_dark_colors">Réinitialiser les couleurs sombres personnalisées</string>
