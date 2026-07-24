@@ -1140,7 +1140,7 @@ Volume BAS : titre précédent</string>
   <string name="auto_download_when_album_bookmarked_description">Télécharger automatiquement les chansons lorsque vous signez un album</string>
   <string name="connection_settings">Paramètres de connexion</string>
   <string name="connection_settings_description">Configurer les préférences de connexion réseau</string>
-  <string name="network_settings_description">La section réseau contient des paramètres permettant d’optimiser les performances et l’utilisation des données de l’application</string>
+  <string name="network_settings_description">La section « Réseau » contient des paramètres permettant d\'optimiser les performances de l\'application et l\'utilisation des données.</string>
   <string name="easter_egg_click_message">Vous aimez cliquer ? Alors continuez…</string>
   <string name="easter_egg_keep_going">Bon, vous cherchez quelque chose, continuez…</string>
   <string name="easter_egg_number_one">Vous êtes numéro un, cliquez et profitez de la surprise</string>
@@ -1150,7 +1150,7 @@ Volume BAS : titre précédent</string>
   <string name="pause_between_songs_description">Ajouter une pause entre les morceaux</string>
   <string name="notifications">Notifications</string>
   <string name="new_releases_notifications">Notifications de nouvelles versions</string>
-  <string name="new_releases_notifications_description">Tenez-moi au courant des nouvelles sorties musicales, au maximum une fois par jour.</string>
+  <string name="new_releases_notifications_description">Prévenez-moi des nouvelles sorties musicales, au maximum une fois par jour.</string>
   <string name="playback">Lecture</string>
   <string name="player_controls">Contrôles du Lecteur</string>
   <string name="queue_management">Gestion de la file d’attente</string>
@@ -1162,7 +1162,7 @@ Volume BAS : titre précédent</string>
   <string name="by_string">par</string>
   <string name="check_beta_update_enabled">BÊTA activée</string>
   <string name="check_beta_update_disabled">BÊTA désactivée</string>
-  <string name="cache_status">Statut de la cache</string>
+  <string name="cache_status">État du cache</string>
   <string name="cache_empty">Cache vide</string>
   <string name="rewind">Retour en arrière</string>
   <string name="donate">Faire un don</string>
