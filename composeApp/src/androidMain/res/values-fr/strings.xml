@@ -727,10 +727,10 @@
   <string name="playlistindicator">Indicateur de playlist</string>
   <string name="playlistindicatorinfo">Marquez les titres qui ont été ajoutés à votre playlist</string>
   <string name="deleted">Supprimé</string>
-  <string name="playlistindicatorinfo2">Le titre est présent dans l’une des playlists</string>
-  <string name="statsfornerdsplayer">Afficher les statistiques pour les nerds dans le lecteur</string>
+  <string name="playlistindicatorinfo2">Le titre figure dans l\'une des playlists</string>
+  <string name="statsfornerdsplayer">Statistiques pour les geeks</string>
   <string name="discover">Découvrir &#x1F31F;</string>
-  <string name="discoverinfo">Supprimer les titres de la file d’attente s’ils sont inclus dans les favoris ou les playlists</string>
+  <string name="discoverinfo">Supprimer les titres de la file d\'attente s\'ils figurent dans les favoris ou dans des playlists</string>
   <string name="controls_header_customize">Personnaliser</string>
   <string name="controls_title_blur_effect">Effet de flou</string>
   <string name="controls_title_medley_duration">Durée du Medley</string>
@@ -741,7 +741,7 @@
   <string name="lang_malayalam">Malayalam (Inde)</string>
   <string name="searches_suggestions">Suggestions</string>
   <string name="searches_saved_searches">Historique des recherches</string>
-  <string name="event_volumekeys">Changer de titre avec les boutons de volume</string>
+  <string name="event_volumekeys">Touches de volume pour changer de morceau</string>
   <string name="event_volumekeysinfo">Volume HAUT : titre suivant, 
 Volume BAS : titre précédent</string>
   <string name="paste">Coller</string>
@@ -802,7 +802,7 @@ Volume BAS : titre précédent</string>
   <string name="lang_norwegian">Norvégien (norsk)</string>
   <string name="translate_to">Traduire en %s</string>
   <string name="translate_to_other_language">Traduire en une autre langue</string>
-  <string name="action_bar_show_video_button">Afficher le bouton vidéo</string>
+  <string name="action_bar_show_video_button">Bouton « Afficher la vidéo »</string>
   <string name="settings_cool_buttons">Boutons sympas</string>
   <string name="settings_cool_buttons_keywords">Boutons sympas, commentaires, vidéo, paroles, sources, lecture, appareil d\'écoute</string>
   <string name="settings_show_comments_button">Afficher le bouton « Commentaires »</string>
@@ -822,7 +822,7 @@ Volume BAS : titre précédent</string>
   <string name="social_telegram_info">Rejoignez le groupe sur Telegram</string>
   <string name="social_github">GitHub</string>
   <string name="update">Mettre à jour</string>
-  <string name="update_song">Voulez-vous vraiment récupérer ce titre ? La durée de lecture et les données mises en cache seront effacées.\\nCette action est irréversible.</string>
+  <string name="update_song">Voulez-vous vraiment récupérer ce titre ? La durée d\'écoute et les données mises en cache seront effacées.\\nCette action est irréversible.</string>
   <string name="player_pause_listen_history_info">Cela ne sauvegarde pas les événements de lecture utilisés pour les statistiques, l\'historique et les suggestions dans la Sélection Rapide.</string>
   <string name="vertical_widget">Widget vertical</string>
   <string name="horizontal_widget">Widget horizontal</string>
@@ -849,13 +849,13 @@ Volume BAS : titre précédent</string>
   <string name="controls">Commandes</string>
   <string name="add_to_favorites">Ajouter tout aux favoris</string>
   <string name="import_favorites">Importer les favoris</string>
-  <string name="skip_media_on_error">Ignorer automatiquement en cas d’erreur</string>
-  <string name="skip_media_on_error_description">Si une erreur survient, le média est changé</string>
-  <string name="skip_media_on_error_message">Le média %1$s a mal fonctionné</string>
-  <string name="login_required_to_play_this_media">Connexion nécessaire pour lire ce média</string>
-  <string name="skip_media_on_notavailable_message">Le média précédent n’est pas disponible, le lecteur est passé au suivant</string>
+  <string name="skip_media_on_error">Passer le titre en cas d\'erreur</string>
+  <string name="skip_media_on_error_description">En cas d\'erreur, passez au titre suivant</string>
+  <string name="skip_media_on_error_message">Une erreur s\'est produite lors de la lecture du titre %1$s</string>
+  <string name="login_required_to_play_this_media">Vous devez vous connecter pour écouter ce titre</string>
+  <string name="skip_media_on_notavailable_message">Le titre précédent n\'est pas disponible, passage au titre suivant</string>
   <string name="search_results_for">Résultats de la recherche pour :</string>
-  <string name="statsfornerds">Statistiques pour les nerds</string>
+  <string name="statsfornerds">Statistiques pour les geeks</string>
   <string name="actionbar">Barre d’action</string>
   <string name="center">Centre</string>
   <string name="lyricsalignment">Alignement des paroles</string>
