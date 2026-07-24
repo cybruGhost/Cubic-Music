@@ -1173,12 +1173,12 @@ Volume BAS : titre précédent</string>
   <string name="spotify_connected">Connecté</string>
   <string name="spotify_add_email">Appuyez pour ajouter une adresse e-mail</string>
   <string name="spotify_debug_logs">Afficher les journaux de débogage</string>
-  <string name="spotify_disconnect">Déconnecter Spotify</string>
+  <string name="spotify_disconnect">Se déconnecter de Spotify</string>
   <string name="spotify_email_dialog_title">E-mail Spotify Canvas</string>
   <string name="spotify_email_instructions">Saisissez l\'adresse e-mail que vous avez utilisée pour vous connecter au site web Spotify Canvas.</string>
   <string name="spotify_note">Remarque : vous devez d\'abord vous authentifier à l\'adresse suivante : \nv0-spotify-playlist-csv.vercel.app</string>
   <string name="spotify_disconnect_confirm">Déconnecter Spotify Canvas ?\nCela supprimera votre adresse e-mail et désactivera la fonctionnalité.</string>
-  <string name="forcePlayFromBeginning">Jouer depuis le début</string>
+  <string name="forcePlayFromBeginning">Lire depuis le début</string>
   <string name="smart_shuffle">Mélange Intelligent</string>
   <string name="loading_recommendations">Chargement des recommandations�</string>
   <string name="recommendations">Recommandations</string>
@@ -1186,7 +1186,7 @@ Volume BAS : titre précédent</string>
   <string name="apk_update_title">Mise à jour de Cubic Music</string>
   <string name="apk_download_started_message">Téléchargement de la MAJ à %1$s</string>
   <string name="apk_download_progress_message">%1$d%% - %2$s</string>
-  <string name="apk_download_ready_message">Mise à jour téléchargée. Installez depuis %1$s</string>
+  <string name="apk_download_ready_message">Mise à jour téléchargée. Installez-la à partir de %1$s</string>
   <string name="apk_download_invalid_file">L\'APK téléchargé est incomplet. The fichier cassé a été retiré, téléchargez le à nouveau </string>
   <string name="apk_download_failed">Échec du téléchargement</string>
   <string name="apk_download_failed_with_reason">Échec du téléchargement : %1$s</string>
@@ -1211,7 +1211,7 @@ Volume BAS : titre précédent</string>
   <string name="download_and_install">Télécharger et Installer</string>
   <string name="update_failed_title">Échec de la vérification de la mise à jour</string>
   <string name="update_failed_message">Impossible de récupérer les informations de mise à jour. Veuillez essayer de les télécharger manuellement.</string>
-  <string name="apk_download_channel_description">Notifications pour les téléchargements de mises à jour d’applications</string>
+  <string name="apk_download_channel_description">Notifications concernant le téléchargement des mises à jour d\'applications</string>
   <string name="tap_to_install">Appuyez pour installer la mise à jour.</string>
   <string name="apk_install_now">Installer maintenant</string>
   <string name="apk_install_now_hint">Commencez l’installation immédiatement</string>
@@ -1255,7 +1255,7 @@ Volume BAS : titre précédent</string>
   <string name="beta_short">BÊTA</string>
   <string name="cubic_canvas_experimental_feature">Fonctionnalité expérimentale</string>
   <string name="cubic_canvas_no_session_saved">Aucune session n’a encore été enregistrée</string>
-  <string name="cubic_canvas_session_estimate_expired">La session a expiré</string>
+  <string name="cubic_canvas_session_estimate_expired">L\'estimation de la session a expiré</string>
   <string name="cubic_canvas_estimated_session_life">Durée de session estimée : %1$dh restante</string>
   <string name="cubic_canvas_spotify_account">Compte Spotify</string>
   <string name="cubic_canvas_tap_to_login">Appuyez pour vous connecter afin d\'obtenir de l\'aide concernant Canvas et les cookies</string>
@@ -1273,7 +1273,7 @@ Volume BAS : titre précédent</string>
   <string name="cubic_canvas_renew_session">Actualiser la session</string>
   <string name="cubic_canvas_open_login">Connexion</string>
   <string name="cubic_canvas_disconnect_spotify_account">Déconnecter le compte Spotify</string>
-  <string name="cubic_canvas_show_fetching_info">Afficher les informations de récupération de la toile et les journaux de requêtes</string>
+  <string name="cubic_canvas_show_fetching_info">Afficher les informations relatives à la récupération du canevas et les journaux de requêtes</string>
   <string name="cubic_canvas_report_issues">Signaler un problème</string>
   <string name="cubic_canvas_open_github_issues">Ouvrir la page des problèmes GitHub</string>
   <string name="cubic_canvas_cannot_open_browser">Impossible d’ouvrir le navigateur</string>
@@ -1291,7 +1291,7 @@ Volume BAS : titre précédent</string>
   <string name="cubic_canvas_disconnect">Déconnecter</string>
   <string name="cubic_canvas_reset_confirm">Réinitialiser les paramètres de Cubic Canvas ?\nCette opération effacera toutes les données et préférences de la toile.</string>
   <string name="cubic_canvas_reset">Réinitialiser</string>
-  <string name="cubic_canvas_loading">Chargement...</string>
+  <string name="cubic_canvas_loading">Chargement en cours...</string>
   <string name="cubic_canvas_new_song_log">Nouveau titre : %1$s - %2$s</string>
   <string name="cubic_canvas_all_state_cleared">Tout le contenu de la toile a été effacé</string>
   <string name="cubic_canvas_scheduled_retry">Nouvelle tentative prévue dans 5 secondes</string>
@@ -1299,14 +1299,14 @@ Volume BAS : titre précédent</string>
   <string name="cubic_canvas_source_fixed_matcher">API de mise en correspondance fixe + API Canvas</string>
   <string name="cubic_canvas_initial_fetch">Première récupération pour : %1$s - %2$s</string>
   <string name="cubic_canvas_fetching_for">Chargement de la toile pour : %1$s - %2$s</string>
-  <string name="cubic_canvas_now_playing_metadata">Métadonnées du morceau en cours de lecture : %1$s - %2$s</string>
+  <string name="cubic_canvas_now_playing_metadata">Métadonnées du titre en cours de lecture : %1$s - %2$s</string>
   <string name="cubic_canvas_loaded_successfully">Canvas chargé correctement</string>
   <string name="cubic_canvas_no_canvas_available">Aucun canvas disponible</string>
   <string name="cubic_canvas_not_found_retry">Aucune toile trouvée. Nouvelle tentative dans 5 secondes.</string>
   <string name="cubic_canvas_failed_to_load">Échec du chargement du canvas : %1$s</string>
   <string name="cubic_canvas_error">Erreur : %1$s</string>
   <string name="cubic_canvas_cookies_required">Cookies Spotify nécessaires pour récupérer les identifiants des titres</string>
-  <string name="cubic_canvas_searching_track_id">Recherche de l’identifiant d’un morceau sur Spotify à partir des cookies...</string>
+  <string name="cubic_canvas_searching_track_id">Recherche d\'un identifiant de titre Spotify à partir des cookies...</string>
   <string name="cubic_canvas_no_matching_track">Aucun titre Spotify correspondant n’a été trouvé</string>
   <string name="cubic_canvas_low_match_confidence">Faible niveau de confiance dans la correspondance de titre : %1$d%%</string>
   <string name="cubic_canvas_using_track_id">Utilisation de l’identifiant de titre Spotify : %1$s</string>
@@ -1322,13 +1322,13 @@ Volume BAS : titre précédent</string>
   <string name="cubic_canvas_auth_token_web_fallback">Jeton d’authentification Spotify disponible via la solution de secours Web</string>
   <string name="cubic_canvas_spotify_token_http">Jeton Spotify HTTP %1$d pour %2$s</string>
   <string name="cubic_canvas_fallback_token_http">Jeton de secours HTTP %1$d</string>
-  <string name="cubic_canvas_matcher_api_url">URL de l’API Matches : %1$s</string>
-  <string name="cubic_canvas_matcher_api_http">API de correspondance HTTP %1$d : %2$s</string>
+  <string name="cubic_canvas_matcher_api_url">URL de l\'API Matcher : %1$s</string>
+  <string name="cubic_canvas_matcher_api_http">API Matcher HTTP %1$d : %2$s</string>
   <string name="cubic_canvas_search_query">Requête de recherche : %1$s</string>
-  <string name="cubic_canvas_track_id_found_matcher">Identifiant de piste trouvé via l’API Matcher</string>
+  <string name="cubic_canvas_track_id_found_matcher">Identifiant de titre trouvé via l’API Matcher</string>
   <string name="cubic_canvas_matcher_api_failed">Échec de l’API Matcher : %1$s</string>
   <string name="cubic_canvas_spotify_search_http">Recherche Spotify HTTP %1$d pour la requête : %2$s</string>
-  <string name="cubic_canvas_track_id_found_query">Identifiant de piste trouvé via la requête : %1$s</string>
+  <string name="cubic_canvas_track_id_found_query">Identifiant de titre trouvé via la requête : %1$s</string>
   <!-- username String -->
   <string name="change_username_title">Changer votre nom</string>
   <string name="change_username_prompt">Entrez votre nouveau nom (max. %1$d caractères) :</string>
