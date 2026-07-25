@@ -1202,7 +1202,7 @@ Volume BAS : titre précédent</string>
   <string name="apk_download_error_unhandled_http_code">Réponse du serveur non gérée pendant le téléchargement</string>
   <string name="apk_download_error_paused">Le téléchargement a été interrompu. L’APK partiel a été supprimé.</string>
   <string name="downloading_update">Téléchargement de la mise à jour�</string>
-  <string name="download_progress_hint">L’application s’installera automatiquement une fois le téléchargement terminé. Assurez-vous que votre connexion Internet est stable.</string>
+  <string name="download_progress_hint">L\'application s\'installera automatiquement une fois le téléchargement terminé. Assurez-vous de disposer d\'une connexion Internet stable.</string>
   <string name="download_complete">Téléchargement terminé</string>
   <string name="apk_download_channel_name">Mises à jour de l’application</string>
   <string name="installing_update">Installation de la mise à jour�</string>
@@ -1226,7 +1226,7 @@ Volume BAS : titre précédent</string>
   <string name="album_not_found">Album introuvable</string>
   <string name="content_type_all">Tout</string>
   <string name="content_type_official">Officiel</string>
-  <string name="content_type_user_generated">Généré par utilisateur</string>
+  <string name="content_type_user_generated">Généré par l\'utilisateur</string>
   <string name="in_txt">dans</string>
   <!-- Voice/audio Input Strings -->
   <string name="voice_you_can_talk_now">Vous pouvez parler maintenant</string>
@@ -1237,7 +1237,7 @@ Volume BAS : titre précédent</string>
   <string name="voice_recognition_failed">Échec de la reconnaissance vocale</string>
   <string name="voice_speak_now">Parlez maintenant...</string>
   <string name="voice_device_not_supported">Votre appareil ne prend pas en charge la saisie vocale</string>
-  <string name="loading_please_wait">Chargement, veuillez patienter...</string>
+  <string name="loading_please_wait">Chargement en cours, veuillez patienter...</string>
   <string name="other">Autre</string>
   <string name="lucky_shuffle">J’ai de la chance</string>
   <string name="audio_fade_title">Fondu Audio</string>
@@ -1331,7 +1331,7 @@ Volume BAS : titre précédent</string>
   <string name="cubic_canvas_track_id_found_query">Identifiant de titre trouvé via la requête : %1$s</string>
   <!-- username String -->
   <string name="change_username_title">Changer votre nom</string>
-  <string name="change_username_prompt">Entrez votre nouveau nom (max. %1$d caractères) :</string>
+  <string name="change_username_prompt">Saisissez votre nouveau nom (%1$d caractères maximum) :</string>
   <string name="change_username_subtitle">Choisissez la source de nom avec laquelle vous souhaitez que l’application vous accueille.</string>
   <string name="change_username_source_title">Source du nom</string>
   <string name="change_username_source_connected">Votre compte YouTube Music est prêt</string>
@@ -1340,7 +1340,7 @@ Volume BAS : titre précédent</string>
   <string name="name_source_custom">Nom personnalisé</string>
   <string name="name_source_custom_description">Utilisez votre propre nom d’affichage local</string>
   <string name="name_source_yt_account">Compte YouTube</string>
-  <string name="using_youtube_name">Utiliser le nom YouTube : %1$s</string>
+  <string name="using_youtube_name">Nom d\'utilisateur YouTube : %1$s</string>
   <string name="using_custom_name">Utilisation d’un nom personnalisé</string>
   <string name="username_label">Votre nom</string>
   <string name="character_count">%1$d / %2$d</string>
