@@ -276,7 +276,7 @@ fun OnDeviceSong(
 
         itemsIndexed(
             items = itemsOnDisplay,
-            key = { index, song -> song.id.ifBlank { "device_song_$index" } }
+            key = { index, song -> "${song.id.ifBlank { "device_song" }}_$index" }
         ) { index, song ->
             val mediaItem = song.asMediaItem
 
@@ -296,7 +296,7 @@ fun OnDeviceSong(
                         search.hideIfEmpty()
 
                         val mediaItems = itemsOnDisplay.fastMap( Song::asMediaItem )
-                        PlaybackContextStore.set("Playing from On Device")
+                        PlaybackContextStore.set(context.getString(R.string.playing_from_on_device))
                         binder?.player?.forcePlayAtIndex( mediaItems, index )
                     }
                 )

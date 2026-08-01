@@ -601,13 +601,13 @@ sealed class Widget : GlanceAppWidget() {
                 ) {
                     Image(
                         provider = ImageProvider(R.drawable.rescue),
-                        contentDescription = "Rescue Center",
+                        contentDescription = context.getString(R.string.rescue_center),
                         modifier = GlanceModifier.size(26.dp)
                     )
                 }
                 Spacer(GlanceModifier.height(10.dp))
                 Text(
-                    text = "RESCUE CENTER",
+                    text = context.getString(R.string.rescue_center).uppercase(),
                     style = TextStyle(
                         color = dynAcc(),
                         fontWeight = FontWeight.Medium,
@@ -616,7 +616,7 @@ sealed class Widget : GlanceAppWidget() {
                 )
                 Spacer(GlanceModifier.height(4.dp))
                 Text(
-                    text = "Crash & playback logs",
+                    text = context.getString(R.string.rescue_center_widget_subtitle),
                     style = TextStyle(
                         color = textColor,
                         fontWeight = FontWeight.Bold,
@@ -625,7 +625,7 @@ sealed class Widget : GlanceAppWidget() {
                 )
                 Spacer(GlanceModifier.height(3.dp))
                 Text(
-                    text = "Works even when the player is unhappy",
+                    text = context.getString(R.string.rescue_center_widget_status),
                     style = TextStyle(color = subtextColor, fontSize = 11.sp)
                 )
             }

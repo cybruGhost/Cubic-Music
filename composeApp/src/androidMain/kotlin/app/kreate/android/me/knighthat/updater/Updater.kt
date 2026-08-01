@@ -50,6 +50,8 @@ object Updater {
     private lateinit var tagName: String
     lateinit var build: GithubRelease.Build
     var githubRelease: GithubRelease? = null
+    val latestVersionName: String
+        get() = if (::tagName.isInitialized) tagName else githubRelease?.tagName.orEmpty()
     private val updateHttpClient by lazy {
         OkHttpClient.Builder()
             .retryOnConnectionFailure(true)
@@ -78,6 +80,16 @@ object Updater {
         val parts = versionStr.removePrefix("v").split("-")
         return if (parts.size > 1) parts[1] else ""
     }
+
+    private fun directGithubFullBuild(createdAt: String = "1970-01-01T00:00:00Z"): GithubRelease.Build =
+        GithubRelease.Build(
+            id = 0u,
+            url = SecureApiConfig.githubLatestFullApkUrl,
+            name = "${BuildConfig.APP_NAME}-full.apk",
+            size = 0u,
+            createdAt = createdAt,
+            downloadUrl = SecureApiConfig.githubLatestFullApkUrl
+        )
 
     private fun extractBuild(assets: List<GithubRelease.Build>, checkBetaUpdates: Boolean = false): GithubRelease.Build {
         val appName = BuildConfig.APP_NAME
@@ -154,59 +166,90 @@ object Updater {
         return versionStr.removePrefix("v").substringBefore("-")
     }
 
+    private data class UpdateCandidate(
+        val release: GithubRelease,
+        val build: GithubRelease.Build,
+        val source: String
+    )
+
+    private fun applyUpdateCandidate(candidate: UpdateCandidate) {
+        githubRelease = candidate.release
+        build = candidate.build
+        tagName = candidate.release.tagName
+    }
+
     /**
-     * Sends out requests to Github for latest version.
-     *
-     * Results are downloaded, filtered, and saved to [build]
-     *
-     * > **NOTE**: This is a blocking process, it should never run on UI thread
+     * Checks all available update sources and uses the newest valid release.
+     * Order still gives Update Buddy the first network attempt, but a stale dashboard
+     * cannot hide a newer GitHub release.
      */
     private suspend fun fetchUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
-        val githubResult = runCatching { fetchGithubUpdate(checkBetaUpdates) }
-        if (githubResult.isSuccess) return@withContext
+        val candidates = mutableListOf<UpdateCandidate>()
+        val errors = mutableListOf<Throwable>()
 
-        val fallbackResult = runCatching { fetchUpdateBuddyRelease(checkBetaUpdates) }
-        if (fallbackResult.isSuccess) return@withContext
+        listOf<suspend () -> UpdateCandidate>(
+            { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = false) },
+            { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = true) },
+            { fetchGithubUpdateCandidate(checkBetaUpdates) }
+        ).forEach { fetcher ->
+            runCatching { fetcher() }
+                .onSuccess { candidate -> candidates += candidate }
+                .onFailure { error -> errors += error }
+        }
 
-        throw fallbackResult.exceptionOrNull()
-            ?: githubResult.exceptionOrNull()
-            ?: NoSuchFileException("")
+        val best = candidates
+            .filter { candidate -> isVersionNewer(candidate.release.tagName, BuildConfig.VERSION_NAME) }
+            .maxWithOrNull { left, right -> compareVersionStrings(left.release.tagName, right.release.tagName) }
+            ?: throw (errors.firstOrNull { it !is NoSuchFileException } ?: NoSuchFileException(""))
+
+        applyUpdateCandidate(best)
     }
 
     private suspend fun fetchGithubUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+        applyUpdateCandidate(fetchGithubUpdateCandidate(checkBetaUpdates))
+    }
+
+    private suspend fun fetchGithubUpdateCandidate(checkBetaUpdates: Boolean = false): UpdateCandidate = withContext(Dispatchers.IO) {
         assert(Looper.myLooper() != Looper.getMainLooper()) {
             "Cannot run fetch update on main thread"
         }
 
-        // Get all releases to find the best one
         val url = "${Repository.GITHUB_API}/repos/${Repository.REPO}/releases"
         val resBody = executeUpdateRequest(url)
-        if (resBody.isNullOrBlank()) {
-            Toaster.i(R.string.info_no_update_available)
-            return@withContext
-        }
+        if (resBody.isNullOrBlank()) throw NoSuchFileException("")
 
-        val json = Json {
-            ignoreUnknownKeys = true
-        }
+        val json = Json { ignoreUnknownKeys = true }
         val releases = json.decodeFromString<List<GithubRelease>>(resBody)
-        
-        // Find the best release based on current version and beta preferences
-        val bestRelease = findBestRelease(releases, checkBetaUpdates)
-        
-        if (bestRelease != null) {
-            this@Updater.githubRelease = bestRelease
-            build = extractBuild(bestRelease.builds, checkBetaUpdates)
-            tagName = bestRelease.tagName
-        } else {
-            throw NoSuchFileException("")
-        }
+        val bestRelease = findBestRelease(releases, checkBetaUpdates) ?: throw NoSuchFileException("")
+        val bestBuild = runCatching { extractBuild(bestRelease.builds, checkBetaUpdates) }
+            .getOrElse {
+                if (extractBuildType(BuildConfig.VERSION_NAME) == "full") {
+                    directGithubFullBuild(bestRelease.builds.firstOrNull()?.createdAt ?: "1970-01-01T00:00:00Z")
+                } else {
+                    throw it
+                }
+            }
+
+        UpdateCandidate(bestRelease, bestBuild, "github")
     }
 
     private suspend fun fetchUpdateBuddyRelease(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+        applyUpdateCandidate(fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = false))
+    }
+
+    private suspend fun fetchUpdateBuddyReleaseCandidate(
+        checkBetaUpdates: Boolean = false,
+        viaGithubFallback: Boolean = false
+    ): UpdateCandidate = withContext(Dispatchers.IO) {
         val channel = if (checkBetaUpdates || extractVersionSuffix(BuildConfig.VERSION_NAME) == "b") "beta" else "stable"
         val current = URLEncoder.encode(BuildConfig.VERSION_NAME, Charsets.UTF_8.name())
-        val url = "${SecureApiConfig.updateBuddyLatestReleaseEndpoint}?channel=$channel&current=$current"
+        val url = if (viaGithubFallback) {
+            val repo = URLEncoder.encode(Repository.REPO, Charsets.UTF_8.name())
+            "${SecureApiConfig.updateBuddyGithubReleaseEndpoint}?repo=$repo&current=$current"
+        } else {
+            "${SecureApiConfig.updateBuddyLatestReleaseEndpoint}?channel=$channel&current=$current"
+        }
+
         val body = executeUpdateRequest(url, treat404AsNoFile = true).orEmpty()
         if (body.isBlank()) throw NoSuchFileException("")
 
@@ -215,8 +258,11 @@ object Updater {
 
         val latest = root.optJSONObject("latest") ?: throw NoSuchFileException("")
         val version = latest.optString("version").ifBlank { throw NoSuchFileException("") }
-        val downloadUrl = latest.optString("downloadUrl").ifBlank { throw NoSuchFileException("") }
         val buildType = if (channel == "beta") "beta" else extractBuildType(BuildConfig.VERSION_NAME)
+        val downloadUrl = latest.optString("downloadUrl")
+            .takeIf { it.isNotBlank() }
+            ?: if (buildType == "full") SecureApiConfig.githubLatestFullApkUrl else throw NoSuchFileException("")
+        val createdAt = latest.optString("publishedAt").ifBlank { "1970-01-01T00:00:00Z" }
         val release = GithubRelease(
             id = 0u,
             tagName = version,
@@ -226,18 +272,28 @@ object Updater {
             builds = listOf(
                 GithubRelease.Build(
                     id = 0u,
-                    url = downloadUrl,
+                    url = root.optString("htmlUrl").ifBlank { downloadUrl },
                     name = "${BuildConfig.APP_NAME}-$buildType.apk",
                     size = 0u,
-                    createdAt = latest.optString("publishedAt").ifBlank { "1970-01-01T00:00:00Z" },
+                    createdAt = createdAt,
                     downloadUrl = downloadUrl
                 )
             )
         )
 
-        this@Updater.githubRelease = release
-        build = release.builds.first()
-        tagName = release.tagName
+        UpdateCandidate(release, release.builds.first(), if (viaGithubFallback) "update-buddy-github" else "update-buddy")
+    }
+
+    private fun compareVersionStrings(version1: String, version2: String): Int {
+        val v1Parts = version1.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+        val v2Parts = version2.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+        val maxLength = maxOf(v1Parts.size, v2Parts.size)
+        for (index in 0 until maxLength) {
+            val left = v1Parts.getOrNull(index) ?: 0
+            val right = v2Parts.getOrNull(index) ?: 0
+            if (left != right) return left.compareTo(right)
+        }
+        return 0
     }
 
     private fun executeUpdateRequest(url: String, treat404AsNoFile: Boolean = false): String? {
@@ -284,6 +340,8 @@ object Updater {
             }
         }
         
+        if (eligibleReleases.isEmpty()) return null
+
         // Find the release with the highest version number
         // Find the maximum number of version parts to normalize all versions
         val maxParts = eligibleReleases.maxOf { release ->

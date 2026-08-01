@@ -3,6 +3,7 @@ package app.kreate.android.me.knighthat.component.tab
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import app.kreate.android.R
@@ -19,6 +20,7 @@ import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 class ItemSelector<E> private constructor(
     private val menuState: MenuState,
     private val activeState: MutableState<Boolean>,
+    private val selected: MutableList<E>,
 ): AbstractMutableList<E>(), MenuIcon, Descriptive {
 
     companion object {
@@ -27,11 +29,10 @@ class ItemSelector<E> private constructor(
         operator fun <T> invoke() = ItemSelector<T>(
             LocalMenuState.current,
             // Use remember to let list cleared when screen rotates
-            remember { mutableStateOf(false) }
+            remember { mutableStateOf(false) },
+            remember { mutableStateListOf() }
         )
     }
-
-    private val selected: ArrayList<E> = ArrayList()
 
     var isActive: Boolean = activeState.value
         set(value) {
