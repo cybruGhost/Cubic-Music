@@ -1,6 +1,7 @@
 package app.cubic.android.core.utils.potoken
 
 import android.webkit.CookieManager
+import android.os.SystemClock
 import app.cubic.android.core.utils.cipher.CipherDeobfuscator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -21,12 +22,19 @@ class PoTokenGenerator {
     private var webPoTokenSessionId: String? = null
     private var webPoTokenStreamingPot: String? = null
     private var webPoTokenGenerator: PoTokenWebView? = null
+    @Volatile
+    private var unavailableUntilElapsedMs = 0L
 
     fun getWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
         Timber.tag(TAG).d("getWebClientPoToken called: videoId=$videoId, sessionId=$sessionId")
         Timber.tag(TAG).d("WebView state: supported=$webViewSupported, badImpl=$webViewBadImpl")
         if (!webViewSupported || webViewBadImpl) {
             Timber.tag(TAG).d("WebView not available: supported=$webViewSupported, badImpl=$webViewBadImpl")
+            return null
+        }
+
+        if (SystemClock.elapsedRealtime() < unavailableUntilElapsedMs) {
+            Timber.tag(TAG).d("PoToken WebView is cooling down; continuing with fallback clients")
             return null
         }
 
@@ -57,6 +65,7 @@ class PoTokenGenerator {
                     webPoTokenSessionId = null
                 }
             }
+            unavailableUntilElapsedMs = SystemClock.elapsedRealtime() + POTOKEN_FAILURE_COOLDOWN_MS
             null
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "poToken generation exception: ${e.javaClass.simpleName}: ${e.message}")
@@ -66,16 +75,25 @@ class PoTokenGenerator {
                     webViewBadImpl = true
                     null
                 }
-                else -> throw e // includes PoTokenException
+                else -> {
+                    unavailableUntilElapsedMs = SystemClock.elapsedRealtime() + POTOKEN_FAILURE_COOLDOWN_MS
+                    null
+                }
             }
         }
     }
 
-    private companion object {
+    companion object {
+        val shared: PoTokenGenerator by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+            PoTokenGenerator()
+        }
+
         // Healthy cold-start (WebView spin-up + botguard JS + token gen) is ~2–5s in practice;
         // 8s leaves slack for a slow device without making the user wait too long before the
         // fallback chain (ANDROID_VR, etc.) takes over when the WebView hangs.
-        const val POTOKEN_TIMEOUT_MS = 8_000L
+        private const val POTOKEN_TIMEOUT_MS = 8_000L
+        private const val POTOKEN_FAILURE_COOLDOWN_MS = 60_000L
+        private const val MIN_HEALTHY_POTOKEN_LENGTH = 100
     }
 
     /**
@@ -127,7 +145,20 @@ class PoTokenGenerator {
             }
         }
 
+        if (playerPot.length < MIN_HEALTHY_POTOKEN_LENGTH || streamingPot.length < MIN_HEALTHY_POTOKEN_LENGTH) {
+            Timber.tag(TAG).w(
+                "Discarding undersized poToken: player=%d streaming=%d",
+                playerPot.length,
+                streamingPot.length
+            )
+            if (!hasBeenRecreated) {
+                return getWebClientPoToken(videoId = videoId, sessionId = sessionId, forceRecreate = true)
+            }
+            throw PoTokenException("Undersized poToken after WebView recreation")
+        }
+
         Timber.tag(TAG).d("poToken generated successfully: player=${playerPot.take(20)}..., streaming=${streamingPot.take(20)}...")
+        unavailableUntilElapsedMs = 0L
 
         return PoTokenResult(playerPot, streamingPot)
     }

@@ -35,6 +35,16 @@ object Store {
 
     private var iosVisitorData: String? = null
 
+    @Synchronized
+    fun invalidatePlaybackIdentity() {
+        ghostResponseHeaders = null
+        ghostResponseBody = null
+        cookie = null
+        iosVisitorData = null
+        Innertube.visitorData = Innertube.DEFAULT_VISITOR_DATA
+        Timber.w("Store: invalidated cached YouTube visitor/cookie identity")
+    }
+
     @Blocking
     private suspend fun fetchIfNeeded() {
         if (ghostResponseBody != null && ghostResponseHeaders != null)

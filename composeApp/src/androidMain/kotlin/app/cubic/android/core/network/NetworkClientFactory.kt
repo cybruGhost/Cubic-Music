@@ -134,32 +134,80 @@ object NetworkClientFactory {
         }
     }
 
-    fun validateStreamUrl(streamUrl: String, expectedContentTypePrefix: String? = null): Boolean {
-        return try {
-            val request = Request.Builder()
-                .url(streamUrl)
-                .head()
-                .header("User-Agent", CHROME_WINDOWS_USER_AGENT)
-                .build()
+    fun validateStreamUrl(
+        streamUrl: String,
+        expectedContentTypePrefix: String? = null,
+        userAgent: String = CHROME_WINDOWS_USER_AGENT,
+        origin: String? = null,
+        referer: String? = null
+    ): Boolean {
+        fun Request.Builder.applyPlaybackHeaders(): Request.Builder = apply {
+            header("User-Agent", userAgent)
+            header("Accept", "*/*")
+            header("Accept-Encoding", "identity")
+            origin?.let { header("Origin", it) }
+            referer?.let { header("Referer", it) }
+        }
 
-            getClientWithTimeout(3, 3).newCall(request).execute().use { response ->
-                val contentType = response.header("Content-Type").orEmpty()
-                val contentTypeMatches = expectedContentTypePrefix.isNullOrBlank() ||
-                    contentType.isBlank() ||
-                    contentType.startsWith(expectedContentTypePrefix, ignoreCase = true) ||
-                    (expectedContentTypePrefix == "audio/" && contentType.contains("audio", ignoreCase = true))
-                val isSuccess = response.isSuccessful && contentTypeMatches
-                if (!isSuccess) {
-                    Timber.w(
-                        "validateStreamUrl failed with code %d contentType=%s expected=%s for URL: %s",
-                        response.code,
-                        contentType,
-                        expectedContentTypePrefix,
-                        streamUrl.redactedUrl()
-                    )
-                }
-                isSuccess
+        fun responseIsUsable(response: okhttp3.Response): Boolean {
+            if (response.code == 416) return true
+            if (response.code !in 200..399) return false
+
+            val contentType = response.header("Content-Type").orEmpty()
+            val contentTypeMatches = expectedContentTypePrefix.isNullOrBlank() ||
+                contentType.isBlank() ||
+                contentType.startsWith(expectedContentTypePrefix, ignoreCase = true) ||
+                contentType.startsWith("application/octet-stream", ignoreCase = true) ||
+                (expectedContentTypePrefix == "audio/" && contentType.contains("audio", ignoreCase = true)) ||
+                (expectedContentTypePrefix == "video/" && contentType.contains("video", ignoreCase = true))
+            return contentTypeMatches
+        }
+
+        fun queryParameter(name: String): String =
+            runCatching {
+                URI(streamUrl).rawQuery
+                    ?.split("&")
+                    ?.firstOrNull { it.substringBefore("=").equals(name, ignoreCase = true) }
+                    ?.substringAfter("=", "")
+                    .orEmpty()
+            }.getOrDefault("")
+
+        fun probeRanges(): List<String> {
+            val clientName = queryParameter("c").uppercase()
+            return if (clientName.startsWith("WEB")) {
+                listOf("bytes=0-${512 * 1024 - 1}", "bytes=1048576-1048577")
+            } else {
+                listOf("bytes=0-${512 * 1024 - 1}")
             }
+        }
+
+        return try {
+            val client = getClientWithTimeout(3, 4)
+            for (range in probeRanges()) {
+                val rangeRequest = Request.Builder()
+                    .url(streamUrl)
+                    .get()
+                    .header("Range", range)
+                    .applyPlaybackHeaders()
+                    .build()
+
+                val isUsable = client.newCall(rangeRequest).execute().use { response ->
+                    val usable = responseIsUsable(response)
+                    if (!usable) {
+                        Timber.w(
+                            "Stream range validation failed code=%d contentType=%s expected=%s range=%s for URL: %s",
+                            response.code,
+                            response.header("Content-Type").orEmpty(),
+                            expectedContentTypePrefix,
+                            range,
+                            streamUrl.redactedUrl()
+                        )
+                    }
+                    usable
+                }
+                if (!isUsable) return false
+            }
+            true
         } catch (e: Exception) {
             Timber.e(e, "validateStreamUrl exception for URL: %s", streamUrl.redactedUrl())
             false

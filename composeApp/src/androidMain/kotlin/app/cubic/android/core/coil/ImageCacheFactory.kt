@@ -69,7 +69,7 @@ object ImageCacheFactory {
     val DISK_CACHE: DiskCache by lazy {
         val preferences = appContext().preferences
         val diskSize = preferences.getEnum(coilDiskCacheMaxSizeKey, CoilDiskCacheMaxSize.`128MB`)
-        val cacheLocation = preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System)
+        val cacheLocation = preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.Private)
         val cacheDir = when (cacheLocation) {
             ExoPlayerCacheLocation.System -> appContext().cacheDir
             ExoPlayerCacheLocation.Private -> appContext().filesDir
@@ -238,7 +238,7 @@ object ImageCacheFactory {
         if (inMemory) return true
 
         return runCatching {
-            DISK_CACHE.openSnapshot(key) != null
+            DISK_CACHE.openSnapshot(key)?.use { true } ?: false
         }.getOrDefault(false)
     }
 
@@ -486,8 +486,8 @@ object ImageCacheFactory {
             contentScale = contentScale,
             modifier = modifier,
             placeholder = painterResource(R.drawable.loader),
-            error = painterResource(R.drawable.ic_launcher_box),
-            fallback = painterResource(R.drawable.ic_launcher_box)
+            error = painterResource(R.drawable.flowerfallback),
+            fallback = painterResource(R.drawable.flowerfallback)
         )
     }
 
@@ -496,8 +496,8 @@ object ImageCacheFactory {
         thumbnailUrl: String?,
         contentScale: ContentScale = ContentScale.Crop,
         @DrawableRes placeholder: Int? = null,
-        @DrawableRes error: Int = R.drawable.ic_launcher_box,
-        @DrawableRes fallback: Int = R.drawable.ic_launcher_box,
+        @DrawableRes error: Int = R.drawable.flowerfallback,
+        @DrawableRes fallback: Int = R.drawable.flowerfallback,
         onLoading: ((State.Loading) -> Unit)? = null,
         onSuccess: ((State.Success) -> Unit)? = null,
         onError: ((State.Error) -> Unit)? = null
@@ -643,8 +643,8 @@ object ImageCacheFactory {
             contentScale = contentScale,
             modifier = modifier,
             placeholder = painterResource(R.drawable.loader),
-            error = painterResource(R.drawable.ic_launcher_box),
-            fallback = painterResource(R.drawable.ic_launcher_box),
+            error = painterResource(R.drawable.flowerfallback),
+            fallback = painterResource(R.drawable.flowerfallback),
             onLoading = onLoading,
             onSuccess = onSuccess,
             onError = { state ->
