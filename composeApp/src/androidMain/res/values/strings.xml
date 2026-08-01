@@ -208,13 +208,13 @@
 <string name="social">SOCIAL</string>
 <string name="english">English</string>
 <string name="italian">Italian (Italiano)</string>
-<string name="czech">Czech (Ce�tina)</string>
+<string name="czech">Czech (&#x010C;e&#x0161;tina)</string>
 <string name="german">German (Deutsch)</string>
-<string name="spanish">Spanish (Espa�ol)</string>
-<string name="french">French (Fran�ais)</string>
-<string name="romanian">Romanian (Rom�na)</string>
+<string name="spanish">Spanish (Espa&#x00F1;ol)</string>
+<string name="french">French (Fran&#x00E7;ais)</string>
+<string name="romanian">Romanian (Rom&#x00E2;n&#x0103;)</string>
 <string name="russian">Russian (???????)</string>
-<string name="turkish">Turkish (T�rk�e)</string>
+<string name="turkish">Turkish (T&#x00FC;rk&#x00E7;e)</string>
 <string name="polish">Polish (Polski)</string>
 <string name="dark">Dark</string>
 <string name="system">System</string>
@@ -285,8 +285,8 @@
 <string name="square">Square</string>
 <string name="circular_ribbed">Wavy circle</string>
 <string name="play_button">Play button</string>
-<string name="portuguese_brazilian">Portuguese, Brazilian (Portugu�s, Brasileiro)</string>
-<string name="portuguese">Portuguese (Portugu�s)</string>
+<string name="portuguese_brazilian">Portuguese, Brazilian (Portugu&#x00EA;s, Brasileiro)</string>
+<string name="portuguese">Portuguese (Portugu&#x00EA;s)</string>
 <string name="indonesian">Indonesian (Indonesia)</string>
 <string name="odia">Odia (?????)</string>
 <string name="bashkir">Bashkir (???????)</string>
@@ -301,7 +301,7 @@
 <string name="enqueue_all">Enqueue all</string>
 <string name="enqueue_selected">Enqueue selected</string>
 <string name="greek">Greek (????????)</string>
-<string name="catalan">Catalan (Catal�)</string>
+<string name="catalan">Catalan (Catal&#x00E0;)</string>
 <string name="disable_scrolling_text">Disable scrolling text</string>
 <string name="scrolling_text_is_used_for_long_texts">Scrolling text is used for long texts</string>
 <string name="audio_quality_format">Audio Quality</string>
@@ -676,7 +676,7 @@
 <string name="expandedlyricsinfo">Available when thumbnail for lyrics is disabled</string>
 <string name="info_connect_your_piped_account_first">Connect your piped account first or disable piped synchronization</string>
 <string name="piped_playlists">Piped</string>
-<string name="lang_bengali">Bengali (বাংলা)</string>
+<string name="lang_bengali">Bengali (&#x09AC;&#x09BE;&#x0982;&#x09B2;&#x09BE;)</string>
 <string name="lang_irish">Irish (Gaeilge)</string>
 <string name="lyricsoutline">Lyrics Outline</string>
 <string name="fluidrainbow">Fluid Rainbow</string>
@@ -738,7 +738,7 @@
 <string name="controls_title_playback_pitch">Playback pitch</string>
 <string name="controls_title_playback_volume">Playback volume</string>
 <string name="controls_title_device_volume">Device volume</string>
-<string name="lang_malayalam">Malayam (മലയാളം)</string>
+<string name="lang_malayalam">Malayam (&#x0D2E;&#x0D32;&#x0D2F;&#x0D3E;&#x0D33;&#x0D02;)</string>
 <string name="searches_suggestions">Suggestions</string>
 <string name="searches_saved_searches">Search history</string>
 <string name="event_volumekeys">Volume keys to change song</string>
@@ -1179,7 +1179,7 @@
 <string name="spotify_disconnect_confirm">Disconnect Spotify Canvas?\nThis will remove your email and disable the feature.</string>
 <string name="forcePlayFromBeginning">Play from Beginning</string>
 <string name="smart_shuffle">Smart Shuffle</string>
-<string name="loading_recommendations">Loading recommendations�</string>
+<string name="loading_recommendations">Loading recommendations&#x2026;</string>
 <string name="recommendations">Recommendations</string>
 <!-- Auto-install strings -->
 <string name="apk_update_title">Cubic Music Update</string>
@@ -1200,12 +1200,12 @@
 <string name="apk_download_error_too_many_redirects">Too many redirects while downloading the update</string>
 <string name="apk_download_error_unhandled_http_code">Unhandled server response while downloading</string>
 <string name="apk_download_error_paused">Download paused. The partial APK was removed.</string>
-<string name="downloading_update">Downloading update�</string>
+<string name="downloading_update">Downloading update&#x2026;</string>
 <string name="download_progress_hint">The app will install automatically when download completes. Ensure a stable internet connection.</string>
 <string name="download_complete">Download Complete</string>
 
 <string name="apk_download_channel_name">App Updates</string>
-<string name="installing_update">Installing Update�</string>
+<string name="installing_update">Installing Update&#x2026;</string>
 <string name="update_downloaded">Update Downloaded</string>
 <string name="ready_to_install">Ready to install</string>
 <string name="download_and_install">Download and Install</string>
@@ -1248,7 +1248,7 @@
     <string name="crossfade_duration_title">Crossfade Duration</string>
 <string name="crossfade_duration_value">%1$ds</string>
     <string name="crossfade_duration_hint">Starts this many seconds before the song ends.</string>
-    <string name="crossfade_active_badge">🫧🫧</string>
+    <string name="crossfade_active_badge">&#x1FAE7;&#x1FAE7;</string>
 <string name="disabled">Disabled</string>
 <string name="cubic_canvas">Cubic Canvas</string>
 <string name="cubic_canvas_description">Show animated canvas videos in player</string>
@@ -1416,7 +1416,7 @@
 <string name="downloaded_tools_status_title">Downloaded storage sources</string>
 <string name="downloaded_tools_status_title_collapsed">Downloaded storage sources</string>
 <string name="downloaded_tools_status_title_expanded">Downloaded storage source details</string>
-<string name="downloaded_tools_status_summary">Original cache songs: %1$d • Custom folder files: %2$d</string>
+<string name="downloaded_tools_status_summary">Original cache songs: %1$d &#x2022; Custom folder files: %2$d</string>
 <string name="downloaded_tools_status_default_count">Original cache songs: %1$d</string>
     <string name="downloaded_tools_status_custom_count">Custom folder files: %1$d</string>
     <string name="downloaded_tools_show_details">Show details</string>
@@ -1568,12 +1568,22 @@
 <string name="donate_fourthwall_title">Fourthwall</string>
 <string name="donate_fourthwall_subtitle">PayPal, card, and other available methods</string>
 <string name="donate_fourthwall_detail">cyberghost-shop.fourthwall.com</string>
-<string name="donate_kofi_title">Ko-fi</string>
-<string name="donate_kofi_subtitle">PayPal support from $2</string>
-<string name="donate_kofi_detail">ko-fi.com/anonghost40418</string>
 <string name="donate_mpesa_title">M-Pesa</string>
 <string name="donate_mpesa_subtitle">Local support from KSh 30</string>
 <string name="donate_mpesa_detail">Support Pal Global</string>
+<string name="donate_report_issue_title">Report an issue</string>
+<string name="donate_report_issue_subtitle">Send a Cubic Music support report</string>
+<string name="donate_report_issue_detail">thecube.lovable.app support desk</string>
+<string name="donate_report_name">Your name</string>
+<string name="donate_report_email">Email (optional)</string>
+<string name="donate_report_message">Describe the issue</string>
+<string name="donate_report_send">Send report</string>
+<string name="donate_report_sending">Sending...</string>
+<string name="donate_report_sent">Report sent. Thank you.</string>
+<string name="donate_report_failed">Report failed. Please try again.</string>
+<string name="donate_report_no_logs">Keep this short. Do not paste long logs here. For crashes, playback failures, or serious bugs, use GitHub issues so details are tracked properly.</string>
+<string name="donate_report_email_invalid">Enter a valid email address or leave it empty.</string>
+<string name="donate_report_github_issues">Open GitHub issues for serious bugs</string>
 <string name="donate_thank_you">Thank you for helping Cubic Music stay independent and actively maintained.</string>
 <string name="rescue_center_summary_enabled">Crash, playback and runtime logs</string>
 <string name="rescue_center_summary_disabled">Open Misc to enable debug logs first</string>
@@ -1611,4 +1621,21 @@
     <string name="playing_from_on_device">Playing from On Device</string>
     <string name="playing_from_format">Playing from %1$s</string>
     <string name="top_songs">Top songs</string>
+    <string name="player_surface_style">Player surface</string>
+    <string name="player_surface_standard">Standard</string>
+    <string name="player_surface_liquid">Liquid</string>
+    <string name="player_surface_liquid_description">Curved artwork, arc seek bar and focused controls. Visual only; playback and crossfade stay service-owned.</string>
+    <string name="notification_color_mode">Notification color</string>
+    <string name="notification_color_mode_description">Keep artwork colors, choose a fixed color, or use a high-contrast e-ink surface.</string>
+    <string name="notification_color_automatic">Artwork color</string>
+    <string name="notification_color_custom">Custom color</string>
+    <string name="notification_color_eink">E-ink white</string>
+    <string name="notification_custom_color">Fixed notification color</string>
+    <string name="notification_custom_color_description">Applied after the player service restarts.</string>
+  <string name="playlist_cover_save_failed">Could not save playlist cover</string>
+  <string name="player_surface_standard_description">Classic Cubic player layout and appearance presets.</string>
+  <string name="player_surface_fuck_spotify">Fuck Spotify</string>
+  <string name="player_surface_fuck_spotify_description">Black-and-neon artwork layout with focused controls and lyrics access. Visual only; playback remains handled by Cubic.</string>
+  <string name="fuck_spotify_lyrics">Lyrics</string>
+  <string name="fuck_spotify_queue">Queue</string>
 </resources>

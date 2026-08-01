@@ -114,14 +114,14 @@
   <string name="about">정보</string>
   <string name="more_of">더 보기:</string>
   <string name="sleep_timer">수면 타이머</string>
-  <string name="left">%2$s 남음</string>
+  <string name="left">%1$s 남음</string>
   <string name="confirm">확인</string>
   <string name="show">표시:</string>
   <string name="unsynchronized_lyrics">동기화되지 않은 가사</string>
   <string name="synchronized_lyrics">동기화된 가사</string>
   <string name="provided_by">제공:</string>
-  <string name="delete_playback_events">재생 이벤트(%2$s) 삭제</string>
-  <string name="existing_data_will_be_overwritten">Existing data will be overwritten. %2$s will automatically close itself after restoring the database.</string>
+  <string name="delete_playback_events">재생 이벤트(%1$s) 삭제</string>
+  <string name="existing_data_will_be_overwritten">Existing data will be overwritten. %1$s will automatically close itself after restoring the database.</string>
   <string name="folder_cache">CACHE FOLDER</string>
   <string name="cache_reset_by_clicking_button">주의 아래 버튼을 클릭하면 캐시 폴더 위치가 기본값으로 재설정됩니다.</string>
   <string name="cache_location_folder">Folder location</string>
@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Reorder is possible only in ascending sorting</string>
   <string name="information">정보</string>
   <string name="info_lyrics_found_on_s">%1$s에서 가사 발견됨</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">%1$s에 가사 없음, %2$s를 시도 중</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">%1$s에 가사 없음, %1$s를 시도 중</string>
   <string name="info_lyrics_not_found_on_s">%1$s에서 가사 발견되지 않음</string>
   <string name="info_lyrics_tracks_found_on_s">%1$s에서 가사 트랙 발견됨</string>
   <string name="info_lyrics_tracks_not_found_on_s">%1$s에서 가사 트랙 발견되지 않음</string>
@@ -705,7 +705,7 @@
   <string name="value_must_be_ip_address">Value must be an IP address</string>
   <string name="swipe_up_to_open_the_queue">Swipe up to open queue</string>
   <string name="pinfo_show_icons">아이콘과 정보 표시</string>
-  <string name="format_ms">%2$s ms</string>
+  <string name="format_ms">%1$s ms</string>
   <string name="minimum_silence_length">Min silence duration</string>
   <string name="minimum_silence_length_description">Minimum duration of silent audio that can be skipped</string>
   <string name="minimum_silence_length_warning">Player has to be restarted for effective changes!</string>
@@ -759,7 +759,7 @@
   <string name="import_favorites">즐겨찾기 가져오기</string>
   <string name="skip_media_on_error">Skip song on error</string>
   <string name="skip_media_on_error_description">If an error occurs, skip to the next song</string>
-  <string name="skip_media_on_error_message">An error occurred while playing the song %2$s</string>
+  <string name="skip_media_on_error_message">An error occurred while playing the song %1$s</string>
   <string name="login_required_to_play_this_media">Logging in is required to play this song</string>
   <string name="skip_media_on_notavailable_message">Previous song is not available, skipping to the next song</string>
   <string name="search_results_for">다음에 대한 검색 결과:</string>
@@ -977,7 +977,7 @@
   <string name="app_update_dialog_version">새로운 버전 %1$s을 다운로드할 수 있습니다!</string>
   <string name="view_changelog_settings_title">View changelogs</string>
   <string name="view_changelog_settings_text">View changelogs of the version currently installed</string>
-  <string name="artist_songs_count_duration">%1$d Songs • %2$s</string>
+  <string name="artist_songs_count_duration">%1$d Songs • %1$s</string>
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> STABLE</string>
   <string name="beta_text">This is still in Beta and may contain bugs and crash</string>

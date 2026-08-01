@@ -114,14 +114,14 @@
   <string name="about">Tietoa</string>
   <string name="more_of">Lisää artistilta</string>
   <string name="sleep_timer">Uniajastin</string>
-  <string name="left">%2$s jäljellä</string>
+  <string name="left">%1$s jäljellä</string>
   <string name="confirm">Vahvista</string>
   <string name="show">Näytä</string>
   <string name="unsynchronized_lyrics">synkronoimattomat sanoitukset</string>
   <string name="synchronized_lyrics">synkronoidut sanoitukset</string>
   <string name="provided_by">Palvelun tarjoaa</string>
-  <string name="delete_playback_events">Poista %2$s toistotapahtumat</string>
-  <string name="existing_data_will_be_overwritten">Olemassa olevat tiedot ylikirjoitetaan. %2$s sulkeutuu automaattisesti kun tietokanta on palautettu.</string>
+  <string name="delete_playback_events">Poista %1$s toistotapahtumat</string>
+  <string name="existing_data_will_be_overwritten">Olemassa olevat tiedot ylikirjoitetaan. %1$s sulkeutuu automaattisesti kun tietokanta on palautettu.</string>
   <string name="folder_cache">TAUSTA SEURAAVA</string>
   <string name="cache_reset_by_clicking_button">Huomio klikkaamalla alla olevaa painiketta, välimuistin kansio nollataan alkuperäiseksi</string>
   <string name="cache_location_folder">Kansion sijainti</string>
@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">Reorder is possible only in ascending sorting</string>
   <string name="information">Tietoja</string>
   <string name="info_lyrics_found_on_s">Sanoitukset löytyivät osoitteesta %1$s</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">Sanoituksia ei löytynyt osoitteesta %1$s, kokeile osoitteesta %2$s</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">Sanoituksia ei löytynyt osoitteesta %1$s, kokeile osoitteesta %1$s</string>
   <string name="info_lyrics_not_found_on_s">Sanoituksia ei löytynyt osoitteesta %1$s</string>
   <string name="info_lyrics_tracks_found_on_s">Sanoitukset löytyivät osoitteesta %1$s</string>
   <string name="info_lyrics_tracks_not_found_on_s">Sanoituksia ei löytynyt osoitteesta %1$s</string>
@@ -705,7 +705,7 @@
   <string name="value_must_be_ip_address">Arvon on oltava IP-osoite</string>
   <string name="swipe_up_to_open_the_queue">Avaa jono pyyhkäisemällä ylös</string>
   <string name="pinfo_show_icons">Näytä tiedot kuvakkeilla</string>
-  <string name="format_ms">%2$s ms</string>
+  <string name="format_ms">%1$s ms</string>
   <string name="minimum_silence_length">Minimi hiljaisuuden kesto</string>
   <string name="minimum_silence_length_description">Äänettömän äänen vähimmäiskesto, joka voidaan ohittaa</string>
   <string name="minimum_silence_length_warning">Pelaaja on käynnistettävä uudelleen tehokkaiden muutosten vuoksi!</string>
@@ -759,7 +759,7 @@
   <string name="import_favorites">Tuo suosikit</string>
   <string name="skip_media_on_error">Ohita kappale virhettä</string>
   <string name="skip_media_on_error_description">Jos virhe ilmenee, ohita seuraavaan kappaleeseen</string>
-  <string name="skip_media_on_error_message">Tapahtui virhe soitettaessa kappaletta %2$s</string>
+  <string name="skip_media_on_error_message">Tapahtui virhe soitettaessa kappaletta %1$s</string>
   <string name="login_required_to_play_this_media">Tämän kappaleen soittaminen vaatii kirjautumisen</string>
   <string name="skip_media_on_notavailable_message">Edellinen kappale ei ole käytettävissä, ohitetaan seuraavaan kappaleeseen</string>
   <string name="search_results_for">Hakutulokset haulle:</string>
@@ -977,7 +977,7 @@
   <string name="app_update_dialog_version">Uusi versio %1$s ladattavissa!</string>
   <string name="view_changelog_settings_title">Näytä muutoslokit</string>
   <string name="view_changelog_settings_text">Näytä tällä hetkellä asennetun version muutoslokit</string>
-  <string name="artist_songs_count_duration">%1$d Kappaletta • %2$s</string>
+  <string name="artist_songs_count_duration">%1$d Kappaletta • %1$s</string>
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> VAKUUTUS</string>
   <string name="beta_text">Tämä on vielä Betassa ja saattaa sisältää vikoja ja kaatumisia</string>
