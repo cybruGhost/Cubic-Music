@@ -20,23 +20,38 @@ data class Context(
     data class Client(
         val clientName: String,
         val clientVersion: String,
+        @Transient
         val platform: String? = null,
         val hl: String? = "en",
         val gl: String? = "US",
         val visitorData: String? = null, // = Innertube.DEFAULT_VISITOR_DATA,
         val androidSdkVersion: Int? = null,
+        @Transient
         val userAgent: String? = null,
+        @Transient
         val referer: String? = null,
         val deviceMake: String? = null,
         val deviceModel: String? = null,
         val osName: String? = null,
         val osVersion: String? = null,
+        @Transient
         val acceptHeader: String? = null,
+        @Transient
         val xClientName: Int? = null,
         @Transient
-        val api_key: String? = null
+        val api_key: String? = null,
+        @Transient
+        val loginSupported: Boolean = false,
+        @Transient
+        val loginRequired: Boolean = false,
+        @Transient
+        val isEmbedded: Boolean = false,
+        @Transient
+        val useWebPoTokens: Boolean = false,
+        @Transient
+        val useSignatureTimestamp: Boolean = true
     ) {
-        fun toContext(locale: YouTubeLocale, visitorData: String) = Context(
+        fun toContext(locale: YouTubeLocale, visitorData: String, dataSyncId: String? = null) = Context(
             client = Client(
                 clientName = clientName,
                 clientVersion = clientVersion,
@@ -53,6 +68,15 @@ data class Context(
                 acceptHeader = acceptHeader,
                 api_key = api_key,
                 platform = platform,
+                loginSupported = loginSupported,
+                loginRequired = loginRequired,
+                isEmbedded = isEmbedded,
+                useWebPoTokens = useWebPoTokens,
+                xClientName = xClientName,
+                useSignatureTimestamp = useSignatureTimestamp,
+            ),
+            user = User(
+                onBehalfOfUser = if (loginSupported) dataSyncId else null
             )
         )
     }
@@ -64,7 +88,8 @@ data class Context(
 
     @Serializable
     data class User(
-        val lockedSafetyMode: Boolean = false
+        val lockedSafetyMode: Boolean = false,
+        val onBehalfOfUser: String? = null
     )
 
     @Serializable
@@ -106,15 +131,14 @@ data class Context(
         val DefaultWeb = Context(
             client = Client(
                 clientName = "WEB_REMIX",
-                clientVersion = "1.20250407.01.00",
+                clientVersion = "1.20260213.01.00",
                 platform = "DESKTOP",
-                //clientVersion = "1.20220606.03.00",
-                //clientVersion = "1.20230731.00.00",
                 userAgent = USER_AGENT_WEB,
                 referer = REFERER_YOUTUBE_MUSIC,
                 visitorData = Innertube.visitorData,
                 api_key = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30",
-                xClientName = 67
+                xClientName = 67,
+                loginSupported = true
             )
         )
 
@@ -123,6 +147,33 @@ data class Context(
         val DefaultWebWithLocale = DefaultWeb.copy(
             client = DefaultWeb.client.copy(hl = hl)
         )
+        val DefaultWebCreator = Context(
+            client = Client(
+                clientName = "WEB_CREATOR",
+                clientVersion = "1.20260213.00.00",
+                userAgent = USER_AGENT_WEB,
+                referer = REFERER_YOUTUBE_MUSIC,
+                api_key = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+                xClientName = 62,
+                loginSupported = true
+            )
+        )
+
+        val DefaultAndroid = Context(
+            client = Client(
+                clientName = "ANDROID_MUSIC",
+                clientVersion = "7.31.51",
+                androidSdkVersion = 31,
+                platform = "MOBILE",
+                userAgent = USER_AGENT_ANDROID_MUSIC,
+                referer = REFERER_YOUTUBE_MUSIC,
+                visitorData = Innertube.visitorData,
+                api_key = "AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI",
+                xClientName = 21,
+                loginSupported = true
+            )
+        )
+
 
         val DefaultIOS = Context(
             client = Client(

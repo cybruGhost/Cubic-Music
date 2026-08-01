@@ -8,6 +8,6 @@ data class GetSearchSuggestionsResponse(
 ) {
     @Serializable
     data class Content(
-        val searchSuggestionsSectionRenderer: SearchSuggestionsSectionRenderer,
+        val searchSuggestionsSectionRenderer: SearchSuggestionsSectionRenderer? = null,
     )
 }

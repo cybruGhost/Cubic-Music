@@ -13,15 +13,22 @@ suspend fun Innertube.player(
     videoId: String,
     poToken: String? = null,
     playlistId: String? = null,
+    context: Context = Context.DefaultWeb,
+    signatureTimestamp: Int? = null,
 ) = runCatchingCancellable {
     client.post(player) {
-        setLogin(Context.DefaultWeb.client, setLogin = cookie != null)
+        setLogin(context.client, setLogin = cookie != null)
         setBody(
             PlayerBody(
-                context = Context.DefaultWeb,
+                context = context,
                 videoId = videoId,
                 playlistId = playlistId,
-                serviceIntegrityDimensions = poToken?.let(PlayerBody::ServiceIntegrityDimensions)
+                playbackContext = if (context.client.useSignatureTimestamp) PlayerBody.PlaybackContext(
+                    PlayerBody.PlaybackContext.ContentPlaybackContext(
+                        signatureTimestamp = signatureTimestamp ?: 20110
+                    )
+                ) else null,
+                serviceIntegrityDimensions = if (context.client.useWebPoTokens && poToken != null) PlayerBody.ServiceIntegrityDimensions(poToken) else null
             )
         )
     }.body<PlayerResponse>()

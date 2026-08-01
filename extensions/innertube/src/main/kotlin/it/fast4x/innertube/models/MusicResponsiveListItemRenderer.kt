@@ -18,6 +18,24 @@ data class MusicResponsiveListItemRenderer(
     val badges: List<Badges>?,
     val playlistItemData: PlaylistItemData?
 ) {
+    val videoId: String?
+        get() = playlistItemData?.videoId?.takeIf { it.isNotBlank() }
+            ?: navigationEndpoint?.watchEndpoint?.videoId?.takeIf { it.isNotBlank() }
+            ?: flexColumns.asSequence()
+                .flatMap {
+                    it.musicResponsiveListItemFlexColumnRenderer
+                        ?.text
+                        ?.runs
+                        .orEmpty()
+                        .asSequence()
+                }
+                .mapNotNull { it.navigationEndpoint?.watchEndpoint?.videoId?.takeIf(String::isNotBlank) }
+                .firstOrNull()
+
+    val playlistSetVideoId: String?
+        get() = playlistItemData?.playlistSetVideoId?.takeIf { it.isNotBlank() }
+            ?: navigationEndpoint?.watchEndpoint?.playlistSetVideoId?.takeIf { it.isNotBlank() }
+
 
     val isSong: Boolean
         get() = navigationEndpoint == null || navigationEndpoint.watchEndpoint != null || navigationEndpoint.watchPlaylistEndpoint != null
@@ -46,7 +64,7 @@ data class MusicResponsiveListItemRenderer(
     @Serializable
     data class PlaylistItemData(
         val playlistSetVideoId: String?,
-        val videoId: String,
+        val videoId: String?,
     )
 
 }

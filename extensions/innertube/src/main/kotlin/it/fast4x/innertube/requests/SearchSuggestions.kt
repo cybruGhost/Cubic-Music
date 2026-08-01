@@ -40,19 +40,28 @@ suspend fun Innertube.searchSuggestionsWithItems(body: SearchSuggestionsBody) = 
         //mask("contents.searchSuggestionsSectionRenderer.contents.searchSuggestionRenderer.navigationEndpoint.searchEndpoint.query")
     }.body<GetSearchSuggestionsResponse>()
 
-    val queries = response.contents?.getOrNull(0)?.searchSuggestionsSectionRenderer?.contents?.mapNotNull { content ->
-        content.searchSuggestionRenderer?.suggestion?.runs?.joinToString(separator = "") { it.text.toString() }
-    }.orEmpty()
+    val suggestionContents = response.contents
+        ?.mapNotNull { it.searchSuggestionsSectionRenderer }
+        ?.flatMap { it.contents }
+        .orEmpty()
 
-    val recommendedItems =
-        response.contents?.getOrNull(1)?.searchSuggestionsSectionRenderer?.contents?.mapNotNull {
-            it.musicResponsiveListItemRenderer?.let { renderer ->
-                SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer)
-            }
-        }.orEmpty()
+    val queries = suggestionContents
+        .mapNotNull { content ->
+            content.searchSuggestionRenderer
+                ?.suggestion
+                ?.runs
+                ?.joinToString(separator = "") { it.text.orEmpty() }
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+        }
+        .distinct()
 
-    println("mediaItem Innertube.searchSuggestionsWithItems queries $queries")
-    println("mediaItem Innertube.searchSuggestionsWithItems recommendedItems $recommendedItems")
+    val recommendedItems = suggestionContents.mapNotNull { content ->
+        content.musicResponsiveListItemRenderer?.let { renderer ->
+            runCatching { SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer) }
+                .getOrNull()
+        }
+    }
 
     Innertube.SearchSuggestions(
         queries = queries,
