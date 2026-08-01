@@ -62,7 +62,7 @@
 > Cubic Music is independently developed and maintained. Account connections are optional, and the app does not require a Cubic Music subscription.
 
 ## Built for the way you listen
-
+<summary><strong>😝DO YOU KNOW WE HAVE SPOTIFY CANVAS😏</strong></summary>
 <table>
   <tr>
     <td width="33%" valign="top">
