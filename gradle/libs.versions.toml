@@ -19,7 +19,7 @@ palette = "1.0.0"
 desugaring = "2.1.5"
 appcompat = "1.7.1"
 materialdesktop = "1.7.3"
-material3 = "1.3.2"
+material3 = "1.5.0-alpha14"
 androidmaterial = "1.12.0"
 constraintlayout = "1.1.1"
 translator = "1.1.1"
@@ -45,9 +45,10 @@ jetbrains-annotations = "26.0.2"
 lombok = "1.18.38"
 junit5 = "5.13.4"
 webkit = "1.14.0"
-newpipe-extractor = "v0.25.2"
+newpipe-extractor = "v0.26.3"
 kotlinx-serialization = "1.8.0"
 composeMaterial3 = "1.5.6"
+
 
 [libraries]
 # Kotlinx
@@ -96,6 +97,7 @@ ktor-client-serialization = { group = "io.ktor", name = "ktor-client-serializati
 ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-serialization-kotlinx-xml = { group = "io.ktor", name = "ktor-serialization-kotlinx-xml", version.ref = "ktor" }
 ktor-serialization-kotlinx-protobuf = { group = "io.ktor", name = "ktor-serialization-kotlinx-protobuf", version.ref = "ktor" }
+
 
 # Jetbrains Compose
 material-icon-desktop = { group = "org.jetbrains.compose.material", name = "material-icons-extended-desktop", version.ref = "materialdesktop" }
