@@ -5,7 +5,7 @@
 <h1 align="center">Cubic Music</h1>
 
 <p align="center">
-  <strong>Your music. Your rules. Your cube.</strong>
+  <strong>Your music. Your rules. Your freedom.</strong>
   <br />
   A bold, independent, open-source music player for Android.
 </p>
@@ -117,6 +117,10 @@ Release notes, fixes, known limitations, and APK assets are published together o
   <br />
 
 - YouTube Music streaming with automatic source recovery
+- Spotify canvas
+- Shazam Music recognition
+- crossfading
+- Discover-smart music filter and filler
 - Background, lock-screen, headset, and media-notification controls
 - Configurable crossfade and normal gapless transitions
 - Playback speed, pitch, volume normalization, and silence skipping
