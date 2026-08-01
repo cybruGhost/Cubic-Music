@@ -1,0 +1,22 @@
+v1.9.0
+
+New:
+- Added service-owned crossfade with a reusable secondary deck, shared media source/cache path, equal-power fading, and safe standby cleanup.
+- Added Crossfade controls in General settings above Cubic Canvas. The duration slider now supports 5-27 seconds, with 21 seconds as the default.
+- Added a small 🫧🫧 player badge when crossfade is enabled.
+- Added build-time local.properties / environment injection for the weather API key and Omada search API.
+
+Improved:
+- Crossfade now starts preparing the next queue item when the current track reaches 84%, so the incoming song can be ready before the fade window.
+- Crossfade handoff now accepts the expected automatic queue movement instead of cancelling when the outgoing deck reaches the next item.
+- Crossfade handoff now syncs the main deck to the live incoming position before blending back, reducing the repeated-slice glitch near the end.
+- Player UI, seek bar, mini-player, widgets, notification metadata, and Discord presence now follow the crossfade display owner and switch once when the incoming song becomes dominant.
+- Incoming crossfade audio now starts from a small 2% floor and fades up smoothly.
+- Network settings now show the effective automatic audio quality when metered-network rules apply.
+
+Fixed:
+- Fixed lyrics save crashes by ensuring the parent song row exists before lyrics are inserted.
+- Fixed downloaded song state checks by refreshing DownloadIndex entries before deciding whether a song is downloaded, cached, or corrupt.
+- Fixed download validation to check contiguous cache spans against known content length instead of trusting stale partial files.
+- Fixed download remove/retry paths to use the resolved playback video ID consistently.
+- Fixed the weather startup path so the app no longer depends on a remote JSON config before reading the weather API key.

@@ -13,7 +13,7 @@ Changed:
 - Moved Update section to About
 - Quickpicks settings renamed to AI recommendations (now includes all AI settings)
 - Translated Easter eggs messages
-- Renamed RiMusic logs to Cubic-Music
+- RenamedCubicMusic Logs to Cubic-Music
 - Renamed RiMusic interface to Cubic-Music
 
 Improved:
