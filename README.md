@@ -42,7 +42,7 @@
 </p>
 
 ---
-
+download our cubic music exe unfinished to test- [desktop app](https://github.com/cybruGhost/DESKTOP-CUBIC-MUSIC/releases/tag/v0.0.1)
 ## Experience
 
 <p align="center">
