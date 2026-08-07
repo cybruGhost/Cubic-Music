@@ -941,7 +941,7 @@ Volume BAS : titre précédent</string>
   <string name="downloading_videos_not_supported">Le téléchargement de vidéos n’est pas pris en charge</string>
   <string name="animatedgradient">Dégradé Animé</string>
   <string name="linear">Dégradé Linéaire</string>
-  <string name="mesh">Dégradé de Maillage</string>
+  <string name="mesh">Dégradé maillé</string>
   <string name="mesmerizinglens">Objectif hypnotisant</string>
   <string name="glossygradient">Dégradé Brillant</string>
   <string name="gradientflow">Flux Dégradé</string>
