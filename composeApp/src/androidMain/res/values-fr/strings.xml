@@ -431,7 +431,7 @@
   <string name="sort_date_liked">Date d\'ajout aux favoris</string>
   <string name="export_playlist">Exporter la playlist</string>
   <string name="lang_afrikaans">Africain (Afrikaans)</string>
-  <string name="playlist_top">Top de la Playlist</string>
+  <string name="playlist_top">Top</string>
   <string name="my_playlist_top">Mon Top %s</string>
   <string name="navigation_bar_position">Position de la barre de navigation</string>
   <string name="direction_left">À gauche</string>
@@ -606,8 +606,8 @@
   <string name="effect_fade_songs">Effet de fondu des titres</string>
   <string name="bg_colors_fluid_gradient_background_from_theme">Gradient de couleur issu du thème</string>
   <string name="bg_colors_fluid_gradient_background_from_cover">Gradient de fluide tiré de la pochette de l\'album</string>
-  <string name="show_background_in_lyrics">Assortir la couleur d’arrière-plan des paroles à celle du lecteur</string>
-  <string name="bg_colors_blurred_cover_background">Arrière-plan de la pochette d’album floue</string>
+  <string name="show_background_in_lyrics">Adapter la couleur d\'arrière-plan des paroles à celle du lecteur</string>
+  <string name="bg_colors_blurred_cover_background">Pochette d’album floue</string>
   <string name="lang_estonian">Estonien (eesti)</string>
   <string name="pcontrols_modern">Moderne</string>
   <string name="pcontrols_essential">Minimale</string>
@@ -682,7 +682,7 @@
   <string name="fluidrainbow">Arc-en-Ciel Fluide</string>
   <string name="fluidtheme">Thème Fluide</string>
   <string name="blackgradient">Dégradé noir en bas</string>
-  <string name="glow">Éclat</string>
+  <string name="glow">Lueur</string>
   <string name="bottomgradient">Activer le dégradé de la barre d’action</string>
   <string name="textoutline">Activer le contour du texte</string>
   <string name="set_cache_location">Emplacement du cache</string>
@@ -829,7 +829,7 @@ Volume BAS : titre précédent</string>
   <string name="rescue_widget">Widget « Centre de Secours »</string>
   <string name="social_reddit">Reddit</string>
   <string name="social_reddit_info">Rejoignez la communauté sur Reddit</string>
-  <string name="sleep_timer_ended">Minuterie de veille terminée</string>
+  <string name="sleep_timer_ended">Minuterie terminée</string>
   <string name="social_discord">Discord</string>
   <string name="social_discord_info">Rejoignez la communauté sur Discord</string>
   <string name="discord_enable_rich_presence">Activer Rich Presence (Discord)</string>
@@ -843,7 +843,7 @@ Volume BAS : titre précédent</string>
   <string name="settings_loudness_base_gain">Gain de base du volume sonore</string>
   <string name="settings_target_gain_loudness_info">Gain cible pour la normalisation du volume sonore</string>
   <string name="error_media_cannot_be_played">Le média ne peut pas être lu.</string>
-  <string name="full_screen_lyrics_components">Composants des paroles en plein écran</string>
+  <string name="full_screen_lyrics_components">Composants de paroles en plein écran</string>
   <string name="titleartist">Titre et Artistes</string>
   <string name="miniqueue">Liste d\'attente des morceaux suivants</string>
   <string name="controls">Commandes</string>
