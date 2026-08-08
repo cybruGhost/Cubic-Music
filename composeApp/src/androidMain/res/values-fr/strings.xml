@@ -1411,7 +1411,7 @@ Volume BAS : titre précédent</string>
   <string name="downloaded_tools_continue_anyway_done">L\'espace de stockage personnalisé reste actif sans que les anciens téléchargements ne soient déplacés</string>
   <string name="downloaded_tools_selected_folder">Dossier sélectionné : %1$s</string>
   <string name="downloaded_tools_storage_updated_with_copy">L\'espace de stockage principal des téléchargements a été mis à jour. Les anciens fichiers téléchargés ont été déplacés vers le dossier sélectionné.</string>
-  <string name="downloaded_tools_storage_updated_future_only">L’espace de stockage principal a été mis à jour pour les futurs téléchargements.</string>
+  <string name="downloaded_tools_storage_updated_future_only">L\'espace de stockage principal dédié aux téléchargements a été mis à jour en vue des futurs téléchargements.</string>
   <string name="downloaded_tools_storage_update_failed">Échec de la mise à jour de l’espace de stockage des téléchargements</string>
   <string name="downloaded_tools_status_title">Sources de stockage téléchargées</string>
   <string name="downloaded_tools_status_title_collapsed">Sources de stockage téléchargées</string>
@@ -1421,7 +1421,7 @@ Volume BAS : titre précédent</string>
   <string name="downloaded_tools_status_custom_count">Fichiers du dossier personnalisé : %1$d</string>
   <string name="downloaded_tools_show_details">Afficher les détails</string>
   <string name="downloaded_tools_hide_details">Masquer les détails</string>
-  <string name="download_all_progress_title">Téléchargement des morceaux : %1$d/%2$d terminé</string>
+  <string name="download_all_progress_title">Téléchargement de morceaux : %1$d/%2$d terminé</string>
   <string name="download_all_progress_subtitle">%1$d titre(s) en cours de mise à jour</string>
   <string name="download_all_progress_current_song">Titre en cours : %1$s</string>
   <string name="downloaded_song_corrupt_offline_message">Ce morceau téléchargé semble endommagé. Reconnectez-vous à Internet pour le télécharger à nouveau.</string>
@@ -1632,9 +1632,9 @@ Volume BAS : titre précédent</string>
   <string name="notification_custom_color">Couleur de notification résolue</string>
   <string name="notification_custom_color_description">Appliqué après le redémarrage du service.</string>
   <string name="playlist_cover_save_failed">La couverture de la playlist n\'a pas pu être sauvegardée</string>
-  <string name="player_surface_standard_description">Classic Cubic player layout and appearance presets.</string>
+  <string name="player_surface_standard_description">Préréglages classiques d\'apparence et de disposition pour le lecteur Cubic.</string>
   <string name="player_surface_fuck_spotify">Nique Spotify</string>
-  <string name="player_surface_fuck_spotify_description">Black-and-neon artwork layout with focused controls and lyrics access. Visual only; playback remains handled by Cubic.</string>
+  <string name="player_surface_fuck_spotify_description">Mise en page graphique en noir et néon, avec des commandes ciblées et un accès aux paroles. Élément purement visuel ; la lecture reste gérée par Cubic.</string>
   <string name="fuck_spotify_lyrics">Paroles</string>
   <string name="fuck_spotify_queue">File d\'attente</string>
 </resources>
