@@ -944,7 +944,7 @@ Volume BAS : titre précédent</string>
   <string name="mesh">Dégradé maillé</string>
   <string name="mesmerizinglens">Objectif hypnotisant</string>
   <string name="glossygradient">Dégradé Brillant</string>
-  <string name="gradientflow">Flux Dégradé</string>
+  <string name="gradientflow">Flux de gradient</string>
   <string name="purpleliquid">Liquide Violet</string>
   <string name="stage">Étape</string>
   <string name="inkflow">Débit d’encre</string>
@@ -1125,8 +1125,8 @@ Volume BAS : titre précédent</string>
   <string name="auto_update_ask">Demander à l\'utilisateur</string>
   <string name="auto_update_disabled">Mise à jour désactivée</string>
   <string name="tab_network">Réseau</string>
-  <string name="about_description">La section À propos affiche des informations sur l’application, les développeurs, le dépannage et les options de mise à jour</string>
-  <string name="other_settings_description">La section Divers contient divers paramètres et utilitaires optionnels</string>
+  <string name="about_description">La section « À propos » contient des informations sur l\'application, les développeurs, le dépannage et les options de mise à jour</string>
+  <string name="other_settings_description">La section « Divers » contient divers paramètres optionnels et utilitaires</string>
   <string name="data_settings_description">La section données contient des paramètres qui modifient la façon dont l\'application gère les données localement et à distance</string>
   <string name="accounts_settings_description">La section Comptes contient les paramètres de synchronisation Youtube, les paramètres de streaming conduits et les paramètres Rpc Discord</string>
   <string name="quick_picks_description">La section des sélections rapides contient les paramètres de la page des sélections rapides et les recommandations alimentées par l’IA</string>
