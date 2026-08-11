@@ -415,7 +415,7 @@
   <string name="song_cache_max_size">Taille maximale du cache des titres</string>
   <string name="network_status">Status de la qualité</string>
   <string name="image_quality_format">Qualité d\'image</string>
-  <string name="audio_quality_auto_fmt">Auto (Détecté : %1$s)</string>
+  <string name="audio_quality_auto_fmt">Automatique (détecté : %1$s)</string>
   <string name="network_quality_low">Faible</string>
   <string name="network_quality_medium">Moyen</string>
   <string name="network_quality_high">Fort</string>
@@ -1379,14 +1379,14 @@ Volume BAS : titre précédent</string>
   <string name="downloaded_tools_subtitle">Gérez vos morceaux déjà téléchargés et définissez l’emplacement où seront enregistrés vos futurs téléchargements.</string>
   <string name="downloaded_tools_current_folder_title">Dossier personnalisé actuel</string>
   <string name="downloaded_tools_active_title">L’espace de stockage personnalisé pour les téléchargements est activé</string>
-  <string name="downloaded_tools_default_recommendation">Recommandation de l’éditeur : conservez le système de stockage par défaut pour bénéficier d’une lecture hors ligne optimale. Le stockage personnalisé synchronise les téléchargements dans le dossier de votre choix et conserve la lecture dans le cache sécurisé de l’application.</string>
+  <string name="downloaded_tools_default_recommendation">Recommandation de l\'éditeur : conservez le système de stockage par défaut pour bénéficier d\'une lecture hors ligne optimale. Le stockage personnalisé copie les fichiers téléchargés dans le dossier de votre choix et conserve la lecture dans le cache sécurisé de l\'application.</string>
   <string name="downloaded_tools_export_action">Déplacer les morceaux téléchargés vers un dossier</string>
-  <string name="downloaded_tools_export_action_subtitle">Copiez les morceaux que vous avez déjà téléchargés dans un dossier que vous souhaitez conserver.</string>
+  <string name="downloaded_tools_export_action_subtitle">Copiez les morceaux que vous avez déjà téléchargés dans un dossier de votre choix que vous souhaitez conserver comme données.</string>
   <string name="downloaded_tools_set_storage_action">Définir comme espace de stockage principal pour les téléchargements</string>
-  <string name="downloaded_tools_set_storage_action_subtitle">Copiez les futurs téléchargements dans un dossier de votre choix sans altérer le cache hors ligne d’origine.</string>
+  <string name="downloaded_tools_set_storage_action_subtitle">Copier les futurs téléchargements dans un dossier sélectionné sans altérer le cache hors ligne d\'origine.</string>
   <string name="downloaded_tools_change_storage_action">Modifier l’emplacement de stockage des téléchargements personnalisés</string>
-  <string name="downloaded_tools_change_storage_action_subtitle">Choisissez un autre dossier tout en conservant le cache hors ligne d’origine.</string>
-  <string name="downloaded_tools_disable_storage_action">Désactiver le stockage des téléchargements personnalisés</string>
+  <string name="downloaded_tools_change_storage_action_subtitle">Choisissez un autre dossier tout en conservant le cache hors ligne d\'origine tel quel.</string>
+  <string name="downloaded_tools_disable_storage_action">Désactiver le stockage personnalisé des téléchargements</string>
   <string name="downloaded_tools_disable_storage_action_subtitle">Revenez au cache de téléchargement d’origine et ne modifiez pas le dossier miroir.</string>
   <string name="downloaded_tools_export_title">Déplacer des morceaux téléchargés</string>
   <string name="downloaded_tools_export_preparing">Préparation du dossier que vous avez sélectionné</string>
@@ -1463,7 +1463,7 @@ Volume BAS : titre précédent</string>
   <string name="rewind_minutes_label">Minutes</string>
   <string name="rewind_listening_stat">Statistiques d’écoute</string>
   <string name="rewind_hours_stat">Cela correspond à %1$d heures pour un seul titre.</string>
-  <string name="rewind_most_played_stat">Votre titre le plus écouté cette année.</string>
+  <string name="rewind_most_played_stat">Le titre que vous avez le plus écouté cette année.</string>
   <string name="rewind_no_songs_title">Aucun titre pour le moment</string>
   <string name="rewind_no_songs_subtitle">Écoutez davantage de musique et votre playlist commencera à se constituer d’elle-même.</string>
   <string name="rewind_start">Commencer le Rewind</string>
