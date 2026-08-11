@@ -1134,10 +1134,10 @@ Volume BAS : titre précédent</string>
   <string name="ai_recommendations">Recommandations IA</string>
   <string name="my_playlist_top1">Mon Top</string>
   <string name="auto_download_settings">Paramètres de téléchargement automatique</string>
-  <string name="auto_download_settings_description">Configurer les préférences de téléchargement automatique pour les chansons et les albums</string>
-  <string name="auto_download_song_description">Télécharger automatiquement les chansons en fonction de vos préférences</string>
-  <string name="auto_download_when_liked_description">Télécharger automatiquement les chansons quand vous les aimez</string>
-  <string name="auto_download_when_album_bookmarked_description">Télécharger automatiquement les chansons lorsque vous signez un album</string>
+  <string name="auto_download_settings_description">Configurez les préférences de téléchargement automatique des titres et des albums</string>
+  <string name="auto_download_song_description">Téléchargez automatiquement des morceaux en fonction de vos préférences</string>
+  <string name="auto_download_when_liked_description">Téléchargez automatiquement les morceaux qui vous plaisent</string>
+  <string name="auto_download_when_album_bookmarked_description">Téléchargez automatiquement les morceaux lorsque vous ajoutez un album à vos favoris</string>
   <string name="connection_settings">Paramètres de connexion</string>
   <string name="connection_settings_description">Configurer les préférences de connexion réseau</string>
   <string name="network_settings_description">La section « Réseau » contient des paramètres permettant d\'optimiser les performances de l\'application et l\'utilisation des données.</string>
@@ -1355,7 +1355,7 @@ Volume BAS : titre précédent</string>
   <string name="find_error_microphone_permission">L’autorisation d’utiliser le microphone est requise pour la fonction « Rechercher ».</string>
   <string name="find_no_playable_matches">Aucune correspondance de Cubic pour ce morceau pour le moment.</string>
   <string name="find_no_suggestions_available">Aucune suggestion n’est disponible pour le moment.</string>
-  <string name="find_microphone_active_hint">Le microphone ne fonctionne que lorsque cette feuille est en mode écoute.</string>
+  <string name="find_microphone_active_hint">Le microphone n\'est actif que lorsque cette feuille est en mode écoute.</string>
   <string name="find_cubic_matches">Cubic Matches</string>
   <string name="find_status_ready_title">Prêt à écouter</string>
   <string name="find_status_ready_subtitle">Approchez votre téléphone de la musique</string>
@@ -1363,7 +1363,7 @@ Volume BAS : titre précédent</string>
   <string name="find_status_listening_subtitle">Analyse de %1$ds de données audio</string>
   <string name="find_status_success_title">Titre identifié</string>
   <string name="find_status_success_subtitle">Trouver les meilleures correspondances Cubic</string>
-  <string name="find_status_error_title">Pas de correspondance pour l’instant</string>
+  <string name="find_status_error_title">Aucun résultat pour l\'instant</string>
   <string name="find_more_details">Plus d’informations</string>
   <string name="find_loading_matches">Recherche de correspondances Cubic...</string>
   <string name="find_saved_offline">Enregistré hors ligne</string>
@@ -1629,9 +1629,9 @@ Volume BAS : titre précédent</string>
   <string name="notification_color_automatic">Couleur de la pochette</string>
   <string name="notification_color_custom">Couleur personnalisée</string>
   <string name="notification_color_eink">Blanc E-ink</string>
-  <string name="notification_custom_color">Couleur de notification résolue</string>
+  <string name="notification_custom_color">Couleur de notification corrigée</string>
   <string name="notification_custom_color_description">Appliqué après le redémarrage du service.</string>
-  <string name="playlist_cover_save_failed">La couverture de la playlist n\'a pas pu être sauvegardée</string>
+  <string name="playlist_cover_save_failed">Impossible d\'enregistrer la pochette de la playlist</string>
   <string name="player_surface_standard_description">Préréglages classiques d\'apparence et de disposition pour le lecteur Cubic.</string>
   <string name="player_surface_fuck_spotify">Nique Spotify</string>
   <string name="player_surface_fuck_spotify_description">Mise en page graphique en noir et néon, avec des commandes ciblées et un accès aux paroles. Élément purement visuel ; la lecture reste gérée par Cubic.</string>
