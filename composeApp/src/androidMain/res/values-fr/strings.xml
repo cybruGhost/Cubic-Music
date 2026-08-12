@@ -1625,7 +1625,7 @@ Volume BAS : titre précédent</string>
   <string name="player_surface_liquid">Liquide</string>
   <string name="player_surface_liquid_description">Curved artwork, arc seek bar and focused controls. Visual only; playback and crossfade stay service-owned.</string>
   <string name="notification_color_mode">Couleur de notification</string>
-  <string name="notification_color_mode_description">Keep artwork colors, choose a fixed color, or use a high-contrast e-ink surface.</string>
+  <string name="notification_color_mode_description">Conservez les couleurs des illustrations, choisissez une couleur fixe ou utilisez une surface à encre électronique à fort contraste.</string>
   <string name="notification_color_automatic">Couleur de la pochette</string>
   <string name="notification_color_custom">Couleur personnalisée</string>
   <string name="notification_color_eink">Blanc E-ink</string>
