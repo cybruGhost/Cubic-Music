@@ -1623,7 +1623,7 @@ Volume BAS : titre précédent</string>
   <string name="player_surface_style">Surface du lecteur</string>
   <string name="player_surface_standard">Standard</string>
   <string name="player_surface_liquid">Liquide</string>
-  <string name="player_surface_liquid_description">Curved artwork, arc seek bar and focused controls. Visual only; playback and crossfade stay service-owned.</string>
+  <string name="player_surface_liquid_description">Graphisme incurvé, barre de recherche en arc et commandes ciblées. Aspect visuel uniquement ; la lecture et les fondus enchaînés restent gérés par le service.</string>
   <string name="notification_color_mode">Couleur de notification</string>
   <string name="notification_color_mode_description">Conservez les couleurs des illustrations, choisissez une couleur fixe ou utilisez une surface à encre électronique à fort contraste.</string>
   <string name="notification_color_automatic">Couleur de la pochette</string>
