@@ -45,19 +45,19 @@ fun rememberDisplayedPlayerState(
     val sessionPlayer = binder.sessionPlayer
     val playbackProgress by sessionPlayer.playbackProgressState()
     val crossfadeState by binder.service.crossfadeState.collectAsState()
-    var currentMediaItem by remember {
+    var currentMediaItem by remember(sessionPlayer) {
         mutableStateOf(binder.displayedMediaItem ?: sessionPlayer.currentMediaItem ?: binder.player.currentMediaItem)
     }
-    var playbackStateValue by remember {
+    var playbackStateValue by remember(sessionPlayer) {
         mutableIntStateOf(sessionPlayer.playbackState)
     }
-    var playWhenReadyState by remember {
+    var playWhenReadyState by remember(sessionPlayer) {
         mutableStateOf(sessionPlayer.playWhenReady)
     }
-    var isPlaying by remember {
+    var isPlaying by remember(sessionPlayer) {
         mutableStateOf(sessionPlayer.isPlaying)
     }
-    var playerError by remember {
+    var playerError by remember(sessionPlayer) {
         mutableStateOf<PlaybackException?>(sessionPlayer.playerError)
     }
 
@@ -88,7 +88,7 @@ fun rememberDisplayedPlayerState(
         }
     }
 
-    val mediaItem by remember(binder, currentMediaItem, crossfadeState) {
+    val mediaItem by remember(binder, sessionPlayer, currentMediaItem, crossfadeState) {
         derivedStateOf {
             crossfadeState.displayedItem
                 ?: currentMediaItem
@@ -98,6 +98,7 @@ fun rememberDisplayedPlayerState(
 
     val shouldBePlaying by remember(
         binder,
+        sessionPlayer,
         playWhenReadyState,
         isPlaying,
         playerError,
