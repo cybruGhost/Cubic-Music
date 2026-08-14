@@ -20,7 +20,7 @@ class PoTokenGenerator {
 
     private val webPoTokenGenLock = Mutex()
     private var webPoTokenSessionId: String? = null
-    private var webPoTokenStreamingPot: String? = null
+    private var webPoTokenSessionPot: String? = null
     private var webPoTokenGenerator: PoTokenWebView? = null
     @Volatile
     private var unavailableUntilElapsedMs = 0L
@@ -61,7 +61,7 @@ class PoTokenGenerator {
                         Timber.tag(TAG).e(closeEx, "Exception closing PoTokenWebView during timeout cleanup")
                     }
                     webPoTokenGenerator = null
-                    webPoTokenStreamingPot = null
+                    webPoTokenSessionPot = null
                     webPoTokenSessionId = null
                 }
             }
@@ -104,32 +104,43 @@ class PoTokenGenerator {
     private suspend fun getWebClientPoToken(videoId: String, sessionId: String, forceRecreate: Boolean): PoTokenResult {
         Timber.tag(TAG).d("Web poToken requested: videoId=$videoId, sessionId=$sessionId")
 
-        val (poTokenGenerator, streamingPot, hasBeenRecreated) =
+        val (poTokenGenerator, sessionPot, hasBeenRecreated) =
             webPoTokenGenLock.withLock {
                 val shouldRecreate =
                     forceRecreate || webPoTokenGenerator == null || webPoTokenGenerator!!.isExpired || webPoTokenSessionId != sessionId
 
                 if (shouldRecreate) {
                     Timber.tag(TAG).d("Creating new PoTokenWebView (forceRecreate=$forceRecreate)")
-                    webPoTokenSessionId = sessionId
 
                     withContext(Dispatchers.Main) {
                         webPoTokenGenerator?.close()
                     }
 
-                    // create a new webPoTokenGenerator
-                    webPoTokenGenerator = PoTokenWebView.getNewPoTokenGenerator(CipherDeobfuscator.appContext)
+                    // Clear committed state before the fallible creation/mint steps. A failed
+                    // attempt must never leave a new session ID paired with a stale token.
+                    webPoTokenGenerator = null
+                    webPoTokenSessionPot = null
+                    webPoTokenSessionId = null
 
-                    // The streaming poToken needs to be generated exactly once before generating
-                    // any other (player) tokens.
-                    webPoTokenStreamingPot = webPoTokenGenerator!!.generatePoToken(webPoTokenSessionId!!)
-                    Timber.tag(TAG).d("Streaming poToken generated for sessionId=${webPoTokenSessionId?.take(20)}...")
+                    val newGenerator = PoTokenWebView.getNewPoTokenGenerator(CipherDeobfuscator.appContext)
+                    val newSessionPot = try {
+                        // The session-bound token must be minted once before per-video tokens.
+                        newGenerator.generatePoToken(sessionId)
+                    } catch (throwable: Throwable) {
+                        withContext(Dispatchers.Main) { newGenerator.close() }
+                        throw throwable
+                    }
+
+                    webPoTokenGenerator = newGenerator
+                    webPoTokenSessionPot = newSessionPot
+                    webPoTokenSessionId = sessionId
+                    Timber.tag(TAG).d("Session poToken generated for sessionId=${sessionId.take(20)}...")
                 }
 
-                Triple(webPoTokenGenerator!!, webPoTokenStreamingPot!!, shouldRecreate)
+                Triple(webPoTokenGenerator!!, webPoTokenSessionPot!!, shouldRecreate)
             }
 
-        val playerPot = try {
+        val videoPot = try {
             poTokenGenerator.generatePoToken(videoId)
         } catch (throwable: Throwable) {
             if (hasBeenRecreated) {
@@ -145,11 +156,11 @@ class PoTokenGenerator {
             }
         }
 
-        if (playerPot.length < MIN_HEALTHY_POTOKEN_LENGTH || streamingPot.length < MIN_HEALTHY_POTOKEN_LENGTH) {
+        if (videoPot.length < MIN_HEALTHY_POTOKEN_LENGTH || sessionPot.length < MIN_HEALTHY_POTOKEN_LENGTH) {
             Timber.tag(TAG).w(
-                "Discarding undersized poToken: player=%d streaming=%d",
-                playerPot.length,
-                streamingPot.length
+                "Discarding undersized poToken: session=%d video=%d",
+                sessionPot.length,
+                videoPot.length
             )
             if (!hasBeenRecreated) {
                 return getWebClientPoToken(videoId = videoId, sessionId = sessionId, forceRecreate = true)
@@ -157,9 +168,15 @@ class PoTokenGenerator {
             throw PoTokenException("Undersized poToken after WebView recreation")
         }
 
-        Timber.tag(TAG).d("poToken generated successfully: player=${playerPot.take(20)}..., streaming=${streamingPot.take(20)}...")
+        Timber.tag(TAG).d("poToken generated successfully: session=${sessionPot.take(20)}..., video=${videoPot.take(20)}...")
         unavailableUntilElapsedMs = 0L
 
-        return PoTokenResult(playerPot, streamingPot)
+        // The /player request accepts the visitor/session-bound token. The googlevideo URL's
+        // pot= must be bound to this video ID; reversing them can play the first range and then
+        // fail later requests with HTTP 403.
+        return PoTokenResult(
+            playerRequestPoToken = sessionPot,
+            streamingDataPoToken = videoPot,
+        )
     }
 }

@@ -175,9 +175,9 @@ object NetworkClientFactory {
         fun probeRanges(): List<String> {
             val clientName = queryParameter("c").uppercase()
             return if (clientName.startsWith("WEB")) {
-                listOf("bytes=0-${512 * 1024 - 1}", "bytes=1048576-1048577")
+                listOf("bytes=0-0", "bytes=262144-262145", "bytes=1048576-1048577")
             } else {
-                listOf("bytes=0-${512 * 1024 - 1}")
+                listOf("bytes=0-0")
             }
         }
 
