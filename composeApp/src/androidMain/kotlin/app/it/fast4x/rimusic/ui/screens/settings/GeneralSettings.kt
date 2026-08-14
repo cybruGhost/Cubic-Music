@@ -101,6 +101,8 @@ import app.it.fast4x.rimusic.utils.customThemeLight_accentKey
 import app.it.fast4x.rimusic.utils.customThemeLight_iconButtonPlayerKey
 import app.it.fast4x.rimusic.utils.customThemeLight_textDisabledKey
 import app.it.fast4x.rimusic.utils.customThemeLight_textSecondaryKey
+import app.it.fast4x.rimusic.utils.crossfadeDurationSecondsKey
+import app.it.fast4x.rimusic.utils.crossfadeEnabledKey
 import app.it.fast4x.rimusic.utils.disableClosingPlayerSwipingDownKey
 import app.it.fast4x.rimusic.utils.discoverKey
 import app.it.fast4x.rimusic.utils.enablePictureInPictureAutoKey
@@ -240,6 +242,8 @@ fun GeneralSettings(
     var resetCustomDarkThemeDialog  by rememberSaveable { mutableStateOf(false) }
 
     var playbackFadeAudioDuration    by rememberPreference(playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled)
+    var crossfadeEnabled             by rememberPreference(crossfadeEnabledKey, false)
+    var crossfadeDurationSeconds     by rememberPreference(crossfadeDurationSecondsKey, 15)
     var excludeSongWithDurationLimit by rememberPreference(excludeSongsWithDurationLimitKey, DurationInMinutes.Disabled)
     var playlistindicator            by rememberPreference(playlistindicatorKey, false)
     var nowPlayingIndicator          by rememberPreference(nowPlayingIndicatorKey, MusicAnimationType.Bubbles)
@@ -444,11 +448,7 @@ fun GeneralSettings(
 
                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.show_rescue_center_in_menu),
-                        text = if (logDebugEnabled) {
-                            stringResource(R.string.show_rescue_center_in_menu_debug_description)
-                        } else {
-                            stringResource(R.string.show_rescue_center_in_menu_description)
-                        },
+                        text = stringResource(R.string.show_rescue_center_in_menu_description),
                         isChecked = showRescueCenterInMenu,
                         onCheckedChange = { showRescueCenterInMenu = it },
                         icon = R.drawable.rescue
@@ -460,6 +460,56 @@ fun GeneralSettings(
         Spacer(modifier = Modifier.height(16.dp))
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        if (
+            search.inputValue.isBlank() ||
+            stringResource(R.string.crossfade_title).contains(search.inputValue, true) ||
+            stringResource(R.string.crossfade_duration_title).contains(search.inputValue, true)
+        ) {
+            OtherSwitchSettingEntry(
+                title           = stringResource(R.string.crossfade_title),
+                text            = stringResource(R.string.crossfade_description),
+                isChecked       = crossfadeEnabled,
+                onCheckedChange = {
+                    crossfadeEnabled = it
+                    binder?.service?.applyCrossfadePreferences(
+                        enabled = it,
+                        durationSeconds = crossfadeDurationSeconds
+                    )
+                },
+                icon            = R.drawable.volume_up
+            )
+            AnimatedVisibility(visible = crossfadeEnabled) {
+                val initialValue by remember { derivedStateOf { crossfadeDurationSeconds.coerceIn(5, 27).toFloat() } }
+                var newValue by remember(initialValue) { mutableFloatStateOf(initialValue) }
+                Column(modifier = Modifier.padding(start = 25.dp)) {
+                    SliderSettingsEntry(
+                        title = stringResource(R.string.crossfade_duration_title),
+                        text = stringResource(R.string.crossfade_duration_hint),
+                        state = newValue,
+                        onSlide = { newValue = it },
+                        onSlideComplete = {
+                            val duration = newValue.roundToInt().coerceIn(5, 27)
+                            crossfadeDurationSeconds = duration
+                            binder?.service?.applyCrossfadePreferences(
+                                enabled = crossfadeEnabled,
+                                durationSeconds = duration
+                            )
+                        },
+                        toDisplay = {
+                            stringResource(
+                                R.string.crossfade_duration_value,
+                                it.roundToInt().coerceIn(5, 27)
+                            )
+                        },
+                        range = 5f..27f,
+                        steps = 21
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // ── Cubic Canvas ──────────────────────────────────────────────────────
         AnimatedVisibility(
@@ -1179,8 +1229,10 @@ fun GeneralSettings(
             enter   = androidx.compose.animation.fadeIn(animationSpec = tween(687)) +
                       androidx.compose.animation.scaleIn(animationSpec = tween(687), initialScale = 0.9f)
         ) {
+            val coolButtonsTitle = stringResource(R.string.settings_cool_buttons)
+            val coolButtonsSearchKeywords = stringResource(R.string.settings_cool_buttons_keywords)
             SettingsSectionCard(
-                title   = "Cool buttons",
+                title   = coolButtonsTitle,
                 icon    = R.drawable.comments,
                 content = {
                     var showCommentsButton by rememberPreference("show_comments_button", true)
@@ -1188,48 +1240,48 @@ fun GeneralSettings(
                     var showLyricsSourceSwitcher by rememberPreference(showLyricsSourceSwitcherKey, true)
                     var showPlayerPlaybackContext by rememberPreference(showPlayerPlaybackContextKey, true)
                     var showPlayerOutputDevice by rememberPreference(showPlayerOutputDeviceKey, true)
-                    if (search.inputValue.isBlank() || "Cool buttons comments video".contains(search.inputValue, true)) {
+                    if (search.inputValue.isBlank() || coolButtonsSearchKeywords.contains(search.inputValue, true)) {
                         OtherSwitchSettingEntry(
-                            title           = "Show comments button",
-                            text            = "Display comments button on album art",
+                            title           = stringResource(R.string.settings_show_comments_button),
+                            text            = stringResource(R.string.settings_show_comments_button_subtitle),
                             isChecked       = showCommentsButton,
                             onCheckedChange = { showCommentsButton = it },
                             icon            = R.drawable.comments
                         )
                         SettingsDescription(
-                            text      = "Show/hide the comments button in the player screen",
+                            text      = stringResource(R.string.settings_show_comments_button_description),
                             modifier  = Modifier.padding(start = 25.dp, top = 4.dp),
                             textAlign = TextAlign.Start
                         )
                         OtherSwitchSettingEntry(
-                            title           = "Show video button",
-                            text            = "Display instant video switch on album art",
+                            title           = stringResource(R.string.settings_show_video_button),
+                            text            = stringResource(R.string.settings_show_video_button_subtitle),
                             isChecked       = showVideoButton,
                             onCheckedChange = { showVideoButton = it },
                             icon            = R.drawable.video
                         )
                         OtherSwitchSettingEntry(
-                            title           = "Show lyrics sources",
-                            text            = "Display source pills in the lyrics screen",
+                            title           = stringResource(R.string.settings_show_lyrics_sources),
+                            text            = stringResource(R.string.settings_show_lyrics_sources_subtitle),
                             isChecked       = showLyricsSourceSwitcher,
                             onCheckedChange = { showLyricsSourceSwitcher = it },
                             icon            = R.drawable.song_lyrics
                         )
                         OtherSwitchSettingEntry(
-                            title           = "Show playing source",
-                            text            = "Show where the current queue started from",
+                            title           = stringResource(R.string.settings_show_playing_source),
+                            text            = stringResource(R.string.settings_show_playing_source_subtitle),
                             isChecked       = showPlayerPlaybackContext,
                             onCheckedChange = { showPlayerPlaybackContext = it },
                             icon            = R.drawable.playlist
                         )
                         OtherSwitchSettingEntry(
-                            title           = "Show listening device",
-                            text            = "Display the active Bluetooth or wired output",
+                            title           = stringResource(R.string.settings_show_listening_device),
+                            text            = stringResource(R.string.settings_show_listening_device_subtitle),
                             isChecked       = showPlayerOutputDevice,
                             onCheckedChange = { showPlayerOutputDevice = it },
                             icon            = R.drawable.music
                         )
-                        ImportantSettingsDescription(text = "Changes take effect immediately")
+                        ImportantSettingsDescription(text = stringResource(R.string.settings_changes_take_effect_immediately))
                     }
                 }
             )
@@ -1767,7 +1819,10 @@ fun GeneralSettings(
                         }
                     }
 
-                    if (search.inputValue.isBlank() || stringResource(R.string.audio_fade_title).contains(search.inputValue, true)) {
+                    if (
+                        search.inputValue.isBlank() ||
+                        stringResource(R.string.audio_fade_title).contains(search.inputValue, true)
+                    ) {
                         var showFadeDurationDialog by remember { mutableStateOf(false) }
                         OtherSettingsEntry(
                             title = stringResource(R.string.audio_fade_title),

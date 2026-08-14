@@ -4,6 +4,7 @@ package app.it.fast4x.rimusic.ui.screens.player.components.controls
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.CircularWavyProgressIndicator
 
+import android.net.Uri
 import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -282,29 +283,35 @@ fun InfoAlbumAndArtistModern(
                 onDismiss = { showSelectDialog = false },
                 values = artistIds,
                 onValueSelected = {
-                    //onGoToArtist(it)
-                    navController.navigate(route = "${NavRoutes.artist.name}/${it}")
-                    showSelectDialog = false
-                    //layoutState.collapseSoft()
-                    onCollapse()
+                    it.takeIf { artistId -> artistId.isNotBlank() }?.let { artistId ->
+                        navController.navigate(route = "${NavRoutes.artist.name}/$artistId")
+                        showSelectDialog = false
+                        onCollapse()
+                    }
                 }
             )
+
+        fun openDisplayedArtist() {
+            val ids = artistIds.orEmpty().filter { it.id.isNotBlank() }
+            when {
+                ids.size > 1 -> showSelectDialog = true
+                ids.size == 1 -> {
+                    navController.navigate(route = "${NavRoutes.artist.name}/${ids.first().id}")
+                    onCollapse()
+                }
+                !artist.isNullOrBlank() -> {
+                    navController.navigate(route = "${NavRoutes.searchResults.name}/${Uri.encode(artist.trim())}")
+                    onCollapse()
+                }
+            }
+        }
 
 
         if (playerInfoShowIcon) {
             IconButton(
                 icon = if (artistIds?.isEmpty() == true && !media.isLocal) R.drawable.logo_youtube else R.drawable.people,
                 color = if (artistIds?.isEmpty() == true) colorPalette().textDisabled else colorPalette().text,
-                onClick = {
-                    if (artistIds?.isNotEmpty() == true && artistIds.size > 1)
-                        showSelectDialog = true
-                    if (artistIds?.isNotEmpty() == true && artistIds.size == 1) {
-                        //onGoToArtist( artistIds[0].id )
-                        navController.navigate(route = "${NavRoutes.artist.name}/${artistIds[0].id}")
-                        //layoutState.collapseSoft()
-                        onCollapse()
-                    }
-                },
+                onClick = ::openDisplayedArtist,
                 modifier = Modifier
                     .size(24.dp)
                     .padding(start = 2.dp)
@@ -320,14 +327,7 @@ fun InfoAlbumAndArtistModern(
             .combinedClickable (
                 indication = ripple(bounded = true),
                 interactionSource = remember { MutableInteractionSource() },
-                onClick = {
-                    if (artistIds?.isNotEmpty() == true && artistIds.size > 1)
-                        showSelectDialog = true
-                    if (artistIds?.isNotEmpty() == true && artistIds.size == 1) {
-                        navController.navigate(route = "${NavRoutes.artist.name}/${artistIds[0].id}")
-                        onCollapse()
-                    }
-                },
+                onClick = ::openDisplayedArtist,
                 onLongClick = {
                     textCopyToClipboard(artist ?: "", context = appContext())
                 }

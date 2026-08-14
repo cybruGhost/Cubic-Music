@@ -54,12 +54,57 @@ import app.it.fast4x.rimusic.utils.secondary
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.SystemClock
+import java.io.InterruptedIOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+
+private fun Context.hasValidatedNetwork(): Boolean {
+    val connectivityManager =
+        getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}
+
+private fun Throwable.isNetworkFailure(): Boolean =
+    generateSequence(this) { it.cause }.any { cause ->
+        cause is NoInternetException ||
+            cause is UnknownHostException ||
+            cause is ConnectException ||
+            cause is NoRouteToHostException ||
+            cause is SocketTimeoutException ||
+            cause is InterruptedIOException ||
+            cause.message?.contains("Unable to resolve host", ignoreCase = true) == true ||
+            cause.message?.contains("Failed to connect", ignoreCase = true) == true ||
+            cause.message?.contains("ENETUNREACH", ignoreCase = true) == true ||
+            cause.message?.contains("EAI_NODATA", ignoreCase = true) == true
+    }
+
+private object PlaybackErrorToastGate {
+    private var lastMessage: String? = null
+    private var lastShownMs: Long = 0L
+
+    fun shouldShow(message: String): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (message == lastMessage && now - lastShownMs < 12_000L) return false
+        lastMessage = message
+        lastShownMs = now
+        return true
+    }
+}
+
 fun playbackExceptionMessage(
     context: Context,
     error: PlaybackException,
     isLocal: Boolean,
     isDownloaded: Boolean = false,
-    isNetworkAvailable: Boolean = true,
+    isNetworkAvailable: Boolean = context.hasValidatedNetwork(),
 ): String {
     val localMusicFileNotFoundError = context.getString(R.string.error_local_music_not_found)
     val playableFormatNotFoundError =
@@ -84,6 +129,7 @@ fun playbackExceptionMessage(
     if (!isNetworkAvailable && isDownloaded) {
         return context.getString(R.string.downloaded_song_corrupt_offline_message)
     }
+    if (!isNetworkAvailable || error.isNetworkFailure()) return noInternetError
 
     return when (deepestCause(error) ?: deepestCause(error.cause) ?: error.cause ?: error) {
         is PlayableFormatNotFoundException -> playableFormatNotFoundError
@@ -108,11 +154,16 @@ fun PlayerError(error: PlaybackException) {
         context = context,
         error = error,
         isLocal = binder?.player?.currentWindow?.mediaItem?.isLocal == true,
+        isNetworkAvailable = context.hasValidatedNetwork(),
     )
 
     LaunchedEffect(error, message) {
-        Timber.w("Playback error shown: ${error.cause?.cause?.javaClass?.simpleName ?: error.errorCodeName}")
-        Toaster.w(message)
+        if (PlaybackErrorToastGate.shouldShow(message)) {
+            Timber.w("Playback error shown: ${error.cause?.cause?.javaClass?.simpleName ?: error.errorCodeName}")
+            Toaster.w(message)
+        } else {
+            Timber.d("Playback error toast suppressed: %s", message)
+        }
     }
 
 }

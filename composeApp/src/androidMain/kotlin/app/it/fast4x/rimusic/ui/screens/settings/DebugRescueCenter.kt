@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
@@ -119,15 +120,15 @@ fun DebugRescueCenterLauncher(
 
                 Column {
                     Text(
-                        text = "Rescue Center",
+                        text = stringResource(R.string.rescue_center),
                         style = typography().m,
                         color = if (debugEnabled) colorPalette().text else colorPalette().textDisabled
                     )
                     Text(
                         text = if (debugEnabled) {
-                            "Crash, playback and runtime logs"
+                            stringResource(R.string.rescue_center_summary_enabled)
                         } else {
-                            "Open Misc to enable debug logs first"
+                            stringResource(R.string.rescue_center_summary_disabled)
                         },
                         style = typography().xs,
                         color = if (debugEnabled) colorPalette().textSecondary else colorPalette().textDisabled
@@ -210,15 +211,15 @@ fun DebugRescueCenterDialog(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Rescue Center", style = typography().l, color = colorPalette().text)
+                        Text(stringResource(R.string.rescue_center), style = typography().l, color = colorPalette().text)
                         Text(
-                            "Sorted by day. Export only the log slice you need.",
+                            stringResource(R.string.rescue_center_sorted_by_day),
                             style = typography().xs,
                             color = colorPalette().textSecondary
                         )
                     }
                     RescueActionChip(
-                        label = "Refresh",
+                        label = stringResource(R.string.refresh),
                         color = colorPalette().accent,
                         modifier = Modifier,
                         onClick = { refreshToken++ }
@@ -252,6 +253,15 @@ fun DebugRescueCenterDialog(
                         )
                     }
                     return@Column
+                }
+
+                selectedDay?.let { day ->
+                    RescueQuickActions(
+                        context = context,
+                        exportDbDialog = exportDbDialog,
+                        day = day
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
 
                 Row(
@@ -333,36 +343,43 @@ fun DebugRescueCenterDialog(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
 
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        RescueActionChip(
-                            label = "Backup DB",
-                            color = colorPalette().accent,
-                            icon = R.drawable.export_outline,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = exportDbDialog::export
-                        )
-                        RescueActionChip(
-                            label = "Export ${day.date}",
-                            color = colorPalette().accent,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { exportDayLog(context, day) }
-                        )
-                        RescueActionChip(
-                            label = "GitHub Issue",
-                            color = Color(0xFF24292F),
-                            icon = R.drawable.github_logo,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { openGithubIssues(context) }
-                        )
-                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RescueQuickActions(
+    context: Context,
+    exportDbDialog: ExportDatabaseDialog,
+    day: RescueLogDay
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        RescueActionChip(
+            label = "Backup DB",
+            color = colorPalette().accent,
+            icon = R.drawable.export_outline,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = exportDbDialog::export
+        )
+        RescueActionChip(
+            label = "Export ${day.date}",
+            color = colorPalette().accent,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { exportDayLog(context, day) }
+        )
+        RescueActionChip(
+            label = "GitHub Issue",
+            color = Color(0xFF24292F),
+            icon = R.drawable.github_logo,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { openGithubIssues(context) }
+        )
     }
 }
 
@@ -513,7 +530,7 @@ private fun exportDayLog(context: Context, day: RescueLogDay) {
         val exportFile = File(context.cacheDir, "cubic-rescue-${day.date}.txt").apply {
             writeText(
                 buildString {
-                    appendLine("Cubic Music Rescue Center")
+                    appendLine(context.getString(R.string.cubic_music_rescue_center))
                     appendLine("Date: ${day.date}")
                     appendLine()
                     appendLine("Errors:")

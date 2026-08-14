@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,6 +42,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import app.kreate.android.R
 import app.it.fast4x.compose.persist.persist
+import app.it.fast4x.compose.persist.persistList
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.requests.HistoryPage
 import app.it.fast4x.rimusic.Database
@@ -47,9 +50,11 @@ import app.it.fast4x.rimusic.EXPLICIT_PREFIX
 import app.it.fast4x.rimusic.LocalPlayerAwareWindowInsets
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.enums.HistoryType
 import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.models.Event
+import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.ui.components.ButtonsRow
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
@@ -74,6 +79,8 @@ import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.historyTypeKey
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import app.it.fast4x.rimusic.utils.secondary
+import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.ytAccountChannelHandleKey
 import app.it.fast4x.rimusic.utils.ytCookieKey
 import kotlinx.coroutines.Dispatchers
@@ -117,30 +124,16 @@ fun HistoryList(
 
     val search = Search(lazyListState)
 
-    val events by remember {
+    val localHistoryStats by remember {
         Database.eventTable
-                .allWithSong()
-                .distinctUntilChanged()
-                .map { list ->
-                    val today = java.time.LocalDate.now()
-                    val yesterday = today.minusDays(1)
-                    list.filter { !parentalControlEnabled || it.song.title.startsWith( EXPLICIT_PREFIX, true ) }
-                        .reversed()
-                        .groupBy {
-                            val eventDate = java.time.Instant.ofEpochMilli(it.event.timestamp)
-                                .atZone(java.time.ZoneId.systemDefault())
-                                .toLocalDate()
-                            when {
-                                eventDate.isEqual(today) -> context.getString(R.string.today)
-                                eventDate.isEqual(yesterday) -> context.getString(R.string.yesterday)
-                                eventDate.isAfter(today.minusWeeks(1)) -> context.getString(R.string.last_week)
-                                eventDate.isAfter(today.minusWeeks(2)) -> context.getString(R.string.last_week)
-                                else -> SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(Date(it.event.timestamp))
-                            }
-                        }
+            .findCompleteSongHistory()
+            .distinctUntilChanged()
+            .map { stats ->
+                stats.filter {
+                    !parentalControlEnabled || !it.song.title.startsWith(EXPLICIT_PREFIX, true)
                 }
-    }.collectAsState( emptyMap(), Dispatchers.IO )
-
+            }
+    }.collectAsState(emptyList(), Dispatchers.IO)
     val buttonsList = mutableListOf(HistoryType.History to stringResource(R.string.history))
     buttonsList += HistoryType.YTMHistory to stringResource(R.string.yt_history)
 
@@ -150,9 +143,11 @@ fun HistoryList(
     var isYTMLoading by remember { mutableStateOf(false) }
     var ytmHistoryLoadError by remember { mutableStateOf<String?>(null) }
     var ytmHistorySongs by remember { mutableStateOf<List<androidx.media3.common.MediaItem>>(emptyList()) }
+    var ytmHistoryCachedSongs by persistList<Song>("home/history/ytmHistorySongs")
+    var ytmHistoryCachedIdentity by persist("home/history/ytmHistoryIdentity", "")
 
-    LaunchedEffect(events) {
-        if (events.isNotEmpty()) {
+    LaunchedEffect(localHistoryStats) {
+        if (localHistoryStats.isNotEmpty()) {
             isLocalLoading = false
         }
     }
@@ -165,10 +160,18 @@ fun HistoryList(
     var historyPage by persist<Result<HistoryPage>>("home/history/pageResult")
     LaunchedEffect(historyType, activeYouTubeCookie, activeYouTubeAccountIdentity) {
         if (historyType == HistoryType.YTMHistory && isYouTubeLoggedIn()) {
-            isYTMLoading = true
             ytmHistoryLoadError = null
-            ytmHistorySongs = emptyList()
-            historyPage = null
+            if (ytmHistoryCachedIdentity == activeYouTubeAccountIdentity && ytmHistoryCachedSongs.isNotEmpty()) {
+                ytmHistorySongs = ytmHistoryCachedSongs.map(Song::asMediaItem)
+                isYTMLoading = false
+                return@LaunchedEffect
+            }
+
+            isYTMLoading = true
+            if (ytmHistoryCachedIdentity != activeYouTubeAccountIdentity) {
+                ytmHistorySongs = emptyList()
+                historyPage = null
+            }
             val currentSession = YouTubeSessionStore.applyCurrentSession(context)
                 ?.let { YtmSessionApi.ensureScopedSession(it) }
             val requiresScopedSessionHistory = !currentSession?.pageId.isNullOrBlank()
@@ -188,19 +191,22 @@ fun HistoryList(
                 }
 
             if (!sessionHistory.isNullOrEmpty()) {
-                ytmHistorySongs = sessionHistory
+                val normalizedHistorySongs = sessionHistory
                     .filter { it.videoId.isNotBlank() && it.title.isNotBlank() }
                     .map { remoteSong ->
-                        app.it.fast4x.rimusic.models.Song(
+                        Song(
                             id = remoteSong.id.ifBlank { remoteSong.videoId },
                             title = remoteSong.title,
                             artistsText = remoteSong.artistsText.ifBlank { remoteSong.artist },
                             thumbnailUrl = remoteSong.thumbnailUrl.ifBlank { remoteSong.thumbnail },
                             durationText = remoteSong.durationText.ifBlank { remoteSong.duration }
-                        ).asMediaItem
+                        )
                     }
-                    .filter { it.mediaId.isNotBlank() }
-                    .distinctBy { it.mediaId }
+                    .filter { it.id.isNotBlank() }
+                    .distinctBy { it.id }
+                ytmHistoryCachedIdentity = activeYouTubeAccountIdentity
+                ytmHistoryCachedSongs = normalizedHistorySongs
+                ytmHistorySongs = normalizedHistorySongs.map(Song::asMediaItem)
             } else if (requiresScopedSessionHistory) {
                 ytmHistorySongs = emptyList()
                 ytmHistoryLoadError = "No history returned for the selected YouTube account."
@@ -275,7 +281,7 @@ fun HistoryList(
         }
 
         val isLoading = when (historyType) {
-            HistoryType.History -> isLocalLoading && events.isEmpty()
+            HistoryType.History -> isLocalLoading && localHistoryStats.isEmpty()
             HistoryType.YTMHistory -> isYTMLoading || (historyPage == null && ytmHistorySongs.isEmpty() && isYouTubeLoggedIn())
         }
 
@@ -296,48 +302,51 @@ fun HistoryList(
                     .fillMaxSize()
             ) {
                 if (historyType == HistoryType.History) {
-                    events.forEach { (headerStr, details) ->
+                    val filteredHistory = localHistoryStats.filter { stat ->
+                        stat.song.title.contains(search.inputValue, ignoreCase = true) ||
+                            (stat.song.artistsText ?: "").contains(search.inputValue, ignoreCase = true)
+                    }
+
+                    if (filteredHistory.isNotEmpty()) {
                         stickyHeader {
                             Title(
-                                title = headerStr,
+                                title = stringResource(R.string.history),
                                 modifier = Modifier.background(
                                     color = colorPalette().background3,
                                     shape = thumbnailShape()
                                 )
                             )
                         }
+                    }
 
-                        items(
-                            items = details.fastDistinctBy { it.song.id }
-                                .filter { event ->
-                                    event.song.title.contains(search.inputValue, ignoreCase = true) ||
-                                            (event.song.artistsText ?: "").contains(search.inputValue, ignoreCase = true)
+                    items(
+                        items = filteredHistory,
+                        key = { it.song.id }
+                    ) { stat ->
+                        SwipeablePlaylistItem(
+                            mediaItem = stat.song.asMediaItem,
+                            onPlayNext = { binder?.player?.addNext(stat.song.asMediaItem) },
+                            onEnqueue = { binder?.player?.enqueue(stat.song.asMediaItem) }
+                        ) {
+                            app.kreate.android.me.knighthat.component.SongItem(
+                                song = stat.song,
+                                navController = navController,
+                                modifier = Modifier,
+                                trailingContent = {
+                                    Text(
+                                        text = stringResource(
+                                            R.string.rewind_card_song_plays_meta,
+                                            stat.playCount
+                                        ),
+                                        style = typography().xxs.semiBold.secondary,
+                                        modifier = Modifier.padding(end = 12.dp)
+                                    )
                                 },
-                            key = { it.event.id }
-                        ) { event ->
-                            SwipeablePlaylistItem(
-                                mediaItem = event.song.asMediaItem,
-                                onPlayNext = {
-                                    binder?.player?.addNext(event.song.asMediaItem)
-                                },
-                                onEnqueue = {
-                                    binder?.player?.enqueue(event.song.asMediaItem)
-                                }
-                            ) {
-                                app.kreate.android.me.knighthat.component.SongItem(
-                                    song = event.song,
-                                    navController = navController,
-                                    modifier = Modifier,
-
-                                    onClick = {
-                                        binder?.player?.forcePlay(event.song.asMediaItem)
-                                    }
-                                )
-                            }
+                                onClick = { binder?.player?.forcePlay(stat.song.asMediaItem) }
+                            )
                         }
                     }
                 }
-
                 if (historyType == HistoryType.YTMHistory) {
                     if (ytmHistorySongs.isNotEmpty()) {
                         stickyHeader {
@@ -350,13 +359,13 @@ fun HistoryList(
                             )
                         }
 
-                        items(
+                        itemsIndexed(
                             items = ytmHistorySongs.filter { mediaItem ->
                                 (mediaItem.mediaMetadata.title ?: "").contains(search.inputValue, ignoreCase = true) ||
                                     (mediaItem.mediaMetadata.artist ?: "").contains(search.inputValue, ignoreCase = true)
                             },
-                            key = { it.mediaId }
-                        ) { mediaItem ->
+                            key = { index, mediaItem -> "${mediaItem.mediaId.ifBlank { "ytm_history" }}_$index" }
+                        ) { _, mediaItem ->
                             SwipeablePlaylistItem(
                                 mediaItem = mediaItem,
                                 onPlayNext = { binder?.player?.addNext(mediaItem) },
@@ -406,10 +415,10 @@ fun HistoryList(
                             )
                         }
 
-                        items(
+                        itemsIndexed(
                             items = historyItems,
-                            key = { it.mediaId }
-                        ) { mediaItem ->
+                            key = { index, mediaItem -> "${mediaItem.mediaId.ifBlank { "ytm_history_section" }}_$index" }
+                        ) { _, mediaItem ->
                             SwipeablePlaylistItem(
                                 mediaItem = mediaItem,
                                 onPlayNext = {

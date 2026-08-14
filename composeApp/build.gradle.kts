@@ -2,9 +2,22 @@ import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 val APP_NAME = "Cubic-Music"
 val DESKTOP_APP_NAME = "Cubic Music"
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use(::load)
+}
+
+fun localProperty(name: String, fallback: String = ""): String =
+    (localProperties.getProperty(name)
+        ?: providers.environmentVariable(name.uppercase()).orNull
+        ?: fallback)
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
 
 plugins {
     // Multiplatform
@@ -50,6 +63,7 @@ kotlin {
 
         val desktopMain by getting
         desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/ThreeColumnsApp.kt")
+        desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/DesktopApp.kt")
         desktopMain.kotlin.exclude("it/fast4x/rimusic/player/vlcj/VlcjFrameController.kt")
         desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/screens/ArtistScreen.kt")
         desktopMain.kotlin.exclude("it/fast4x/rimusic/ui/components/LayoutWithAdaptiveThumbnail.kt")
@@ -58,9 +72,19 @@ kotlin {
             implementation(compose.components.resources)
             implementation(compose.desktop.currentOs)
             implementation(projects.oldtube)
+            implementation(projects.lrclib)
+            implementation(libs.newpipe.extractor)
+            implementation(libs.nanojson)
+            implementation("org.openjfx:javafx-base:19:win")
+            implementation("org.openjfx:javafx-graphics:19:win")
+            implementation("org.openjfx:javafx-controls:19:win")
+            implementation("org.openjfx:javafx-media:19:win")
+            implementation("org.openjfx:javafx-web:19:win")
 
             implementation(libs.material.icon.desktop)
             implementation(libs.vlcj)
+            implementation("ws.schild:jave-core:3.5.0")
+            runtimeOnly("ws.schild:jave-nativebin-win64:3.5.0")
             implementation(libs.hypnoticcanvas)
             implementation(libs.hypnoticcanvas.shaders)
 
@@ -96,6 +120,7 @@ kotlin {
     implementation(libs.compose.runtime.livedata)
     implementation(libs.compose.activity)
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation(projects.betterlyrics)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.datasource.okhttp)
     implementation(libs.androidx.appcompat)
@@ -168,14 +193,19 @@ android {
         applicationId = "com.Cubic.music"
         minSdk = 23
         targetSdk = 36
-        versionCode = 108
-        versionName = "1.8.3"
+        versionCode = 110
+        versionName = "1.9.7"
 
         /*
                 UNIVERSAL VARIABLES
          */
         buildConfigField( "Boolean", "IS_AUTOUPDATE", "true" )
         buildConfigField( "String", "APP_NAME", "\"$APP_NAME\"" )
+        buildConfigField( "String", "WEATHER_API_KEY", "\"${localProperty("weather_api_key")}\"" )
+        buildConfigField( "String", "OMADA_API", "\"${localProperty("omada_api", "https://yt.omada.cafe/api/v1/search")}\"" )
+        buildConfigField( "String", "SUPPORT_API_ENDPOINT", "\"${localProperty("support_api_endpoint")}\"" )
+        buildConfigField( "String", "SPOTIFY_MATCH_API_KEY", "\"${localProperty("spotify_match_api_key")}\"" )
+        buildConfigField( "String", "SHAZAM_PROXY_API_KEY", "\"${localProperty("shazam_proxy_api_key")}\"" )
     }
 
     splits {
@@ -200,11 +230,13 @@ android {
         create( "full" ) {
             // App's properties
             versionNameSuffix = "-f"
+            matchingFallbacks += listOf("release", "debug")
         }
 
         create( "minified" ) {
             // App's properties
             versionNameSuffix = "-m"
+            matchingFallbacks += listOf("release", "debug")
 
             // Package optimization
             isMinifyEnabled = true
@@ -218,6 +250,7 @@ android {
         create( "beta" ) {
             initWith( maybeCreate("full") )
             versionNameSuffix = "-b"
+            matchingFallbacks += listOf("release", "debug")
         }
 
         /**

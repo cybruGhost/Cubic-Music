@@ -42,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -89,6 +90,7 @@ import app.it.fast4x.rimusic.service.modern.isLocal
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.ui.components.themed.RotateThumbnailCoverAnimation
 import app.it.fast4x.rimusic.ui.screens.player.components.YoutubePlayer
+import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasState
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.utils.DisposableListener
@@ -579,7 +581,7 @@ fun CommentsOverlay(
                             } else {
                                 // Fallback if no thumbnail available
                                 Image(
-                                    painter = painterResource(R.drawable.ic_launcher_box),
+                                    painter = painterResource(R.drawable.flowerfallback),
                                     contentDescription = "Default profile",
                                     modifier = Modifier
                                         .size(40.dp)
@@ -908,6 +910,11 @@ fun Thumbnail(
     val showVideoButton by rememberPreference(showButtonPlayerVideoKey, false)
     var showVideo by rememberPreference(playerVideoModeActiveKey, false)
 
+    LaunchedEffect(Unit) {
+        // Video resolution starts only after an explicit tap in this player session.
+        showVideo = false
+    }
+
     LaunchedEffect(showVideoButton) {
         if (!showVideoButton) showVideo = false
     }
@@ -947,6 +954,16 @@ fun Thumbnail(
     var showThumbnailShareDialog by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    LaunchedEffect(showComments, showVideo) {
+        SpotifyCanvasState.suppressForActiveOverlay = showComments || showVideo
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            SpotifyCanvasState.suppressForActiveOverlay = false
+        }
+    }
+
     player.DisposableListener {
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -971,27 +988,22 @@ fun Thumbnail(
         displayedMediaItem.mediaId.toYoutubeVideoId().takeIf { it.isYoutubeVideoId() }
     }
     val resolvedVideoId = baseVideoId
+    val metadataArtworkUrl = displayedMediaItem.mediaMetadata.artworkUri
+        ?.toString()
+        ?.takeIf { it.isNotBlank() && it != "null" }
+    val resolvedArtworkUrl = remember(baseVideoId, metadataArtworkUrl) {
+        metadataArtworkUrl
+            ?: baseVideoId?.let { "https://i.ytimg.com/vi/$it/maxresdefault.jpg" }
+    }
 
-    LaunchedEffect(displayedMediaItem.mediaId, displayedMediaItem.mediaMetadata.artworkUri) {
+    LaunchedEffect(displayedMediaItem.mediaId, resolvedArtworkUrl) {
         artImageAvailable = true
-        if (displayedMediaItem.mediaMetadata.artworkUri != null) {
-            ImageCacheFactory.preloadImage(displayedMediaItem.mediaMetadata.artworkUri.toString())
-        }
+        resolvedArtworkUrl?.let(ImageCacheFactory::preloadImage)
     }
 
     val coverPainter = ImageCacheFactory.Painter(
-        thumbnailUrl = displayedMediaItem.mediaMetadata.artworkUri?.toString().orEmpty(),
-        onError = { 
-            artImageAvailable = false 
-            // Retry loading after a short delay
-            CoroutineScope(Dispatchers.Main).launch {
-                delay(1000) // Wait 1 second
-                if (!artImageAvailable) {
-                    // Try to preload the image
-                    displayedMediaItem.mediaMetadata.artworkUri?.toString()?.let(ImageCacheFactory::preloadImage)
-                }
-            }
-        },
+        thumbnailUrl = resolvedArtworkUrl.orEmpty(),
+        onError = { artImageAvailable = true },
         onSuccess = { 
             artImageAvailable = true 
         }
@@ -999,7 +1011,7 @@ fun Thumbnail(
     if (showThumbnailShareDialog) {
         ThumbnailShareDialog(
             mediaItem = displayedMediaItem,
-            currentThumbnailUrl = displayedMediaItem.mediaMetadata.artworkUri?.toString(),
+            currentThumbnailUrl = resolvedArtworkUrl,
             onDismiss = { showThumbnailShareDialog = false }
         )
     }
@@ -1118,7 +1130,7 @@ fun Thumbnail(
 
                     } else {
                         Image(
-                            painter = painterResource(R.drawable.ic_launcher_box),
+                            painter = painterResource(R.drawable.flowerfallback),
                             modifier = Modifier
                                 .combinedClickable(
                                     onClick = {
@@ -1168,7 +1180,7 @@ fun Thumbnail(
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.Black.copy(alpha = 0.62f))
                             .clickable {
-                                showVideo = !showVideo && resolvedVideoId != null
+                                showVideo = !showVideo
                                 if (showVideo) {
                                     showComments = false
                                     onShowLyrics(false)
@@ -1219,20 +1231,11 @@ fun Thumbnail(
                     if (currentError != null && currentError !== lastPlaybackError) {
                         lastPlaybackError = currentError
                         Toaster.e(
-                            if (currentDisplayedMediaItem.isLocal)
-                                localMusicFileNotFoundError
-                            else when (currentError.cause?.cause) {
-                                is UnresolvedAddressException, is UnknownHostException -> networkerror
-                                is PlayableFormatNotFoundException -> notfindplayableaudioformaterror
-                                is UnplayableException -> originalvideodeletederror
-                                is LoginRequiredException -> songnotplayabledueserverrestrictionerror
-                                is VideoIdMismatchException -> videoidmismatcherror
-                                is PlayableFormatNonSupported -> formatUnsupported
-                                is NoInternetException -> nointerneterror
-                                is TimeoutException -> timeouterror
-                                is UnknownException -> unknownerror
-                                else -> unknownplaybackerror
-                            }
+                            playbackExceptionMessage(
+                                context = context,
+                                error = currentError,
+                                isLocal = currentDisplayedMediaItem.isLocal
+                            )
                         )
                     }
                 }

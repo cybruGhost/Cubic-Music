@@ -2,6 +2,7 @@ package app.it.fast4x.rimusic.ui.screens.player
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,6 +44,7 @@ fun rememberDisplayedPlayerState(
 ): PlayerDisplayState {
     val sessionPlayer = binder.sessionPlayer
     val playbackProgress by sessionPlayer.playbackProgressState()
+    val crossfadeState by binder.service.crossfadeState.collectAsState()
     var currentMediaItem by remember {
         mutableStateOf(binder.displayedMediaItem ?: sessionPlayer.currentMediaItem ?: binder.player.currentMediaItem)
     }
@@ -86,9 +88,11 @@ fun rememberDisplayedPlayerState(
         }
     }
 
-    val mediaItem by remember(binder, currentMediaItem) {
+    val mediaItem by remember(binder, currentMediaItem, crossfadeState) {
         derivedStateOf {
-            currentMediaItem ?: binder.displayedMediaItem
+            crossfadeState.displayedItem
+                ?: currentMediaItem
+                ?: binder.displayedMediaItem
         }
     }
 
@@ -109,13 +113,23 @@ fun rememberDisplayedPlayerState(
         }
     }
 
-    val isBuffering by remember(playbackStateValue) {
-        derivedStateOf { playbackStateValue == Player.STATE_BUFFERING }
+    val isBuffering by remember(playbackStateValue, crossfadeState) {
+        derivedStateOf { playbackStateValue == Player.STATE_BUFFERING && !crossfadeState.incomingHasTakenOver }
     }
 
-    val displayedProgress by remember(playbackProgress) {
+    val displayedProgress by remember(playbackProgress, crossfadeState) {
         derivedStateOf {
             fun Long.safeMs(): Long = if (this == C.TIME_UNSET || this < 0L) 0L else this
+
+            if (crossfadeState.isActive && crossfadeState.displayedDurationMs > 0L) {
+                val safeDuration = crossfadeState.displayedDurationMs.safeMs().coerceAtLeast(1L)
+                val safePosition = crossfadeState.displayedPositionMs.safeMs().coerceIn(0L, safeDuration)
+                return@derivedStateOf PlaybackProgressState(
+                    position = safePosition,
+                    duration = safeDuration,
+                    bufferedPosition = safeDuration,
+                )
+            }
 
             val rawDuration = playbackProgress.duration.safeMs()
             val safeDuration = rawDuration.coerceAtLeast(1L)

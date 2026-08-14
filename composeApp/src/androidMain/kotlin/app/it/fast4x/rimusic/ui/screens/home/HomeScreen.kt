@@ -67,7 +67,9 @@ import app.it.fast4x.compose.persist.PersistMapCleanup
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.enums.HomeScreenTabs
 import app.it.fast4x.rimusic.enums.NavRoutes
+import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.models.toUiMood
+import app.it.fast4x.rimusic.ui.screens.home.apple.AppleHomeScreen
 import app.it.fast4x.rimusic.ui.components.Skeleton
 import app.it.fast4x.rimusic.ui.components.themed.Loader
 import app.it.fast4x.rimusic.utils.enableQuickPicksPageKey
@@ -162,39 +164,59 @@ fun HomeScreen(
             Item(2, stringResource(R.string.artists), R.drawable.music_artist)
             Item(3, stringResource(R.string.albums), R.drawable.album)
             Item(4, stringResource(R.string.playlists), R.drawable.library)
-            Item(5, "Exportify", R.drawable.export_icon)
+            Item(5, stringResource(R.string.exportify), R.drawable.export_icon)
         }
     ) { currentTabIndex ->
         saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
             when (currentTabIndex) {
-                0 -> HomeQuickPicks(
-                    onAlbumClick = {
-                        navController.navigate(route = "${NavRoutes.album.name}/$it")
-                    },
-                    onArtistClick = {
-                        navController.navigate(route = "${NavRoutes.artist.name}/$it")
-                    },
-                    onPlaylistClick = {
-                        navController.navigate(route = "${NavRoutes.playlist.name}/$it")
-                    },
-                    onSearchClick = {
-                        navController.navigate(NavRoutes.search.name)
-                    },
-                    onMoodClick = { mood ->
-                        navController.currentBackStackEntry?.savedStateHandle?.set("mood", mood.toUiMood())
-                        navController.navigate(NavRoutes.mood.name)
-                    },
-                    onSettingsClick = {
-                        navController.navigate(NavRoutes.settings.name)
-                    },
-                    navController = navController
-                )
+                0 -> {
+                    val onAlbum: (String) -> Unit = { id ->
+                        navController.navigate(route = "${NavRoutes.album.name}/$id")
+                    }
+                    val onArtist: (String) -> Unit = { rawId ->
+                        rawId.trim().takeIf(String::isNotBlank)?.let { artistId ->
+                            navController.navigate(route = "${NavRoutes.artist.name}/${Uri.encode(artistId)}")
+                        }
+                    }
+                    val onPlaylist: (String) -> Unit = { id ->
+                        navController.navigate(route = "${NavRoutes.playlist.name}/$id")
+                    }
+
+                    if (UiType.Apple.isCurrent()) {
+                        AppleHomeScreen(
+                            navController = navController,
+                            onAlbumClick = onAlbum,
+                            onArtistClick = onArtist,
+                            onPlaylistClick = onPlaylist,
+                        )
+                    } else {
+                        HomeQuickPicks(
+                            onAlbumClick = onAlbum,
+                            onArtistClick = onArtist,
+                            onPlaylistClick = onPlaylist,
+                            onSearchClick = {
+                                navController.navigate(NavRoutes.search.name)
+                            },
+                            onMoodClick = { mood ->
+                                navController.currentBackStackEntry?.savedStateHandle?.set("mood", mood.toUiMood())
+                                navController.navigate(NavRoutes.mood.name)
+                            },
+                            onSettingsClick = {
+                                navController.navigate(NavRoutes.settings.name)
+                            },
+                            navController = navController
+                        )
+                    }
+                }
 
                 1 -> HomeSongsScreen(navController)
 
                 2 -> HomeArtists(
                     onArtistClick = {
-                        navController.navigate(route = "${NavRoutes.artist.name}/${it.id}")
+                        val artistId = it.id.trim()
+                        if (artistId.isNotBlank()) {
+                            navController.navigate(route = "${NavRoutes.artist.name}/${Uri.encode(artistId)}")
+                        }
                     },
                     onSearchClick = {
                         navController.navigate(NavRoutes.search.name)
@@ -273,7 +295,7 @@ class ExportifyWebInterface(private val context: android.content.Context) {
 @Composable
 fun ExportifyWebViewScreen() {
     val context = LocalContext.current
-    val exportifyDefaultUrl = "https://thecub4.netlify.app/spotifyfeature/"
+    val exportifyDefaultUrl = "https://thecub.netlify.app/spotifyfeature/"
     val aniplayUrl = "https://sonic-scroll-48.lovable.app"
     var selectedWebUrl by rememberPreference(exportifyWebUrlKey, exportifyDefaultUrl)
     var isLoading by remember { mutableStateOf(true) }
@@ -319,8 +341,8 @@ fun ExportifyWebViewScreen() {
     if (showDownloadDialog) {
         AlertDialog(
             onDismissRequest = { showDownloadDialog = false },
-            title = { Text("Download CSV") },
-            text = { Text("Do you want to download the Spotify CSV file?") },
+            title = { Text(stringResource(R.string.exportify_download_csv_title)) },
+            text = { Text(stringResource(R.string.exportify_download_csv_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -330,14 +352,14 @@ fun ExportifyWebViewScreen() {
                         context.startActivity(intent)
                     }
                 ) {
-                    Text("Download")
+                    Text(stringResource(R.string.download))
                 }
             },
             dismissButton = {
                 Button(
                     onClick = { showDownloadDialog = false }
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -352,9 +374,9 @@ fun ExportifyWebViewScreen() {
             shape = RoundedCornerShape(28.dp),
             title = {
                 Column {
-                    Text("Default page")
+                    Text(stringResource(R.string.exportify_default_page))
                     Text(
-                        text = if (selectedWebUrl == aniplayUrl) "Aniplay is active" else "Exportify is active",
+                        text = if (selectedWebUrl == aniplayUrl) stringResource(R.string.aniplay_active) else stringResource(R.string.exportify_active),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -362,10 +384,10 @@ fun ExportifyWebViewScreen() {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Choose the default web tool for this tab. You can switch anytime.")
+                    Text(stringResource(R.string.exportify_choose_default_tool))
                     WebToolChoice(
-                        title = "Exportify",
-                        subtitle = "Spotify exports and music tools",
+                        title = stringResource(R.string.exportify),
+                        subtitle = stringResource(R.string.exportify_subtitle),
                         selected = selectedWebUrl != aniplayUrl,
                         onClick = {
                             selectedWebUrl = exportifyDefaultUrl
@@ -377,8 +399,8 @@ fun ExportifyWebViewScreen() {
                         }
                     )
                     WebToolChoice(
-                        title = "Aniplay",
-                        subtitle = "Audiobooks, books, and anime",
+                        title = stringResource(R.string.aniplay),
+                        subtitle = stringResource(R.string.aniplay_subtitle),
                         selected = selectedWebUrl == aniplayUrl,
                         onClick = {
                             selectedWebUrl = aniplayUrl
@@ -556,7 +578,7 @@ fun ExportifyWebViewScreen() {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Failed to load Exportify. Pull down to refresh.",
+                    text = stringResource(R.string.exportify_load_failed),
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -583,7 +605,7 @@ fun ExportifyWebViewScreen() {
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.butterfly),
-                            contentDescription = "Butterfly",
+                            contentDescription = stringResource(R.string.butterfly),
                             modifier = Modifier
                                 .size(140.dp)
                                 .padding(20.dp)
@@ -593,7 +615,7 @@ fun ExportifyWebViewScreen() {
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        text = "Connect to Internet",
+                        text = stringResource(R.string.connect_to_internet),
                         style = MaterialTheme.typography.headlineSmall,
                         color = Color(0xFF4CAF50) // Nice green
                     )
@@ -601,7 +623,7 @@ fun ExportifyWebViewScreen() {
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Please check your internet connection and try again",
+                        text = stringResource(R.string.check_connection_try_again),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -618,7 +640,7 @@ fun ExportifyWebViewScreen() {
                             }
                         }
                     ) {
-                        Text("Retry")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             }
@@ -655,11 +677,11 @@ fun ExportifyWebViewScreen() {
                 )
                 if (siteSwitcherExpanded) {
                     Text(
-                        text = if (selectedWebUrl == aniplayUrl) "Aniplay" else "Exportify",
+                        text = if (selectedWebUrl == aniplayUrl) stringResource(R.string.aniplay) else stringResource(R.string.exportify),
                         style = MaterialTheme.typography.labelMedium
                     )
                     Text(
-                        text = "Change",
+                        text = stringResource(R.string.change),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )

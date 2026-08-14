@@ -91,6 +91,8 @@ fun SearchScreen(
     // Voice input preferences and state
     val isEnabledVoiceInput by rememberPreference(enableVoiceInputKey.key, enableVoiceInputKey.default)
     var startVoiceInput by remember { mutableStateOf(false) }
+    var isVoiceListening by remember { mutableStateOf(false) }
+    var showVoiceOverlay by remember { mutableStateOf(false) }
     
     // Track if the last input came from voice (to trigger auto-search only for voice)
     var isFromVoice by remember { mutableStateOf(false) }
@@ -121,12 +123,19 @@ fun SearchScreen(
                 onTextFieldValueChanged(TextFieldValue(recognizedText))
                 isFromVoice = true
                 userEditedAfterVoice = false
+                isVoiceListening = false
                 startVoiceInput = false
+                showVoiceOverlay = false
             },
             onRecognitionError = {
+                isVoiceListening = false
                 startVoiceInput = false
+                showVoiceOverlay = false
             },
-            onListening = {}
+            onListening = {
+                isVoiceListening = it
+                if (it) showVoiceOverlay = true
+            }
         )
     }
 
@@ -228,7 +237,8 @@ fun SearchScreen(
     )
 
 
-    Skeleton(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Skeleton(
         navController,
         tabIndex,
         onTabChanged,
@@ -324,12 +334,14 @@ fun SearchScreen(
                                         detectTapGestures(
                                             onPress = {
                                                 isMicPressed = true
+                                                showVoiceOverlay = true
                                                 startVoiceInput = true
                                                 tryAwaitRelease()
                                                 isMicPressed = false
                                             },
                                             onTap = {
                                                 isMicPressed = true
+                                                showVoiceOverlay = true
                                                 startVoiceInput = true
                                                 isMicPressed = false
                                             }
@@ -420,6 +432,17 @@ fun SearchScreen(
                     )
                 }
             }
+        }
+        }
+
+        if (showVoiceOverlay) {
+            VoiceListeningOverlay(
+                onCancel = {
+                    isVoiceListening = false
+                    startVoiceInput = false
+                    showVoiceOverlay = false
+                }
+            )
         }
     }
 }

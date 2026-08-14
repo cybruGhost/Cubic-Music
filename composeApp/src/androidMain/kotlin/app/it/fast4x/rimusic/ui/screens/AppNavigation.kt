@@ -67,6 +67,7 @@ import app.it.fast4x.rimusic.ui.screens.rewind.RewindScreen
 import app.it.fast4x.rimusic.ui.screens.donate.DonateScreen
 import app.it.fast4x.rimusic.ui.screens.find.FindScreen
 import app.it.fast4x.rimusic.ui.screens.search.SearchScreen
+import app.it.fast4x.rimusic.ui.screens.search.MusicShortsScreen
 import app.it.fast4x.rimusic.ui.screens.searchresult.SearchResultScreen
 import app.it.fast4x.rimusic.ui.screens.settings.SettingsScreen
 import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyLoginWebView
@@ -354,6 +355,21 @@ fun AppNavigation(
         composable(route = NavRoutes.donate.name) {
             DonateScreen(
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "${NavRoutes.musicShorts.name}?videoId={videoId}",
+            arguments = listOf(
+                navArgument("videoId") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { entry ->
+            MusicShortsScreen(
+                navController = navController,
+                initialVideoId = entry.arguments?.getString("videoId").orEmpty(),
             )
         }
 

@@ -46,7 +46,9 @@ import app.it.fast4x.rimusic.utils.audioQualityFormatKey
 import app.it.fast4x.rimusic.utils.RestartPlayerService
 import app.kreate.android.me.knighthat.coil.*
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
+import app.it.fast4x.rimusic.utils.isConnectionMetered
 
 @ExperimentalAnimationApi
 @UnstableApi
@@ -63,6 +65,7 @@ fun NetworkSettings(
     var restartService by rememberSaveable { mutableStateOf(false) }
     var showAudioQualityDialog by rememberSaveable { mutableStateOf(false) }
     var showImageQualityDialog by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
     
     var navigationBarPosition by rememberPreference(navigationBarPositionKey, NavigationBarPosition.Bottom)
 
@@ -134,7 +137,12 @@ fun NetworkSettings(
                 
                 // Audio Status
                 val audioStatusText = if (audioQualityFormat == AudioQualityFormat.Auto) {
-                    stringResource(R.string.audio_quality_auto_fmt, detectedText)
+                    val effectiveAudioQuality = if (isConnectionMeteredEnabled && context.isConnectionMetered()) {
+                        stringResource(R.string.audio_quality_format_medium)
+                    } else {
+                        stringResource(R.string.audio_quality_format_high)
+                    }
+                    stringResource(R.string.audio_quality_auto_fmt, effectiveAudioQuality)
                 } else {
                     when(audioQualityFormat) {
                         AudioQualityFormat.High -> stringResource(R.string.audio_quality_format_high)

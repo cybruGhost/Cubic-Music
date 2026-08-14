@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -92,9 +93,21 @@ fun DefaultAIRecommendationSettings() {
     enableQuickPicksPage = true
     var localRecommandationsNumber by rememberPreference(
         key = "LocalRecommandationsNumber",
-        defaultValue = LocalRecommandationsNumber.SixQ
+        defaultValue = LocalRecommandationsNumber.TwelveQ
     )
-    localRecommandationsNumber = LocalRecommandationsNumber.SixQ
+    var recommendations12Migrated by rememberPreference(
+        key = "homeQuickPicksRecommendations12Migrated",
+        defaultValue = false
+    )
+    LaunchedEffect(recommendations12Migrated) {
+        if (!recommendations12Migrated) {
+            if (localRecommandationsNumber == LocalRecommandationsNumber.SixQ) {
+                localRecommandationsNumber = LocalRecommandationsNumber.TwelveQ
+            }
+            recommendations12Migrated = true
+        }
+    }
+    localRecommandationsNumber = LocalRecommandationsNumber.TwelveQ
     var recommendationsNumber by rememberPreference(recommendationsNumberKey, RecommendationsNumber.Adaptive)
     recommendationsNumber = RecommendationsNumber.Adaptive
     
@@ -140,7 +153,7 @@ fun AIRecommendationSettings(
     var clearEvents by remember { mutableStateOf(false) }
     var localRecommandationsNumber by rememberPreference(
         key = "LocalRecommandationsNumber",
-        defaultValue = LocalRecommandationsNumber.SixQ
+        defaultValue = LocalRecommandationsNumber.TwelveQ
     )
     var recommendationsNumber by rememberPreference(recommendationsNumberKey, RecommendationsNumber.Adaptive)
     

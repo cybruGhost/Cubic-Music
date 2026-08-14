@@ -255,8 +255,8 @@ fun DefaultUiSettings() {
     disablePlayerHorizontalSwipe = false
     var lastPlayerPlayButtonType by rememberPreference(lastPlayerPlayButtonTypeKey, PlayerPlayButtonType.Rectangular)
     lastPlayerPlayButtonType = PlayerPlayButtonType.Rectangular
-    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
-    colorPaletteName = ColorPaletteName.Dynamic
+    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
+    colorPaletteName = ColorPaletteName.Default
     var colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
     colorPaletteMode = ColorPaletteMode.Dark
     var indexNavigationTab by rememberPreference(
@@ -538,7 +538,7 @@ fun UiSettings(
 
     var lastPlayerPlayButtonType by rememberPreference(lastPlayerPlayButtonTypeKey, PlayerPlayButtonType.Rectangular)
 
-    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
     var colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
     var indexNavigationTab by rememberPreference(
         indexNavigationTabKey,
@@ -862,6 +862,16 @@ fun UiSettings(
                                     showButtonPlayerShuffle = false
                                     showButtonPlayerMenu = true
                                     showthumbnail = true
+                                    keepPlayerMinimized = false
+                                } else if (uiType == UiType.Apple) {
+                                    disablePlayerHorizontalSwipe = false
+                                    disableIconButtonOnTop = false
+                                    playerTimelineType = lastPlayerTimelineType
+                                    playerThumbnailSize = lastPlayerThumbnailSize
+                                    playerPlayButtonType = lastPlayerPlayButtonType
+                                    navigationBarPosition = NavigationBarPosition.Bottom
+                                    navigationBarType = NavigationBarType.IconAndText
+                                    showTopActionsBar = true
                                     keepPlayerMinimized = false
                                 } else {
                                     disablePlayerHorizontalSwipe = false

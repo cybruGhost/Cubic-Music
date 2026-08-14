@@ -206,7 +206,7 @@ fun LocalPlaylistSongs(
 
     val itemSelector = ItemSelector<Song>()
 
-    fun getSongs() = itemSelector.ifEmpty { itemsOnDisplay }
+    fun getSongs() = if (itemSelector.isActive) itemSelector.toList() else itemsOnDisplay
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
     val search = Search(lazyListState)
@@ -248,9 +248,18 @@ fun LocalPlaylistSongs(
         // Callback is invoked after the user selects a media item or closes the
         // photo picker.
         if (uri != null) {
-            val thumbnailName = "playlist_${playlist?.id}"
-            val permaUri = saveImageToInternalStorage(context, uri, "thumbnail", thumbnailName)
-            thumbnailUrl.value = permaUri.toString()
+            val thumbnailName = "playlist_$playlistId"
+            val permanentUri = saveImageToInternalStorage(
+                context,
+                uri,
+                "thumbnail",
+                thumbnailName
+            )
+            if (permanentUri != null) {
+                thumbnailUrl.value = permanentUri.toString()
+            } else {
+                Toaster.e(R.string.playlist_cover_save_failed)
+            }
         } else {
             Toaster.w( R.string.thumbnail_not_selected )
         }
@@ -373,7 +382,7 @@ fun LocalPlaylistSongs(
             Toaster.w( R.string.no_thumbnail_present )
             return
         }
-        val thumbnailName = "thumbnail/playlist_${playlist?.id}"
+        val thumbnailName = "thumbnail/playlist_$playlistId"
         val retVal = deleteFileIfExists(context, thumbnailName)
         if(retVal == true){
             Toaster.s( R.string.removed_thumbnail )
@@ -803,7 +812,7 @@ fun LocalPlaylistSongs(
 
             itemsIndexed(
                 items = itemsOnDisplay,
-                key = { index, song -> song.id.ifBlank { "playlist_song_$index" } },
+                key = { index, song -> "${song.id.ifBlank { "playlist_song" }}_$index" },
                 contentType = { _, song -> song },
             ) { index, song ->
 
@@ -927,7 +936,7 @@ fun LocalPlaylistSongs(
                             onClick = {
                                 binder?.stopRadio()
                                 PlaybackContextStore.set(
-                                    "Playing from Playlist",
+                                    context.getString(R.string.playing_from_playlist),
                                     playlist?.name.orEmpty()
                                 )
                                 binder?.player?.forcePlayAtIndex(

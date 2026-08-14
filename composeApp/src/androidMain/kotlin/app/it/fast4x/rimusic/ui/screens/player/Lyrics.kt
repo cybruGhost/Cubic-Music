@@ -6,6 +6,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -13,11 +14,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -55,6 +58,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,6 +79,7 @@ import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.compositeOver
@@ -146,6 +151,7 @@ import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.ui.styling.PureBlackColorPalette
 import app.it.fast4x.rimusic.ui.styling.onOverlayShimmer
 import app.it.fast4x.rimusic.utils.SynchronizedLyrics
+import app.it.fast4x.rimusic.utils.BetterLyricsProvider
 import app.it.fast4x.rimusic.utils.center
 import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.buildLyricsShareLink
@@ -234,6 +240,150 @@ private fun karaokeAnnotatedString(
     }
 }
 
+private data class KaraokeWordTiming(
+    val text: String,
+    val startMs: Long,
+    val endMs: Long
+)
+
+private data class KaraokeLineTiming(
+    val lineText: String,
+    val words: List<KaraokeWordTiming>
+)
+
+private fun stripDelimitedSegments(
+    text: String,
+    open: Char,
+    close: Char
+): String {
+    val builder = StringBuilder(text.length)
+    var index = 0
+    while (index < text.length) {
+        if (text[index] == open) {
+            val end = text.indexOf(close, startIndex = index + 1)
+            if (end > index) {
+                index = end + 1
+                continue
+            }
+        }
+        builder.append(text[index])
+        index++
+    }
+    return builder.toString()
+}
+
+private fun cleanKaraokeDisplayText(text: String): String =
+    stripDelimitedSegments(
+        stripDelimitedSegments(text.trim(), '{', '}'),
+        '<',
+        '>'
+    )
+        .split(' ', '\t', '\n', '\r')
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+
+private fun parseBetterLyricsWordTimings(syncedLyrics: String): List<KaraokeLineTiming> {
+    val result = mutableListOf<KaraokeLineTiming>()
+    var lastLineIndex = -1
+
+    syncedLyrics.lineSequence().forEach { rawLine ->
+        val line = rawLine.trim()
+        when {
+            line.startsWith("[") -> {
+                val lineText = cleanKaraokeDisplayText(line.replace(Regex("""^\[[^\]]*]"""), ""))
+                if (lineText.isNotBlank()) {
+                    result += KaraokeLineTiming(lineText = lineText, words = emptyList())
+                    lastLineIndex = result.lastIndex
+                } else {
+                    lastLineIndex = -1
+                }
+            }
+            line.startsWith("<") && line.endsWith(">") && lastLineIndex >= 0 -> {
+                val words = line
+                    .removePrefix("<")
+                    .removeSuffix(">")
+                    .split("|")
+                    .mapNotNull { part ->
+                        val pieces = part.split(":")
+                        if (pieces.size < 3) return@mapNotNull null
+                        val endMs = (pieces.last().toDoubleOrNull()?.times(1000))?.toLong() ?: return@mapNotNull null
+                        val startMs = (pieces[pieces.lastIndex - 1].toDoubleOrNull()?.times(1000))?.toLong() ?: return@mapNotNull null
+                        val word = pieces.dropLast(2).joinToString(":").trim()
+                        if (word.isBlank()) null else KaraokeWordTiming(word, startMs, endMs.coerceAtLeast(startMs))
+                    }
+                if (words.isNotEmpty()) {
+                    result[lastLineIndex] = result[lastLineIndex].copy(words = words)
+                }
+            }
+        }
+    }
+
+    return result
+}
+
+private fun normalizeKaraokeLineText(text: String): String {
+    return cleanKaraokeDisplayText(text)
+        .split(' ', '\t', '\n', '\r')
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+        .lowercase()
+}
+
+private fun wordKaraokeAnnotatedString(
+    text: String,
+    words: List<KaraokeWordTiming>,
+    positionMs: Long,
+    fallbackProgress: Float,
+    activeColor: Color,
+    inactiveColor: Color,
+    slowActiveColor: Color = Color(0xFFFF8A00),
+    slowWordThresholdMs: Long = 900L
+): AnnotatedString {
+    if (words.isEmpty()) {
+        return karaokeAnnotatedString(text, fallbackProgress, activeColor, inactiveColor)
+    }
+
+    return buildAnnotatedString {
+        var cursor = 0
+        words.forEach { word ->
+            val matchIndex = text.indexOf(word.text, cursor, ignoreCase = true)
+            if (matchIndex < 0) return@forEach
+            if (matchIndex > cursor) {
+                withStyle(SpanStyle(color = inactiveColor)) {
+                    append(text.substring(cursor, matchIndex))
+                }
+            }
+
+            val wordProgress = when {
+                positionMs >= word.endMs -> 1f
+                positionMs <= word.startMs -> 0f
+                else -> ((positionMs - word.startMs).toFloat() / (word.endMs - word.startMs).coerceAtLeast(1L))
+                    .coerceIn(0f, 1f)
+            }
+            val wordActiveColor =
+                if (positionMs in word.startMs until word.endMs && word.endMs - word.startMs >= slowWordThresholdMs) {
+                    slowActiveColor
+                } else {
+                    activeColor
+                }
+            val activeCount = (word.text.length * wordProgress).toInt().coerceIn(0, word.text.length)
+            withStyle(SpanStyle(color = wordActiveColor)) {
+                append(word.text.take(activeCount))
+            }
+            withStyle(SpanStyle(color = inactiveColor)) {
+                append(word.text.drop(activeCount))
+            }
+            cursor = matchIndex + word.text.length
+        }
+
+        if (cursor < text.length) {
+            withStyle(SpanStyle(color = inactiveColor)) {
+                append(text.substring(cursor))
+            }
+        }
+    }
+}
+
 @Composable
 private fun KaraokeBasicText(
     text: String,
@@ -260,6 +410,73 @@ private fun KaraokeBasicText(
         style = style.copy(color = Color.Unspecified),
         modifier = modifier
     )
+}
+
+@Composable
+private fun KaraokeInstrumentalInterval(
+    startMs: Long,
+    endMs: Long,
+    positionMs: Long,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val isActive = positionMs in startMs..endMs
+    val alpha by animateFloatAsState(
+        targetValue = if (isActive) 1f else 0.18f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "InstrumentalIntervalAlpha",
+    )
+    val rawProgress = if (endMs > startMs) {
+        ((positionMs - startMs).toFloat() / (endMs - startMs).toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val progress by animateFloatAsState(
+        targetValue = rawProgress,
+        animationSpec = tween(100, easing = LinearEasing),
+        label = "InstrumentalIntervalProgress",
+    )
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(72.dp)
+            .graphicsLayer { this.alpha = alpha },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        BasicText(
+            text = stringResource(R.string.lyrics_instrumental),
+            style = typography().xxs.semiBold.copy(
+                color = color.copy(alpha = 0.88f),
+                letterSpacing = 0.sp,
+            ),
+            maxLines = 1,
+        )
+        Canvas(
+            modifier = Modifier
+                .padding(top = 13.dp)
+                .fillMaxWidth(0.48f)
+                .height(3.dp),
+        ) {
+            val centerX = size.width / 2f
+            val remainingHalf = centerX * (1f - progress)
+            drawLine(
+                color = color.copy(alpha = 0.18f),
+                start = Offset(0f, size.height / 2f),
+                end = Offset(size.width, size.height / 2f),
+                strokeWidth = size.height,
+                cap = StrokeCap.Round,
+            )
+            drawLine(
+                color = color,
+                start = Offset(centerX - remainingHalf, size.height / 2f),
+                end = Offset(centerX + remainingHalf, size.height / 2f),
+                strokeWidth = size.height,
+                cap = StrokeCap.Round,
+            )
+        }
+    }
 }
 
 @UnstableApi
@@ -441,6 +658,7 @@ fun Lyrics(
         var defaultLyricsSource by rememberPreference(defaultLyricsSourceKey, "lrclib")
         var simpMusicTranslationEnabled by rememberPreference(simpMusicTranslationEnabledKey, false)
         var selectedLyricsSource by rememberSaveable(mediaId) { mutableStateOf(defaultLyricsSource) }
+        var userSelectedLyricsSource by rememberSaveable(mediaId) { mutableStateOf(false) }
         var showSimpMusicOptions by rememberSaveable(mediaId) { mutableStateOf(false) }
         var sourceSwitcherExpanded by rememberSaveable(mediaId) { mutableStateOf(false) }
         var showShareCardPreview by rememberSaveable(mediaId) { mutableStateOf(false) }
@@ -455,6 +673,9 @@ fun Lyrics(
             mutableStateOf(false)
         }
         var checkedLyricsInnertube by remember(mediaId) {
+            mutableStateOf(false)
+        }
+        var checkedBetterLyricsKaraoke by remember(mediaId) {
             mutableStateOf(false)
         }
         var checkLyrics by remember(mediaId) {
@@ -500,7 +721,7 @@ fun Lyrics(
             targetValue = if (isRotated) 360F else 0f,
             animationSpec = tween(durationMillis = 200), label = ""
         )
-        val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+        val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
 
         if (showLyricsSizeDialog) {
             LyricsSizeDialog(
@@ -520,18 +741,24 @@ fun Lyrics(
             checkedLyricsLrc = false
             checkedLyricsKugou = false
             checkedLyricsInnertube = false
+            checkedBetterLyricsKaraoke = false
             checkLyrics = false
             invalidLrc = false
             isError = false
             isErrorSync = false
             selectedLyricsSource = defaultLyricsSource
+            userSelectedLyricsSource = false
             showSimpMusicOptions = false
             showShareCardPreview = false
             shareSliceStartLine = 0f
             shareLineCount = 6f
         }
 
-        suspend fun fetchLyricsFromSource(source: String, allowSimpFallback: Boolean = true) {
+        suspend fun fetchLyricsFromSource(
+            source: String,
+            allowSimpFallback: Boolean = true,
+            preferBetterLyrics: Boolean = false
+        ) {
             selectedLyricsSource = source
             isError = false
             showPlaceholder = true
@@ -565,6 +792,9 @@ fun Lyrics(
                 isError = true
             }
 
+            fun hasLoadedLyrics(): Boolean =
+                !lyrics?.synced.isNullOrBlank() || !lyrics?.fixed.isNullOrBlank()
+
             suspend fun persistLyricsSafely(updatedLyrics: Lyrics) {
                 val existingSong = withContext(Dispatchers.IO) {
                     Database.songTable.findById(mediaId).first()
@@ -585,11 +815,25 @@ fun Lyrics(
                 }
             }
 
-            suspend fun fallbackFromSimpMusic() {
-                val firstFallback = defaultLyricsSource.takeIf { it != "simpmusic" }.orEmpty().ifBlank { "lrclib" }
-                fetchLyricsFromSource(firstFallback, allowSimpFallback = false)
-                if ((lyrics?.synced.isNullOrBlank() && lyrics?.fixed.isNullOrBlank()) || isError) {
-                    fetchLyricsFromSource("kugou", allowSimpFallback = false)
+            suspend fun fetchFallbackSources(excluded: Set<String>) {
+                val fallbackSources = (
+                    if (preferBetterLyrics) {
+                        listOf("betterlyrics", defaultLyricsSource, "simpmusic", "lrclib", "kugou")
+                    } else {
+                        listOf(defaultLyricsSource, "simpmusic", "betterlyrics", "lrclib", "kugou")
+                    }
+                )
+                    .map { it.ifBlank { "lrclib" } }
+                    .distinct()
+                    .filterNot { it in excluded }
+
+                for (fallbackSource in fallbackSources) {
+                    fetchLyricsFromSource(
+                        fallbackSource,
+                        allowSimpFallback = false,
+                        preferBetterLyrics = preferBetterLyrics
+                    )
+                    if (hasLoadedLyrics() && !isError) return
                 }
             }
 
@@ -667,7 +911,7 @@ fun Lyrics(
                             allowSimpFallback
 
                     if (shouldFallbackToSyncedSources) {
-                        fallbackFromSimpMusic()
+                        markFailure()
                     } else if (!resolvedSyncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
                         val updatedLyrics = Lyrics(
                             songId = mediaId,
@@ -677,12 +921,46 @@ fun Lyrics(
                         applyLyrics(updatedLyrics)
                         persistLyricsSafely(updatedLyrics)
                     } else {
-                        if (allowSimpFallback) {
-                            fallbackFromSimpMusic()
-                        } else {
-                            markFailure()
-                        }
+                        markFailure()
                     }
+                }
+
+                "betterlyrics" -> {
+                    val duration = awaitPlaybackDurationMs()
+                    val result = BetterLyricsProvider.lyrics(
+                        title = metadataTitle,
+                        artist = metadataArtist,
+                        album = mediaMetadata.albumTitle?.toString(),
+                        durationSeconds = (duration / 1000).toInt()
+                    )
+                    if (result != null &&
+                        (!result.syncedLyrics.isNullOrBlank() || !result.plainLyrics.isNullOrBlank())
+                    ) {
+                        val updatedLyrics = Lyrics(
+                            songId = mediaId,
+                            fixed = result.plainLyrics ?: existingLyrics?.fixed,
+                            synced = result.syncedLyrics ?: existingLyrics?.synced
+                        )
+                        applyLyrics(updatedLyrics)
+                        persistLyricsSafely(updatedLyrics)
+                        if (playerEnableLyricsPopupMessage) {
+                            Toaster.s(
+                                R.string.info_lyrics_found_on_s,
+                                "BetterLyrics"
+                            )
+                        }
+                    } else {
+                        markFailure()
+                    }
+                }
+
+                else -> markFailure()
+            }
+
+            if (allowSimpFallback && !hasLoadedLyrics()) {
+                fetchFallbackSources(setOf(source))
+                if (!hasLoadedLyrics()) {
+                    markFailure()
                 }
             }
         }
@@ -751,6 +1029,32 @@ fun Lyrics(
             }
         }
 
+        LaunchedEffect(
+            lyricsKaraokeEnabled,
+            mediaId,
+            isShowingSynchronizedLyrics,
+            lyrics?.synced
+        ) {
+            if (!lyricsKaraokeEnabled ||
+                !isShowingSynchronizedLyrics ||
+                checkedBetterLyricsKaraoke ||
+                (userSelectedLyricsSource && selectedLyricsSource != "betterlyrics")
+            ) {
+                return@LaunchedEffect
+            }
+
+            val syncedText = lyrics?.synced.orEmpty()
+            val hasWordTimings = parseBetterLyricsWordTimings(syncedText).any { it.words.isNotEmpty() }
+            if (syncedText.isBlank() || !hasWordTimings) {
+                checkedBetterLyricsKaraoke = true
+                fetchLyricsFromSource(
+                    source = "betterlyrics",
+                    allowSimpFallback = true,
+                    preferBetterLyrics = true
+                )
+            }
+        }
+
 
         LaunchedEffect(mediaId, mediaMetadata.title, mediaMetadata.artist, isShowingSynchronizedLyrics, checkLyrics) {
             Database.lyricsTable
@@ -758,66 +1062,12 @@ fun Lyrics(
                     .collect { currentLyrics ->
                         if (!showLyricsSourceSwitcher) {
                             if (isShowingSynchronizedLyrics && currentLyrics?.synced.isNullOrBlank()) {
-                                fetchLyricsFromSource("lrclib", allowSimpFallback = false)
+                                fetchLyricsFromSource(defaultLyricsSource, allowSimpFallback = true)
                                 return@collect
                             }
 
                             if (!isShowingSynchronizedLyrics && currentLyrics?.fixed.isNullOrBlank()) {
-                                var duration = withContext(Dispatchers.Main) { durationProvider() }
-                                while (duration == C.TIME_UNSET) {
-                                    delay(100)
-                                    duration = withContext(Dispatchers.Main) { durationProvider() }
-                                }
-                                val lrcLibResult = runCatching {
-                                    LrcLib.lyrics(
-                                        artist = artistName ?: "",
-                                        title = title ?: "",
-                                        duration = duration.milliseconds,
-                                        album = mediaMetadata.albumTitle?.toString()
-                                    )?.getOrNull()
-                                }.getOrNull()
-
-                                val lrcLibPlainLyrics = lrcLibResult?.text
-                                    ?.lineSequence()
-                                    ?.map { line -> line.replace(Regex("""\[[^\]]*]"""), "").trim() }
-                                    ?.filter { it.isNotBlank() }
-                                    ?.joinToString("\n")
-                                    ?.ifBlank { null }
-
-                                if (!lrcLibPlainLyrics.isNullOrBlank()) {
-                                    val updatedLyrics = Lyrics(
-                                        songId = mediaId,
-                                        fixed = lrcLibPlainLyrics,
-                                        synced = currentLyrics?.synced ?: lrcLibResult.text
-                                    )
-                                    lyrics = updatedLyrics
-                                    Database.asyncTransaction {
-                                        lyricsTable.upsert(updatedLyrics)
-                                    }
-                                    isError = false
-                                } else {
-                                    kotlin.runCatching {
-                                        Innertube.lyrics(NextBody(videoId = mediaId))
-                                            ?.onSuccess { fixedLyrics ->
-                                                val updatedLyrics = Lyrics(
-                                                    songId = mediaId,
-                                                    fixed = fixedLyrics ?: "",
-                                                    synced = currentLyrics?.synced
-                                                )
-                                                lyrics = updatedLyrics
-                                                Database.asyncTransaction {
-                                                    lyricsTable.upsert(updatedLyrics)
-                                                }
-                                                isError = false
-                                            }?.onFailure {
-                                                isError = true
-                                            }
-                                    }.onFailure {
-                                        Timber.e("Lyrics hidden-source fixed fallback error ${it.stackTraceToString()}")
-                                        isError = true
-                                    }
-                                }
-                                checkedLyricsInnertube = true
+                                fetchLyricsFromSource(defaultLyricsSource, allowSimpFallback = true)
                                 return@collect
                             }
 
@@ -869,6 +1119,7 @@ fun Lyrics(
                                     checkedLyricsLrc = true
 
                                     Database.asyncTransaction {
+                                        ensureSongInserted()
                                         lyricsTable.upsert(
                                             Lyrics(
                                                 songId = mediaId,
@@ -917,6 +1168,7 @@ fun Lyrics(
                                             isError = false
                                             checkedLyricsKugou = true
                                             Database.asyncTransaction {
+                                                ensureSongInserted()
                                                 lyricsTable.upsert(
                                                     Lyrics(
                                                         songId = mediaId,
@@ -939,6 +1191,7 @@ fun Lyrics(
                                                 }
 
                                                 Database.asyncTransaction {
+                                                    ensureSongInserted()
                                                     lyricsTable.upsert(
                                                         Lyrics(
                                                             songId = mediaId,
@@ -977,6 +1230,7 @@ fun Lyrics(
                                 Innertube.lyrics(NextBody(videoId = mediaId))
                                     ?.onSuccess { fixedLyrics ->
                                         Database.asyncTransaction {
+                                            ensureSongInserted()
                                             lyricsTable.upsert(
                                                 Lyrics(
                                                     songId = mediaId,
@@ -1216,6 +1470,7 @@ fun SelectLyricFromTrack(
                                 synced = simpLyrics?.syncedLyrics ?: currentLyrics?.synced
                             )
                             Database.asyncTransaction {
+                                ensureSongInserted()
                                 lyricsTable.upsert(updatedLyrics)
                             }
                             lyrics = updatedLyrics
@@ -1319,6 +1574,7 @@ fun SelectLyricFromTrack(
                             synced = syncedLyrics ?: currentLyrics?.synced
                         )
                         Database.asyncTransaction {
+                            ensureSongInserted()
                             lyricsTable.upsert(updatedLyrics)
                         }
                         lyrics = updatedLyrics
@@ -1539,6 +1795,7 @@ fun SelectLyricFromTrack(
                 val selectedLyricsSourceLabel = when (selectedLyricsSource) {
                     "kugou" -> "Kg"
                     "simpmusic" -> "Simp"
+                    "betterlyrics" -> "Better"
                     else -> "Lrc"
                 }
 
@@ -1586,6 +1843,7 @@ fun SelectLyricFromTrack(
                                             .background(colorPalette().background2.copy(alpha = 0.9f))
                                             .clickable {
                                                 showSimpMusicOptions = false
+                                                userSelectedLyricsSource = true
                                                 isPicking = true
                                             }
                                             .padding(horizontal = 8.dp, vertical = 6.dp)
@@ -1606,6 +1864,7 @@ fun SelectLyricFromTrack(
                                 listOf(
                                     "lrclib" to "Lrc",
                                     "kugou" to "Kg",
+                                    "betterlyrics" to "Better",
                                     "simpmusic" to "Simp"
                                 ).forEach { (sourceKey, label) ->
                                     BasicText(
@@ -1620,6 +1879,7 @@ fun SelectLyricFromTrack(
                                                 else Color.Transparent
                                             )
                                             .clickable {
+                                                userSelectedLyricsSource = true
                                                 if (sourceKey == "simpmusic") {
                                                     selectedLyricsSource = sourceKey
                                                     showSimpMusicOptions = !showSimpMusicOptions
@@ -1627,7 +1887,11 @@ fun SelectLyricFromTrack(
                                                     showSimpMusicOptions = false
                                                     selectedLyricsSource = sourceKey
                                                     coroutineScope.launch {
-                                                        fetchLyricsFromSource(sourceKey)
+                                                        fetchLyricsFromSource(
+                                                            source = sourceKey,
+                                                            allowSimpFallback = false,
+                                                            preferBetterLyrics = sourceKey == "betterlyrics"
+                                                        )
                                                     }
                                                 }
                                             }
@@ -1699,7 +1963,10 @@ fun SelectLyricFromTrack(
                                                 .background(colorPalette().background2.copy(alpha = 0.9f))
                                                 .clickable {
                                                     coroutineScope.launch {
-                                                        fetchLyricsFromSource("simpmusic")
+                                                        fetchLyricsFromSource(
+                                                            source = "simpmusic",
+                                                            allowSimpFallback = false
+                                                        )
                                                     }
                                                 }
                                                 .padding(horizontal = 10.dp, vertical = 6.dp)
@@ -1733,55 +2000,67 @@ fun SelectLyricFromTrack(
 
             if (text?.isNotEmpty() == true) {
                 if (isShowingSynchronizedLyrics) {
-                    val density = LocalDensity.current
                     val player = LocalPlayerServiceBinder.current?.player
                         ?: return@AnimatedVisibility
+                    fun liveLyricsPositionMs(): Long =
+                        binder?.displayedPositionAndDuration?.first
+                            ?: player.currentPosition.coerceAtLeast(0L)
 
                     val synchronizedLyrics = remember(text) {
                         val sentences = LrcLib.Lyrics(text).sentences
                         invalidLrc = sentences.size <= 1
                         SynchronizedLyrics(sentences) {
-                            player.currentPosition + 50L
+                            liveLyricsPositionMs() + 100L
+                        }
+                    }
+                    val karaokeWordTimings = remember(text) { parseBetterLyricsWordTimings(text) }
+                    val karaokeLineIndexes = remember(synchronizedLyrics.sentences) {
+                        var lineIndex = -1
+                        synchronizedLyrics.sentences.map { sentence ->
+                            if (cleanKaraokeDisplayText(sentence.second).isBlank()) -1 else ++lineIndex
                         }
                     }
 
                     val lazyListState = rememberLazyListState()
-                    var karaokePosition by remember(mediaId, text) { mutableStateOf(player.currentPosition) }
+                    var karaokePosition by remember(mediaId, text) { mutableLongStateOf(liveLyricsPositionMs()) }
 
                     LaunchedEffect(mediaId, text) {
                         lazyListState.scrollToItem(0)
                     }
 
-                    LaunchedEffect(synchronizedLyrics, density) {
-                        //val centerOffset = with(density) { (-thumbnailSize / 3).roundToPx() }
-                        val centerOffset = with(density) {
-                            (-thumbnailSize.div(if (!showlyricsthumbnail && !isLandscape) if (trailingContent == null) 2 else 1
-                                                else if (trailingContent == null) 3 else 2))
-                                .roundToPx()
+                    // Keep word fill tied to the live player clock. Scrolling runs in a
+                    // separate effect so a long list animation cannot freeze karaoke timing.
+                    LaunchedEffect(synchronizedLyrics, player) {
+                        while (isActive) {
+                            karaokePosition = liveLyricsPositionMs() + 100L
+                            synchronizedLyrics.update()
+                            delay(24L)
+                        }
+                    }
+
+                    LaunchedEffect(synchronizedLyrics.index, lyricsKaraokeEnabled) {
+                        val targetIndex = synchronizedLyrics.index + 1
+                        if (targetIndex !in 0 until synchronizedLyrics.sentences.size + 1) {
+                            return@LaunchedEffect
                         }
 
                         try {
+                            val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+                            val targetOffset = -(viewportHeight * 0.35f).toInt()
+                            val distance = kotlin.math.abs(
+                                targetIndex - lazyListState.firstVisibleItemIndex
+                            )
+                            if (distance > 15) {
+                                lazyListState.scrollToItem(
+                                    (targetIndex - 2).coerceAtLeast(0)
+                                )
+                            }
                             lazyListState.animateScrollToItem(
-                                index = synchronizedLyrics.index + 1,
-                                scrollOffset = centerOffset
+                                index = targetIndex,
+                                scrollOffset = targetOffset
                             )
                         } catch (e: CancellationException) {
                             if (!isActive) throw e
-                        }
-
-                        while (isActive) {
-                            delay(50)
-                            karaokePosition = player.currentPosition
-                            if (!synchronizedLyrics.update()) continue
-
-                            try {
-                                lazyListState.animateScrollToItem(
-                                    index = synchronizedLyrics.index + 1,
-                                    scrollOffset = centerOffset
-                                )
-                            } catch (e: CancellationException) {
-                                if (!isActive) throw e
-                            }
                         }
                     }
 
@@ -1806,32 +2085,87 @@ fun SelectLyricFromTrack(
                             Spacer(modifier = Modifier.height(thumbnailSize))
                         }
                         itemsIndexed(
-                            items = synchronizedLyrics.sentences
+                            items = synchronizedLyrics.sentences,
+                            key = { index, sentence -> "${sentence.first}:$index" },
                         ) { index, sentence ->
                             var translatedText by remember { mutableStateOf("") }
-                            val trimmedSentence = sentence.second.trim()
+                            val trimmedSentence = cleanKaraokeDisplayText(sentence.second)
                             if (showSecondLine || translateEnabled || romanization != Romanization.Off) {
                                 val mutState = remember { mutableStateOf("") }
                                 translateLyricsWithRomanization(mutState, trimmedSentence, true, languageDestination)()
-                                translatedText = mutState.value
+                                translatedText = mutState.value.takeIf { it.isNotBlank() } ?: trimmedSentence
                             } else {
                                     translatedText = trimmedSentence
                             }
+                            val karaokeWords = karaokeLineIndexes
+                                .getOrNull(index)
+                                ?.takeIf { it >= 0 }
+                                ?.let(karaokeWordTimings::getOrNull)
+                                ?.takeIf { timing ->
+                                    timing.words.isNotEmpty() &&
+                                        normalizeKaraokeLineText(timing.lineText) == normalizeKaraokeLineText(trimmedSentence)
+                                }
+                                ?.words
+                            val timedKaraokeWords = karaokeWords?.takeIf { translatedText == trimmedSentence }
+                            val karaokeLineRelation = when {
+                                !lyricsKaraokeEnabled -> 0
+                                index < synchronizedLyrics.index -> -1
+                                index == synchronizedLyrics.index -> 1
+                                else -> 2
+                            }
+                            val karaokeLineTransition = updateTransition(
+                                targetState = karaokeLineRelation,
+                                label = "KaraokeLineChange"
+                            )
+                            val karaokeLineShiftPx = with(LocalDensity.current) { 8.dp.toPx() }
+                            val karaokeLineAlpha by karaokeLineTransition.animateFloat(
+                                transitionSpec = { tween(360, easing = FastOutSlowInEasing) },
+                                label = "KaraokeLineAlpha"
+                            ) { relation ->
+                                when (relation) {
+                                    0, 1 -> 1f
+                                    else -> 0.50f
+                                }
+                            }
+                            val karaokeLineScale by karaokeLineTransition.animateFloat(
+                                transitionSpec = { tween(360, easing = FastOutSlowInEasing) },
+                                label = "KaraokeLineScale"
+                            ) { relation ->
+                                when (relation) {
+                                    0 -> 1f
+                                    1 -> 1.01f
+                                    else -> 0.985f
+                                }
+                            }
+                            val karaokeLineTranslation by karaokeLineTransition.animateFloat(
+                                transitionSpec = { tween(360, easing = FastOutSlowInEasing) },
+                                label = "KaraokeLineTranslation"
+                            ) { relation ->
+                                when (relation) {
+                                    -1 -> -karaokeLineShiftPx
+                                    2 -> karaokeLineShiftPx
+                                    else -> 0f
+                                }
+                            }
 
                             //Rainbow Shimmer
-                            val infiniteTransition = rememberInfiniteTransition()
-
-                            val offset by infiniteTransition.animateFloat(
-                                initialValue = 0f,
-                                targetValue = 1f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(
-                                        durationMillis = 10000,
-                                        easing = LinearEasing
-                                    ),
-                                    repeatMode = RepeatMode.Reverse
-                                ), label = ""
-                            )
+                            val offset = if (lyricsKaraokeEnabled) {
+                                0f
+                            } else {
+                                val infiniteTransition = rememberInfiniteTransition()
+                                val animatedOffset by infiniteTransition.animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 1f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(
+                                            durationMillis = 10000,
+                                            easing = LinearEasing
+                                        ),
+                                        repeatMode = RepeatMode.Reverse
+                                    ), label = ""
+                                )
+                                animatedOffset
+                            }
 
                             val RainbowColors = listOf(
                                 Color.Red,
@@ -1873,7 +2207,7 @@ fun SelectLyricFromTrack(
                                 PureBlackColorPalette.textDisabled
                             )
 
-                            val brushrainbow = remember(offset) {
+                            val brushrainbow = remember(offset, synchronizedLyrics.index, showlyricsthumbnail) {
                                 object : ShaderBrush() {
                                     override fun createShader(size: Size): Shader {
                                         val widthOffset = size.width * offset
@@ -1892,7 +2226,7 @@ fun SelectLyricFromTrack(
                                     }
                                 }
                             }
-                            val brushrainbowdark = remember(offset) {
+                            val brushrainbowdark = remember(offset, synchronizedLyrics.index, showlyricsthumbnail) {
                                 object : ShaderBrush() {
                                     override fun createShader(size: Size): Shader {
                                         val widthOffset = size.width * offset
@@ -1909,7 +2243,7 @@ fun SelectLyricFromTrack(
                                     }
                                 }
                             }
-                            val brushtheme = remember(offset) {
+                            val brushtheme = remember(offset, synchronizedLyrics.index, showlyricsthumbnail) {
                                 object : ShaderBrush() {
                                     override fun createShader(size: Size): Shader {
                                         val widthOffset = size.width * offset
@@ -1930,26 +2264,24 @@ fun SelectLyricFromTrack(
                             }
                             val animateSizeText by animateFloatAsState(
                                 targetValue = when {
-                                    lyricsKaraokeEnabled && index == synchronizedLyrics.index -> 1.02f
-                                    lyricsKaraokeEnabled -> 0.92f
+                                    lyricsKaraokeEnabled -> 1f
                                     index == synchronizedLyrics.index -> 1.05f
                                     else -> 0.85f
                                 },
                                 animationSpec = tween(
-                                    durationMillis = if (lyricsKaraokeEnabled) 220 else 500,
+                                    durationMillis = if (lyricsKaraokeEnabled) 0 else 500,
                                     easing = LinearOutSlowInEasing
                                 ),
                                 label = ""
                             )
                             val animateOpacity by animateFloatAsState(
                                 targetValue = when {
-                                    lyricsKaraokeEnabled && index == synchronizedLyrics.index -> 1f
-                                    lyricsKaraokeEnabled -> 0.38f
+                                    lyricsKaraokeEnabled -> 1f
                                     index == synchronizedLyrics.index -> 1f
                                     else -> 0.6f
                                 },
                                 animationSpec = tween(
-                                    durationMillis = if (lyricsKaraokeEnabled) 220 else 500,
+                                    durationMillis = if (lyricsKaraokeEnabled) 0 else 500,
                                     easing = LinearOutSlowInEasing
                                 ),
                                 label = ""
@@ -1966,18 +2298,38 @@ fun SelectLyricFromTrack(
                                 ((karaokePosition - sentence.first).toFloat() / karaokeLineDuration)
                                     .coerceIn(0f, 1f)
                             } else 0f
+                            val instrumentalStartMs = when {
+                                timedKaraokeWords?.isNotEmpty() == true -> timedKaraokeWords.last().endMs
+                                trimmedSentence.isBlank() -> sentence.first
+                                else -> null
+                            }
+                            val instrumentalEndMs = nextSentenceStart - 650L
+                            val instrumentalIntervalStart = instrumentalStartMs?.takeIf { startMs ->
+                                instrumentalEndMs - startMs > 4_000L
+                            }
                             val karaokeBrush = Brush.horizontalGradient(
                                 0f to colorPalette().accent,
                                 karaokeProgress to colorPalette().accent,
                                 (karaokeProgress + 0.015f).coerceAtMost(1f) to colorPalette().textSecondary.copy(alpha = 0.45f),
                                 1f to colorPalette().textSecondary.copy(alpha = 0.45f)
                             )
-                            //Rainbow Shimmer
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                contentAlignment = Alignment.Center
+                            // Animate line ownership once per timestamp change. Word fill
+                            // continues independently from the live karaoke clock.
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer {
+                                            alpha = karaokeLineAlpha
+                                            scaleX = karaokeLineScale
+                                            scaleY = karaokeLineScale
+                                            translationY = karaokeLineTranslation
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
                                 ////Lyrics Outline Synced
                                 if (!showlyricsthumbnail) {
                                     if (lyricsOutline == LyricsOutline.None) {
@@ -2165,7 +2517,16 @@ fun SelectLyricFromTrack(
                                 if (showlyricsthumbnail) {
                                     BasicText(
                                         text = if (lyricsKaraokeEnabled && index == synchronizedLyrics.index) {
-                                            karaokeAnnotatedString(
+                                            timedKaraokeWords?.let { words ->
+                                                wordKaraokeAnnotatedString(
+                                                    text = translatedText,
+                                                    words = words,
+                                                    positionMs = karaokePosition,
+                                                    fallbackProgress = karaokeProgress,
+                                                    activeColor = colorPalette().accent,
+                                                    inactiveColor = PureBlackColorPalette.textDisabled
+                                                )
+                                            } ?: karaokeAnnotatedString(
                                                 text = translatedText,
                                                 progress = karaokeProgress,
                                                 activeColor = colorPalette().accent,
@@ -2203,7 +2564,16 @@ fun SelectLyricFromTrack(
                                 else if ((lyricsColor == LyricsColor.White) || (lyricsColor == LyricsColor.Black) || (lyricsColor == LyricsColor.Accent) || (lyricsColor == LyricsColor.Thememode)) {
                                     BasicText(
                                         text = if (lyricsKaraokeEnabled && index == synchronizedLyrics.index) {
-                                            karaokeAnnotatedString(
+                                            timedKaraokeWords?.let { words ->
+                                                wordKaraokeAnnotatedString(
+                                                    text = translatedText,
+                                                    words = words,
+                                                    positionMs = karaokePosition,
+                                                    fallbackProgress = karaokeProgress,
+                                                    activeColor = colorPalette().accent,
+                                                    inactiveColor = colorPalette().textSecondary.copy(alpha = 0.46f)
+                                                )
+                                            } ?: karaokeAnnotatedString(
                                                 text = translatedText,
                                                 progress = karaokeProgress,
                                                 activeColor = colorPalette().accent,
@@ -2271,10 +2641,33 @@ fun SelectLyricFromTrack(
                                 }
                                 else
                                     BasicText(
-                                        text = translatedText,
+                                        text = if (lyricsKaraokeEnabled && index == synchronizedLyrics.index) {
+                                            timedKaraokeWords?.let { words ->
+                                                wordKaraokeAnnotatedString(
+                                                    text = translatedText,
+                                                    words = words,
+                                                    positionMs = karaokePosition,
+                                                    fallbackProgress = karaokeProgress,
+                                                    activeColor = colorPalette().accent,
+                                                    inactiveColor = colorPalette().textSecondary.copy(alpha = 0.46f)
+                                                )
+                                            } ?: karaokeAnnotatedString(
+                                                text = translatedText,
+                                                progress = karaokeProgress,
+                                                activeColor = colorPalette().accent,
+                                                inactiveColor = colorPalette().textSecondary.copy(alpha = 0.46f)
+                                            )
+                                        } else {
+                                            AnnotatedString(translatedText)
+                                        },
                                         style = TextStyle(
-                                            brush = if (lyricsKaraokeEnabled && index == synchronizedLyrics.index) karaokeBrush
-                                            else if (lightTheme) brushrainbow else brushrainbowdark,
+                                            brush = if (lyricsKaraokeEnabled && index == synchronizedLyrics.index) {
+                                                null
+                                            } else if (lightTheme) {
+                                                brushrainbow
+                                            } else {
+                                                brushrainbowdark
+                                            },
                                             fontSize = if (fontSize == LyricsFontSize.Light) typography().m.fontSize
                                                        else if (fontSize == LyricsFontSize.Medium) typography().l.fontSize
                                                        else if (fontSize == LyricsFontSize.Heavy) typography().xl.fontSize
@@ -2292,8 +2685,8 @@ fun SelectLyricFromTrack(
                                                     transformOrigin = if (lyricsAlignment == LyricsAlignment.Center) TransformOrigin(0.5f,0.5f)
                                                     else if (lyricsAlignment == LyricsAlignment.Left) TransformOrigin(0f,0.5f)
                                                     else TransformOrigin(1f,0.5f)
-                                                    scaleY = if (index == synchronizedLyrics.index) 1.1f else 0.9f
-                                                    scaleX = if (index == synchronizedLyrics.index) 1.1f else 0.9f
+                                                    scaleY = if (lyricsKaraokeEnabled) 1f else if (index == synchronizedLyrics.index) 1.1f else 0.9f
+                                                    scaleX = if (lyricsKaraokeEnabled) 1f else if (index == synchronizedLyrics.index) 1.1f else 0.9f
                                                 }
                                             }
                                             .graphicsLayer{
@@ -2345,6 +2738,15 @@ fun SelectLyricFromTrack(
                                          }
                                  )*/
 
+                                }
+                                instrumentalIntervalStart?.let { startMs ->
+                                    KaraokeInstrumentalInterval(
+                                        startMs = startMs,
+                                        endMs = instrumentalEndMs,
+                                        positionMs = karaokePosition,
+                                        color = colorPalette().accent,
+                                    )
+                                }
                             }
                         }
                         item(key = "footer", contentType = 0) {
@@ -2356,7 +2758,7 @@ fun SelectLyricFromTrack(
                     if (showSecondLine || translateEnabled || romanization != Romanization.Off) {
                         val mutState = remember { mutableStateOf("") }
                         translateLyricsWithRomanization(mutState, text, false, languageDestination)()
-                        translatedText = mutState.value
+                        translatedText = mutState.value.takeIf { it.isNotBlank() } ?: text
                     } else {
                         translatedText = text
                     }
@@ -2595,7 +2997,7 @@ fun SelectLyricFromTrack(
                 }
             }
 
-            if ((text == null && !isError) || showPlaceholder) {
+            if (text == null && !isError) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
@@ -3162,6 +3564,9 @@ fun SelectLyricFromTrack(
                                                 enabled = true,
                                                 onClick = {
                                                     menuState.hide()
+                                                    if (!lyricsKaraokeEnabled) {
+                                                        checkedBetterLyricsKaraoke = false
+                                                    }
                                                     lyricsKaraokeEnabled = !lyricsKaraokeEnabled
                                                 }
                                             )
@@ -3337,6 +3742,7 @@ fun SelectLyricFromTrack(
                                             onClick = {
                                                 menuState.hide()
                                                 Database.asyncTransaction {
+                                                    ensureSongInserted()
                                                     lyricsTable.upsert(
                                                         Lyrics(
                                                             songId = mediaId,

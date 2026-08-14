@@ -89,11 +89,12 @@ import it.fast4x.innertube.utils.from
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import timber.log.Timber
 
-private const val CHUNK_LENGTH = 512 * 1024L     // 512Kb
+private const val CHUNK_LENGTH = 8 * 1024 * 1024L // ArchiveTune-sized range; usually one request per song
 private const val STREAM_RESOLVE_RETRIES = 2
 private const val FORMAT_CACHE_EXPIRY_SAFETY_MS = 30_000L
 private const val INNERTUBE_CLIENT_TIMEOUT_MS = 10_000L
 private const val STREAM_CLIENT_FAILURE_BACKOFF_MS = 10 * 60 * 1000L
+private const val STREAM_CLIENT_REJECTION_WINDOW_MS = 2 * 60 * 1000L
 private const val LAST_SUCCESSFUL_YT_CLIENT_AUTH_KEY = "last_successful_yt_client_auth"
 private const val LAST_SUCCESSFUL_YT_CLIENT_NOAUTH_KEY = "last_successful_yt_client_noauth"
 
@@ -101,14 +102,19 @@ private val formatCache = mutableMapOf<String, Uri>()
 private val formatCacheLock = Any()
 private val forceFormatResolveIds = mutableSetOf<String>()
 private val failedStreamClientsUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
+private val streamClientPlaybackRejections = java.util.concurrent.ConcurrentHashMap<String, Long>()
 private val sessionRecoveryLock = Any()
 private var lastSessionRecoveryMs = 0L
 private var playbackAuthQuarantinedUntilMs = 0L
 
 private val FALLBACK_CLIENTS = listOf(
     YouTubeClient.IOS,
+    YouTubeClient.VISIONOS,
+    YouTubeClient.IOS_MUSIC,
     YouTubeClient.MOBILE,
     YouTubeClient.ANDROID_MUSIC,
+    YouTubeClient.ANDROID_TESTSUITE,
+    YouTubeClient.ANDROID_UNPLUGGED,
     YouTubeClient.ANDROID_VR_NO_AUTH,
     YouTubeClient.ANDROID_VR_1_61_48,
     YouTubeClient.ANDROID_VR_1_43_32,
@@ -981,6 +987,7 @@ internal suspend fun findReplacementVideoId(
     videoId: String,
     titleHint: String? = null,
     artistHint: String? = null,
+    durationHint: String? = null,
     excludedVideoIds: Set<String> = emptySet(),
 ): String? {
     val excludedIds = excludedVideoIds + videoId
@@ -989,66 +996,122 @@ internal suspend fun findReplacementVideoId(
     if (title.isBlank()) return null
 
     val artists = (song?.artistsText ?: artistHint)
-        ?.split(",")
+        ?.split(Regex("\\s*(?:,|&|/|\\bfeat\\.?\\b|\\bft\\.?\\b)\\s*", RegexOption.IGNORE_CASE))
         ?.map { cleanPrefix(it).trim() }
         ?.filter { it.isNotBlank() }
         .orEmpty()
+    val expectedDurationSeconds = parseReplacementDurationSeconds(
+        song?.durationText ?: durationHint
+    )
 
     val queries = buildList {
-        add(title)
         artists.firstOrNull()?.let { add("$title $it") }
         if (artists.size > 1) {
             add((listOf(title) + artists.take(2)).joinToString(" "))
         }
+        add(title)
     }.distinct()
 
     fun normalizeMatchText(value: String): String =
         cleanPrefix(value)
             .lowercase()
-            .replace(Regex("\\b(official|music video|video|audio|lyrics|visualizer|topic|vevo|hd|4k)\\b"), " ")
+            .replace(Regex("\\b(official|music video|official video|official audio|video|audio|lyrics|lyric video|visualizer|topic|vevo|hd|4k)\\b"), " ")
             .replace(Regex("[^a-z0-9]+"), " ")
             .trim()
             .replace(Regex("\\s+"), " ")
 
-    fun scoreCandidate(candidateTitle: String, candidateArtist: String): Int {
+    val versionMarkers = listOf(
+        "acoustic",
+        "cover",
+        "demo",
+        "edit",
+        "extended",
+        "instrumental",
+        "karaoke",
+        "live",
+        "nightcore",
+        "remaster",
+        "remastered",
+        "remix",
+        "reverb",
+        "slowed",
+        "sped up",
+    )
+
+    fun hasVersionMarker(value: String, marker: String): Boolean =
+        Regex("(?:^|\\s)${Regex.escape(marker)}(?:$|\\s)").containsMatchIn(value)
+
+    fun tokenCoverage(expected: String, candidate: String): Float {
+        val expectedTokens = expected.split(' ').filter { it.length > 1 }.toSet()
+        if (expectedTokens.isEmpty()) return 0f
+        val candidateTokens = candidate.split(' ').filter { it.length > 1 }.toSet()
+        return expectedTokens.intersect(candidateTokens).size.toFloat() / expectedTokens.size
+    }
+
+    fun scoreCandidate(
+        candidateTitle: String,
+        candidateArtist: String,
+        candidateDurationText: String?,
+    ): Int? {
         val expectedTitle = normalizeMatchText(title)
         val expectedArtists = artists.map(::normalizeMatchText).filter { it.isNotBlank() }
         val normalizedCandidateTitle = normalizeMatchText(candidateTitle)
         val normalizedCandidateArtist = normalizeMatchText(candidateArtist)
 
-        if (normalizedCandidateTitle.isBlank()) return Int.MIN_VALUE
+        if (normalizedCandidateTitle.isBlank()) return null
         if (
-            normalizedCandidateTitle.contains("mix") ||
-            normalizedCandidateTitle.contains("playlist") ||
-            normalizedCandidateTitle.contains("full album")
-        ) return Int.MIN_VALUE
+            Regex("\\b(mix|playlist|full album|compilation)\\b")
+                .containsMatchIn(normalizedCandidateTitle)
+        ) return null
 
-        var score = 0
-        if (normalizedCandidateTitle == expectedTitle) score += 120
-        else if (
+        val versionMismatch = versionMarkers.any { marker ->
+            hasVersionMarker(expectedTitle, marker) !=
+                hasVersionMarker(normalizedCandidateTitle, marker)
+        }
+        if (versionMismatch) return null
+
+        val titleExact = normalizedCandidateTitle == expectedTitle
+        val titleContained =
             normalizedCandidateTitle.contains(expectedTitle) ||
-            expectedTitle.contains(normalizedCandidateTitle)
-        ) score += 80
-        else {
-            val expectedTokens = expectedTitle.split(" ").filter { it.length > 1 }.toSet()
-            val candidateTokens = normalizedCandidateTitle.split(" ").filter { it.length > 1 }.toSet()
-            score += expectedTokens.intersect(candidateTokens).size * 18
+                expectedTitle.contains(normalizedCandidateTitle)
+        val expectedCoverage = tokenCoverage(expectedTitle, normalizedCandidateTitle)
+        val candidateCoverage = tokenCoverage(normalizedCandidateTitle, expectedTitle)
+        if (!titleExact && !titleContained && (expectedCoverage < 0.85f || candidateCoverage < 0.75f)) {
+            return null
         }
 
-        expectedArtists.forEach { artist ->
-            if (artist == normalizedCandidateArtist) score += 70
-            else if (
-                normalizedCandidateArtist.contains(artist) ||
-                artist.contains(normalizedCandidateArtist)
-            ) score += 45
-            else {
-                val artistTokens = artist.split(" ").filter { it.length > 1 }.toSet()
-                val candidateArtistTokens = normalizedCandidateArtist.split(" ").filter { it.length > 1 }.toSet()
-                score += artistTokens.intersect(candidateArtistTokens).size * 14
+        val artistMatches = expectedArtists.isEmpty() || expectedArtists.any { expectedArtist ->
+            expectedArtist == normalizedCandidateArtist ||
+                (
+                    expectedArtist.length >= 4 &&
+                        normalizedCandidateArtist.length >= 4 &&
+                        (
+                            normalizedCandidateArtist.contains(expectedArtist) ||
+                                expectedArtist.contains(normalizedCandidateArtist)
+                            )
+                    ) ||
+                (
+                    tokenCoverage(expectedArtist, normalizedCandidateArtist) >= 0.8f &&
+                        tokenCoverage(normalizedCandidateArtist, expectedArtist) >= 0.65f
+                    )
+        }
+        if (!artistMatches || (expectedArtists.isNotEmpty() && normalizedCandidateArtist.isBlank())) {
+            return null
+        }
+        if (expectedArtists.isEmpty() && expectedDurationSeconds == null) return null
+
+        val candidateDurationSeconds = parseReplacementDurationSeconds(candidateDurationText)
+        if (expectedDurationSeconds != null) {
+            if (candidateDurationSeconds == null) return null
+            val durationToleranceSeconds = maxOf(8, (expectedDurationSeconds * 0.04f).toInt())
+            if (kotlin.math.abs(candidateDurationSeconds - expectedDurationSeconds) > durationToleranceSeconds) {
+                return null
             }
         }
 
-        return score
+        return (if (titleExact) 120 else if (titleContained) 95 else 80) +
+            (if (expectedArtists.isEmpty()) 0 else 70) +
+            (if (expectedDurationSeconds == null) 0 else 30)
     }
 
     suspend fun searchReplacement(filter: SearchFilter): String? {
@@ -1079,15 +1142,20 @@ internal suspend fun findReplacementVideoId(
                     is Innertube.VideoItem -> item.authors?.joinToString(", ") { it.name.orEmpty() }.orEmpty()
                     else -> ""
                 }
-                val score = scoreCandidate(candidateTitle, candidateArtist)
+                val candidateDuration = when (item) {
+                    is Innertube.SongItem -> item.durationText
+                    is Innertube.VideoItem -> item.durationText
+                    else -> null
+                }
+                val score = scoreCandidate(candidateTitle, candidateArtist, candidateDuration)
+                    ?: return@forEach
                 if (score > (bestCandidate?.second ?: Int.MIN_VALUE)) {
                     bestCandidate = item.key to score
                 }
             }
         }
 
-        val minimumScore = if (filter == SearchFilter.Song) 80 else 65
-        return bestCandidate?.takeIf { it.second >= minimumScore }?.first
+        return bestCandidate?.first
     }
 
     fun searchOmadaReplacement(): String? {
@@ -1115,8 +1183,11 @@ internal suspend fun findReplacementVideoId(
 
                     val score = scoreCandidate(
                         candidateTitle = item.optString("title"),
-                        candidateArtist = item.optString("author")
-                    )
+                        candidateArtist = item.optString("author"),
+                        candidateDurationText = sequenceOf("durationText", "duration", "lengthText")
+                            .map(item::optString)
+                            .firstOrNull { it.isNotBlank() },
+                    ) ?: continue
                     if (score > (bestCandidate?.second ?: Int.MIN_VALUE)) {
                         bestCandidate = candidateVideoId to score
                     }
@@ -1124,12 +1195,56 @@ internal suspend fun findReplacementVideoId(
             }
         }
 
-        return bestCandidate?.takeIf { it.second >= 60 }?.first
+        return bestCandidate?.first
     }
 
     return searchReplacement(SearchFilter.Song)
         ?: searchReplacement(SearchFilter.Video)
         ?: searchOmadaReplacement()
+}
+
+/**
+ * Download recovery is deliberately stricter than playback recovery. A downloaded file is
+ * persistent, so an alternative source is only acceptable when the original row has enough
+ * identity data to reject similarly named songs, covers, live versions, and duration changes.
+ */
+internal suspend fun findDownloadReplacementVideoId(
+    videoId: String,
+    excludedVideoIds: Set<String> = emptySet(),
+): String? {
+    val song = Database.songTable.findById(videoId).first() ?: return null
+    val title = cleanPrefix(song.title).trim()
+    val artist = song.artistsText?.trim().orEmpty()
+    val duration = song.durationText?.trim().orEmpty()
+
+    if (
+        title.isBlank() ||
+        artist.isBlank() ||
+        parseReplacementDurationSeconds(duration) == null
+    ) {
+        Timber.w(
+            "Download source recovery skipped for %s because exact identity metadata is incomplete",
+            videoId,
+        )
+        return null
+    }
+
+    return findReplacementVideoId(
+        videoId = videoId,
+        titleHint = title,
+        artistHint = artist,
+        durationHint = duration,
+        excludedVideoIds = excludedVideoIds,
+    )
+}
+
+private fun parseReplacementDurationSeconds(value: String?): Int? {
+    val rawParts = value?.trim()?.split(':') ?: return null
+    val parts = rawParts.map { part -> part.toIntOrNull() ?: return null }
+    if (parts.isEmpty() || parts.size > 3) return null
+
+    return parts.fold(0) { total, part -> total * 60 + part }
+        .takeIf { it > 0 }
 }
 //</editor-fold>
 
@@ -1150,22 +1265,13 @@ private fun isStreamClientTemporarilyBlocked(videoId: String, clientName: String
 private fun clearFailedStreamClients(videoId: String) {
     val prefix = "$videoId:"
     failedStreamClientsUntil.keys.removeIf { it.startsWith(prefix) }
+    streamClientPlaybackRejections.keys.removeIf { it.startsWith(prefix) }
 }
 
 /**
- * Blocks [clientName] from being retried for [videoId] for [STREAM_CLIENT_FAILURE_BACKOFF_MS].
- *
- * This is the single source of truth for "don't bother retrying this client for this
- * video right now" and is intentionally callable both:
- *  - after a stream URL was rejected during actual playback (see [markStreamClientFailed]), and
- *  - the moment a client fails to even *resolve* a playable URL (bad player response,
- *    no playable formats, cipher/signature deobfuscation failure, failed validation, etc).
- *
- * Previously only the first case was covered, which meant a client that is structurally
- * broken for a given video (e.g. its signature cipher can't be deciphered on this device)
- * got retried from scratch on every single resolve attempt - including every one of the
- * [STREAM_RESOLVE_RETRIES] internal retries and every external retry from the player
- * service - burning a full [INNERTUBE_CLIENT_TIMEOUT_MS] each time for no benefit.
+ * Blocks a client immediately when it cannot resolve a playable URL. Actual CDN rejection is
+ * handled separately so a single expired or stale URL gets one fresh resolution before its
+ * otherwise-working client is excluded.
  */
 private fun markStreamClientFailedByName(videoId: String, clientName: String) {
     if (clientName.isBlank()) return
@@ -1173,25 +1279,56 @@ private fun markStreamClientFailedByName(videoId: String, clientName: String) {
         System.currentTimeMillis() + STREAM_CLIENT_FAILURE_BACKOFF_MS
 }
 
-private fun markStreamClientFailed(videoId: String, uri: Uri) {
-    val clientName = uri.getQueryParameter("c")?.trim().orEmpty()
+private fun registerStreamClientPlaybackRejection(videoId: String, clientName: String) {
     if (clientName.isBlank()) return
+
+    val key = failedStreamClientKey(videoId, clientName)
+    val now = System.currentTimeMillis()
+    val firstRejectionAt = streamClientPlaybackRejections[key]
+
+    if (
+        firstRejectionAt == null ||
+        now - firstRejectionAt > STREAM_CLIENT_REJECTION_WINDOW_MS
+    ) {
+        streamClientPlaybackRejections[key] = now
+        Timber.w(
+            "Refreshing rejected Innertube client %s once before temporary exclusion for %s",
+            clientName,
+            videoId
+        )
+        return
+    }
+
+    streamClientPlaybackRejections.remove(key)
     markStreamClientFailedByName(videoId, clientName)
-    Timber.w("Temporarily blocked Innertube client %s for %s after playback rejection", clientName, videoId)
+    Timber.w(
+        "Temporarily blocked Innertube client %s for %s after repeated playback rejection",
+        clientName,
+        videoId
+    )
 }
+
+private fun Uri.streamClientName(): String? =
+    getQueryParameter("c")?.trim()?.takeIf { it.isNotBlank() }
+
 private fun formatCacheKey(
     videoId: String,
     audioQualityFormat: AudioQualityFormat,
     connectionMetered: Boolean
 ): String = "$videoId:${audioQualityFormat.name}:$connectionMetered"
 
-fun invalidateFormatCache(videoId: String? = null, markClientFailed: Boolean = false) {
+fun invalidateFormatCache(
+    videoId: String? = null,
+    markClientFailed: Boolean = false,
+    rejectedUri: Uri? = null,
+) {
     synchronized(formatCacheLock) {
         if (videoId.isNullOrBlank()) {
             val count = formatCache.size
             formatCache.clear()
             forceFormatResolveIds.clear()
             failedStreamClientsUntil.clear()
+            streamClientPlaybackRejections.clear()
             Timber.w("Cleared all cached stream URLs (%d entries)", count)
         } else {
             val prefix = "$videoId:"
@@ -1199,7 +1336,12 @@ fun invalidateFormatCache(videoId: String? = null, markClientFailed: Boolean = f
                 .filter { it.startsWith(prefix) }
                 .mapNotNull { formatCache.remove(it) }
             if (markClientFailed) {
-                removedUris.forEach { markStreamClientFailed(videoId, it) }
+                val rejectedClients = mutableSetOf<String>()
+                rejectedUri?.streamClientName()?.let(rejectedClients::add)
+                removedUris.mapNotNullTo(rejectedClients) { it.streamClientName() }
+                rejectedClients.forEach { clientName ->
+                    registerStreamClientPlaybackRejection(videoId, clientName)
+                }
             }
             forceFormatResolveIds.add(videoId)
             if (removedUris.isNotEmpty()) {
@@ -1462,23 +1604,35 @@ fun MyDownloadHelper.createDataSourceFactory(): DataSource.Factory {
     val upstreamFactory = appContext().okHttpDataSourceFactory
 
     val resolvingDataSourceFactory = ResolvingDataSource.Factory(upstreamFactory) { dataSpec ->
-        val videoId = dataSpec.uri.toString().substringAfter("watch?v=")
+        val sourceVideoId = dataSpec.uri.getQueryParameter("v")
+            ?.takeIf { it.isYouTubeVideoId() }
+            ?: dataSpec.uri.toString().substringAfter("watch?v=").substringBefore('&')
+        val downloadId = dataSpec.key
+            ?.takeIf { it.isYouTubeVideoId() }
+            ?: sourceVideoId
         
-        CoroutineScope(Threads.DATASPEC_DISPATCHER).launch { upsertSongInfo(videoId) }
+        CoroutineScope(Threads.DATASPEC_DISPATCHER).launch { upsertSongInfo(downloadId) }
 
         runCatching {
             dataSpec.process(
-                videoId = videoId,
+                videoId = sourceVideoId,
                 audioQualityFormat = audioQualityFormat,
                 connectionMetered = appContext().isConnectionMetered(),
                 chunkedPlayback = false,
                 useCachedFormatUrl = false
             )
                 .buildUpon()
-                .setKey(videoId)
+                // A recovered source may use another video ID, but DownloadManager and the
+                // cache must continue to own the original song identity.
+                .setKey(downloadId)
                 .build()
         }.onFailure {
-            Timber.e(it, "Failed to resolve download DataSpec for %s.", videoId)
+            Timber.e(
+                it,
+                "Failed to resolve download DataSpec for %s (source=%s).",
+                downloadId,
+                sourceVideoId,
+            )
         }.getOrThrow()
     }
 

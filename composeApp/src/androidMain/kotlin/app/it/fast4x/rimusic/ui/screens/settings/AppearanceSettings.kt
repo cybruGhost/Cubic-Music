@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,7 @@ import app.it.fast4x.rimusic.enums.IconLikeType
 import app.it.fast4x.rimusic.enums.MiniPlayerType
 import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.NotificationButtons
+import app.it.fast4x.rimusic.enums.NotificationColorMode
 import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
 import app.it.fast4x.rimusic.enums.PlayerControlsType
 import app.it.fast4x.rimusic.enums.PlayerInfoType
@@ -46,6 +48,7 @@ import app.it.fast4x.rimusic.enums.PlayerThumbnailSize
 import app.it.fast4x.rimusic.enums.PlayerTimelineSize
 import app.it.fast4x.rimusic.enums.PlayerTimelineType
 import app.it.fast4x.rimusic.enums.PlayerType
+import app.it.fast4x.rimusic.enums.PlayerSurfaceStyle
 import app.it.fast4x.rimusic.enums.PrevNextSongs
 import app.it.fast4x.rimusic.enums.QueueType
 import app.it.fast4x.rimusic.enums.SongsNumber
@@ -92,9 +95,12 @@ import app.it.fast4x.rimusic.utils.miniPlayerTypeKey
 import app.it.fast4x.rimusic.utils.miniQueueExpandedKey
 import app.it.fast4x.rimusic.utils.navigationBarPositionKey
 import app.it.fast4x.rimusic.utils.noblurKey
+import app.it.fast4x.rimusic.utils.notificationColorModeKey
+import app.it.fast4x.rimusic.utils.notificationCustomColorKey
 import app.it.fast4x.rimusic.utils.notificationPlayerFirstIconKey
 import app.it.fast4x.rimusic.utils.notificationPlayerSecondIconKey
 import app.it.fast4x.rimusic.utils.playerBackgroundColorsKey
+import app.it.fast4x.rimusic.utils.playerSurfaceStyleKey
 import app.it.fast4x.rimusic.utils.playerControlsTypeKey
 import app.it.fast4x.rimusic.utils.playerEnableLyricsPopupMessageKey
 import app.it.fast4x.rimusic.utils.playerInfoShowIconsKey
@@ -177,62 +183,48 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Updated FunctionalPresetChip with selection indicators (glow + underline)
+// Compact preset preview with a persistent selected-state marker.
 @Composable
 fun FunctionalPresetChip(
     colors: List<Color>,
     label: String,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
-            .width(56.dp)
-            .height(42.dp) // Increased height for underline
+            .width(96.dp)
+            .height(56.dp)
             .background(
                 brush = Brush.linearGradient(colors),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(8.dp),
             )
             .border(
                 width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) 
-                    Color.White 
-                    else Color.White.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .shadow(
-                elevation = if (isSelected) 10.dp else 0.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = colors[0].copy(alpha = 0.7f),
-                spotColor = colors[0].copy(alpha = 0.7f)
+                color = if (isSelected) colorPalette().accent else Color.White.copy(alpha = 0.22f),
+                shape = RoundedCornerShape(8.dp),
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
         ) {
             BasicText(
                 text = label,
-                style = typography().s.semiBold.copy(
-                    color = Color.White
-                ),
-                maxLines = 1
+                style = typography().s.semiBold.copy(color = Color.White),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            
-            // Underline indicator for selected preset
             if (isSelected) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
-                        .width(24.dp)
+                        .width(28.dp)
                         .height(2.dp)
-                        .background(
-                            color = Color.White,
-                            shape = RoundedCornerShape(1.dp)
-                        )
+                        .background(colorPalette().accent, RoundedCornerShape(1.dp)),
                 )
             }
         }
@@ -240,6 +232,11 @@ fun FunctionalPresetChip(
 }
 @Composable
 fun DefaultAppearanceSettings() {
+    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
+    colorPaletteName = ColorPaletteName.Default
+    var colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
+    colorPaletteMode = ColorPaletteMode.Dark
+
     var isShowingThumbnailInLockscreen by rememberPreference(
         isShowingThumbnailInLockscreenKey,
         true
@@ -591,6 +588,9 @@ fun AppearanceSettings(
 
     var notificationPlayerFirstIcon by rememberPreference(notificationPlayerFirstIconKey, NotificationButtons.Download)
     var notificationPlayerSecondIcon by rememberPreference(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
+    var notificationColorMode by rememberPreference(notificationColorModeKey, NotificationColorMode.Automatic)
+    var notificationCustomColor by rememberPreference(notificationCustomColorKey, 0xFFFFFFFF.toInt())
+    var playerSurfaceStyle by rememberPreference(playerSurfaceStyleKey, PlayerSurfaceStyle.Standard)
     var enableWallpaper by rememberPreference(enableWallpaperKey, false)
     var wallpaperType by rememberPreference(wallpaperTypeKey, WallpaperType.Lockscreen)
     var topPadding by rememberPreference(topPaddingKey, true)
@@ -654,8 +654,8 @@ fun AppearanceSettings(
         var thumbnailFadeEx  by rememberPreference(thumbnailFadeExKey, 5f)
         var thumbnailFade  by rememberPreference(thumbnailFadeKey, 5f)
         var thumbnailSpacing  by rememberPreference(thumbnailSpacingKey, 0f)
-        var selectedPresetIndex by remember { mutableStateOf(-1) }
-        var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+        var selectedPresetIndex by rememberPreference("selectedAppearancePresetIndex", -1)
+        var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
         var colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
         var swipeAnimationNoThumbnail by rememberPreference(swipeAnimationsNoThumbnailKey, SwipeAnimationNoThumbnail.Sliding)
 
@@ -935,109 +935,64 @@ fun AppearanceSettings(
             )
         }
         
-if (!isLandscape) {
-    // Enhanced Appearance Presets Selector with FUNCTIONAL presets
+        if (search.inputValue.isBlank() || stringResource(R.string.player_surface_style).contains(
+                search.inputValue,
+                true
+            )
+        )
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.player_surface_style),
+                text = stringResource(
+                    when (playerSurfaceStyle) {
+                        PlayerSurfaceStyle.Standard -> R.string.player_surface_standard_description
+                        PlayerSurfaceStyle.Liquid -> R.string.player_surface_liquid_description
+                        PlayerSurfaceStyle.FuckSpotify -> R.string.player_surface_fuck_spotify_description
+                    }
+                ),
+                selectedValue = playerSurfaceStyle,
+                onValueSelected = { playerSurfaceStyle = it },
+                valueText = { it.text }
+            )
+
+if (!isLandscape &&
+    playerSurfaceStyle == PlayerSurfaceStyle.Standard &&
+    (search.inputValue.isBlank() || stringResource(R.string.appearancepresets).contains(search.inputValue, true))
+) {
+    // Standard-player presets stay separate from Liquid and Fuck Spotify surfaces.
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                color = colorPalette().background1,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .border(
-                width = 1.dp,
-                color = colorPalette().accent.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .padding(vertical = 4.dp)
+            .padding(top = 8.dp, bottom = 4.dp)
     ) {
-        // Header - clickable to open dialog
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { appearanceChooser = true }
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                // Main title with accent color
                 BasicText(
                     text = stringResource(R.string.appearancepresets),
-                    style = typography().l.semiBold.copy(
-                        color = colorPalette().accent
-                    )
+                    style = typography().l.semiBold.copy(color = colorPalette().text),
                 )
-                
-                // Secondary description
                 BasicText(
                     text = stringResource(R.string.appearancepresetssecondary),
-                    style = typography().s.semiBold.copy(
-                        color = colorPalette().textSecondary
-                    )
+                    style = typography().xs.copy(color = colorPalette().textSecondary),
+                    maxLines = 2,
                 )
-                
-                // Visual indicator of presets count
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    listOf(
-                        colorPalette().accent,
-                        colorPalette().accent.copy(alpha = 0.7f),
-                        colorPalette().accent.copy(alpha = 0.4f)
-                    ).forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .background(
-                                    color = color,
-                                    shape = CircleShape
-                                )
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    BasicText(
-                        text = "6 ${stringResource(R.string.appearancepresets)}",
-                        style = typography().xs.semiBold.copy(
-                            color = colorPalette().textSecondary
-                        )
-                    )
-                }
             }
-            
-            // Enhanced arrow with layered background
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = colorPalette().accent.copy(alpha = 0.15f),
-                        shape = CircleShape
-                    )
-                    .size(48.dp)
-                    .clickable { appearanceChooser = true },
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = colorPalette().accent.copy(alpha = 0.25f),
-                            shape = CircleShape
-                        )
-                        .size(40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.arrow_forward),
-                        contentDescription = stringResource(R.string.appearancepresets),
-                        modifier = Modifier.size(22.dp),
-                        tint = colorPalette().accent
-                    )
-                }
-            }
+            Icon(
+                painter = painterResource(id = R.drawable.arrow_forward),
+                contentDescription = stringResource(R.string.appearancepresets),
+                modifier = Modifier.size(20.dp),
+                tint = colorPalette().accent,
+            )
         }
-        
         // Horizontal scrollable row for preset chips
         Column(
             modifier = Modifier
@@ -1057,10 +1012,11 @@ if (!isLandscape) {
                         colorPalette().accent,
                         colorPalette().accent.copy(alpha = 0.7f)
                     ),
-                    label = stringResource(R.string.preset_classic).take(3),
+                    label = stringResource(R.string.preset_classic),
                     isSelected = selectedPresetIndex == 0,
                     onClick = {
                         selectedPresetIndex = 0
+                        playerSurfaceStyle = PlayerSurfaceStyle.Standard
                         showTopActionsBar = true
                         showthumbnail = true
                         playerBackgroundColors = PlayerBackgroundColors.BlurredCoverColor
@@ -1092,10 +1048,11 @@ if (!isLandscape) {
                         colorPalette().text,
                         colorPalette().textSecondary
                     ),
-                    label = stringResource(R.string.preset_modern).take(3),
+                    label = stringResource(R.string.preset_modern),
                     isSelected = selectedPresetIndex == 1,
                     onClick = {
                         selectedPresetIndex = 1
+                        playerSurfaceStyle = PlayerSurfaceStyle.Standard
                         showTopActionsBar = true
                         showthumbnail = true
                         playerBackgroundColors = PlayerBackgroundColors.BlurredCoverColor
@@ -1130,10 +1087,11 @@ if (!isLandscape) {
                         colorPalette().background2,
                         colorPalette().background1
                     ),
-                    label = stringResource(R.string.preset_minimal).take(3),
+                    label = stringResource(R.string.preset_minimal),
                     isSelected = selectedPresetIndex == 2,
                     onClick = {
                         selectedPresetIndex = 2
+                        playerSurfaceStyle = PlayerSurfaceStyle.Standard
                         showTopActionsBar = false
                         showthumbnail = false
                         noblur = true
@@ -1164,10 +1122,11 @@ if (!isLandscape) {
                         Color.Black,
                         Color.DarkGray
                     ),
-                    label = stringResource(R.string.preset_dark_edge).take(3),
+                    label = stringResource(R.string.preset_dark_edge),
                     isSelected = selectedPresetIndex == 3,
                     onClick = {
                         selectedPresetIndex = 3
+                        playerSurfaceStyle = PlayerSurfaceStyle.Standard
                         showTopActionsBar = false
                         topPadding = false
                         showthumbnail = true
@@ -1202,10 +1161,11 @@ if (!isLandscape) {
                         Color(0xFF4158D0),
                         Color(0xFFC850C0)
                     ),
-                    label = stringResource(R.string.preset_gradient).take(3),
+                    label = stringResource(R.string.preset_gradient),
                     isSelected = selectedPresetIndex == 4,
                     onClick = {
                         selectedPresetIndex = 4
+                        playerSurfaceStyle = PlayerSurfaceStyle.Standard
                         showTopActionsBar = false
                         topPadding = true
                         showthumbnail = true
@@ -1241,10 +1201,11 @@ if (!isLandscape) {
                         Color(0xFFFF6B6B),
                         Color(0xFF4ECDC4)
                     ),
-                    label = stringResource(R.string.preset_vibrant).take(3),
+                    label = stringResource(R.string.preset_vibrant),
                     isSelected = selectedPresetIndex == 5,
                     onClick = {
                         selectedPresetIndex = 5
+                        playerSurfaceStyle = PlayerSurfaceStyle.Standard
                         showTopActionsBar = true
                         showthumbnail = true
                         playerBackgroundColors = PlayerBackgroundColors.CoverColorGradient
@@ -1313,6 +1274,8 @@ if (!isLandscape) {
                 },
                 valueText = { it.text },
             )
+
+
 
         if (search.inputValue.isBlank() || stringResource(R.string.queuetype).contains(
                 search.inputValue,
@@ -2588,6 +2551,27 @@ if (!isLandscape) {
                 },
                 valueText = { it.text },
             )
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.notification_color_mode),
+                text = stringResource(R.string.notification_color_mode_description),
+                selectedValue = notificationColorMode,
+                onValueSelected = {
+                    notificationColorMode = it
+                    restartService = true
+                },
+                valueText = { it.text }
+            )
+            if (notificationColorMode == NotificationColorMode.Custom) {
+                ColorSettingEntry(
+                    title = stringResource(R.string.notification_custom_color),
+                    text = stringResource(R.string.notification_custom_color_description),
+                    color = Color(notificationCustomColor),
+                    onColorSelected = {
+                        notificationCustomColor = it.toArgb()
+                        restartService = true
+                    }
+                )
+            }
             RestartPlayerService(restartService, onRestart = { restartService = false })
         }
 

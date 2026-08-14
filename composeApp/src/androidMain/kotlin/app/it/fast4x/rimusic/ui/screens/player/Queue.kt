@@ -72,7 +72,6 @@ import androidx.navigation.NavController
 import app.kreate.android.R
 import com.valentinilk.shimmer.shimmer
 import app.it.fast4x.compose.persist.persist
-import app.it.fast4x.compose.persist.persistList
 import app.it.fast4x.compose.reordering.draggedItem
 import app.it.fast4x.compose.reordering.rememberReorderingState
 import app.it.fast4x.compose.reordering.reorder
@@ -150,6 +149,7 @@ fun Queue(
             mutableStateOf(player.currentTimeline.mediaItems.map( MediaItem::asSong ))
         }
         var currentMediaId by remember { mutableStateOf(player.currentMediaItem?.mediaId.orEmpty()) }
+        var currentMediaIndex by remember { mutableStateOf(player.currentMediaItemIndex) }
         player.DisposableListener {
             object : Player.Listener {
                 override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -158,6 +158,7 @@ fun Queue(
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     currentMediaId = mediaItem?.mediaId.orEmpty()
+                    currentMediaIndex = player.currentMediaItemIndex
                 }
 
                 override fun onEvents(player: Player, events: Player.Events) {
@@ -167,6 +168,7 @@ fun Queue(
                         events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)
                     ) {
                         currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
+                        currentMediaIndex = player.currentMediaItemIndex
                         items = player.currentTimeline.mediaItems.map(MediaItem::asSong)
                     }
                 }
@@ -177,51 +179,50 @@ fun Queue(
                     reason: Int
                 ) {
                     currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
+                    currentMediaIndex = player.currentMediaItemIndex
                 }
             }
         }
-        var itemsOnDisplay by persistList<Song>( "queue/on_display" )
-        val nowPlayingSong by remember(items, currentMediaId) {
+        val nowPlayingSong by remember(items, currentMediaIndex, currentMediaId) {
             derivedStateOf {
-                val normalizedCurrent = currentMediaId.normalizedQueueSongId()
-                items.firstOrNull { it.id.normalizedQueueSongId() == normalizedCurrent }
+                items.getOrNull(currentMediaIndex) ?: run {
+                    val normalizedCurrent = currentMediaId.normalizedQueueSongId()
+                    items.firstOrNull { it.id.normalizedQueueSongId() == normalizedCurrent }
+                }
             }
         }
 
         val lazyListState = rememberLazyListState()
+        val search = Search(lazyListState)
+        val itemsOnDisplay = remember(items, currentMediaIndex, search.inputValue) {
+            items.mapIndexedNotNull { queueIndex, song ->
+                if (queueIndex == currentMediaIndex) return@mapIndexedNotNull null
+                val containsTitle = song.cleanTitle().contains(search.inputValue, true)
+                val containsArtist = song.cleanArtistsText().contains(search.inputValue, true)
+                if (containsTitle || containsArtist) queueIndex to song else null
+            }
+        }
         val reorderingState = rememberReorderingState(
             lazyListState = lazyListState,
-            key = items,
-            onDragEnd = player::moveMediaItem,
-            extraItemCount = 0
+            key = itemsOnDisplay.map { (queueIndex, song) -> "$queueIndex:${song.id}" },
+            onDragEnd = { fromDisplayIndex, toDisplayIndex ->
+                val fromQueueIndex = itemsOnDisplay.getOrNull(fromDisplayIndex)?.first
+                val toQueueIndex = itemsOnDisplay.getOrNull(toDisplayIndex)?.first
+                if (fromQueueIndex != null && toQueueIndex != null && fromQueueIndex != toQueueIndex) {
+                    player.moveMediaItem(fromQueueIndex, toQueueIndex)
+                }
+            },
+            extraItemCount = if (nowPlayingSong == null) 0 else 1,
         )
 
         val positionLock = remember { PositionLock() }
 
         val itemSelector = ItemSelector<Song>()
-        LaunchedEffect( itemSelector.isActive ) {
-            // Setting this field to true means disable it
-            if( itemSelector.isActive )
-                positionLock.isFirstIcon = true
+        LaunchedEffect(itemSelector.isActive) {
+            if (itemSelector.isActive) positionLock.isFirstIcon = true
         }
 
-        fun getSongs() = itemSelector.ifEmpty { items }
-
-        val search = Search(lazyListState)
-        LaunchedEffect( items, currentMediaId, search.inputValue ) {
-            items.filter {
-                    // Without cleaning, user can search explicit songs with "e:"
-                    // I kinda want this to be a feature, but it seems unnecessary
-                    val containsTitle = it.cleanTitle().contains( search.inputValue, true )
-                    val containsArtist = it.cleanArtistsText().contains( search.inputValue, true )
-
-                    containsTitle || containsArtist
-                }
-                .filterNot { song ->
-                    nowPlayingSong?.id == song.id
-                }
-                .let { itemsOnDisplay = it }
-        }
+        fun getSongs() = if (itemSelector.isActive) itemSelector.toList() else items
 
         val plistName = remember { mutableStateOf("") }
         val exportDialog = ExportSongsToCSVDialog(
@@ -283,12 +284,15 @@ fun Queue(
             } ?: -1
         }
 
-        fun playQueueSong(song: Song) {
-            if (player.isNowPlaying(song.id)) {
+        fun playQueueSong(song: Song, knownQueueIndex: Int? = null) {
+            val actualIndex = knownQueueIndex
+                ?.takeIf { it in 0 until player.mediaItemCount }
+                ?: queueIndexOf(song.id)
+            val isCurrentQueueEntry = actualIndex >= 0 && actualIndex == player.currentMediaItemIndex
+            if (isCurrentQueueEntry) {
                 if (player.shouldBePlaying) player.pause() else player.play()
                 return
             }
-            val actualIndex = queueIndexOf(song.id)
             if (actualIndex >= 0) {
                 player.seekToDefaultPosition(actualIndex)
                 player.prepare()
@@ -371,7 +375,7 @@ fun Queue(
                                 navController = navController,
                                 trailingContent = { Box(Modifier.width(24.dp)) },
                                 onClick = {
-                                    playQueueSong(song)
+                                    playQueueSong(song, currentMediaIndex)
                                     search.hideIfEmpty()
                                 }
                             )
@@ -380,8 +384,10 @@ fun Queue(
                 }
                 itemsIndexed(
                     items = itemsOnDisplay,
-                  key = { index, song -> "${song.id}-$index" }
-                ) { index, song ->
+                    key = { _, entry -> "queue_${entry.first}_${entry.second.id}" }
+                ) { displayIndex, entry ->
+                    val actualIndex = entry.first
+                    val song = entry.second
 
                     val isLocal by remember { derivedStateOf { song.isLocal } }
                     val isDownloaded = isLocal || isDownloadedSong(song.id)
@@ -390,11 +396,11 @@ fun Queue(
                         modifier = Modifier.fillMaxWidth()
                                            .draggedItem(
                                                reorderingState = reorderingState,
-                                               index = index
+                                               index = displayIndex
                                            )
                     ) {
                         // Drag anchor
-                        if ( !positionLock.isLocked() ) {
+                        if (!positionLock.isLocked() && search.inputValue.isBlank()) {
                             Box(
                                 modifier = Modifier.padding( end = 16.dp ) // Accommodate horizontal padding of SongItem
                                     .size( 24.dp )
@@ -410,7 +416,7 @@ fun Queue(
                                     onClick = {},
                                     modifier = Modifier.reorder(
                                         reorderingState = reorderingState,
-                                        index = index
+                                        index = displayIndex
                                     )
                                 )
                             }
@@ -421,7 +427,6 @@ fun Queue(
                             mediaItem = mediaItem,
                             onPlayNext = {
                                 val currentIndex = binder.player.currentMediaItemIndex
-                                val actualIndex = queueIndexOf(song.id)
                                 val targetIndex = (currentIndex + 1).coerceAtMost(binder.player.mediaItemCount - 1)
                                 if (actualIndex != targetIndex && actualIndex in 0 until binder.player.mediaItemCount) {
                                     binder.player.moveMediaItem(actualIndex, targetIndex)
@@ -447,7 +452,6 @@ fun Queue(
                                      To bypass it, pass another function that requires
                                      computation to extract data.
                                 */
-                                val actualIndex = queueIndexOf( song.id )
                                 if (actualIndex in 0 until player.mediaItemCount) {
                                     player.removeMediaItem( actualIndex )
                                     Toaster.s(
@@ -472,7 +476,7 @@ fun Queue(
                                         Box( Modifier.width( 24.dp ) )
                                 },
                                 onClick = {
-                                    playQueueSong(song)
+                                    playQueueSong(song, actualIndex)
 
                                     /*
                                         Due to the small size of checkboxes,

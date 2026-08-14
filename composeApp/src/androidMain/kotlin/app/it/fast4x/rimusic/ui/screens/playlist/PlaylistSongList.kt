@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
@@ -73,7 +74,7 @@ import androidx.compose.ui.util.fastFirst
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import app.kreate.android.R
-import app.cubic.android.core.coil.ImageCacheFactory
+import app.kreate.android.me.knighthat.coil.ImageCacheFactory
 import app.cubic.android.core.coil.resize
 import app.it.fast4x.compose.persist.persist
 import app.it.fast4x.compose.persist.persistList
@@ -985,10 +986,10 @@ fun PlaylistSongList(
                     }
                 }
 
-                items(
+                itemsIndexed(
                     items = playlistSongs,
-                    key = Innertube.SongItem::key
-                ) { ytSong ->
+                    key = { index, ytSong -> "${ytSong.key.ifBlank { "song" }}_$index" }
+                ) { _, ytSong ->
                     val isLocal by remember { derivedStateOf { ytSong.asMediaItem.isLocal } }
                     val isDownloaded = !isLocal && isDownloadedSong( ytSong.key )
 
@@ -1028,7 +1029,7 @@ fun PlaylistSongList(
                                                 ?.let { mediaItems ->
                                                     binder?.stopRadio()
                                                     PlaybackContextStore.set(
-                                                        "Playing from Playlist",
+                                                        context.getString(R.string.playing_from_playlist),
                                                         playlistPage?.playlist?.title.orEmpty()
                                                     )
                                                     binder?.player?.forcePlayAtIndex(

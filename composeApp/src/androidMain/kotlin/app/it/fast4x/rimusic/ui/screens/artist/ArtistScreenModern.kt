@@ -63,14 +63,16 @@ fun ArtistScreenModern(
     var selectedTabIndex by remember { mutableStateOf(0) }
 
     var localArtist: Artist? by remember { mutableStateOf( null ) }
-    LaunchedEffect( Unit ) {
+    LaunchedEffect( browseId ) {
         Database.artistTable
                 .findById( browseId )
                 .flowOn( Dispatchers.IO )
                 .collect { localArtist = it }
     }
     var artistPage: ArtistPage? by remember { mutableStateOf( null ) }
-    LaunchedEffect( Unit ) {
+    LaunchedEffect( browseId ) {
+        if (browseId.isBlank()) return@LaunchedEffect
+
         val session = YouTubeSessionStore.applyCurrentSession()
         val apiArtist = session
             ?.takeIf { it.cookie.isNotBlank() }

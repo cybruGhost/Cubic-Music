@@ -138,6 +138,35 @@ private data class WidgetPalette(
     @ColorInt val accLight:  Int,
 )
 
+private data class CachedWidgetPalette(
+    val path: String,
+    val lastModified: Long,
+    val palette: WidgetPalette,
+)
+
+private val widgetPaletteLock = Any()
+private var cachedWidgetPalette: CachedWidgetPalette? = null
+
+private fun paletteFor(file: File, bitmap: Bitmap?): WidgetPalette? {
+    if (bitmap == null) return null
+    val lastModified = file.lastModified()
+    synchronized(widgetPaletteLock) {
+        cachedWidgetPalette
+            ?.takeIf { cached ->
+                cached.path == file.absolutePath && cached.lastModified == lastModified
+            }
+            ?.let { cached -> return cached.palette }
+
+        return extractPalette(bitmap).also { palette ->
+            cachedWidgetPalette = CachedWidgetPalette(
+                path = file.absolutePath,
+                lastModified = lastModified,
+                palette = palette,
+            )
+        }
+    }
+}
+
 private fun FloatArray.setLightness(l: Float): FloatArray {
     this[2] = l.coerceIn(0f, 1f)
     return this
@@ -313,6 +342,92 @@ sealed class Widget : GlanceAppWidget() {
         )
     }
 
+    @Composable @GlanceComposable
+    protected fun TurntableControls(context: Context) {
+        val isPlaying = currentState(isPlayingKey) ?: false
+        val pkg = context.packageName
+
+        Column(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(10.dp),
+            horizontalAlignment = Alignment.Start,
+        ) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = GlanceModifier
+                        .background(dynPill())
+                        .cornerRadius(50.dp)
+                        .padding(horizontal = 7.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.play_skip_back),
+                        contentDescription = "Previous",
+                        modifier = GlanceModifier
+                            .size(18.dp)
+                            .clickable(
+                                actionSendBroadcast(
+                                    Intent(context, WidgetActionReceiver::class.java)
+                                        .setAction(ACTION_PREVIOUS)
+                                        .setPackage(pkg)
+                                )
+                            ),
+                    )
+                    Spacer(GlanceModifier.width(12.dp))
+                    Image(
+                        provider = ImageProvider(R.drawable.play_skip_forward),
+                        contentDescription = "Next",
+                        modifier = GlanceModifier
+                            .size(18.dp)
+                            .clickable(
+                                actionSendBroadcast(
+                                    Intent(context, WidgetActionReceiver::class.java)
+                                        .setAction(ACTION_NEXT)
+                                        .setPackage(pkg)
+                                )
+                            ),
+                    )
+                }
+            }
+
+            Spacer(GlanceModifier.defaultWeight())
+
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.Start,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = GlanceModifier
+                        .size(44.dp)
+                        .background(dynAcc())
+                        .cornerRadius(50.dp)
+                        .clickable(
+                            actionSendBroadcast(
+                                Intent(context, WidgetActionReceiver::class.java)
+                                    .setAction(if (isPlaying) ACTION_PAUSE else ACTION_PLAY)
+                                    .setPackage(pkg)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        provider = ImageProvider(if (isPlaying) R.drawable.pause else R.drawable.play),
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        modifier = GlanceModifier.size(21.dp),
+                    )
+                }
+            }
+        }
+    }
+
     /**
      * Transport pill.
      *
@@ -333,9 +448,7 @@ sealed class Widget : GlanceAppWidget() {
 
         Row(
             modifier = GlanceModifier
-                .background(dynPill())
-                .cornerRadius(50.dp)
-                .padding(horizontal = 12.dp, vertical = 7.dp),
+                .padding(horizontal = 2.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -353,11 +466,11 @@ sealed class Widget : GlanceAppWidget() {
                     )
             )
 
-            Spacer(GlanceModifier.width(6.dp))
+            Spacer(GlanceModifier.width(10.dp))
 
             Box(
                 modifier = GlanceModifier
-                    .size(42.dp)
+                    .size(40.dp)
                     .background(dynAcc())
                     .cornerRadius(50.dp)
                     .clickable(
@@ -376,7 +489,7 @@ sealed class Widget : GlanceAppWidget() {
                 )
             }
 
-            Spacer(GlanceModifier.width(6.dp))
+            Spacer(GlanceModifier.width(10.dp))
 
             Image(
                 provider = ImageProvider(R.drawable.play_skip_forward),
@@ -406,20 +519,22 @@ sealed class Widget : GlanceAppWidget() {
         status: Triple<String, String, Boolean>,
         bitmapFile: File
     ) {
-        val glanceId = GlanceAppWidgetManager(context)
-            .getGlanceIds(this::class.java).firstOrNull() ?: return
+        val glanceIds = GlanceAppWidgetManager(context)
+            .getGlanceIds(this::class.java)
+        if (glanceIds.isEmpty()) return
 
         val bmp = decodeFast(bitmapFile.absolutePath, maxDim = 128)
+        val palette = paletteFor(bitmapFile, bmp)
 
-        updateAppWidgetState(context, glanceId) { prefs ->
-            prefs[PREF_TITLE]       = cleanPrefix(status.first)
-            prefs[PREF_ARTIST]      = cleanPrefix(status.second)
-            prefs[PREF_PLAYING]     = status.third
-            prefs[PREF_BITMAP_PATH] = bitmapFile.absolutePath
-            prefs[PREF_THUMB_READY] = (bmp != null)
+        glanceIds.forEach { glanceId ->
+            updateAppWidgetState(context, glanceId) { prefs ->
+                prefs[PREF_TITLE]       = cleanPrefix(status.first)
+                prefs[PREF_ARTIST]      = cleanPrefix(status.second)
+                prefs[PREF_PLAYING]     = status.third
+                prefs[PREF_BITMAP_PATH] = bitmapFile.absolutePath
+                prefs[PREF_THUMB_READY] = (bmp != null)
 
-            if (bmp != null) {
-                val wp = extractPalette(bmp)
+                palette?.let { wp ->
                 prefs[PREF_DYN_BG_D]   = colorIntToComposeColor(wp.bgDark).encode()
                 prefs[PREF_DYN_SURF_D] = colorIntToComposeColor(wp.surfDark).encode()
                 prefs[PREF_DYN_ACC_D]  = colorIntToComposeColor(wp.accDark).encode()
@@ -427,10 +542,11 @@ sealed class Widget : GlanceAppWidget() {
                 prefs[PREF_DYN_SURF_L] = colorIntToComposeColor(wp.surfLight).encode()
                 prefs[PREF_DYN_ACC_L]  = colorIntToComposeColor(wp.accLight).encode()
                 prefs[PREF_PAL_READY]  = true
+                }
             }
-        }
 
-        update(context, glanceId)
+            update(context, glanceId)
+        }
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -448,7 +564,8 @@ sealed class Widget : GlanceAppWidget() {
 
         @Composable
         override fun Content(context: Context) {
-            val ready  = currentState(PREF_THUMB_READY) ?: false
+            val ready = (currentState(PREF_THUMB_READY) ?: false) ||
+                currentState(PREF_BITMAP_PATH).isNullOrBlank()
             val title  = currentState(PREF_TITLE).orEmpty()
             val artist = currentState(PREF_ARTIST).orEmpty()
 
@@ -456,15 +573,15 @@ sealed class Widget : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxWidth()
                     .background(dynBg())
-                    .cornerRadius(20.dp)
-                    .padding(12.dp),
+                    .cornerRadius(16.dp)
+                    .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.Start
             ) {
                 if (ready) {
-                    Thumbnail(GlanceModifier.size(90.dp).cornerRadius(14.dp))
+                    Thumbnail(GlanceModifier.size(88.dp).cornerRadius(12.dp))
                 } else {
-                    ShimmerArt(90)
+                    ShimmerArt(88)
                 }
 
                 Spacer(GlanceModifier.width(14.dp))
@@ -474,23 +591,20 @@ sealed class Widget : GlanceAppWidget() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalAlignment = Alignment.Start
                 ) {
-                    StatusBadge()
-                    Spacer(GlanceModifier.height(5.dp))
-
                     if (ready) {
                         Text(
                             text = title.ifBlank { "Cubic Music" },
                             style = TextStyle(
                                 color = textColor,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                fontSize = 16.sp
                             ),
                             maxLines = 1
                         )
                         Spacer(GlanceModifier.height(3.dp))
                         Text(
                             text = artist.ifBlank { "Tap to open player" },
-                            style = TextStyle(color = subtextColor, fontSize = 12.sp),
+                            style = TextStyle(color = subtextColor, fontSize = 13.sp),
                             maxLines = 1
                         )
                     } else {
@@ -499,7 +613,7 @@ sealed class Widget : GlanceAppWidget() {
                         ShimmerText(widthDp = 100, heightDp = 10)
                     }
 
-                    Spacer(GlanceModifier.height(12.dp))
+                    Spacer(GlanceModifier.height(14.dp))
                     ControlsPill(context)
                 }
             }
@@ -514,7 +628,8 @@ sealed class Widget : GlanceAppWidget() {
 
         @Composable
         override fun Content(context: Context) {
-            val ready  = currentState(PREF_THUMB_READY) ?: false
+            val ready = (currentState(PREF_THUMB_READY) ?: false) ||
+                currentState(PREF_BITMAP_PATH).isNullOrBlank()
             val title  = currentState(PREF_TITLE).orEmpty()
             val artist = currentState(PREF_ARTIST).orEmpty()
 
@@ -522,54 +637,25 @@ sealed class Widget : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxWidth()
                     .background(dynBg())
-                    .cornerRadius(20.dp)
-                    .padding(16.dp),
+                    .cornerRadius(22.dp)
+                    .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                StatusBadge()
-                Spacer(GlanceModifier.height(12.dp))
-
                 Box(
                     modifier = GlanceModifier
-                        .size(114.dp)
-                        .background(dynAcc())
-                        .cornerRadius(18.dp),
+                        .size(140.dp)
+                        .background(dynSurf())
+                        .cornerRadius(100.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (ready) {
-                        Thumbnail(GlanceModifier.size(106.dp).cornerRadius(14.dp))
+                        Thumbnail(GlanceModifier.size(140.dp).cornerRadius(100.dp))
                     } else {
-                        ShimmerArt(106)
+                        ShimmerArt(140)
                     }
+                    TurntableControls(context)
                 }
-
-                Spacer(GlanceModifier.height(14.dp))
-
-                if (ready) {
-                    Text(
-                        text = title.ifBlank { "Cubic Music" },
-                        style = TextStyle(
-                            color = textColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        ),
-                        maxLines = 1
-                    )
-                    Spacer(GlanceModifier.height(4.dp))
-                    Text(
-                        text = artist.ifBlank { "Tap to open your player" },
-                        style = TextStyle(color = subtextColor, fontSize = 12.sp),
-                        maxLines = 1
-                    )
-                } else {
-                    ShimmerText(widthDp = 140, heightDp = 14)
-                    Spacer(GlanceModifier.height(6.dp))
-                    ShimmerText(widthDp = 100, heightDp = 10)
-                }
-
-                Spacer(GlanceModifier.height(16.dp))
-                ControlsPill(context)
             }
         }
     }

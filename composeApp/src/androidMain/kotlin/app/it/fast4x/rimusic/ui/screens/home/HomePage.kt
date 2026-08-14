@@ -113,6 +113,7 @@ import app.it.fast4x.rimusic.utils.ytAccountChannelHandleKey
 import app.it.fast4x.rimusic.utils.ytCookieKey
 import app.it.fast4x.rimusic.utils.homeScreenTabIndexKey
 import app.it.fast4x.rimusic.utils.preferences
+import app.kreate.android.me.knighthat.coil.ImageCacheFactory
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import it.fast4x.innertube.Innertube
@@ -218,8 +219,8 @@ private fun YtmPlaylistsFooter(
                 PlaylistItem(
                     browseId = playlist.playlistId,
                     thumbnailContent = {
-                        AsyncImage(
-                            model = playlist.thumbnail,
+                        ImageCacheFactory.AsyncImage(
+                            thumbnailUrl = playlist.thumbnail,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -430,16 +431,26 @@ fun HomePage(
     val activeYouTubeCookie by rememberPreference(ytCookieKey, "")
     val activeYouTubeAccountHandle by rememberPreference(ytAccountChannelHandleKey, "")
     val activeYouTubeSessionId = YouTubeSessionStore.getCurrentSession(context)?.sessionId.orEmpty()
+    var loadedHomeIdentity by persist("home/home/loadedIdentity", "")
+    val currentHomeIdentity = listOf(activeYouTubeSessionId, activeYouTubeAccountHandle).joinToString("|")
 
     @Suppress("UNUSED_VARIABLE")
     val ignoredSettings = Pair(selectedCountryCode, parentalControlEnabled)
 
     suspend fun loadData() {
         if (appRunningInBackground) return
+        if (
+            loadedData &&
+            loadedHomeIdentity == currentHomeIdentity &&
+            homePageResult != null &&
+            ytmPlaylistsResult != null
+        ) return
+
         if (!isYouTubeLoggedIn()) {
             homePageResult = Result.success(null)
             ytmPlaylistsResult = Result.success(emptyList())
             loadedData = true
+            loadedHomeIdentity = currentHomeIdentity
             return
         }
         val currentSession = YouTubeSessionStore.applyCurrentSession(context)
@@ -449,6 +460,7 @@ fun HomePage(
             homePageResult = Result.success(null)
             ytmPlaylistsResult = Result.success(emptyList())
             loadedData = true
+            loadedHomeIdentity = currentHomeIdentity
             return
         }
         coroutineScope {
@@ -480,19 +492,27 @@ fun HomePage(
                 Timber.e("Failed loadData in HomePage ${it.stackTraceToString()}")
                 loadedData = false
             }
-            .onSuccess { loadedData = true }
+            .onSuccess {
+                loadedHomeIdentity = currentHomeIdentity
+                loadedData = true
+            }
     }
 
     LaunchedEffect(Unit) { loadData() }
 
     LaunchedEffect(activeYouTubeCookie, activeYouTubeSessionId, activeYouTubeAccountHandle) {
+        if (loadedHomeIdentity == currentHomeIdentity && loadedData) return@LaunchedEffect
         loadedData = false
         loadData()
     }
 
     var refreshing by remember { mutableStateOf(false) }
+    var lastManualRefreshMs by remember { mutableStateOf(0L) }
     fun refresh() {
         if (refreshing || appRunningInBackground) return
+        val now = System.currentTimeMillis()
+        if (now - lastManualRefreshMs < 30_000L) return
+        lastManualRefreshMs = now
         loadedData = false
         refreshScope.launch(Dispatchers.IO) {
             if (appRunningInBackground) return@launch
@@ -756,8 +776,8 @@ fun HomePage(
                                                     PlaylistItem(
                                                         browseId = item.playlistId.ifBlank { item.browseId },
                                                         thumbnailContent = {
-                                                            AsyncImage(
-                                                                model = ImageRequest.Builder(context).data(item.thumbnail).crossfade(true).build(),
+                                                            ImageCacheFactory.AsyncImage(
+                                                                thumbnailUrl = item.thumbnail,
                                                                 contentDescription = null,
                                                                 contentScale = ContentScale.Crop,
                                                                 modifier = Modifier.fillMaxSize()

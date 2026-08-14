@@ -47,6 +47,13 @@ import java.nio.file.NoSuchFileException
 import kotlin.math.pow
 
 object Updater {
+    private const val AUTOMATIC_CHECK_INTERVAL_MS = 6L * 60L * 60L * 1_000L
+
+    private class UpdateHttpException(
+        val statusCode: Int,
+        message: String
+    ) : IOException(message)
+
     private lateinit var tagName: String
     lateinit var build: GithubRelease.Build
     var githubRelease: GithubRelease? = null
@@ -200,7 +207,13 @@ object Updater {
         val best = candidates
             .filter { candidate -> isVersionNewer(candidate.release.tagName, BuildConfig.VERSION_NAME) }
             .maxWithOrNull { left, right -> compareVersionStrings(left.release.tagName, right.release.tagName) }
-            ?: throw (errors.firstOrNull { it !is NoSuchFileException } ?: NoSuchFileException(""))
+
+        if (best == null) {
+            val receivedValidResult =
+                candidates.isNotEmpty() || errors.any { error -> error is NoSuchFileException }
+            if (receivedValidResult) throw NoSuchFileException("")
+            throw (errors.firstOrNull() ?: NoSuchFileException(""))
+        }
 
         applyUpdateCandidate(best)
     }
@@ -302,7 +315,12 @@ object Updater {
             try {
                 updateHttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
                     if (treat404AsNoFile && response.code == 404) throw NoSuchFileException("")
-                    if (!response.isSuccessful) throw IOException(response.message)
+                    if (!response.isSuccessful) {
+                        throw UpdateHttpException(
+                            statusCode = response.code,
+                            message = "Update service unavailable (${response.code})"
+                        )
+                    }
                     return response.body?.string()
                 }
             } catch (error: IOException) {
@@ -372,13 +390,20 @@ object Updater {
         isForced: Boolean = false,
         checkBetaUpdates: Boolean = false
     ) = CoroutineScope(Dispatchers.IO).launch {
-        // Update the last check timestamp at the beginning
         val sharedPrefs = appContext().getSharedPreferences("settings", 0)
+        if (!BuildConfig.IS_AUTOUPDATE || (!isForced && NewUpdateAvailableDialog.isCancelled)) {
+            return@launch
+        }
+
+        val now = System.currentTimeMillis()
+        val lastCheck = sharedPrefs.getLong(lastUpdateCheckKey, 0L)
+        val checkedRecently = lastCheck > 0L &&
+            now - lastCheck in 0 until AUTOMATIC_CHECK_INTERVAL_MS
+        if (!isForced && checkedRecently) return@launch
+
         sharedPrefs.edit()
-            .putLong(lastUpdateCheckKey, System.currentTimeMillis())
+            .putLong(lastUpdateCheckKey, now)
             .apply()
-            
-        if (!BuildConfig.IS_AUTOUPDATE || NewUpdateAvailableDialog.isCancelled) return@launch
 
         try {
             if (!::build.isInitialized || isForced) {
@@ -407,16 +432,17 @@ object Updater {
                 NewUpdateAvailableDialog.isCancelled = false
             }
         } catch (e: Exception) {
+            val isRateLimited = e is UpdateHttpException && e.statusCode in setOf(403, 429)
             val message = when (e) {
                 is UnknownHostException -> appContext().getString(R.string.error_no_internet)
                 is NoSuchFileException -> appContext().getString(R.string.info_no_update_available)
-                else -> e.message ?: appContext().getString(R.string.error_unknown)
+                else -> appContext().getString(R.string.update_failed_message)
             }
-            
-            // Use appropriate toast type based on exception
-            when (e) {
-                is NoSuchFileException -> Toaster.i(message) // Blue for no update available
-                else -> Toaster.e(message) // Red for other errors
+
+            when {
+                e is NoSuchFileException -> if (isForced) Toaster.i(message)
+                !isForced && isRateLimited -> Unit
+                else -> Toaster.e(message)
             }
 
             NewUpdateAvailableDialog.isCancelled = true

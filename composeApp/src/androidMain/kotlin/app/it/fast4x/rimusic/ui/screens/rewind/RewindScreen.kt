@@ -41,6 +41,8 @@ import androidx.compose.ui.res.painterResource
 import kotlin.math.cos
 import kotlin.math.sin
 
+private const val RewindDeckPageCount = 12
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RewindScreen(
@@ -57,7 +59,7 @@ fun RewindScreen(
     val currentYear = LocalDate.now().year
     
     // Main pager state for slides
-    val mainPagerState = rememberPagerState(pageCount = { 10 })
+    val mainPagerState = rememberPagerState(pageCount = { RewindDeckPageCount })
     
     LaunchedEffect(Unit) {
         try {
@@ -65,11 +67,7 @@ fun RewindScreen(
                 DataStoreUtils.getStringBlocking(context, DataStoreUtils.KEY_USERNAME, "Music Fan")
             }
             
-            val fetchedData = RewindDataFetcher.getRewindData(currentYear)
-            rewindData = fetchedData.copy(
-                dailyStats = emptyList(),
-                hourlyStats = emptyList()
-            )
+            rewindData = RewindDataFetcher.getRewindData(currentYear)
             
         } catch (e: Exception) {
             e.printStackTrace()
@@ -98,98 +96,93 @@ fun RewindScreen(
                     modifier = Modifier.fillMaxSize(),
                     key = { page -> "page_$page" }
                 ) { page ->
+                    val safeData = data ?: createEmptyRewindData(currentYear)
+                    val nextPage: () -> Unit = {
+                        scope.launch {
+                            mainPagerState.animateScrollToPage((page + 1).coerceAtMost(RewindDeckPageCount - 1))
+                        }
+                    }
                     when (page) {
-                        0 -> WelcomeSlide(
+                        0 -> RewindIntroCard(
                             username = username,
                             year = currentYear,
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(1) }
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        1 -> RewindTotalTimeCard(
+                            data = safeData,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        2 -> RewindTopSongCard(
+                            topSong = safeData.topSongs.firstOrNull(),
+                            year = safeData.year,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        3 -> RewindTopArtistsCard(
+                            artists = safeData.topArtists,
+                            year = safeData.year,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        4 -> RewindTopSongsCard(
+                            songs = safeData.topSongs,
+                            year = safeData.year,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        5 -> RewindPeakTimeCard(
+                            data = safeData,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        6 -> RewindListeningDaysCard(
+                            data = safeData,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        7 -> RewindDiscoveryCard(
+                            data = safeData,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        8 -> RewindTopAlbumCard(
+                            topAlbum = safeData.topAlbums.firstOrNull(),
+                            year = safeData.year,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        9 -> RewindAlbumsCard(
+                            albums = safeData.topAlbums,
+                            year = safeData.year,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        10 -> RewindMonthlyCard(
+                            data = safeData,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onNext = nextPage
+                        )
+                        11 -> RewindFinaleCard(
+                            data = safeData,
+                            page = page,
+                            pageCount = RewindDeckPageCount,
+                            onShare = {
+                                scope.launch { mainPagerState.animateScrollToPage(0) }
                             }
                         )
-                        1 -> StatsSlide(
-                            username = username,
-                            data = data ?: createEmptyRewindData(currentYear),
-                            userRanking = "Music Explorer",
-                            userPercentile = "Top 50%",
-                            showMinutesInHours = false,
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(2) }
-                            }
-                        )
-                        2 -> TopSongsSlide(
-                            songs = data?.topSongs ?: emptyList(),
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(3) }
-                            }
-                        )
-                        3 -> AfterTopSongsSlide(
-                            topSong = data?.topSongs?.firstOrNull(),
-                            onNext = { scope.launch { mainPagerState.animateScrollToPage(4) } }
-                        )
-                        4 -> TopArtistsSlide(
-                            artists = data?.topArtists ?: emptyList(),
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(5) }
-                            }
-                        )
-                        5 -> AfterTopArtistsSlide(
-                            topArtist = data?.topArtists?.firstOrNull(),
-                            onNext = { 
-                                scope.launch { mainPagerState.animateScrollToPage(6) }
-                            }
-                        )
-                        6 -> TopAlbumsSlide(
-                            albums = data?.topAlbums ?: emptyList(),
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(7) }
-                            }
-                        )
-                        7 -> MonthlyStatsSlide(
-                            monthlyStats = data?.monthlyStats ?: emptyList(),
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(8) }
-                            }
-                        )
-                        8 -> BestOfAllSlide(
-                            data = data ?: createEmptyRewindData(currentYear),
-                            onNext = {
-                                scope.launch { mainPagerState.animateScrollToPage(9) }
-                            }
-                        )
-                        9 -> DonateSlide(
-                            onNext = {
-                                navController.navigate(NavRoutes.donate.name)
-                            }
-                        )
-                    }
-                }
-                
-                // Page indicator at the bottom
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Bottom
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        repeat(10) { index ->
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 4.dp)
-                                    .size(if (index == mainPagerState.currentPage) 12.dp else 8.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (index == mainPagerState.currentPage) 
-                                            colorPalette.accent
-                                        else 
-                                            colorPalette.textDisabled
-                                    )
-                            )
-                        }
                     }
                 }
             }
@@ -327,7 +320,7 @@ fun FluidLoadingScreen(colorPalette: app.it.fast4x.rimusic.ui.styling.ColorPalet
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(R.drawable.rewindlogo),
+                    painter = painterResource(R.drawable.rewind_playback_cover),
                     contentDescription = "Rewind Logo",
                     modifier = Modifier
                         .size(83.dp)

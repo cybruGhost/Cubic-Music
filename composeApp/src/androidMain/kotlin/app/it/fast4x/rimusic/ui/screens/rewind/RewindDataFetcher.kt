@@ -149,10 +149,7 @@ object RewindDataFetcher {
             val dailyStats = getDailyStats(yearStart, yearEnd, events)
             val hourlyStats = getHourlyStats(yearStart, yearEnd, events)
             
-            // Calculate total playtime using database query
-            val totalPlaytimeMs = events.sumOf { event ->
-                Database.eventTable.getSongPlayTimeBetween(event.songId, yearStart, yearEnd).first()
-            }
+            val totalPlaytimeMs = events.sumOf { event -> event.playTime.coerceAtLeast(0L) }
             
             // Calculate listening stats
             val stats = calculateListeningStats(
@@ -198,32 +195,22 @@ object RewindDataFetcher {
     }
     
     private suspend fun getTopSongs(
-        yearStart: Long, 
+        yearStart: Long,
         yearEnd: Long,
         yearlyEvents: List<app.kreate.android.me.knighthat.database.ext.EventWithSong>
-    ): List<TopSong> {
-        // Get top songs by playtime from database
-        val topSongsFromDb = Database.eventTable
-            .findSongsMostPlayedBetween(yearStart, yearEnd, 10)
-            .first()
-        
-        return topSongsFromDb.mapNotNull { song ->
-            // Calculate playtime for this song using database query
-            val playtimeMs = Database.eventTable.getSongPlayTimeBetween(song.id, yearStart, yearEnd).first()
-            
-            // Count play events for this song
-            val playCount = yearlyEvents.count { it.event.songId == song.id }
-            
-            if (playCount == 0) return@mapNotNull null
-            
+    ): List<TopSong> = yearlyEvents
+        .groupBy { it.song.id }
+        .mapNotNull { (_, songEvents) ->
+            val song = songEvents.firstOrNull()?.song ?: return@mapNotNull null
             TopSong(
                 song = song,
-                minutes = playtimeMs / 60000,
-                playCount = playCount
+                minutes = songEvents.sumOf { it.event.playTime.coerceAtLeast(0L) } / 60_000L,
+                playCount = songEvents.size
             )
-        }.sortedByDescending { it.minutes }
-    }
-    
+        }
+        .sortedWith(compareByDescending<TopSong> { it.playCount }.thenByDescending { it.minutes })
+        .take(10)
+
     private suspend fun getTopArtists(
         yearStart: Long,
         yearEnd: Long,
@@ -324,142 +311,55 @@ object RewindDataFetcher {
         yearEnd: Long,
         events: List<Event>
     ): List<MonthlyStat> {
-        // For each month, calculate stats
+        val zone = ZoneId.systemDefault()
+        val grouped = events.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(zone).monthValue }
         return (1..12).map { month ->
-            // Calculate month boundaries
-            val monthStart = LocalDateTime.of(
-                Instant.ofEpochMilli(yearStart).atZone(ZoneId.systemDefault()).year,
-                month,
-                1,
-                0,
-                0,
-                0
-            )
-            .atZone(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
-            
-            val monthEnd = LocalDateTime.of(
-                Instant.ofEpochMilli(yearStart).atZone(ZoneId.systemDefault()).year,
-                month,
-                if (month == 2) 28 else 30, // Simplified
-                23,
-                59,
-                59
-            )
-            .atZone(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
-            
-            // Get events for this month
-            val monthEvents = events.filter { 
-                it.timestamp in monthStart..monthEnd 
-            }
-            
-            // Calculate total playtime for this month
-            val monthPlaytimeMs = monthEvents.sumOf { event ->
-                // Get playtime for this event within month boundaries
-                val eventPlaytime = Database.eventTable.getSongPlayTimeBetween(
-                    event.songId,
-                    monthStart,
-                    monthEnd.coerceAtMost(yearEnd)
-                ).first()
-                eventPlaytime
-            }
-            
-            val monthName = LocalDateTime.of(
-                Instant.ofEpochMilli(yearStart).atZone(ZoneId.systemDefault()).year,
-                month,
-                1,
-                0,
-                0,
-                0
-            ).format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault()))
-            
+            val monthEvents = grouped[month].orEmpty()
             MonthlyStat(
-                month = monthName,
-                minutes = monthPlaytimeMs / 60000,
+                month = java.time.Month.of(month).getDisplayName(
+                    java.time.format.TextStyle.SHORT,
+                    Locale.getDefault()
+                ),
+                minutes = monthEvents.sumOf { it.playTime.coerceAtLeast(0L) } / 60_000L,
                 plays = monthEvents.size
             )
         }
     }
-    
+
     private fun getDailyStats(
         yearStart: Long,
         yearEnd: Long,
         events: List<Event>
     ): List<DailyStat> {
-        // Group events by day of week (1=Monday, 7=Sunday)
-        val dayGroups = events.groupBy { event ->
-            Instant.ofEpochMilli(event.timestamp)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDateTime()
-                .dayOfWeek
-        }
-        
-        return dayGroups.map { (dayOfWeek, dayEvents) ->
-            val dayName = dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.getDefault())
-            
-            // Calculate total playtime for this day
-            val dayPlaytimeMs = dayEvents.sumOf { event ->
-                // We need to use database query for accurate playtime
-                // This is an approximation based on event count
-                // For accurate results, we'd need to query each event's playtime
-                0L // Placeholder - would need to implement properly
-            }
-            
+        val zone = ZoneId.systemDefault()
+        val grouped = events.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(zone).dayOfWeek }
+        return java.time.DayOfWeek.values().map { day ->
+            val dayEvents = grouped[day].orEmpty()
             DailyStat(
-                dayOfWeek = dayName,
-                minutes = dayPlaytimeMs / 60000,
+                dayOfWeek = day.getDisplayName(java.time.format.TextStyle.FULL, Locale.getDefault()),
+                minutes = dayEvents.sumOf { it.playTime.coerceAtLeast(0L) } / 60_000L,
                 plays = dayEvents.size
             )
-        }.sortedBy { 
-            // Sort by day of week starting with Monday
-            when (it.dayOfWeek.lowercase(Locale.getDefault())) {
-                "monday" -> 1
-                "tuesday" -> 2
-                "wednesday" -> 3
-                "thursday" -> 4
-                "friday" -> 5
-                "saturday" -> 6
-                "sunday" -> 7
-                else -> 8
-            }
         }
     }
-    
+
     private fun getHourlyStats(
         yearStart: Long,
         yearEnd: Long,
         events: List<Event>
     ): List<HourlyStat> {
-        // Group events by hour
-        val hourGroups = events.groupBy { event ->
-            Instant.ofEpochMilli(event.timestamp)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDateTime()
-                .hour
-        }
-        
+        val zone = ZoneId.systemDefault()
+        val grouped = events.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(zone).hour }
         return (0..23).map { hour ->
-            val hourEvents = hourGroups[hour] ?: emptyList()
-            
-            // Calculate total playtime for this hour
-            val hourPlaytimeMs = hourEvents.sumOf { event ->
-                // We need to use database query for accurate playtime
-                // This is an approximation based on event count
-                // For accurate results, we'd need to query each event's playtime
-                0L // Placeholder - would need to implement properly
-            }
-            
+            val hourEvents = grouped[hour].orEmpty()
             HourlyStat(
-                hour = String.format("%02d:00", hour),
-                minutes = hourPlaytimeMs / 60000,
+                hour = String.format(Locale.ROOT, "%02d:00", hour),
+                minutes = hourEvents.sumOf { it.playTime.coerceAtLeast(0L) } / 60_000L,
                 plays = hourEvents.size
             )
         }
     }
-    
+
     private fun calculateListeningStats(
         events: List<Event>,
         totalPlaytimeMs: Long,
