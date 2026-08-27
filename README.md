@@ -42,7 +42,7 @@
 </p>
 
 ---
-Download our new cubic music exe unfinished to test- [desktop app](https://github.com/cybruGhost/DESKTOP-CUBIC-MUSIC/releases/tag/v0.0.1).
+
 ## Experience
 
 <p align="center">
@@ -282,6 +282,7 @@ Cubic Music is independently developed and maintained by [cybruGhost](https://gi
 - Read the [Privacy Policy](./privacy.md) and [Terms](./terms.md).
 - Cubic Music is licensed under the [GNU General Public License v3.0](./LICENSE).
 - Optional account integrations can be enabled or disabled from app settings.
+- You are responsible for the usage of this APP. Please be respectful towards Youtubes [Terms Of Service](https://www.youtube.com/static?template=terms)
 
 ## Legal notice
 
