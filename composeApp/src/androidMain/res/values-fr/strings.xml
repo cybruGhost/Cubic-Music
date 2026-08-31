@@ -18,11 +18,11 @@
   <string name="read_more">Afficher plus</string>
   <string name="read_less">Afficher moins</string>
   <string name="update_available">Une mise à jour est disponible</string>
-  <string name="hide_from_quick_picks">Cacher de la \&quot;Sélection Rapide\&quot;</string>
+  <string name="hide_from_quick_picks">Masquer de la Sélection Rapide</string>
   <string name="csv_import_conversion_title">Conversion en CSV</string>
   <string name="csv_import_conversion_running">Conversion des titres avec Innertube d\'abord et recherche de secours si besoin</string>
   <string name="csv_import_conversion_finished">Conversion terminée</string>
-  <string name="csv_import_playlist_name">Playlist %1$s</string>
+  <string name="csv_import_playlist_name">Playlist : %1$s</string>
   <string name="csv_import_detected_language">Langue détectée : %1$s</string>
   <string name="csv_import_progress_compact">%1$d/%2$d terminé</string>
   <string name="csv_import_progress_full">%1$d sur %2$d lignes traitées</string>
@@ -480,7 +480,7 @@
   <string name="tap_anywhere_to_dismiss">Appuyez n’importe où pour fermer</string>
   <string name="retry_with_other_sources">Réessayer la lecture</string>
   <string name="retry_with_other_sources_hint">Réessayez la source sélectionnée sans remplacer le titre en cours de lecture.</string>
-  <string name="redownload_song">Retélécharger un titre</string>
+  <string name="redownload_song">Télécharger à nouveau le titre</string>
   <string name="redownload_song_hint">Ce fichier téléchargé semble corrompu. Cubic Music va supprimer la copie hors ligne et la télécharger à nouveau.</string>
   <string name="menu_style">Style du menu</string>
   <string name="style_grid">Grille</string>
@@ -1107,7 +1107,7 @@ Volume BAS : titre précédent</string>
   <string name="save_lyrics_state_description">Garder l’état des paroles entre les sessions</string>
   <string name="return_to_audio_mode">Revenir en mode audio</string>
   <string name="error_message_unsupported_local_playlist">Format non pris en charge</string>
-  <string name="error_message_import_local_playlist_failed">Erreur lors de l’importation de la playlist locale</string>
+  <string name="error_message_import_local_playlist_failed">Une erreur s\'est produite lors de l\'importation de la playlist locale</string>
   <string name="search_display_order">Ordre d\'affichage des résultats de recherche en ligne</string>
   <string name="search_display_order_suggestions_first">Suggestions d’abord</string>
   <string name="search_display_order_saved_searches_first">Recherches sauvegardées en premier</string>
@@ -1129,7 +1129,7 @@ Volume BAS : titre précédent</string>
   <string name="other_settings_description">La section « Divers » contient divers paramètres optionnels et utilitaires</string>
   <string name="data_settings_description">La section données contient des paramètres qui modifient la façon dont l\'application gère les données localement et à distance</string>
   <string name="accounts_settings_description">La section Comptes contient les paramètres de synchronisation Youtube, les paramètres de streaming conduits et les paramètres Rpc Discord</string>
-  <string name="quick_picks_description">La section des sélections rapides contient les paramètres de la page des sélections rapides et les recommandations alimentées par l’IA</string>
+  <string name="quick_picks_description">La section « Cubic Picks » contient les paramètres de la page « Cubic Picks » ainsi que les recommandations générées par l\'IA.</string>
   <string name="smart_recommendations_description">La section recommandations intelligentes contient les paramètres des recommandations alimentées par une IA</string>
   <string name="ai_recommendations">Recommandations IA</string>
   <string name="my_playlist_top1">Mon Top</string>
@@ -1402,7 +1402,7 @@ Volume BAS : titre précédent</string>
   <string name="downloaded_tools_disable_storage_message">Cubic Music reviendra à la mémoire cache de téléchargement d\'origine. Tout ce qui a déjà été copié dans votre dossier personnalisé y restera jusqu\'à ce que vous le supprimiez vous-même.</string>
   <string name="downloaded_tools_disable_storage_progress">Restaurer le cache de téléchargement d’origine</string>
   <string name="downloaded_tools_disable_storage_done">Le stockage personnalisé des téléchargements est désactivé</string>
-  <string name="downloaded_tools_copy_existing_title">Faut-il aussi déplacer les anciens morceaux téléchargés ?</string>
+  <string name="downloaded_tools_copy_existing_title">Faut-il aussi déplacer les anciens titres téléchargés ?</string>
   <string name="downloaded_tools_copy_existing_message">Les futurs téléchargements continueront d\'utiliser le cache de téléchargement interne sécurisé et seront également copiés dans le dossier sélectionné. Souhaitez-vous également que Cubic Music déplace dès maintenant vos anciens morceaux téléchargés vers ce dossier ?</string>
   <string name="downloaded_tools_copy_existing_progress">Déplacer les anciens titres téléchargés vers le dossier sélectionné</string>
   <string name="downloaded_tools_copy_existing_confirm">Déplacer les anciens titres</string>
