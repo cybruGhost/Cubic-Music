@@ -44,7 +44,6 @@ import app.it.fast4x.rimusic.enums.ExoPlayerMinTimeForEvent
 import app.it.fast4x.rimusic.enums.FontType
 import app.it.fast4x.rimusic.enums.HomeScreenTabs
 import app.it.fast4x.rimusic.enums.IconLikeType
-import app.it.fast4x.rimusic.enums.MaxSongs
 
 
 import app.it.fast4x.rimusic.enums.MenuStyle
@@ -132,7 +131,6 @@ import app.it.fast4x.rimusic.utils.keepPlayerMinimizedKey
 import app.it.fast4x.rimusic.utils.lastPlayerPlayButtonTypeKey
 import app.it.fast4x.rimusic.utils.lastPlayerThumbnailSizeKey
 import app.it.fast4x.rimusic.utils.lastPlayerTimelineTypeKey
-import app.it.fast4x.rimusic.utils.maxSongsInQueueKey
 
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.messageTypeKey
@@ -286,8 +284,7 @@ fun DefaultUiSettings() {
     navigationBarType = NavigationBarType.IconAndText
     var pauseBetweenSongs  by rememberPreference(pauseBetweenSongsKey, PauseBetweenSongs.`0`)
     pauseBetweenSongs = PauseBetweenSongs.`0`
-    var maxSongsInQueue  by rememberPreference(maxSongsInQueueKey, MaxSongs.`500`)
-    maxSongsInQueue = MaxSongs.`500`
+
     var thumbnailRoundness by rememberPreference(
         thumbnailRoundnessKey,
         ThumbnailRoundness.Heavy

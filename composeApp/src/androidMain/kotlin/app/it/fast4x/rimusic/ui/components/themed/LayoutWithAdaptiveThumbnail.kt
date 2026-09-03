@@ -57,7 +57,7 @@ fun adaptiveThumbnailContent(
 ): @Composable () -> Unit = {
     BoxWithConstraints(contentAlignment = Alignment.Center) {
         val thumbnailSizeDp = if (isLandscape) (maxHeight - 128.dp) else (maxWidth - 64.dp)
-        val playerThumbnailSize by rememberPreference(playerThumbnailSizeKey, PlayerThumbnailSize.Medium)
+        val playerThumbnailSize by rememberPreference(playerThumbnailSizeKey, PlayerThumbnailSize.Biggest)
 
         val modifier = Modifier
             //.padding(all = 16.dp)

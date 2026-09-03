@@ -153,7 +153,6 @@ import app.it.fast4x.rimusic.enums.CarouselSize
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
 import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
-import app.it.fast4x.rimusic.enums.PlayerThumbnailSize
 import app.it.fast4x.rimusic.enums.PlayerType
 import app.it.fast4x.rimusic.enums.PlayerSurfaceStyle
 import app.it.fast4x.rimusic.enums.QueueLoopType
@@ -266,6 +265,7 @@ import app.it.fast4x.rimusic.utils.topPaddingKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -420,18 +420,8 @@ private fun PlayerContent(
     val showSpotifyCanvasLogs = uiConfig.showSpotifyCanvasLogs
     val alternateSourceRetryEnabled = uiConfig.alternateSourceRetryEnabled
     val playerSurfaceStyle = uiConfig.playerSurfaceStyle
-    val effectiveThumbnailPadding =
-        if (playerSurfaceStyle == PlayerSurfaceStyle.Standard) {
-            playerThumbnailSize.size.coerceAtMost(PlayerThumbnailSize.Biggest.size)
-        } else {
-            playerThumbnailSize.size
-        }
-    val effectiveLandscapeThumbnailPadding =
-        if (playerSurfaceStyle == PlayerSurfaceStyle.Standard) {
-            playerThumbnailSizeL.size.coerceAtMost(PlayerThumbnailSize.Biggest.size)
-        } else {
-            playerThumbnailSizeL.size
-        }
+    val effectiveThumbnailPadding = playerThumbnailSize.size
+    val effectiveLandscapeThumbnailPadding = playerThumbnailSizeL.size
     val blurAdjuster = BlurAdjuster()
 
     LaunchedEffect(Unit) {
@@ -833,6 +823,28 @@ private fun PlayerContent(
     val currentSongDownloadProgress = downloadProgresses[mediaItem.mediaId]
         ?.coerceIn(0f, 1f)
         ?: 0f
+    val playbackErrorActionLabel = when {
+        playerError != null && isCurrentSongDownloaded && hasNetworkConnection ->
+            stringResource(R.string.redownload_song)
+        playerError != null && !isCurrentSongDownloaded && hasNetworkConnection ->
+            stringResource(R.string.retry_with_other_sources)
+        else -> null
+    }
+    val playbackErrorAction: (() -> Unit)? = if (playerError != null) {
+        {
+            playbackErrorMessage = null
+            currentErrorItem?.let { errorItem ->
+                if (isCurrentSongDownloaded) {
+                    MyDownloadHelper.redownloadSong(context, errorItem)
+                } else {
+                    lastSearchFallbackMediaId = null
+                    retryWithAlternateSourcesNonce++
+                }
+            }
+        }
+    } else {
+        null
+    }
 
     BackHandler(
         enabled = playerSurfaceStyle != PlayerSurfaceStyle.Standard && isShowingLyrics
@@ -865,6 +877,12 @@ private fun PlayerContent(
         mediaItems.indexOfFirst { queuedItem -> queuedItem.mediaId == mediaItem.mediaId }
             .takeIf { it >= 0 }
             ?: binder.player.currentMediaItemIndex.coerceAtLeast(0)
+    }
+    pagerState.HandleUserSelectedPage(isDragged, displayedMediaItemIndex) { index ->
+        binder.player.playAtIndex(index)
+    }
+    pagerStateFS.HandleUserSelectedPage(isDraggedFS, displayedMediaItemIndex) { index ->
+        binder.player.playAtIndex(index)
     }
 
     val displayedArtworkUrl = mediaItem.mediaMetadata.artworkUri?.toString().orEmpty()
@@ -1196,11 +1214,12 @@ private fun PlayerContent(
                     displayedPositionAndDuration.first,
                     displayedPositionAndDuration.second
                 )
-                val progressSize = Size(width = fraction * size.width, height = size.maxDimension)
+                val progressWidth = size.width * 0.72f
+                val progressSize = Size(width = fraction * progressWidth, height = size.maxDimension)
                 if (progressOverlayBrush != null) {
-                    drawRect(brush = progressOverlayBrush, topLeft = Offset.Zero, size = progressSize)
+                    drawRect(brush = progressOverlayBrush, topLeft = Offset((size.width - progressWidth) / 2f, 0f), size = progressSize)
                 } else {
-                    drawRect(color = color.favoritesOverlay, topLeft = Offset.Zero, size = progressSize)
+                    drawRect(color = color.favoritesOverlay, topLeft = Offset((size.width - progressWidth) / 2f, 0f), size = progressSize)
                 }
             }
         }
@@ -1236,16 +1255,6 @@ private fun PlayerContent(
                                 snapPositionalThreshold = 0.20f
                             )
                             pagerStateFS.LaunchedEffectScrollToPage(displayedMediaItemIndex)
-
-                            LaunchedEffect(pagerStateFS) {
-                                var previousPage = pagerStateFS.settledPage
-                                snapshotFlow { pagerStateFS.settledPage }.distinctUntilChanged().collect {
-                                    if (previousPage != it) {
-                                        if (it != displayedMediaItemIndex) binder.player.playAtIndex(it)
-                                    }
-                                    previousPage = it
-                                }
-                            }
 
                             HorizontalPager(
                                 state = pagerStateFS,
@@ -1441,15 +1450,6 @@ private fun PlayerContent(
                                             pagerState.scrollToPage(displayedMediaItemIndex)
                                         }
 
-                                        LaunchedEffect(pagerState) {
-                                            var previousPage = pagerState.settledPage
-                                            snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
-                                                if (previousPage != it && it != displayedMediaItemIndex)
-                                                    binder.player.playAtIndex(it)
-                                                previousPage = it
-                                            }
-                                        }
-
                                         HorizontalPager(
                                             state = pagerState,
                                             pageSize = PageSize.Fixed(Dimensions.thumbnails.player.song),
@@ -1635,17 +1635,6 @@ private fun PlayerContent(
                             val fling = PagerDefaults.flingBehavior(state = pagerStateFS, snapPositionalThreshold = 0.30f)
                             val scaleAnimationFloat by animateFloatAsState(if (isDraggedFS) 0.85f else 1f, label = "")
                             pagerStateFS.LaunchedEffectScrollToPage(displayedMediaItemIndex)
-
-                            LaunchedEffect(pagerStateFS) {
-                                var previousPage = pagerStateFS.settledPage
-                                snapshotFlow { pagerStateFS.settledPage }.distinctUntilChanged().collect {
-                                    if (previousPage != it) {
-                                        delay(if (swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Fade) 0 else 400)
-                                        if (it != displayedMediaItemIndex) binder.player.playAtIndex(it)
-                                    }
-                                    previousPage = it
-                                }
-                            }
 
                             HorizontalPager(
                                 state = pagerStateFS,
@@ -1851,7 +1840,10 @@ private fun PlayerContent(
                         }
                     ) {
                         val customSurfaceOwnsHeader =
-                            playerSurfaceStyle == PlayerSurfaceStyle.FuckSpotify &&
+                            (playerSurfaceStyle == PlayerSurfaceStyle.FuckSpotify ||
+                                playerSurfaceStyle == PlayerSurfaceStyle.Liquid ||
+                                playerSurfaceStyle == PlayerSurfaceStyle.Ring ||
+                                playerSurfaceStyle == PlayerSurfaceStyle.Cassette) &&
                                 !isShowingLyrics &&
                                 !isShowingVisualizer
 
@@ -1928,7 +1920,8 @@ private fun PlayerContent(
                                 ) { weight(1f) }
                         ) {
                             if (
-                                playerSurfaceStyle == PlayerSurfaceStyle.Liquid &&
+                                (playerSurfaceStyle == PlayerSurfaceStyle.Liquid ||
+                                    playerSurfaceStyle == PlayerSurfaceStyle.Ring) &&
                                 !isShowingLyrics &&
                                 !isShowingVisualizer
                             ) {
@@ -1946,8 +1939,19 @@ private fun PlayerContent(
                                     canSkipNext = player.hasNextMediaItem(),
                                     shuffleEnabled = player.shuffleModeEnabled,
                                     repeatIconRes = queueLoopState.value.iconId,
+                                    repeatEnabled = queueLoopState.value != QueueLoopType.Default,
                                     isLiked = isLiked,
                                     crossfadeEnabled = crossfadeEnabled,
+                                    layoutStyle = if (playerSurfaceStyle == PlayerSurfaceStyle.Ring) {
+                                        PlayerLayoutStyle.Ring
+                                    } else {
+                                        PlayerLayoutStyle.Arc
+                                    },
+                                    playbackErrorMessage = playbackErrorMessage.takeIf {
+                                        playerSurfaceStyle == PlayerSurfaceStyle.Ring
+                                    },
+                                    errorActionLabel = playbackErrorActionLabel,
+                                    onErrorAction = playbackErrorAction,
                                     onSeek = { position -> player.seekTo(position) },
                                     onPrevious = player::playPrevious,
                                     onPlayPause = {
@@ -1956,6 +1960,13 @@ private fun PlayerContent(
                                     onNext = player::playNext,
                                     onShuffle = binder::toggleShuffle,
                                     onQueue = { showQueue = true },
+                                    onMore = ::showPlayerMenu,
+                                    onDismiss = onDismiss,
+                                    onAppearance = {
+                                        onDismiss()
+                                        navController.navigate(NavRoutes.settings.name)
+                                    },
+                                    onSleepTimer = { isShowingSleepTimerDialog = true },
                                     onLyrics = {
                                         isShowingVisualizer = false
                                         isShowingLyrics = true
@@ -1971,6 +1982,62 @@ private fun PlayerContent(
                                     },
                                     onRepeat = { queueLoopState.value = queueLoopState.value.next() },
                                     modifier = Modifier.fillMaxSize()
+                                )
+                            } else if (
+                                playerSurfaceStyle == PlayerSurfaceStyle.Cassette &&
+                                !isShowingLyrics &&
+                                !isShowingVisualizer
+                            ) {
+                                val isLiked by remember(mediaItem.mediaId) {
+                                    Database.songTable.isLiked(mediaItem.mediaId).distinctUntilChanged()
+                                }.collectAsState(false, Dispatchers.IO)
+                                CassettePlayerSurface(
+                                    mediaItem = mediaItem,
+                                    isCanvasVisible = shouldShowCanvas,
+                                    positionMs = displayedPositionAndDuration.first,
+                                    durationMs = displayedPositionAndDuration.second,
+                                    isPlaying = shouldBePlaying,
+                                    isBuffering = isBuffering,
+                                    canSkipPrevious = player.hasPreviousMediaItem(),
+                                    canSkipNext = player.hasNextMediaItem(),
+                                    shuffleEnabled = player.shuffleModeEnabled,
+                                    repeatIconRes = queueLoopState.value.iconId,
+                                    repeatEnabled = queueLoopState.value != QueueLoopType.Default,
+                                    isLiked = isLiked,
+                                    crossfadeEnabled = crossfadeEnabled,
+                                    playbackErrorMessage = playbackErrorMessage,
+                                    errorActionLabel = playbackErrorActionLabel,
+                                    onErrorAction = playbackErrorAction,
+                                    onSeek = { position -> player.seekTo(position) },
+                                    onPrevious = player::playPrevious,
+                                    onPlayPause = {
+                                        if (shouldBePlaying) binder.gracefulPause() else binder.gracefulPlay()
+                                    },
+                                    onNext = player::playNext,
+                                    onShuffle = binder::toggleShuffle,
+                                    onRepeat = { queueLoopState.value = queueLoopState.value.next() },
+                                    onLike = {
+                                        val currentItem = binder.displayedMediaItem ?: player.currentMediaItem
+                                        Database.asyncTransaction {
+                                            currentItem?.let {
+                                                insertIgnore(it)
+                                                songTable.toggleLike(it.mediaId)
+                                            }
+                                        }
+                                    },
+                                    onLyrics = {
+                                        isShowingVisualizer = false
+                                        isShowingLyrics = true
+                                    },
+                                    onQueue = { showQueue = true },
+                                    onSleepTimer = { isShowingSleepTimerDialog = true },
+                                    onAppearance = {
+                                        onDismiss()
+                                        navController.navigate(NavRoutes.settings.name)
+                                    },
+                                    onMore = ::showPlayerMenu,
+                                    onDismiss = onDismiss,
+                                    modifier = Modifier.fillMaxSize(),
                                 )
                             } else if (
                                 playerSurfaceStyle == PlayerSurfaceStyle.FuckSpotify &&
@@ -2059,15 +2126,6 @@ private fun PlayerContent(
                                     if (playerType == PlayerType.Modern) {
                                         val fling = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.25f)
                                         pagerState.LaunchedEffectScrollToPage(displayedMediaItemIndex)
-
-                                        LaunchedEffect(pagerState) {
-                                            var previousPage = pagerState.settledPage
-                                            snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
-                                                if (previousPage != it && it != displayedMediaItemIndex)
-                                                    binder.player.playAtIndex(it)
-                                                previousPage = it
-                                            }
-                                        }
 
                                         val pageSpacing = (thumbnailSpacing.toInt() * 0.01 * (screenHeight) - if (carousel) (3 * carouselSize.size.dp) else (2 * effectiveThumbnailPadding.dp))
                                         val animatePageSpacing by animateDpAsState(
@@ -2401,16 +2459,12 @@ private fun PlayerContent(
         }
 
         PlaybackError(
-            isDisplayed = playbackErrorMessage != null,
+            isDisplayed = playbackErrorMessage != null &&
+                playerSurfaceStyle != PlayerSurfaceStyle.Ring &&
+                playerSurfaceStyle != PlayerSurfaceStyle.Cassette,
             messageProvider = { playbackErrorMessage.orEmpty() },
             onDismiss = { playbackErrorMessage = null },
-            actionLabel = when {
-                playerError != null && isCurrentSongDownloaded && hasNetworkConnection ->
-                    stringResource(R.string.redownload_song)
-                playerError != null && !isCurrentSongDownloaded && hasNetworkConnection ->
-                    stringResource(R.string.retry_with_other_sources)
-                else -> null
-            },
+            actionLabel = playbackErrorActionLabel,
             actionHint = when {
                 playerError != null && isCurrentSongDownloaded && hasNetworkConnection ->
                     stringResource(R.string.redownload_song_hint)
@@ -2420,19 +2474,7 @@ private fun PlayerContent(
                     stringResource(R.string.retry_with_other_sources_hint)
                 else -> null
             },
-            onAction = if (playerError != null) {
-                {
-                    playbackErrorMessage = null
-                    currentErrorItem?.let { mediaItem ->
-                        if (isCurrentSongDownloaded) {
-                            MyDownloadHelper.redownloadSong(context, mediaItem)
-                        } else {
-                            lastSearchFallbackMediaId = null
-                            retryWithAlternateSourcesNonce++
-                        }
-                    }
-                }
-            } else null,
+            onAction = playbackErrorAction,
         )
     }
 }
@@ -2796,6 +2838,32 @@ fun PagerState.LaunchedEffectScrollToPage(index: Int) {
     val pagerState = this
     LaunchedEffect(pagerState, index) {
         pagerState.scrollToPage(index)
+    }
+}
+
+@Composable
+private fun PagerState.HandleUserSelectedPage(
+    isDragged: Boolean,
+    displayedPage: Int,
+    onPageSelected: (Int) -> Unit,
+) {
+    var dragStartPage by remember(this) { mutableStateOf<Int?>(null) }
+    val latestDisplayedPage by rememberUpdatedState(displayedPage)
+    val latestOnPageSelected by rememberUpdatedState(onPageSelected)
+
+    LaunchedEffect(this, isDragged) {
+        if (isDragged) {
+            if (dragStartPage == null) dragStartPage = settledPage
+            return@LaunchedEffect
+        }
+
+        val startPage = dragStartPage ?: return@LaunchedEffect
+        snapshotFlow { isScrollInProgress }.first { inProgress -> !inProgress }
+        val selectedPage = settledPage
+        dragStartPage = null
+        if (selectedPage != startPage && selectedPage != latestDisplayedPage) {
+            latestOnPageSelected(selectedPage)
+        }
     }
 }
 

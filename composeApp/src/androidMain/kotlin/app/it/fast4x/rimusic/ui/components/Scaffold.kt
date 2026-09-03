@@ -46,6 +46,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.transitionEffectKey
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.ui.components.navigation.header.AppHeader
+import app.it.fast4x.rimusic.ui.components.navigation.header.AppleAppHeader
 import app.it.fast4x.rimusic.ui.components.navigation.nav.VerticalNavigationBar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +109,7 @@ fun Scaffold(
         //val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
         val customModifier =
-            if( UiType.RiMusic.isCurrent() )
+            if( !UiType.ViMusic.isCurrent() )
                 Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
             else
                 Modifier
@@ -118,7 +119,11 @@ fun Scaffold(
             modifier = customModifier,
             containerColor = colorPalette().background0,
             topBar = {
-                if( UiType.RiMusic.isCurrent() ) AppHeader( navController ).Draw()
+                when (UiType.current()) {
+                    UiType.RiMusic -> AppHeader(navController).Draw()
+                    UiType.Apple -> AppleAppHeader(navController)
+                    UiType.ViMusic -> Unit
+                }
             },
 
             bottomBar = {

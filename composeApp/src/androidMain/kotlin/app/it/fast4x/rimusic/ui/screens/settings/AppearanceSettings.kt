@@ -285,9 +285,9 @@ fun DefaultAppearanceSettings() {
     playerTimelineType = PlayerTimelineType.FakeAudioBar
     var playerThumbnailSize by rememberPreference(
         playerThumbnailSizeKey,
-        PlayerThumbnailSize.Biggest
+        PlayerThumbnailSize.Big
     )
-    playerThumbnailSize = PlayerThumbnailSize.Biggest
+    playerThumbnailSize = PlayerThumbnailSize.Big
     var playerTimelineSize by rememberPreference(
         playerTimelineSizeKey,
         PlayerTimelineSize.Biggest
@@ -471,11 +471,11 @@ fun AppearanceSettings(
     var playerTimelineType by rememberPreference(playerTimelineTypeKey, PlayerTimelineType.FakeAudioBar)
     var playerThumbnailSize by rememberPreference(
         playerThumbnailSizeKey,
-        PlayerThumbnailSize.Biggest
+        PlayerThumbnailSize.Big
     )
     var playerThumbnailSizeL by rememberPreference(
         playerThumbnailSizeLKey,
-        PlayerThumbnailSize.Biggest
+        PlayerThumbnailSize.Big
     )
     var playerTimelineSize by rememberPreference(
         playerTimelineSizeKey,
@@ -678,7 +678,7 @@ fun AppearanceSettings(
                 showlyricsthumbnail = false
                 expandedplayer = true
                 thumbnailType = ThumbnailType.Essential
-                playerThumbnailSize = PlayerThumbnailSize.Big
+                playerThumbnailSize = PlayerThumbnailSize.Biggest
                 showTotalTimeQueue = false
                 bottomgradient = true
                 showRemainingSongTime = true
@@ -810,7 +810,7 @@ fun AppearanceSettings(
                 transparentbar = false
                 playerType = PlayerType.Essential
                 expandedplayer = false
-                playerThumbnailSize = PlayerThumbnailSize.Expanded
+                playerThumbnailSize = PlayerThumbnailSize.Biggest
                 showTotalTimeQueue = false
                 transparentBackgroundActionBarPlayer = true
                 showRemainingSongTime = true
@@ -904,7 +904,7 @@ fun AppearanceSettings(
                 transparentbar = false
                 playerType = PlayerType.Essential
                 expandedplayer = true
-                playerThumbnailSize = PlayerThumbnailSize.Big
+                playerThumbnailSize = PlayerThumbnailSize.Biggest
                 showTotalTimeQueue = false
                 transparentBackgroundActionBarPlayer = true
                 showRemainingSongTime = true
@@ -946,6 +946,8 @@ fun AppearanceSettings(
                     when (playerSurfaceStyle) {
                         PlayerSurfaceStyle.Standard -> R.string.player_surface_standard_description
                         PlayerSurfaceStyle.Liquid -> R.string.player_surface_liquid_description
+                        PlayerSurfaceStyle.Ring -> R.string.player_surface_ring_description
+                        PlayerSurfaceStyle.Cassette -> R.string.player_surface_cassette_description
                         PlayerSurfaceStyle.FuckSpotify -> R.string.player_surface_fuck_spotify_description
                     }
                 ),
@@ -1032,7 +1034,7 @@ if (!isLandscape &&
                         showlyricsthumbnail = false
                         expandedplayer = true
                         thumbnailType = ThumbnailType.Essential
-                        playerThumbnailSize = PlayerThumbnailSize.Big
+                        playerThumbnailSize = PlayerThumbnailSize.Biggest
                         showTotalTimeQueue = false
                         bottomgradient = true
                         showRemainingSongTime = true
@@ -1092,23 +1094,28 @@ if (!isLandscape &&
                     onClick = {
                         selectedPresetIndex = 2
                         playerSurfaceStyle = PlayerSurfaceStyle.Standard
-                        showTopActionsBar = false
-                        showthumbnail = false
-                        noblur = true
-                        topPadding = false
+                        showTopActionsBar = true
+                        showthumbnail = true
+                        noblur = false
+                        topPadding = true
                         playerBackgroundColors = PlayerBackgroundColors.BlurredCoverColor
-                        blurStrength = 50f
-                        playerPlayButtonType = PlayerPlayButtonType.Disabled
-                        playerInfoType = PlayerInfoType.Modern
+                        blurStrength = 72f
+                        playerPlayButtonType = PlayerPlayButtonType.CircularRibbed
+                        playerInfoType = PlayerInfoType.Essential
                         playerInfoShowIcons = false
                         playerTimelineType = PlayerTimelineType.ThinBar
                         playerControlsType = PlayerControlsType.Essential
                         transparentbar = true
                         playerType = PlayerType.Modern
                         expandedplayer = true
+                        playerThumbnailSize = PlayerThumbnailSize.Biggest
+                        thumbnailType = ThumbnailType.Essential
+                        thumbnailRoundness = ThumbnailRoundness.Medium
+                        fadingedge = false
+                        thumbnailSpacing = 0f
                         showTotalTimeQueue = false
                         showRemainingSongTime = true
-                        bottomgradient = true
+                        bottomgradient = false
                         showlyricsthumbnail = false
                         showNextSongsInPlayer = true
                         colorPaletteName = ColorPaletteName.Dynamic
@@ -1141,7 +1148,7 @@ if (!isLandscape &&
                         transparentbar = false
                         playerType = PlayerType.Essential
                         expandedplayer = false
-                        playerThumbnailSize = PlayerThumbnailSize.Expanded
+                        playerThumbnailSize = PlayerThumbnailSize.Biggest
                         showTotalTimeQueue = false
                         showRemainingSongTime = true
                         bottomgradient = true
@@ -1219,7 +1226,7 @@ if (!isLandscape &&
                         transparentbar = false
                         playerType = PlayerType.Essential
                         expandedplayer = true
-                        playerThumbnailSize = PlayerThumbnailSize.Big
+                        playerThumbnailSize = PlayerThumbnailSize.Biggest
                         showTotalTimeQueue = false
                         showRemainingSongTime = true
                         showlyricsthumbnail = false

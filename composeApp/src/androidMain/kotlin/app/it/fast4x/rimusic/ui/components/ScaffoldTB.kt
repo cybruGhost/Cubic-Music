@@ -45,11 +45,13 @@ import androidx.navigation.NavController
 import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.PlayerPosition
 import app.it.fast4x.rimusic.enums.TransitionEffect
+import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.utils.playerPositionKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.transitionEffectKey
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.ui.components.navigation.header.AppHeader
+import app.it.fast4x.rimusic.ui.components.navigation.header.AppleAppHeader
 import app.it.fast4x.rimusic.ui.components.navigation.nav.HorizontalNavigationBar
 
 
@@ -98,7 +100,11 @@ fun ScaffoldTB(
                 verticalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                AppHeader( navController ).Draw()
+                when (UiType.current()) {
+                    UiType.RiMusic -> AppHeader(navController).Draw()
+                    UiType.Apple -> AppleAppHeader(navController)
+                    UiType.ViMusic -> Unit
+                }
 
                 if ( NavigationBarPosition.Top.isCurrent() )
                     horizontalNavBar.Draw()

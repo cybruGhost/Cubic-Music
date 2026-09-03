@@ -213,28 +213,45 @@ data class NotificationData(
     val showText: Boolean = true
 )
 
-private fun notificationDataFromJson(notificationJson: org.json.JSONObject): NotificationData =
-    NotificationData(
-        version = notificationJson.getString("version"),
-        url = notificationJson.getString("url"),
-        title = notificationJson.getString("title"),
-        contents = notificationJson.getString("contents"),
-        show = notificationJson.getBoolean("show"),
-        is_force = notificationJson.getBoolean("is_force"),
-        force_update = notificationJson.getBoolean("force_update"),
-        isUpdate = notificationJson.getBoolean("isUpdate"),
+private data class SimilarArtistShelf(
+    val seedName: String,
+    val artists: List<Innertube.ArtistItem>,
+)
+
+private fun notificationDataFromJson(notificationJson: org.json.JSONObject): NotificationData {
+    val isForce = notificationJson.optBoolean(
+        "is_force",
+        notificationJson.optBoolean("force_update", false)
+    )
+    val forceUpdate = notificationJson.optBoolean("force_update", isForce)
+
+    return NotificationData(
+        version = notificationJson.optString("version"),
+        url = notificationJson.optString("url"),
+        title = notificationJson.optString("title"),
+        contents = notificationJson.optString("contents"),
+        show = notificationJson.optBoolean("show", false),
+        is_force = isForce,
+        force_update = forceUpdate,
+        isUpdate = notificationJson.optBoolean("isUpdate", false),
         image_url = notificationJson.optString("image_url").takeUnless {
             it.isBlank() || it.equals("null", ignoreCase = true)
         },
         showImage = notificationJson.optBoolean("show_image", true),
         showText = notificationJson.optBoolean("show_text", true)
     )
+}
 
 private fun notificationDataFromRawJson(rawJson: String): NotificationData? =
     runCatching {
         if (rawJson.isBlank()) return@runCatching null
-        val root = org.json.JSONObject(rawJson)
-        val notificationJson = root.optJSONObject("notification") ?: root
+        val responseRoot = org.json.JSONObject(rawJson)
+        val wrappedContent = responseRoot.optString("content")
+            .takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+        val payloadRoot = wrappedContent
+            ?.let { org.json.JSONObject(it) }
+            ?: responseRoot
+        val notificationJson = payloadRoot.optJSONObject("notification") ?: payloadRoot
         notificationDataFromJson(notificationJson)
     }.getOrNull()
 
@@ -369,6 +386,9 @@ private fun YtmHomeSectionItem.asQuickPickSong(): Song? {
         totalPlayTimeMs = 1L
     )
 }
+
+private fun YtmHomeSectionItem.artistDestinationId(): String =
+    browseId.ifBlank { artistId }.ifBlank { id }.trim()
 
 private fun isVisibleQuickPicksSection(title: String): Boolean {
     return title.trim().isNotBlank()
@@ -587,6 +607,7 @@ fun HomeQuickPicks(
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/quickpicks/relatedPageResult")
     var relatedInit by persist<Innertube.RelatedPage?>(tag = "home/relatedPage")
     var relatedPreference by rememberPreference(quickPicsRelatedPageKey, relatedInit)
+    var similarArtistShelves by remember { mutableStateOf<List<SimilarArtistShelf>>(emptyList()) }
 
     var discoverPageResult by persist<Result<Innertube.DiscoverPage?>>("home/quickpicks/discoveryAlbumsResult")
     var discoverPageInit by persist<Innertube.DiscoverPage>("home/quickpicks/discoveryAlbumsInit")
@@ -612,6 +633,7 @@ fun HomeQuickPicks(
 
     var chartsPageResult by persist<Result<Innertube.ChartsPage?>>("home/quickpicks/chartsPageResult")
     var chartsPageInit by persist<Innertube.ChartsPage>("home/quickpicks/chartsPageInit")
+    var chartsPageCountryCode by rememberPreference("quickPicsChartsPageCountryCode", "")
     //    var chartsPagePreference by rememberPreference(quickPicsChartsPageKey, chartsPageInit)
 
     var localRecommandationsNumber by rememberPreference(
@@ -714,6 +736,14 @@ fun HomeQuickPicks(
             ?.lowercase()
             ?.takeIf { it.isNotBlank() }
             ?: title.substringBefore("-").trim().lowercase()
+
+    fun Song.primaryArtistName(): String =
+        artistsText
+            ?.split(",", "&", "feat.", "ft.", ignoreCase = true)
+            ?.firstOrNull()
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: title.substringBefore("-").trim()
 
     fun List<Song>.artistVariety(maxPerArtist: Int = 2): List<Song> {
         val counts = mutableMapOf<String, Int>()
@@ -822,6 +852,39 @@ fun HomeQuickPicks(
         return merged
             .takeIf { hasContent }
             ?.let { Result.success<Innertube.RelatedPage?>(it) }
+    }
+
+    suspend fun loadSimilarArtistShelves(seedSongs: List<Song>): List<SimilarArtistShelf> {
+        val seeds = seedSongs
+            .filter { song -> song.id.isYouTubeVideoId() }
+            .distinctBy(Song::primaryArtistKey)
+            .take(4)
+
+        return seeds.mapNotNull { seed ->
+            var page: Innertube.RelatedPage? = null
+            repeat(2) { attempt ->
+                if (page != null) return@repeat
+                page = runCatching { Innertube.relatedPage(NextBody(videoId = seed.id)) }
+                    .getOrNull()
+                    ?.getOrNull()
+                if (page == null && attempt == 0) delay(180L)
+            }
+
+            val seedName = seed.primaryArtistName()
+            val artists = page
+                ?.artists
+                .orEmpty()
+                .filter { artist ->
+                    artist.key.startsWith("UC") &&
+                        !artist.info?.name.isNullOrBlank() &&
+                        !artist.info?.name.equals(seedName, ignoreCase = true)
+                }
+                .distinctBy(Innertube.ArtistItem::key)
+                .take(14)
+
+            artists.takeIf(List<Innertube.ArtistItem>::isNotEmpty)
+                ?.let { SimilarArtistShelf(seedName = seedName, artists = it) }
+        }
     }
 
     suspend fun buildCasualMix(
@@ -1147,9 +1210,15 @@ fun HomeQuickPicks(
     suspend fun loadData(forceReload: Boolean = false) {
         if (appRunningInBackground) return
         coroutineScope {
+            val requestedChartsCountry = selectedCountryCode.name
+            val shouldFetchCharts = showCharts && (
+                chartsPageResult == null ||
+                    forceReload ||
+                    chartsPageCountryCode != requestedChartsCountry
+                )
             val chartsDeferred = async(Dispatchers.IO) {
-                if (showCharts && (chartsPageResult == null || forceReload)) {
-                    Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
+                if (shouldFetchCharts) {
+                    Innertube.chartsPageComplete(countryCode = requestedChartsCountry)
                 } else {
                     chartsPageResult
                 }
@@ -1158,19 +1227,31 @@ fun HomeQuickPicks(
             val notificationDeferred = async(Dispatchers.IO) {
                 if (notificationResult == null || forceReload) {
                     runCatching<Pair<NotificationData?, String?>> {
-                        val url = SecureApiConfig.cubicNotificationConfigUrl
-                        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                        connection.requestMethod = "GET"
-                        connection.connectTimeout = 2500
-                        connection.readTimeout = 2500
+                        val sources = listOf(
+                            SecureApiConfig.cubicNotificationConfigUrl,
+                            SecureApiConfig.cubicNotificationConfigFallbackUrl
+                        )
+                        sources.firstNotNullOfOrNull { url ->
+                            runCatching {
+                                val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                                try {
+                                    connection.requestMethod = "GET"
+                                    connection.connectTimeout = 5_000
+                                    connection.readTimeout = 5_000
+                                    connection.setRequestProperty("Accept", "application/json")
 
-                        if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                            val response = connection.inputStream.bufferedReader().use { it.readText() }
-                            val parsedNotification = notificationDataFromRawJson(response)
-                            parsedNotification to response.takeIf { parsedNotification != null }
-                        } else {
-                            null to null
-                        }
+                                    if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                                        val parsedNotification = notificationDataFromRawJson(response)
+                                        parsedNotification?.let { it to response }
+                                    } else {
+                                        null
+                                    }
+                                } finally {
+                                    connection.disconnect()
+                                }
+                            }.getOrNull()
+                        } ?: (null to null)
                     }
                 } else {
                     notificationResult?.map { notification -> Pair(notification, null as String?) }
@@ -1270,6 +1351,12 @@ fun HomeQuickPicks(
             }
 
             chartsPageResult = chartsDeferred.await()
+            if (shouldFetchCharts) {
+                chartsPageResult?.getOrNull()?.let { chartsPage ->
+                    chartsPageInit = chartsPage
+                    chartsPageCountryCode = requestedChartsCountry
+                }
+            }
             val notificationFetch = notificationDeferred.await()
             notificationResult = notificationFetch?.map { it.first }
             notificationFetch?.getOrNull()?.second
@@ -1536,6 +1623,20 @@ fun HomeQuickPicks(
         }
     }
 
+    LaunchedEffect(
+        showSimilarArtists,
+        trendingList.joinToString(separator = ",") { song -> song.id }
+    ) {
+        if (!showSimilarArtists || trendingList.isEmpty()) {
+            similarArtistShelves = emptyList()
+            return@LaunchedEffect
+        }
+
+        similarArtistShelves = withContext(Dispatchers.IO) {
+            loadSimilarArtistShelves(trendingList)
+        }
+    }
+
     LaunchedEffect(activeYouTubeCookie, activeYouTubeSessionId, activeYouTubeAccountIdentity) {
         if (!YouTubeSessionStore.hasAuthCookies(activeYouTubeCookie)) {
             sessionHomeFeedResult = null
@@ -1559,12 +1660,19 @@ fun HomeQuickPicks(
         }
     }
 
-    LaunchedEffect(selectedCountryCode) {
-        if (showCharts && chartsPageResult == null && chartsPageInit == null) {
-            chartsPageResult = Innertube.chartsPageComplete(
-                countryCode = selectedCountryCode.name
-            )
-            chartsPageInit = chartsPageResult?.getOrNull() ?: chartsPageInit
+    LaunchedEffect(selectedCountryCode, showCharts) {
+        val requestedCountry = selectedCountryCode.name
+        if (!showCharts || chartsPageCountryCode == requestedCountry) return@LaunchedEffect
+
+        val result = withContext(Dispatchers.IO) {
+            Innertube.chartsPageComplete(countryCode = requestedCountry)
+        }
+        if (selectedCountryCode.name != requestedCountry) return@LaunchedEffect
+
+        chartsPageResult = result
+        result?.getOrNull()?.let { chartsPage ->
+            chartsPageInit = chartsPage
+            chartsPageCountryCode = requestedCountry
         }
     }
 
@@ -1691,6 +1799,26 @@ fun HomeQuickPicks(
     val similarArtistApiSections = remember(liveApiHomeSections) {
         liveApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.SIMILAR_ARTISTS }
     }
+    val tasteInnertubeArtists = remember(activeRelatedPage) {
+        activeRelatedPage
+            ?.artists
+            .orEmpty()
+            .filter { artist -> artist.key.isNotBlank() && !artist.info?.name.isNullOrBlank() }
+            .distinctBy(Innertube.ArtistItem::key)
+    }
+    val tasteInnertubeArtistIds = remember(tasteInnertubeArtists) {
+        tasteInnertubeArtists.mapTo(mutableSetOf(), Innertube.ArtistItem::key)
+    }
+    val tasteSessionArtistItems = remember(similarArtistApiSections, tasteInnertubeArtistIds) {
+        similarArtistApiSections
+            .flatMap(YtmHomeSection::items)
+            .filter { item -> item.type.equals("artist", ignoreCase = true) }
+            .filter { item -> item.title.isNotBlank() && item.artistDestinationId().isNotBlank() }
+            .distinctBy(YtmHomeSectionItem::artistDestinationId)
+            .filterNot { item -> item.artistDestinationId() in tasteInnertubeArtistIds }
+    }
+    val hasTasteArtistRecommendations =
+        tasteInnertubeArtists.isNotEmpty() || tasteSessionArtistItems.isNotEmpty()
     val guestQuickPickSections = remember(guestApiHomeSections) {
         guestApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.QUICK_PICKS }
     }
@@ -2324,43 +2452,75 @@ fun HomeQuickPicks(
                         onPlaylistClick = onPlaylistClick,
                     )
                 }
-                if (showSimilarArtists)
-                    activeRelatedPage?.artists?.takeIf { it.isNotEmpty() }?.let { artists ->
+                if (showSimilarArtists && hasTasteArtistRecommendations) {
+                    BasicText(
+                        text = stringResource(R.string.artists_for_your_taste),
+                        style = typography().l.semiBold,
+                        modifier = sectionTextModifier
+                    )
+
+                    LazyRow(contentPadding = endPaddingValues) {
+                        items(
+                            items = tasteInnertubeArtists.take(18),
+                            key = { artist -> "taste_innertube_${artist.key}" },
+                        ) { artist ->
+                            ArtistItem(
+                                artist = artist,
+                                thumbnailSizePx = artistThumbnailSizePx,
+                                thumbnailSizeDp = artistThumbnailSizeDp,
+                                alternative = true,
+                                modifier = Modifier.clickable { onArtistClick(artist.key) },
+                                disableScrollingText = disableScrollingText
+                            )
+                        }
+
+                        items(
+                            items = tasteSessionArtistItems.take(
+                                (18 - tasteInnertubeArtists.size).coerceAtLeast(0)
+                            ),
+                            key = { item -> "taste_session_${item.artistDestinationId()}" },
+                        ) { item ->
+                            YtmHomeCard(
+                                title = item.title,
+                                subtitle = item.subtitle.ifBlank { item.artistsText },
+                                thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
+                                imageWidth = 104.dp,
+                                imageHeight = 104.dp,
+                                rounded = false,
+                                modifier = Modifier.clickable {
+                                    onArtistClick(item.artistDestinationId())
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (showSimilarArtists) {
+                    similarArtistShelves.forEach { shelf ->
                         BasicText(
-                            text = stringResource(R.string.similar_artists),
+                            text = stringResource(R.string.similar_to_artist, shelf.seedName),
                             style = typography().l.semiBold,
                             modifier = sectionTextModifier
                         )
 
                         LazyRow(contentPadding = endPaddingValues) {
                             items(
-                                items = artists.distinctBy { it.key },
-                                key = { artist -> artist.key.takeIf { it.isNotBlank() } ?: "artist_${artist.info?.name.orEmpty()}" },
+                                items = shelf.artists,
+                                key = { artist -> "similar_${shelf.seedName}_${artist.key}" },
                             ) { artist ->
                                 ArtistItem(
                                     artist = artist,
                                     thumbnailSizePx = artistThumbnailSizePx,
                                     thumbnailSizeDp = artistThumbnailSizeDp,
                                     alternative = true,
-                                    modifier = Modifier
-                                        .clickable(onClick = { onArtistClick(artist.key) }),
+                                    modifier = Modifier.clickable { onArtistClick(artist.key) },
                                     disableScrollingText = disableScrollingText
                                 )
                             }
                         }
                     }
-
-
-                if (showSimilarArtists && activeRelatedPage?.artists.isNullOrEmpty()) {
-                    YtmHomeFeedSections(
-                        sections = similarArtistApiSections,
-                        endPaddingValues = endPaddingValues,
-                        onPlayableClick = playApiHomeItem,
-                        onAlbumClick = onAlbumClick,
-                        onArtistClick = onArtistClick,
-                        onPlaylistClick = onPlaylistClick,
-                    )
                 }
+
                 if (showPlaylistMightLike && hasTastePlaylistRecommendations) {
                     BasicText(
                         text = stringResource(R.string.playlists_you_might_like),
@@ -2428,6 +2588,8 @@ fun HomeQuickPicks(
                     onArtistClick = onArtistClick,
                     onPlaylistClick = onPlaylistClick,
                 )
+
+
 
                 if (showMoodsAndGenres)
                     discoverPageInit?.let { page ->
@@ -3058,9 +3220,9 @@ private fun RemoteConfigQuickPicksCard(
     onOpenUrl: (String) -> Unit,
     onOpenAboutUpdate: () -> Unit,
 ) {
-    val context = LocalContext.current
     var contentExpanded by remember(notification.contents) { mutableStateOf(false) }
-    val collapsedContentLines = if (notification.showImage) 4 else 6
+    val showArtwork = hasNewUpdate || notification.showImage
+    val collapsedContentLines = if (showArtwork) 4 else 6
     val canExpandContent =
         notification.contents.length > 140 ||
             notification.contents.lineSequence().count() > collapsedContentLines
@@ -3069,7 +3231,7 @@ private fun RemoteConfigQuickPicksCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(8.dp))
             .clickable(enabled = notification.url.isNotBlank()) { onOpenUrl(notification.url) }
             .background(
                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
@@ -3086,16 +3248,27 @@ private fun RemoteConfigQuickPicksCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            if (notification.showImage) {
-                notification.image_url?.takeIf { it.isNotBlank() }?.let { image_url ->
+            if (hasNewUpdate) {
+                Image(
+                    painter = painterResource(R.drawable.critical_update_cubic),
+                    contentDescription = stringResource(R.string.critical_update_artwork),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(if (notification.showText) 164.dp else 204.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+            } else if (notification.showImage) {
+                notification.image_url?.takeIf { it.isNotBlank() }?.let { imageUrl ->
                     ImageCacheFactory.AsyncImage(
-                        thumbnailUrl = image_url,
+                        thumbnailUrl = imageUrl,
                         contentDescription = notification.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(if (notification.showText) 156.dp else 196.dp)
-                            .clip(RoundedCornerShape(32.dp))
+                            .clip(RoundedCornerShape(8.dp))
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                 }
@@ -3133,9 +3306,9 @@ private fun RemoteConfigQuickPicksCard(
             Spacer(modifier = Modifier.height(8.dp))
             BasicText(
                 text = if (hasNewUpdate) {
-                    "Available: ${notification.version} - Installed: ${BuildConfig.VERSION_NAME}"
+                    stringResource(R.string.update_versions, notification.version, BuildConfig.VERSION_NAME)
                 } else {
-                    "Installed version: ${BuildConfig.VERSION_NAME}"
+                    stringResource(R.string.installed_version, BuildConfig.VERSION_NAME)
                 },
                 style = typography().xs.secondary,
                 maxLines = 1
@@ -3144,9 +3317,9 @@ private fun RemoteConfigQuickPicksCard(
             Spacer(modifier = Modifier.height(4.dp))
             BasicText(
                 text = if (showEmergency) {
-                    "Critical fixes are ready in this release."
+                    stringResource(R.string.critical_fixes_ready)
                 } else {
-                    "Tap this card to open the linked announcement."
+                    stringResource(R.string.open_linked_announcement)
                 },
                 style = typography().xs.semiBold.color(
                     if (showEmergency) Color(0xFFFF8C8C) else colorPalette().accent
@@ -3162,7 +3335,7 @@ private fun RemoteConfigQuickPicksCard(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(
                             if (hasNewUpdate) colorPalette().accent
                             else colorPalette().background2.copy(alpha = 0.7f)
@@ -3175,7 +3348,7 @@ private fun RemoteConfigQuickPicksCard(
                     contentAlignment = Alignment.Center
                 ) {
                     BasicText(
-                        text = if (hasNewUpdate) "Update Now" else "Open Notice",
+                        text = stringResource(if (hasNewUpdate) R.string.update_now else R.string.open_notice),
                         style = typography().s.semiBold.color(
                             if (hasNewUpdate) colorPalette().background0 else colorPalette().text
                         ),
@@ -3186,14 +3359,14 @@ private fun RemoteConfigQuickPicksCard(
                 if (hasNewUpdate && notification.url.isNotBlank()) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(colorPalette().background2.copy(alpha = 0.72f))
                             .clickable { onOpenUrl(notification.url) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         BasicText(
-                            text = "Open Link",
+                            text = stringResource(R.string.open_link),
                             style = typography().s.semiBold.color(colorPalette().text)
                         )
                     }

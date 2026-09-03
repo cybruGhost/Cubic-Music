@@ -25,6 +25,9 @@ interface EventTable {
     @Query("SELECT COUNT(*) FROM Event")
     fun countAll(): Flow<Long>
 
+    @Query("SELECT MAX(timestamp) FROM Event")
+    suspend fun latestTimestamp(): Long?
+
     @Transaction
     @Query("SELECT DISTINCT * FROM Event LIMIT :limit")
     fun allWithSong( limit: Int = Int.MAX_VALUE ): Flow<List<EventWithSong>>
@@ -62,12 +65,16 @@ interface EventTable {
     ): Flow<List<Song>>
 
     @Query("""
-        SELECT S.*, SUM(E.playtime) AS playTimeMs, COUNT(E.id) AS playCount, MAX(E.timestamp) AS lastPlayedAt
+        SELECT S.*, SUM(E.playtime) AS playTimeMs, COUNT(*) AS playCount, MAX(E.timestamp) AS lastPlayedAt
         FROM Song S
-        JOIN Event E ON E.songId = S.id
-        WHERE E."timestamp" BETWEEN :from AND :to
+        JOIN (
+            SELECT songId, timestamp, playtime
+            FROM Event
+            WHERE "timestamp" BETWEEN :from AND :to
+            GROUP BY songId, timestamp, playtime
+        ) E ON E.songId = S.id
         GROUP BY S.id
-        ORDER BY playTimeMs DESC
+        ORDER BY playTimeMs DESC, playCount DESC, lastPlayedAt DESC, S.id ASC
         LIMIT :limit
     """)
     fun findSongListeningStatsBetween(
@@ -118,13 +125,17 @@ interface EventTable {
     ): Flow<List<Artist>>
 
     @Query("""
-        SELECT A.*, SUM(E.playtime) AS playTimeMs
+        SELECT A.*, SUM(E.playtime) AS playTimeMs, COUNT(DISTINCT E.songId) AS songCount
         FROM Artist A
         JOIN SongArtistMap SAM ON SAM.artistId = A.id
-        JOIN Event E ON E.songId = SAM.songId
-        WHERE E."timestamp" BETWEEN :from AND :to
+        JOIN (
+            SELECT songId, timestamp, playtime
+            FROM Event
+            WHERE "timestamp" BETWEEN :from AND :to
+            GROUP BY songId, timestamp, playtime
+        ) E ON E.songId = SAM.songId
         GROUP BY A.id
-        ORDER BY playTimeMs DESC
+        ORDER BY playTimeMs DESC, songCount DESC, A.id ASC
         LIMIT :limit
     """)
     fun findArtistListeningStatsBetween(
@@ -167,13 +178,17 @@ interface EventTable {
     ): Flow<List<Album>>
 
     @Query("""
-        SELECT A.*, SUM(E.playtime) AS playTimeMs
+        SELECT A.*, SUM(E.playtime) AS playTimeMs, COUNT(DISTINCT E.songId) AS songCount
         FROM Album A
         JOIN SongAlbumMap SAM ON SAM.albumId = A.id
-        JOIN Event E ON E.songId = SAM.songId
-        WHERE E."timestamp" BETWEEN :from AND :to
+        JOIN (
+            SELECT songId, timestamp, playtime
+            FROM Event
+            WHERE "timestamp" BETWEEN :from AND :to
+            GROUP BY songId, timestamp, playtime
+        ) E ON E.songId = SAM.songId
         GROUP BY A.id
-        ORDER BY playTimeMs DESC
+        ORDER BY playTimeMs DESC, songCount DESC, A.id ASC
         LIMIT :limit
     """)
     fun findAlbumListeningStatsBetween(

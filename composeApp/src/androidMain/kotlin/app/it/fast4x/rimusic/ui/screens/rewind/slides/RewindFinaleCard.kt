@@ -1,414 +1,416 @@
 package app.it.fast4x.rimusic.ui.screens.rewind.slides
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.it.fast4x.rimusic.cleanPrefix
 import app.it.fast4x.rimusic.ui.screens.rewind.RewindData
-import app.kreate.android.R
-
-private val PassportInk = Color(0xFF101015)
-private val PassportLine = Color(0xFF72718A)
-private val PassportTag = Color(0xFFD9FF33)
-private val PassportPink = Color(0xFFFF3F63)
-private val PassportWhite = Color(0xFFF8F4FF)
 
 @Composable
 fun RewindFinaleCard(
     data: RewindData,
+    username: String,
     page: Int,
     pageCount: Int,
-    onShare: () -> Unit
+    active: Boolean,
+    shareMode: Boolean,
+    onShare: () -> Unit,
+    onRestart: () -> Unit
 ) {
-    val topArtists = data.topArtists.take(5)
-    val topSongs = data.topSongs.take(5)
-    val topArtist = topArtists.firstOrNull()
-    val topSong = topSongs.firstOrNull()
-    val topAlbum = data.topAlbums.firstOrNull()
+    val topArtist = data.topArtists.firstOrNull()
+    val topSong = data.topSongs.firstOrNull()
+    val badge = calculateListenerBadge(data)
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF80AEFF),
-                        Color(0xFFE5C4FF),
-                        Color(0xFFFF6F96)
+    RewindStoryShell(
+        page = page,
+        pageCount = pageCount,
+        background = RewindInk,
+        progressColor = RewindCream,
+        onNext = null,
+        showProgress = !shareMode,
+        showBrand = true,
+        backgroundArt = {
+            Canvas(Modifier.fillMaxSize()) {
+                val purpleShape = Path().apply {
+                    moveTo(size.width * 0.62f, 0f)
+                    lineTo(size.width, 0f)
+                    lineTo(size.width, size.height * 0.38f)
+                    lineTo(size.width * 0.82f, size.height * 0.30f)
+                    close()
+                }
+                drawPath(purpleShape, RewindPurple)
+
+                val pinkShape = Path().apply {
+                    moveTo(0f, size.height * 0.70f)
+                    lineTo(size.width * 0.34f, size.height * 0.76f)
+                    lineTo(size.width * 0.52f, size.height)
+                    lineTo(0f, size.height)
+                    close()
+                }
+                drawPath(pinkShape, RewindPink)
+
+                drawCircle(
+                    color = RewindLime,
+                    radius = size.width * 0.12f,
+                    center = Offset(size.width * 0.90f, size.height * 0.60f)
+                )
+                drawCircle(
+                    color = RewindOrange,
+                    radius = size.width * 0.055f,
+                    center = Offset(size.width * 0.12f, size.height * 0.18f)
+                )
+            }
+        }
+    ) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val compact = maxHeight < 700.dp
+            val statSize = if (compact) 19.sp else 23.sp
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                RewindReveal(active, 40, direction = RewindRevealDirection.Left) {
+                    RewindKicker("CUBIC MUSIC • REWIND ${data.year}", RewindLime)
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                RewindReveal(active, 110, direction = RewindRevealDirection.Left) {
+                    Text(
+                        text = "YOUR ${data.year}\nREWIND.",
+                        color = RewindCream,
+                        fontSize = if (compact) 40.sp else 48.sp,
+                        lineHeight = if (compact) 37.sp else 44.sp,
+                        letterSpacing = (-2.4).sp,
+                        fontWeight = FontWeight.Black
                     )
-                )
-            )
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 28.dp, vertical = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            FinaleHeader(year = data.year)
-            Spacer(Modifier.height(30.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                FinaleTopBlock(
-                    title = stringResource(R.string.rewind_passport_top_artists),
-                    imageUrl = topArtist?.artist?.thumbnailUrl,
-                    circular = true,
-                    names = topArtists.map { it.artist.cleanName() },
-                    modifier = Modifier.weight(1f)
-                )
-                FinaleTopBlock(
-                    title = stringResource(R.string.rewind_passport_top_songs),
-                    imageUrl = topSong?.song?.thumbnailUrl,
-                    circular = false,
-                    names = topSongs.map { it.song.cleanTitle() },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Spacer(Modifier.height(34.dp))
-            FinaleDividerTitle(text = stringResource(R.string.rewind_passport_title))
-            Spacer(Modifier.height(24.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                FinalePassportStat(
-                    label = stringResource(R.string.rewind_passport_top_artists),
-                    imageUrl = topArtist?.artist?.thumbnailUrl,
-                    count = data.totalUniqueArtists,
-                    modifier = Modifier.weight(1f)
-                )
-                FinalePassportStat(
-                    label = stringResource(R.string.rewind_passport_top_songs),
-                    imageUrl = topSong?.song?.thumbnailUrl,
-                    count = data.totalUniqueSongs,
-                    modifier = Modifier.weight(1f)
-                )
-                FinalePassportStat(
-                    label = stringResource(R.string.albums),
-                    imageUrl = topAlbum?.album?.thumbnailUrl,
-                    count = data.totalUniqueAlbums,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Spacer(Modifier.height(42.dp))
-            Text(
-                text = stringResource(R.string.rewind_passport_listening_time),
-                color = PassportInk,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.sp
-            )
-            Text(
-                text = formatRewindMinutes(data.stats.totalMinutes),
-                color = PassportInk,
-                fontSize = 68.sp,
-                lineHeight = 70.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = stringResource(R.string.rewind_passport_minutes),
-                color = PassportInk,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.sp
-            )
-            Spacer(Modifier.height(30.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.rewindlogo),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = stringResource(R.string.thumbnail_share_app_name),
-                    color = PassportInk,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                }
+
+                RewindReveal(active, 190) {
+                    Text(
+                        text = "$username • ${badge.title}",
+                        color = RewindLime,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.8.sp
+                    )
+                }
+
+                Spacer(Modifier.height(if (compact) 10.dp else 14.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FinaleStatTile(
+                            label = "MINUTES",
+                            value = formatRewindMinutes(data.stats.totalMinutes),
+                            background = RewindLime,
+                            foreground = RewindInk,
+                            valueSize = statSize,
+                            active = active,
+                            delayMillis = 260,
+                            modifier = Modifier.weight(1f)
+                        )
+                        FinaleStatTile(
+                            label = "PLAYS",
+                            value = formatRewindNumber(data.stats.totalPlays.toLong()),
+                            background = RewindPink,
+                            foreground = RewindInk,
+                            valueSize = statSize,
+                            active = active,
+                            delayMillis = 340,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FinaleStatTile(
+                            label = "DAYS",
+                            value = formatRewindNumber(data.daysWithMusic.toLong()),
+                            background = RewindBlue,
+                            foreground = RewindCream,
+                            valueSize = statSize,
+                            active = active,
+                            delayMillis = 420,
+                            modifier = Modifier.weight(1f)
+                        )
+                        FinaleStatTile(
+                            label = "UNIQUE SONGS",
+                            value = formatRewindNumber(data.totalUniqueSongs.toLong()),
+                            background = RewindOrange,
+                            foreground = RewindInk,
+                            valueSize = statSize,
+                            active = active,
+                            delayMillis = 500,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(if (compact) 9.dp else 12.dp))
+
+                RewindReveal(active, 590, scaleFrom = 0.94f) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(RewindCream, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "LISTENER LEVEL",
+                                color = RewindInk.copy(alpha = 0.54f),
+                                fontSize = 7.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.8.sp
+                            )
+                            Text(
+                                text = badge.title,
+                                color = RewindInk,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        Text(
+                            text = badge.index.toString(),
+                            color = RewindInk,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier
+                                .background(RewindLime, CircleShape)
+                                .padding(horizontal = 10.dp, vertical = 7.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(if (compact) 8.dp else 11.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RewindReveal(
+                        active = active,
+                        delayMillis = 690,
+                        direction = RewindRevealDirection.Left,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        FinaleFeature(
+                            label = "TOP ARTIST",
+                            title = topArtist?.artist?.cleanName() ?: "—",
+                            subtitle = topArtist?.let { compactMetaMinutes(it.minutes) } ?: "",
+                            imageUrl = topArtist?.artist?.thumbnailUrl,
+                            circular = true,
+                            artistName = topArtist?.artist?.cleanName(),
+                            background = RewindPurple
+                        )
+                    }
+
+                    RewindReveal(
+                        active = active,
+                        delayMillis = 770,
+                        direction = RewindRevealDirection.Right,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        FinaleFeature(
+                            label = "TOP SONG",
+                            title = topSong?.song?.cleanTitle() ?: "—",
+                            subtitle = topSong?.let { "${formatRewindNumber(it.playCount.toLong())} plays" } ?: "",
+                            imageUrl = topSong?.song?.thumbnailUrl,
+                            circular = false,
+                            artistName = null,
+                            background = RewindRed
+                        )
+                    }
+                }
+
                 Spacer(Modifier.weight(1f))
-                FinaleReplayButton(onClick = onShare)
-            }
-        }
 
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 68.dp)
-                .fillMaxWidth(0.34f),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            repeat(pageCount) { index ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(if (index == page) 3.dp else 2.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(if (index == page) PassportPink else PassportInk.copy(alpha = 0.28f))
-                )
+                if (shareMode) {
+                    RewindReveal(active, 860) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "CUBIC MUSIC REWIND ${data.year}",
+                                color = RewindLime,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.0.sp
+                            )
+                            Text(
+                                text = "${badge.title} • ${badge.index}",
+                                color = RewindCream.copy(alpha = 0.52f),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        RewindReveal(active, 880) {
+                            Text(
+                                text = "SHARE REWIND  ↗",
+                                color = RewindInk,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.7.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(RewindLime, RoundedCornerShape(100.dp))
+                                    .clickable(onClick = onShare)
+                                    .padding(vertical = 12.dp)
+                            )
+                        }
+                        RewindReveal(active, 960) {
+                            Text(
+                                text = "PLAY AGAIN  ↻",
+                                color = RewindCream,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.8.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(onClick = onRestart)
+                                    .padding(vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FinaleHeader(year: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(2.dp)
-                .background(PassportLine.copy(alpha = 0.7f))
-        )
-        Text(
-            text = stringResource(R.string.rewind_passport_recap_title, year),
-            color = PassportInk,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            letterSpacing = 0.sp
-        )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(2.dp)
-                .background(PassportLine.copy(alpha = 0.7f))
-        )
-    }
-}
-
-@Composable
-private fun FinaleTopBlock(
-    title: String,
-    imageUrl: String?,
-    circular: Boolean,
-    names: List<String>,
+private fun FinaleStatTile(
+    label: String,
+    value: String,
+    background: androidx.compose.ui.graphics.Color,
+    foreground: androidx.compose.ui.graphics.Color,
+    valueSize: TextUnit,
+    active: Boolean,
+    delayMillis: Int,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(contentAlignment = Alignment.BottomCenter) {
-            RewindArtwork(
+    RewindReveal(active, delayMillis, scaleFrom = 0.86f, modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(background, RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp, vertical = 11.dp)
+        ) {
+            Text(
+                text = value,
+                color = foreground,
+                fontSize = valueSize,
+                lineHeight = valueSize,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = label,
+                color = foreground.copy(alpha = 0.66f),
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.7.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun FinaleFeature(
+    label: String,
+    title: String,
+    subtitle: String,
+    imageUrl: String?,
+    circular: Boolean,
+    artistName: String?,
+    background: androidx.compose.ui.graphics.Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(background, RoundedCornerShape(10.dp))
+            .padding(9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (circular && !artistName.isNullOrBlank()) {
+            RewindArtistArtwork(
+                artistName = artistName,
+                primaryUrl = imageUrl,
+                preferWikipedia = true,
+                modifier = Modifier.size(44.dp)
+            )
+        } else {
+            RewindArtworkWithFallback(
                 imageUrl = imageUrl,
-                contentDescription = title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(if (circular) CircleShape else RoundedCornerShape(28.dp))
-                    .border(2.dp, PassportWhite.copy(alpha = 0.9f), if (circular) CircleShape else RoundedCornerShape(28.dp)),
-                contentScale = ContentScale.Crop
+                title = title,
+                modifier = Modifier.size(44.dp),
+                circular = circular,
+                background = RewindInk,
+                foreground = RewindCream
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                color = RewindLime,
+                fontSize = 6.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.7.sp
             )
             Text(
                 text = title,
-                color = PassportInk,
-                fontSize = 20.sp,
-                lineHeight = 22.sp,
+                color = RewindCream,
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
                 fontWeight = FontWeight.Black,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitle,
+                color = RewindCream.copy(alpha = 0.56f),
+                fontSize = 7.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(PassportTag)
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(Modifier.height(14.dp))
-        FinaleRankList(names = names)
-    }
-}
-
-@Composable
-private fun FinaleRankList(names: List<String>) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        names.forEachIndexed { index, name ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "${index + 1}",
-                    color = PassportInk,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.width(24.dp)
-                )
-                Text(
-                    text = cleanPrefix(name).ifBlank { "-" },
-                    color = PassportInk,
-                    fontSize = 17.sp,
-                    lineHeight = 19.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FinaleDividerTitle(text: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = text,
-            color = PassportInk,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(14.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(92.dp)
-                    .height(2.dp)
-                    .background(PassportLine.copy(alpha = 0.65f))
-            )
-            Box(
-                modifier = Modifier
-                    .width(92.dp)
-                    .height(2.dp)
-                    .background(PassportLine.copy(alpha = 0.65f))
-            )
-        }
-    }
-}
-
-@Composable
-private fun FinalePassportStat(
-    label: String,
-    imageUrl: String?,
-    count: Int,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = label,
-            color = PassportInk,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(PassportWhite.copy(alpha = 0.86f))
-                .padding(horizontal = 10.dp, vertical = 5.dp)
-        )
-        Spacer(Modifier.height(6.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1.18f)
-                .clip(RoundedCornerShape(16.dp))
-                .border(2.dp, PassportWhite.copy(alpha = 0.86f), RoundedCornerShape(16.dp))
-        ) {
-            RewindArtwork(
-                imageUrl = imageUrl,
-                contentDescription = label,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = count.coerceAtLeast(0).toString(),
-            color = PassportInk,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Black
-        )
-    }
-}
-
-@Composable
-private fun FinaleReplayButton(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .height(54.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .background(PassportPink)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 22.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.share_social),
-            contentDescription = null,
-            tint = PassportWhite,
-            modifier = Modifier.size(20.dp)
-        )
-        Text(
-            text = stringResource(R.string.rewind_card_finale_share),
-            color = PassportWhite,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }

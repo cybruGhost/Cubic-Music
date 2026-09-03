@@ -18,6 +18,7 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.requests.ArtistPage
 import app.it.fast4x.rimusic.Database
+import app.it.fast4x.rimusic.appContext
 import app.it.fast4x.rimusic.enums.PlayerPosition
 import app.it.fast4x.rimusic.enums.TransitionEffect
 import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
@@ -72,19 +73,26 @@ fun ArtistScreenModern(
     var artistPage: ArtistPage? by remember { mutableStateOf( null ) }
     LaunchedEffect( browseId ) {
         if (browseId.isBlank()) return@LaunchedEffect
+        val endpointBrowseId = YtmSessionApi.normalizeArtistBrowseId(browseId)
 
-        val session = YouTubeSessionStore.applyCurrentSession()
+        val session = YouTubeSessionStore.applyCurrentSession(appContext())
+            ?.let { currentSession -> YtmSessionApi.ensureScopedSession(currentSession) }
         val apiArtist = session
             ?.takeIf { it.cookie.isNotBlank() }
             ?.let {
                 YtmSessionApi.fetchArtist(
                     cookies = it.cookie,
-                    artistId = browseId,
+                    artistId = endpointBrowseId,
                     authUser = it.authUser.ifBlank { null },
                     pageId = it.pageId.ifBlank { null }
                 ).getOrNull()
             }
-            ?: YtmSessionApi.fetchArtist("", browseId, guest = true).getOrNull()
+            ?.takeIf { artist ->
+                artist.name.isNotBlank() || artist.songs.isNotEmpty() ||
+                    artist.albums.isNotEmpty() || artist.singles.isNotEmpty() ||
+                    artist.videos.isNotEmpty() || artist.related.isNotEmpty()
+            }
+            ?: YtmSessionApi.fetchArtist("", endpointBrowseId, guest = true).getOrNull()
 
         if (apiArtist != null) {
             val onlineArtist = Artist(
@@ -116,7 +124,7 @@ fun ArtistScreenModern(
             }
         }
 
-        YtMusic.getArtistPage( browseId )
+        YtMusic.getArtistPage( endpointBrowseId )
                .onSuccess { online ->
                    artistPage = online
 

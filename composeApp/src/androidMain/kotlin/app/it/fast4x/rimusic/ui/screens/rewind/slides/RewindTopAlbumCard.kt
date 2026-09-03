@@ -1,25 +1,38 @@
 package app.it.fast4x.rimusic.ui.screens.rewind.slides
 
-import androidx.compose.foundation.border
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.it.fast4x.rimusic.ui.screens.rewind.TopAlbum
-import app.kreate.android.R
+import kotlinx.coroutines.delay
 
 @Composable
 fun RewindTopAlbumCard(
@@ -27,71 +40,252 @@ fun RewindTopAlbumCard(
     year: Int,
     page: Int,
     pageCount: Int,
+    active: Boolean,
     onNext: () -> Unit
 ) {
-    RewindCanvasCard(
-        title = stringResource(R.string.rewind_card_album_title),
-        year = year,
+    val sleeveIn = remember { Animatable(0f) }
+    val recordIn = remember { Animatable(0f) }
+    val titleIn = remember { Animatable(0f) }
+
+    LaunchedEffect(active) {
+        sleeveIn.snapTo(0f)
+        recordIn.snapTo(0f)
+        titleIn.snapTo(0f)
+        if (!active) return@LaunchedEffect
+
+        delay(240)
+        sleeveIn.animateTo(1f, tween(720, easing = FastOutSlowInEasing))
+        delay(90)
+        recordIn.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
+        delay(100)
+        titleIn.animateTo(1f, tween(620, easing = FastOutSlowInEasing))
+    }
+
+    RewindStoryShell(
         page = page,
         pageCount = pageCount,
-        accent = RewindPurple,
-        secondary = RewindPink,
-        backgroundImageUrl = topAlbum?.album?.thumbnailUrl,
-        onClick = onNext
+        background = RewindYellow,
+        progressColor = RewindInk,
+        onNext = onNext
     ) {
         if (topAlbum == null) {
-            Spacer(Modifier.weight(1f))
-            RewindEmptyState(
-                title = stringResource(R.string.rewind_card_album_empty_title),
-                body = stringResource(R.string.rewind_empty_line),
-                accent = RewindPurple
-            )
-            Spacer(Modifier.weight(1f))
-            return@RewindCanvasCard
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                RewindEmptyState(
+                    title = "NO ALBUM OF THE YEAR YET",
+                    body = "Your top album will appear here once there is enough listening history.",
+                    foreground = RewindInk,
+                    accent = RewindPink
+                )
+            }
+            return@RewindStoryShell
         }
 
-        Spacer(Modifier.height(20.dp))
-        RewindArtwork(
-            imageUrl = topAlbum.album.thumbnailUrl,
-            contentDescription = topAlbum.album.title,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(318.dp)
-                .clip(RoundedCornerShape(30.dp))
-                .border(1.dp, RewindCream.copy(alpha = 0.34f), RoundedCornerShape(30.dp)),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(Modifier.weight(1f))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(R.string.rewind_card_album_headline),
-                color = RewindCream.copy(alpha = 0.72f),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = topAlbum.album.cleanTitle(),
-                color = RewindCream,
-                fontSize = 34.sp,
-                lineHeight = 36.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = topAlbum.album.cleanAuthorsText(),
-                color = RewindCream.copy(alpha = 0.72f),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            RewindMetricPill(
-                value = compactMetaMinutes(topAlbum.minutes),
-                label = stringResource(R.string.rewind_card_album_minutes),
-                accent = RewindPurple,
-                modifier = Modifier.fillMaxWidth()
-            )
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val compact = maxHeight < 700.dp
+            val sleeveSize = if (compact) 198.dp else 236.dp
+            val recordSize = sleeveSize * 0.88f
+            val heroHeight = if (compact) 235.dp else 282.dp
+            val title = topAlbum.album.cleanTitle()
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                RewindReveal(active, 40, direction = RewindRevealDirection.Left) {
+                    RewindKicker("ALBUM OF THE YEAR • $year", RewindInk, RewindCream)
+                }
+
+                Spacer(Modifier.height(11.dp))
+
+                RewindReveal(active, 110, direction = RewindRevealDirection.Left) {
+                    Text(
+                        text = "YOUR #1\nALBUM.",
+                        color = RewindInk,
+                        fontSize = if (compact) 34.sp else 40.sp,
+                        lineHeight = if (compact) 32.sp else 37.sp,
+                        letterSpacing = (-1.9).sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(heroHeight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // The vinyl starts outside the hero on the right and rolls into position.
+                    Box(
+                        modifier = Modifier
+                            .size(recordSize)
+                            .graphicsLayer {
+                                val p = recordIn.value
+                                alpha = p
+                                translationX = (154f - 92f * p).dp.toPx()
+                                translationY = (18f - 18f * p).dp.toPx()
+                                rotationZ = 118f - 100f * p
+                                scaleX = 0.72f + 0.28f * p
+                                scaleY = 0.72f + 0.28f * p
+                            }
+                            .background(RewindInk, CircleShape)
+                    ) {
+                        Canvas(Modifier.fillMaxSize()) {
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            val radius = size.minDimension / 2f
+                            repeat(7) { index ->
+                                drawCircle(
+                                    color = RewindCream.copy(alpha = 0.10f),
+                                    radius = radius * (0.30f + index * 0.085f),
+                                    center = center,
+                                    style = Stroke(width = 1.2f)
+                                )
+                            }
+                            drawCircle(RewindPink, radius * 0.22f, center)
+                            drawCircle(RewindYellow, radius * 0.095f, center)
+                            drawCircle(RewindInk, radius * 0.035f, center)
+                        }
+                    }
+
+                    // Sleeve enters from the opposite side and settles before the vinyl arrives.
+                    RewindArtworkWithFallback(
+                        imageUrl = topAlbum.album.thumbnailUrl,
+                        title = title,
+                        modifier = Modifier
+                            .size(sleeveSize)
+                            .graphicsLayer {
+                                val p = sleeveIn.value
+                                alpha = p
+                                translationX = (-165f * (1f - p) - 24f).dp.toPx()
+                                rotationZ = -11f + 8.5f * p
+                                scaleX = 0.90f + 0.10f * p
+                                scaleY = 0.90f + 0.10f * p
+                            },
+                        background = RewindOrange,
+                        foreground = RewindInk
+                    )
+
+                    RewindReveal(
+                        active = active,
+                        delayMillis = 1_420,
+                        scaleFrom = 0.55f,
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                    ) {
+                        Text(
+                            text = "AOTY",
+                            color = RewindInk,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier
+                                .background(RewindPink, RoundedCornerShape(100.dp))
+                                .padding(horizontal = 13.dp, vertical = 10.dp)
+                                .graphicsLayer { rotationZ = -7f }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                AlbumTitleSwipe(
+                    title = title,
+                    progress = titleIn.value,
+                    compact = compact
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                RewindReveal(active, 1_920) {
+                    Text(
+                        text = firstNonBlank(topAlbum.album.cleanAuthorsText(), "Unknown artist"),
+                        color = RewindInk.copy(alpha = 0.62f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(Modifier.height(11.dp))
+
+                RewindReveal(active, 2_050) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(9.dp)
+                    ) {
+                        AlbumMetric("MINUTES", formatRewindMinutes(topAlbum.minutes), Modifier.weight(1f))
+                        AlbumMetric("SONGS", formatRewindNumber(topAlbum.songCount.toLong()), Modifier.weight(1f))
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun AlbumTitleSwipe(
+    title: String,
+    progress: Float,
+    compact: Boolean
+) {
+    val textProgress = ((progress - 0.34f) / 0.66f).coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(if (compact) 58.dp else 68.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(if (compact) 43.dp else 51.dp)
+                .background(RewindPink, RoundedCornerShape(2.dp))
+        )
+
+        Text(
+            text = title,
+            color = RewindInk,
+            fontSize = if (compact) 24.sp else 29.sp,
+            lineHeight = if (compact) 24.sp else 29.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-1.3).sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .graphicsLayer {
+                    alpha = textProgress
+                    translationY = (1f - textProgress) * 18.dp.toPx()
+                }
+        )
+    }
+}
+
+@Composable
+private fun AlbumMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .background(RewindInk, RoundedCornerShape(9.dp))
+            .padding(horizontal = 12.dp, vertical = 9.dp)
+    ) {
+        Text(
+            text = value,
+            color = RewindCream,
+            fontSize = 19.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            text = label,
+            color = RewindPink,
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.7.sp
+        )
     }
 }

@@ -126,8 +126,8 @@ internal class PlayerUiConfig(
 
 @Composable
 internal fun rememberPlayerUiConfig(): PlayerUiConfig {
-    val playerThumbnailSizeState = rememberPreference(playerThumbnailSizeKey, PlayerThumbnailSize.Biggest)
-    val playerThumbnailSizeLState = rememberPreference(playerThumbnailSizeLKey, PlayerThumbnailSize.Biggest)
+    val playerThumbnailSizeState = rememberPreference(playerThumbnailSizeKey, PlayerThumbnailSize.Big)
+    val playerThumbnailSizeLState = rememberPreference(playerThumbnailSizeLKey, PlayerThumbnailSize.Big)
     val thumbnailSpacingState = rememberPreference(thumbnailSpacingKey, 0f)
     val thumbnailSpacingLState = rememberPreference(thumbnailSpacingLKey, 0f)
     val thumbnailFadeState = rememberPreference(thumbnailFadeKey, 5f)

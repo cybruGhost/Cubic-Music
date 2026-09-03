@@ -73,11 +73,14 @@ import app.kreate.android.R
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
+import it.fast4x.innertube.models.bodies.NextBody
+import it.fast4x.innertube.requests.relatedPage
 import it.fast4x.innertube.requests.HomePage
 import it.fast4x.innertube.requests.discoverPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -298,6 +301,7 @@ fun AppleHomeScreen(
     var sections by remember { mutableStateOf<List<AppleHomeSection>>(emptyList()) }
     var madeForYouItems by remember { mutableStateOf<List<AppleHomeItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<AppleHomeItem>>(emptyList()) }
+    var tasteArtistItems by remember { mutableStateOf<List<AppleHomeItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
     var refreshGeneration by remember { mutableIntStateOf(0) }
@@ -384,10 +388,34 @@ fun AppleHomeScreen(
                 publicSections,
                 guestSections,
             )
-            madeForYouItems = casualMadeForYou.await()
+            val casualSongs = casualMadeForYou.await()
+            madeForYouItems = casualSongs
                 .mapNotNull(Song::toAppleMadeForYouItem)
                 .distinctBy(AppleHomeItem::stableId)
                 .take(12)
+
+            val relatedArtists = mutableListOf<Innertube.ArtistItem>()
+            casualSongs
+                .filter { song -> song.id.isYouTubeVideoId() }
+                .distinctBy(Song::id)
+                .take(4)
+                .forEach { seed ->
+                    var relatedPage: Innertube.RelatedPage? = null
+                    repeat(2) { attempt ->
+                        if (relatedPage == null) {
+                            relatedPage = runCatching {
+                                Innertube.relatedPage(NextBody(videoId = seed.id))
+                            }.getOrNull()?.getOrNull()
+                            if (relatedPage == null && attempt == 0) delay(180L)
+                        }
+                    }
+                    relatedArtists += relatedPage?.artists.orEmpty()
+                }
+            tasteArtistItems = relatedArtists
+                .filter { artist -> artist.key.startsWith("UC") }
+                .distinctBy { artist -> artist.key }
+                .mapNotNull { artist -> artist.toAppleHomeItem() }
+                .take(16)
             newReleases = discover.await()
                 ?.newReleaseAlbums
                 .orEmpty()
@@ -418,6 +446,13 @@ fun AppleHomeScreen(
         AppleHomeSection(
             title = madeForYouTitle,
             items = madeForYouItems,
+        )
+    }
+    val tasteArtistsTitle = stringResource(R.string.artists_for_your_taste)
+    val tasteArtistsSection = remember(tasteArtistItems, tasteArtistsTitle) {
+        AppleHomeSection(
+            title = tasteArtistsTitle,
+            items = tasteArtistItems,
         )
     }
     val playlistSections = sections
@@ -487,6 +522,14 @@ fun AppleHomeScreen(
                             ),
                             featured = true,
                             onItemClick = { item -> onAlbumClick(item.destinationId) },
+                        )
+                    }
+                }
+                if (tasteArtistsSection.items.isNotEmpty()) {
+                    item(key = "apple-taste-artists") {
+                        AppleHomeSectionRow(
+                            section = tasteArtistsSection,
+                            onItemClick = { item -> onArtistClick(item.destinationId) },
                         )
                     }
                 }

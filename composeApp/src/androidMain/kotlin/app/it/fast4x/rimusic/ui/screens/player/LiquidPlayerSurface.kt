@@ -1,16 +1,19 @@
 package app.it.fast4x.rimusic.ui.screens.player
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -19,12 +22,17 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +41,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +57,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -60,25 +71,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.colorPalette
+import app.it.fast4x.rimusic.utils.asSong
+import app.it.fast4x.rimusic.utils.downloadSyncedLyrics
 import app.it.fast4x.rimusic.utils.formatAsDuration
 import app.it.fast4x.rimusic.utils.liquidPlayerLayoutStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.kreate.android.R
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import it.fast4x.lrclib.LrcLib
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Purely a presentation choice — swapped by the user via the small toggle
- * in the corner of the surface. No playback / callback behaviour differs
- * between the two; both styles drive the exact same parameters.
+ * Purely a presentation choice — swapped by the small circular toggle in
+ * the top-right corner. No playback / callback behaviour differs between
+ * the two; both styles drive the exact same parameters.
+ *
+ *  Arc  -> soft rounded-square cover with an open arc seek control beneath it.
+ *  Ring -> perfectly circular cover wrapped in a near-full radial seek ring.
  */
-private enum class PlayerLayoutStyle {
-    Arc,   // open arc around a soft, rounded-square cover
-    Ring,  // near-full ring around a circular cover (2nd reference)
+internal enum class PlayerLayoutStyle {
+    Arc,
+    Ring,
 }
 
 @Composable
@@ -93,33 +114,59 @@ internal fun LiquidPlayerSurface(
     canSkipNext: Boolean,
     shuffleEnabled: Boolean,
     repeatIconRes: Int,
+    repeatEnabled: Boolean,
     isLiked: Boolean,
     crossfadeEnabled: Boolean,
+    layoutStyle: PlayerLayoutStyle = PlayerLayoutStyle.Arc,
+    playbackErrorMessage: String? = null,
+    errorActionLabel: String? = null,
+    onErrorAction: (() -> Unit)? = null,
     onSeek: (Long) -> Unit,
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onShuffle: () -> Unit,
     onQueue: () -> Unit,
+    onMore: () -> Unit,
+    onDismiss: () -> Unit,
+    onAppearance: () -> Unit,
+    onSleepTimer: () -> Unit,
     onLyrics: () -> Unit,
     onLike: () -> Unit,
     onRepeat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // This surface owns its single header; the host suppresses its generic header.
     val palette = colorPalette()
     val title = mediaItem.mediaMetadata.title?.toString().orEmpty()
     val artist = mediaItem.mediaMetadata.artist?.toString().orEmpty()
-    val artworkPainter = ImageCacheFactory.Painter(
-        thumbnailUrl = mediaItem.mediaMetadata.artworkUri?.toString().orEmpty()
-    )
+    val album = mediaItem.mediaMetadata.albumTitle?.toString().orEmpty()
+    val artworkUrl = mediaItem.mediaMetadata.artworkUri?.toString().orEmpty()
 
     val foreground = if (isCanvasVisible) Color.White else palette.text
+    val muted = foreground.copy(alpha = 0.6f)
     val controlSurface = if (isCanvasVisible) Color.Black.copy(alpha = 0.58f) else palette.background2.copy(alpha = 0.86f)
 
-    var layoutStyle by rememberPreference(
-        key = liquidPlayerLayoutStyleKey,
-        defaultValue = PlayerLayoutStyle.Arc,
-    )
+    // Same lyrics pipeline as the rest of the app (FuckSpotifyPlayerSurface):
+    // trigger a synced-lyrics fetch/cache on song change, then read whatever
+    // is in the local DB reactively. Nothing here is guessed or mocked.
+    LaunchedEffect(mediaItem.mediaId) {
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            runCatching { downloadSyncedLyrics(mediaItem.asSong) }
+        }
+    }
+
+    val storedLyrics by remember(mediaItem.mediaId) {
+        Database.lyricsTable.findBySongId(mediaItem.mediaId).distinctUntilChanged()
+    }.collectAsState(initial = null, context = Dispatchers.IO)
+
+    val lyricsPreview = remember(storedLyrics, positionMs) {
+        buildLiquidLyricsPreview(
+            synced = storedLyrics?.synced,
+            fixed = storedLyrics?.fixed,
+            positionMs = positionMs,
+        )
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -134,178 +181,205 @@ internal fun LiquidPlayerSurface(
                 )
             )
     ) {
-        val artWidth = (maxWidth * 0.76f).coerceAtMost(310.dp)
-        val artHeight = (artWidth * 1.30f).coerceAtMost(maxHeight * 0.67f)
-        val artworkAreaHeight = artHeight + 34.dp
-        val scrollState = rememberScrollState()
+        val horizontalPadding = (maxWidth * 0.055f).coerceIn(16.dp, 28.dp)
 
+        // Single fixed page — NEVER scrolls. The artwork owns the flexible
+        // vertical slot, while the controls + compact lyrics dock consume
+        // only what they actually need. The host player already owns the
+        // fullscreen/system chrome, so we avoid a second navigation inset
+        // here (that was the visible dead band at the bottom).
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 18.dp, vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(38.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LayoutStyleToggle(
-                    style = layoutStyle,
-                    tint = foreground,
-                    background = controlSurface,
-                    onToggle = {
-                        layoutStyle = if (layoutStyle == PlayerLayoutStyle.Arc) {
-                            PlayerLayoutStyle.Ring
-                        } else {
-                            PlayerLayoutStyle.Arc
-                        }
-                    },
+                .windowInsetsPadding(
+                    WindowInsets.systemBars.only(
+                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+                    )
                 )
-            }
+                .padding(top = 4.dp, bottom = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            RingPlayerHeader(
+                nowPlayingFrom = album,
+                foreground = foreground,
+                onDismiss = onDismiss,
+                onAppearance = onAppearance,
+            )
 
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.TopCenter
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = horizontalPadding),
+                contentAlignment = Alignment.Center,
             ) {
-                AnimatedContent(
-                    targetState = layoutStyle,
-                    transitionSpec = {
-                        (fadeIn(tween(220)) togetherWith fadeOut(tween(160)))
-                    },
-                    label = "player_layout_style",
-                ) { style ->
-                    when (style) {
-                        PlayerLayoutStyle.Arc -> ArcStyleArtwork(
-                            title = title,
-                            artist = artist,
-                            crossfadeEnabled = crossfadeEnabled,
-                            artworkPainter = artworkPainter,
-                            artWidth = artWidth,
-                            artHeight = artHeight,
-                            artworkAreaHeight = artworkAreaHeight,
-                            isCanvasVisible = isCanvasVisible,
-                            positionMs = positionMs,
-                            durationMs = durationMs,
-                            onSeek = onSeek,
-                        )
-                        PlayerLayoutStyle.Ring -> RingStyleArtwork(
-                            title = title,
-                            artist = artist,
-                            crossfadeEnabled = crossfadeEnabled,
-                            artworkPainter = artworkPainter,
-                            artWidth = artWidth,
-                            artworkAreaHeight = artworkAreaHeight,
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val artWidth = artworkSizeFor(
+                        style = layoutStyle,
+                        availableWidth = maxWidth,
+                        availableHeight = maxHeight,
+                    )
+                    val artHeight = (artWidth * 1.28f)
+                    val artworkAreaHeight = artHeight + 30.dp
+
+                    if (playbackErrorMessage != null && layoutStyle == PlayerLayoutStyle.Ring) {
+                        PlayerSurfacePlaybackError(
+                            message = playbackErrorMessage,
+                            actionLabel = errorActionLabel,
+                            onAction = onErrorAction,
                             foreground = foreground,
-                            positionMs = positionMs,
-                            durationMs = durationMs,
-                            onSeek = onSeek,
+                            accent = palette.accent,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = horizontalPadding),
                         )
-                    }
-                }
-
-                // Layout switcher — purely visual, does not touch playback state.
-            }
-
-            if (isCanvasVisible || layoutStyle == PlayerLayoutStyle.Ring) {
-                // In canvas mode (or the ring style, which keeps the cover clean)
-                // title/artist live below the artwork instead of overlaid on it.
-                if (isCanvasVisible) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 10.dp),
-                        horizontalAlignment = Alignment.Start,
-                    ) {
-                        Text(
-                            text = title,
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            lineHeight = 27.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            letterSpacing = 0.sp,
-                        )
-                        Text(
-                            text = artist,
-                            color = Color.White.copy(alpha = 0.76f),
-                            fontSize = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            letterSpacing = 0.sp,
-                        )
-                        if (crossfadeEnabled) {
-                            Text(
-                                text = stringResource(R.string.crossfade_active_badge),
-                                color = palette.accent.copy(alpha = 0.72f),
-                                fontSize = 9.sp,
-                                maxLines = 1,
-                                letterSpacing = 0.sp,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
+                    } else {
+                        AnimatedContent(
+                            targetState = layoutStyle to artworkUrl,
+                            transitionSpec = {
+                                (fadeIn(tween(240)) togetherWith fadeOut(tween(170)))
+                            },
+                            label = "liquid_artwork",
+                        ) { (style, displayedArtworkUrl) ->
+                            val displayedPainter = ImageCacheFactory.Painter(displayedArtworkUrl)
+                            when (style) {
+                                PlayerLayoutStyle.Arc -> ArcStyleArtwork(
+                                    mediaId = mediaItem.mediaId,
+                                    artworkPainter = displayedPainter,
+                                    artWidth = artWidth,
+                                    artHeight = artHeight,
+                                    artworkAreaHeight = artworkAreaHeight,
+                                    positionMs = positionMs,
+                                    durationMs = durationMs,
+                                    onSeek = onSeek,
+                                )
+                                PlayerLayoutStyle.Ring -> RingStyleArtwork(
+                                    mediaId = mediaItem.mediaId,
+                                    artworkPainter = displayedPainter,
+                                    artWidth = artWidth,
+                                    accent = palette.accent,
+                                    trackColor = foreground.copy(alpha = 0.16f),
+                                    positionMs = positionMs,
+                                    durationMs = durationMs,
+                                    onSeek = onSeek,
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            Text(
-                text = formatAsDuration(positionMs.coerceAtLeast(0L)),
-                color = foreground,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.sp,
+            Spacer(Modifier.height(4.dp))
+
+            TrackInfoRow(
+                mediaId = mediaItem.mediaId,
+                title = title,
+                artist = artist,
+                isLiked = isLiked,
+                foreground = foreground,
+                muted = muted,
+                accent = palette.accent,
+                onQueue = onQueue,
+                onLike = onLike,
             )
-            Spacer(Modifier.height(16.dp))
+
+            RingLinearSeekBar(
+                mediaId = mediaItem.mediaId,
+                positionMs = positionMs,
+                durationMs = durationMs,
+                activeColor = palette.accent,
+                trackColor = foreground.copy(alpha = 0.18f),
+                onSeek = onSeek,
+                modifier = Modifier
+                    .fillMaxWidth(0.86f),
+            )
+            PlaybackTimeRow(
+                positionMs = positionMs,
+                durationMs = durationMs,
+                timeColor = foreground,
+            )
+
+            Spacer(Modifier.height(6.dp))
 
             PrimaryControlsRow(
                 foreground = foreground,
+                accent = palette.accent,
                 controlSurface = controlSurface,
                 isPlaying = isPlaying,
                 isBuffering = isBuffering,
                 canSkipPrevious = canSkipPrevious,
                 canSkipNext = canSkipNext,
-                isLiked = isLiked,
+                shuffleEnabled = shuffleEnabled,
+                repeatIconRes = repeatIconRes,
+                repeatEnabled = repeatEnabled,
                 onPrevious = onPrevious,
                 onPlayPause = onPlayPause,
                 onNext = onNext,
-                onLike = onLike,
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            SecondaryControlsRow(
-                foreground = foreground,
-                shuffleEnabled = shuffleEnabled,
-                repeatIconRes = repeatIconRes,
                 onShuffle = onShuffle,
-                onLyrics = onLyrics,
-                onQueue = onQueue,
                 onRepeat = onRepeat,
             )
-            Spacer(Modifier.height(10.dp))
+
+            Spacer(Modifier.height(4.dp))
+
+            RingBottomActions(
+                foreground = foreground,
+                accent = palette.accent,
+                crossfadeEnabled = crossfadeEnabled,
+                onSleepTimer = onSleepTimer,
+                onMore = onMore,
+            )
+
+            // Compact live lyrics dock. No fake expand state: tapping it opens
+            // the real lyrics action supplied by the host, just like the
+            // FuckSpotify player.
+            LyricsSheet(
+                lines = lyricsPreview,
+                accent = palette.accent,
+                onLyrics = onLyrics,
+            )
         }
     }
 }
 
+/**
+ * Computes an artwork side length that fits BOTH the available width and
+ * the available height for the given style's bounding box, so the artwork
+ * (plus its seek control) never overflows and the page never needs to
+ * scroll. The old 260dp cap made the cover feel timid; this version allows
+ * it to breathe up to 292dp while still respecting the available height.
+ */
+private fun artworkSizeFor(
+    style: PlayerLayoutStyle,
+    availableWidth: androidx.compose.ui.unit.Dp,
+    availableHeight: androidx.compose.ui.unit.Dp,
+): androidx.compose.ui.unit.Dp {
+    val widthLimit = when (style) {
+        PlayerLayoutStyle.Arc -> availableWidth - 44.dp
+        PlayerLayoutStyle.Ring -> availableWidth - 40.dp
+    }
+    val heightLimit = when (style) {
+        PlayerLayoutStyle.Arc -> (availableHeight - 30.dp) / 1.28f
+        PlayerLayoutStyle.Ring -> availableHeight - 40.dp
+    }
+    val proportionalLimit = min(availableWidth.value, availableHeight.value).dp * 0.94f
+    return minOf(widthLimit, heightLimit, proportionalLimit, 360.dp)
+        .coerceAtLeast(1.dp)
+}
+
 /* ---------------------------------------------------------------------- */
-/*  Artwork headers — visual only, both drive onSeek/positionMs/durationMs */
+/*  Artwork headers — visual only, both drive onSeek/position/duration     */
 /* ---------------------------------------------------------------------- */
 
 @Composable
 private fun ArcStyleArtwork(
-    title: String,
-    artist: String,
-    crossfadeEnabled: Boolean,
+    mediaId: String,
     artworkPainter: androidx.compose.ui.graphics.painter.Painter,
     artWidth: androidx.compose.ui.unit.Dp,
     artHeight: androidx.compose.ui.unit.Dp,
     artworkAreaHeight: androidx.compose.ui.unit.Dp,
-    isCanvasVisible: Boolean,
     positionMs: Long,
     durationMs: Long,
     onSeek: (Long) -> Unit,
@@ -317,33 +391,44 @@ private fun ArcStyleArtwork(
             .height(artworkAreaHeight),
         contentAlignment = Alignment.TopCenter
     ) {
-        if (!isCanvasVisible) LiquidArcSeekBar(
+        LiquidArcSeekBar(
+            mediaId = mediaId,
             positionMs = positionMs,
             durationMs = durationMs,
-            activeColor = palette.text,
-            trackColor = palette.textDisabled.copy(alpha = 0.55f),
-            scrubberColor = palette.text,
+            activeColor = palette.accent,
+            trackColor = palette.textDisabled.copy(alpha = 0.4f),
+            scrubberColor = palette.accent,
             onSeek = onSeek,
             modifier = Modifier.fillMaxSize()
         )
 
-        if (!isCanvasVisible) Box(
+        Box(
             modifier = Modifier
                 .width(artWidth)
                 .height(artHeight)
                 .shadow(
-                    elevation = 18.dp,
+                    elevation = 22.dp,
                     shape = RoundedCornerShape(
                         topStart = 28.dp,
                         topEnd = 28.dp,
                         bottomStart = artWidth / 2,
                         bottomEnd = artWidth / 2,
                     ),
-                    ambientColor = Color.Black.copy(alpha = 0.35f),
-                    spotColor = Color.Black.copy(alpha = 0.45f),
+                    ambientColor = Color.Black.copy(alpha = 0.4f),
+                    spotColor = Color.Black.copy(alpha = 0.5f),
                 )
                 .clip(
                     RoundedCornerShape(
+                        topStart = 28.dp,
+                        topEnd = 28.dp,
+                        bottomStart = artWidth / 2,
+                        bottomEnd = artWidth / 2,
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.14f),
+                    shape = RoundedCornerShape(
                         topStart = 28.dp,
                         topEnd = 28.dp,
                         bottomStart = artWidth / 2,
@@ -358,172 +443,259 @@ private fun ArcStyleArtwork(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(artHeight * 0.48f)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.74f))
-                        )
-                    )
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 20.dp, end = 20.dp, bottom = 50.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = title,
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    lineHeight = 23.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    letterSpacing = 0.sp,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = artist,
-                    color = Color.White.copy(alpha = 0.76f),
-                    fontSize = 14.sp,
-                    lineHeight = 17.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    letterSpacing = 0.sp,
-                )
-                if (crossfadeEnabled) {
-                    Text(
-                        text = stringResource(R.string.crossfade_active_badge),
-                        color = palette.accent.copy(alpha = 0.72f),
-                        fontSize = 9.sp,
-                        maxLines = 1,
-                        letterSpacing = 0.sp,
-                        modifier = Modifier.padding(top = 3.dp),
-                    )
-                }
-            }
         }
     }
 }
 
 @Composable
 private fun RingStyleArtwork(
-    title: String,
-    artist: String,
-    crossfadeEnabled: Boolean,
+    mediaId: String,
     artworkPainter: androidx.compose.ui.graphics.painter.Painter,
     artWidth: androidx.compose.ui.unit.Dp,
-    artworkAreaHeight: androidx.compose.ui.unit.Dp,
-    foreground: Color,
+    accent: Color,
+    trackColor: Color,
     positionMs: Long,
     durationMs: Long,
     onSeek: (Long) -> Unit,
 ) {
     val palette = colorPalette()
-    val ringDiameter = artWidth * 0.82f
+    // Ring rides almost flush against the artwork edge — matches the
+    // reference screenshot, no loose floating gap.
+    val ringBoxSize = artWidth + 10.dp
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        modifier = Modifier.size(ringBoxSize),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = title,
-            color = foreground,
-            fontSize = 20.sp,
-            lineHeight = 24.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            letterSpacing = 0.sp,
-            modifier = Modifier.fillMaxWidth(0.88f),
+        ClassicRingSeekBar(
+            mediaId = mediaId,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            activeColor = accent,
+            trackColor = trackColor,
+            scrubberColor = accent,
+            onSeek = onSeek,
+            modifier = Modifier.size(ringBoxSize)
         )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text = artist,
-            color = foreground.copy(alpha = 0.66f),
-            fontSize = 14.sp,
-            lineHeight = 17.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            letterSpacing = 0.sp,
-        )
-        if (crossfadeEnabled) {
-            Text(
-                text = stringResource(R.string.crossfade_active_badge),
-                color = palette.accent.copy(alpha = 0.72f),
-                fontSize = 9.sp,
-                maxLines = 1,
-                letterSpacing = 0.sp,
-                modifier = Modifier.padding(top = 3.dp),
-            )
-        }
-        Spacer(Modifier.height(12.dp))
 
         Box(
             modifier = Modifier
-                .width(artWidth + 44.dp)
-                .height(artWidth + 44.dp),
-            contentAlignment = Alignment.Center
+                .size(artWidth)
+                .clip(CircleShape)
+                .background(palette.background2)
         ) {
-            ClassicRingSeekBar(
-                positionMs = positionMs,
-                durationMs = durationMs,
-                activeColor = palette.accent,
-                trackColor = palette.textDisabled.copy(alpha = 0.4f),
-                scrubberColor = palette.accent,
-                onSeek = onSeek,
+            Image(
+                painter = artworkPainter,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-
-            Box(
-                modifier = Modifier
-                    .size(ringDiameter)
-                    .shadow(elevation = 16.dp, shape = CircleShape)
-                    .clip(CircleShape)
-                    .background(palette.background2)
-            ) {
-                Image(
-                    painter = artworkPainter,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
         }
     }
 }
 
 /* ---------------------------------------------------------------------- */
-/*  Shared control rows — identical bindings for both styles              */
+/*  Track info row (crossfade pill lives in the top bar now, not here)    */
+/* ---------------------------------------------------------------------- */
+
+@Composable
+private fun TrackInfoRow(
+    mediaId: String,
+    title: String,
+    artist: String,
+    isLiked: Boolean,
+    foreground: Color,
+    muted: Color,
+    accent: Color,
+    onQueue: () -> Unit,
+    onLike: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(0.9f),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LiquidControlButton(
+            icon = R.drawable.playlist,
+            tint = foreground,
+            onClick = onQueue,
+        )
+
+        AnimatedContent(
+            targetState = Triple(mediaId, title, artist),
+            transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(150)) },
+            label = "liquid_metadata",
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 10.dp),
+        ) { (_, displayedTitle, displayedArtist) ->
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = displayedTitle,
+                    color = foreground,
+                    fontSize = 18.sp,
+                    lineHeight = 21.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.95f),
+                            offset = Offset(0f, 1.5f),
+                            blurRadius = 3f,
+                        )
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .basicMarquee(),
+                )
+                Text(
+                    text = displayedArtist,
+                    color = muted,
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    textAlign = TextAlign.Center,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.95f),
+                            offset = Offset(0f, 1.5f),
+                            blurRadius = 3f,
+                        )
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .basicMarquee(),
+                )
+            }
+        }
+
+        LiquidControlButton(
+            icon = if (isLiked) R.drawable.heart else R.drawable.heart_outline,
+            tint = if (isLiked) accent else foreground,
+            onClick = onLike,
+        )
+    }
+}
+
+/**
+ * Small, legible pill instead of relying on a tiny 9sp inline string —
+ * that was rendering as an illegible cluster of glyphs at that scale. A
+ * self-drawn crossfade glyph (two overlapping arcs, no extra drawable
+ * resource needed) plus the real string resource, both large enough to
+ * actually read. Now lives in the top bar instead of under the artist
+ * name, so it never pushes the title/artist column off-center.
+ */
+@Composable
+private fun CrossfadeBadge(accent: Color) {
+    Surface(
+        color = accent.copy(alpha = 0.16f),
+        contentColor = accent,
+        shape = RoundedCornerShape(50),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+        ) {
+            Canvas(modifier = Modifier.size(10.dp)) {
+                val stroke = 1.4.dp.toPx()
+                drawArc(
+                    color = accent,
+                    startAngle = 200f,
+                    sweepAngle = 220f,
+                    useCenter = false,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+                drawArc(
+                    color = accent,
+                    startAngle = 20f,
+                    sweepAngle = 220f,
+                    useCenter = false,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = stringResource(R.string.crossfade_active_badge),
+                color = accent,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                letterSpacing = 0.3.sp,
+            )
+        }
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Playback time — radial seeker is the single source of timeline input   */
+/* ---------------------------------------------------------------------- */
+
+@Composable
+private fun PlaybackTimeRow(
+    positionMs: Long,
+    durationMs: Long,
+    timeColor: Color,
+) {
+    val validDuration = durationMs.takeIf { it > 0L && it != C.TIME_UNSET } ?: 0L
+    Row(
+        modifier = Modifier
+            .fillMaxWidth(0.82f)
+            .height(18.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = formatAsDuration(positionMs.coerceIn(0L, validDuration.coerceAtLeast(0L))),
+            color = timeColor,
+            fontSize = 11.sp,
+        )
+        Text(
+            text = formatAsDuration(validDuration),
+            color = timeColor,
+            fontSize = 11.sp,
+        )
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Primary controls                                                      */
 /* ---------------------------------------------------------------------- */
 
 @Composable
 private fun PrimaryControlsRow(
     foreground: Color,
+    accent: Color,
     controlSurface: Color,
     isPlaying: Boolean,
     isBuffering: Boolean,
     canSkipPrevious: Boolean,
     canSkipNext: Boolean,
-    isLiked: Boolean,
+    shuffleEnabled: Boolean,
+    repeatIconRes: Int,
+    repeatEnabled: Boolean,
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
-    onLike: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
 ) {
     val palette = colorPalette()
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(0.92f),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        LiquidControlButton(
+            icon = repeatIconRes,
+            tint = if (repeatEnabled) accent else foreground,
+            onClick = onRepeat,
+        )
         LiquidControlButton(
             icon = R.drawable.play_skip_back,
             tint = foreground,
@@ -531,12 +703,12 @@ private fun PrimaryControlsRow(
             onClick = onPrevious,
         )
         Surface(
-            color = palette.text,
+            color = accent,
             contentColor = palette.background0,
             shape = CircleShape,
             modifier = Modifier
-                .size(64.dp)
-                .shadow(elevation = 8.dp, shape = CircleShape)
+                .size(68.dp)
+                .shadow(elevation = 12.dp, shape = CircleShape)
                 .border(1.dp, controlSurface.copy(alpha = 0.42f), CircleShape),
         ) {
             IconButton(onClick = onPlayPause) {
@@ -544,14 +716,14 @@ private fun PrimaryControlsRow(
                     CircularProgressIndicator(
                         color = palette.background0,
                         strokeWidth = 2.dp,
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(26.dp),
                     )
                 } else {
                     Icon(
                         painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
                         contentDescription = null,
                         tint = palette.background0,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(30.dp),
                     )
                 }
             }
@@ -563,50 +735,109 @@ private fun PrimaryControlsRow(
             onClick = onNext,
         )
         LiquidControlButton(
-            icon = if (isLiked) R.drawable.heart else R.drawable.heart_outline,
-            tint = if (isLiked) palette.accent else foreground,
-            onClick = onLike,
+            icon = R.drawable.shuffle,
+            tint = if (shuffleEnabled) accent else foreground,
+            onClick = onShuffle,
         )
     }
 }
 
+/* ---------------------------------------------------------------------- */
+/*  Compact live lyrics dock — animated current-line preview               */
+/* ---------------------------------------------------------------------- */
+
 @Composable
-private fun SecondaryControlsRow(
-    foreground: Color,
-    shuffleEnabled: Boolean,
-    repeatIconRes: Int,
-    onShuffle: () -> Unit,
+private fun LyricsSheet(
+    lines: List<LiquidLyricsLine>,
+    accent: Color,
     onLyrics: () -> Unit,
-    onQueue: () -> Unit,
-    onRepeat: () -> Unit,
 ) {
-    val palette = colorPalette()
-    Row(
-        modifier = Modifier.fillMaxWidth(0.86f),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        LiquidControlButton(
-            icon = R.drawable.shuffle,
-            tint = if (shuffleEnabled) palette.accent else foreground,
-            onClick = onShuffle,
-        )
-        LiquidControlButton(
-            icon = R.drawable.song_lyrics,
-            tint = foreground,
-            onClick = onLyrics,
-        )
-        LiquidControlButton(
-            icon = R.drawable.playlist,
-            tint = foreground,
-            onClick = onQueue,
-        )
-        LiquidControlButton(
-            icon = repeatIconRes,
-            tint = foreground,
-            onClick = onRepeat,
-        )
+    val compactLines = remember(lines) {
+        lines.take(3)
     }
+    val activeKey = compactLines.firstOrNull { it.isCurrent }?.text.orEmpty()
+
+    Surface(
+        color = Color.Black.copy(alpha = 0.55f),
+        contentColor = Color.White,
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(onLyrics) { detectTapGestures { onLyrics() } },
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.fuck_spotify_lyrics_preview),
+                    color = Color.White.copy(alpha = 0.92f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.fuck_spotify_show_lyrics),
+                    color = accent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            if (compactLines.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.fuck_spotify_no_lyrics),
+                    color = Color.White.copy(alpha = 0.48f),
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                AnimatedContent(
+                    targetState = activeKey to compactLines,
+                    transitionSpec = {
+                        (fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 5 }) togetherWith
+                            (fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 5 })
+                    },
+                    label = "liquid_lyrics_preview",
+                ) { (_, displayedLines) ->
+                    Column {
+                        displayedLines.forEach { line ->
+                            LyricsLineText(line = line, accent = accent)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricsLineText(line: LiquidLyricsLine, accent: Color) {
+    val color by animateColorAsState(
+        targetValue = if (line.isCurrent) accent else Color.White.copy(alpha = 0.5f),
+        label = "lyrics_line_color",
+    )
+    val fontSize by animateFloatAsState(
+        targetValue = if (line.isCurrent) 16f else 13f,
+        label = "lyrics_line_size",
+    )
+    Text(
+        text = line.text,
+        color = color,
+        fontSize = fontSize.sp,
+        lineHeight = if (line.isCurrent) 20.sp else 17.sp,
+        fontWeight = if (line.isCurrent) FontWeight.Bold else FontWeight.Medium,
+        textAlign = TextAlign.Start,
+        maxLines = Int.MAX_VALUE,
+        overflow = TextOverflow.Clip,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp),
+    )
 }
 
 @Composable
@@ -633,12 +864,11 @@ private fun LiquidControlButton(
 }
 
 /* ---------------------------------------------------------------------- */
-/*  Layout style toggle — small, unobtrusive, in the corner               */
+/*  Layout style toggle — plain circle, per the reference.                */
 /* ---------------------------------------------------------------------- */
 
 @Composable
 private fun LayoutStyleToggle(
-    style: PlayerLayoutStyle,
     tint: Color,
     background: Color,
     onToggle: () -> Unit,
@@ -655,48 +885,30 @@ private fun LayoutStyleToggle(
     ) {
         IconButton(onClick = onToggle, modifier = Modifier.fillMaxSize()) {
             Canvas(modifier = Modifier.size(16.dp)) {
-                // A tiny glyph that hints "switch layout": a circle + a
-                // rounded square, whichever matches the *other* style is
-                // drawn solid so it reads as "tap to switch to this one".
                 val strokeWidth = 1.6.dp.toPx()
-                when (style) {
-                    PlayerLayoutStyle.Arc -> {
-                        // Currently Arc → hint at Ring (draw a circle, solid)
-                        drawCircle(
-                            color = tint,
-                            radius = size.minDimension / 2.2f,
-                            center = Offset(size.width / 2f, size.height / 2f),
-                            style = Stroke(width = strokeWidth)
-                        )
-                        drawCircle(
-                            color = tint,
-                            radius = size.minDimension / 5.5f,
-                            center = Offset(size.width / 2f, size.height / 2f),
-                        )
-                    }
-                    PlayerLayoutStyle.Ring -> {
-                        // Currently Ring → hint at Arc (draw a rounded square)
-                        val inset = strokeWidth
-                        drawRoundRect(
-                            color = tint,
-                            topLeft = Offset(inset, inset),
-                            size = Size(size.width - inset * 2, size.height - inset * 2),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.32f),
-                            style = Stroke(width = strokeWidth)
-                        )
-                    }
-                }
+                drawCircle(
+                    color = tint,
+                    radius = size.minDimension / 2.2f,
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    style = Stroke(width = strokeWidth)
+                )
+                drawCircle(
+                    color = tint,
+                    radius = size.minDimension / 5.5f,
+                    center = Offset(size.width / 2f, size.height / 2f),
+                )
             }
         }
     }
 }
 
 /* ---------------------------------------------------------------------- */
-/*  Seek bars                                                             */
+/*  Radial seek bars                                                      */
 /* ---------------------------------------------------------------------- */
 
 @Composable
 private fun LiquidArcSeekBar(
+    mediaId: String,
     positionMs: Long,
     durationMs: Long,
     activeColor: Color,
@@ -711,9 +923,9 @@ private fun LiquidArcSeekBar(
     } else {
         0f
     }
-    var isDragging by remember { mutableStateOf(false) }
-    var draggingProgress by remember { mutableFloatStateOf(playbackProgress) }
-    var dragAccepted by remember { mutableStateOf(false) }
+    var isDragging by remember(mediaId) { mutableStateOf(false) }
+    var draggingProgress by remember(mediaId) { mutableFloatStateOf(playbackProgress) }
+    var dragAccepted by remember(mediaId) { mutableStateOf(false) }
     val visibleProgress = if (isDragging && dragAccepted) draggingProgress else playbackProgress
 
     fun seekFraction(
@@ -733,7 +945,7 @@ private fun LiquidArcSeekBar(
         modifier = modifier
             .pointerInput(validDuration) {
                 detectTapGestures { offset ->
-                    seekFraction(offset, size, 48.dp.toPx())
+                    seekFraction(offset, size, 72.dp.toPx())
                         ?.let { onSeek((it * validDuration).toLong()) }
                 }
             }
@@ -741,14 +953,14 @@ private fun LiquidArcSeekBar(
                 detectDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
-                        val fraction = seekFraction(offset, size, 48.dp.toPx())
+                        val fraction = seekFraction(offset, size, 72.dp.toPx())
                         dragAccepted = fraction != null
                         if (fraction != null) draggingProgress = fraction
                     },
                     onDrag = { change, _ ->
                         if (dragAccepted) {
-                            seekFraction(change.position, size, 64.dp.toPx())
-                                ?.let { draggingProgress = it }
+                            val center = Offset(size.width / 2f, size.height * 0.58f)
+                            draggingProgress = liquidArcFraction(change.position, center)
                             change.consume()
                         }
                     },
@@ -789,7 +1001,7 @@ private fun LiquidArcSeekBar(
                 useCenter = false,
                 topLeft = topLeft,
                 size = arcSize,
-                style = Stroke(width = 7.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
             )
         }
 
@@ -798,10 +1010,11 @@ private fun LiquidArcSeekBar(
             x = center.x + radius * cos(angle).toFloat(),
             y = center.y + radius * sin(angle).toFloat(),
         )
-        drawCircle(Color.White, radius = 10.dp.toPx(), center = scrubber)
+        val thumbRadius = if (isDragging && dragAccepted) 15.dp.toPx() else 13.dp.toPx()
+        drawCircle(Color.White, radius = thumbRadius, center = scrubber)
         drawCircle(
             color = scrubberColor,
-            radius = 10.dp.toPx(),
+            radius = thumbRadius,
             center = scrubber,
             style = Stroke(width = 3.dp.toPx())
         )
@@ -809,12 +1022,14 @@ private fun LiquidArcSeekBar(
 }
 
 /**
- * Near-full ring seek bar (modelled on the second reference image): the
- * track wraps almost the whole way around the circular cover, leaving a
- * small gap at the top. Same drag/tap seek behaviour as [LiquidArcSeekBar].
+ * Near-full ring seek bar wrapping the circular cover: the track wraps
+ * almost the whole way around, leaving a small gap at the top. Same
+ * drag/tap seek behaviour as [LiquidArcSeekBar]. Track and progress
+ * strokes share the same thickness so they read as one continuous ring.
  */
 @Composable
 private fun ClassicRingSeekBar(
+    mediaId: String,
     positionMs: Long,
     durationMs: Long,
     activeColor: Color,
@@ -829,15 +1044,13 @@ private fun ClassicRingSeekBar(
     } else {
         0f
     }
-    var isDragging by remember { mutableStateOf(false) }
-    var draggingProgress by remember { mutableFloatStateOf(playbackProgress) }
-    var dragAccepted by remember { mutableStateOf(false) }
+    var isDragging by remember(mediaId) { mutableStateOf(false) }
+    var draggingProgress by remember(mediaId) { mutableFloatStateOf(playbackProgress) }
+    var dragAccepted by remember(mediaId) { mutableStateOf(false) }
     val visibleProgress = if (isDragging && dragAccepted) draggingProgress else playbackProgress
 
-    // Ring geometry: starts at the top with a small gap, sweeps clockwise
-    // almost 360 degrees.
-    val startAngle = -90f + 6f
-    val sweepAngle = 348f
+    val startAngle = -90f
+    val sweepAngle = 360f
 
     fun seekFraction(
         offset: Offset,
@@ -856,7 +1069,7 @@ private fun ClassicRingSeekBar(
         modifier = modifier
             .pointerInput(validDuration) {
                 detectTapGestures { offset ->
-                    seekFraction(offset, size, 48.dp.toPx())
+                    seekFraction(offset, size, 72.dp.toPx())
                         ?.let { onSeek((it * validDuration).toLong()) }
                 }
             }
@@ -864,14 +1077,14 @@ private fun ClassicRingSeekBar(
                 detectDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
-                        val fraction = seekFraction(offset, size, 48.dp.toPx())
+                        val fraction = seekFraction(offset, size, 72.dp.toPx())
                         dragAccepted = fraction != null
                         if (fraction != null) draggingProgress = fraction
                     },
                     onDrag = { change, _ ->
                         if (dragAccepted) {
-                            seekFraction(change.position, size, 64.dp.toPx())
-                                ?.let { draggingProgress = it }
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            draggingProgress = ringFraction(change.position, center, startAngle, sweepAngle)
                             change.consume()
                         }
                     },
@@ -888,7 +1101,8 @@ private fun ClassicRingSeekBar(
             }
     ) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val radius = size.width * 0.46f
+        val ringStrokeWidth = 7.dp.toPx()
+        val radius = (size.minDimension - ringStrokeWidth) / 2f
         val topLeft = Offset(center.x - radius, center.y - radius)
         val arcSize = Size(radius * 2f, radius * 2f)
         val activeSweep = sweepAngle * visibleProgress
@@ -900,7 +1114,7 @@ private fun ClassicRingSeekBar(
             useCenter = false,
             topLeft = topLeft,
             size = arcSize,
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            style = Stroke(width = ringStrokeWidth, cap = StrokeCap.Round)
         )
         if (visibleProgress > 0.001f) {
             drawArc(
@@ -910,7 +1124,7 @@ private fun ClassicRingSeekBar(
                 useCenter = false,
                 topLeft = topLeft,
                 size = arcSize,
-                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = ringStrokeWidth, cap = StrokeCap.Round)
             )
         }
 
@@ -919,13 +1133,8 @@ private fun ClassicRingSeekBar(
             x = center.x + radius * cos(angle).toFloat(),
             y = center.y + radius * sin(angle).toFloat(),
         )
-        drawCircle(Color.White, radius = 9.dp.toPx(), center = scrubber)
-        drawCircle(
-            color = scrubberColor,
-            radius = 9.dp.toPx(),
-            center = scrubber,
-            style = Stroke(width = 2.5.dp.toPx())
-        )
+        drawCircle(Color.White, radius = ringStrokeWidth * 0.9f, center = scrubber)
+        drawCircle(scrubberColor, radius = ringStrokeWidth * 0.6f, center = scrubber)
     }
 }
 
@@ -957,4 +1166,68 @@ private fun ringFraction(offset: Offset, center: Offset, startAngle: Float, swee
     if (normalizedStart < 0f) normalizedStart += 360f
     val relative = (degrees - normalizedStart + 360f) % 360f
     return (relative / sweepAngle).coerceIn(0f, 1f)
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Lyrics data — identical pipeline to FuckSpotifyPlayerSurface: pull the */
+/*  cached synced/fixed lyrics record for this song out of the local DB   */
+/*  and derive a short "currently near this timestamp" preview from it.   */
+/*  Nothing here is invented; it reads the same LrcLib-backed record every */
+/*  other player surface in the app uses.                                 */
+/* ---------------------------------------------------------------------- */
+
+private data class LiquidLyricsLine(
+    val text: String,
+    val isCurrent: Boolean,
+)
+
+private fun buildLiquidLyricsPreview(
+    synced: String?,
+    fixed: String?,
+    positionMs: Long,
+): List<LiquidLyricsLine> {
+    val timedLines = synced
+        ?.takeIf(String::isNotBlank)
+        ?.let { value -> runCatching { LrcLib.Lyrics(value).sentences }.getOrNull() }
+        .orEmpty()
+        .mapNotNull { (timestamp, value) ->
+            cleanLiquidLyricLine(value).takeIf(String::isNotBlank)?.let { timestamp to it }
+        }
+
+    if (timedLines.isNotEmpty()) {
+        val currentIndex = timedLines
+            .indexOfLast { (timestamp, _) -> timestamp <= positionMs.coerceAtLeast(0L) }
+            .coerceAtLeast(0)
+        val firstIndex = (currentIndex - 1).coerceAtLeast(0)
+        val lastIndex = (currentIndex + 1).coerceAtMost(timedLines.lastIndex)
+        return (firstIndex..lastIndex).map { index ->
+            LiquidLyricsLine(
+                text = timedLines[index].second,
+                isCurrent = index == currentIndex,
+            )
+        }
+    }
+
+    return fixed
+        .orEmpty()
+        .lineSequence()
+        .map(::cleanLiquidLyricLine)
+        .filter(String::isNotBlank)
+        .take(3)
+        .mapIndexed { index, line -> LiquidLyricsLine(line, index == 0) }
+        .toList()
+}
+
+private fun cleanLiquidLyricLine(value: String): String {
+    val cleaned = buildString(value.length) {
+        var insideTag = false
+        value.forEach { character ->
+            when (character) {
+                '{' -> insideTag = true
+                '}' -> insideTag = false
+                else -> if (!insideTag) append(character)
+            }
+        }
+    }.trim()
+    return if (cleaned.startsWith('<') && cleaned.endsWith('>')) "" else cleaned
 }

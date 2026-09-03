@@ -1,412 +1,548 @@
 package app.it.fast4x.rimusic.ui.screens.rewind
 
-import app.kreate.android.R
+import android.app.Activity
+import android.content.ClipData
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas as AndroidCanvas
+import android.os.SystemClock
+import android.view.View
+import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.navigation.NavController
-import app.it.fast4x.rimusic.enums.NavRoutes
-import app.it.fast4x.rimusic.ui.styling.LocalAppearance
+import androidx.core.content.FileProvider
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindAlbumsCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindDeepCutsCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindDiscoveryCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindFinaleCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindIntroCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindListenerBadgeCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindListeningDaysCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindMonthlyCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindPeakTimeCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindTopAlbumCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindTopArtistsCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindTopArtistSpotlightCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindTopSongCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindTopSongsCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.RewindTotalTimeCard
+import app.it.fast4x.rimusic.ui.screens.rewind.slides.formatRewindNumber
 import app.it.fast4x.rimusic.utils.DataStoreUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import timber.log.Timber
+import java.io.File
 import java.time.LocalDate
-
-// Import your slide components
-import app.it.fast4x.rimusic.ui.screens.rewind.slides.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import kotlin.math.cos
 import kotlin.math.sin
 
-private const val RewindDeckPageCount = 12
+private const val RewindDeckPageCount = 15
+private const val MinimumOpeningRevealMs = 6_800L
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RewindScreen(
     navController: NavController,
     miniPlayer: @Composable () -> Unit = {},
+    rewindYear: Int? = null
 ) {
-    val appearance = LocalAppearance.current
-    val colorPalette = appearance.colorPalette
-    var rewindData by remember { mutableStateOf<RewindData?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
+    val fallbackYear = LocalDate.now().year
+    var activeYear by remember(rewindYear) { mutableStateOf(rewindYear ?: fallbackYear) }
+    var rewindData by remember(activeYear) { mutableStateOf<RewindData?>(null) }
+    var isLoading by remember(activeYear) { mutableStateOf(true) }
     var username by remember { mutableStateOf("Music Fan") }
-    val scope = rememberCoroutineScope()
+    var shareMode by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
-    val currentYear = LocalDate.now().year
-    
-    // Main pager state for slides
-    val mainPagerState = rememberPagerState(pageCount = { RewindDeckPageCount })
-    
-    LaunchedEffect(Unit) {
+    val rootView = LocalView.current
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { RewindDeckPageCount })
+
+    LaunchedEffect(activeYear) {
+        val startedAt = SystemClock.elapsedRealtime()
         try {
-            username = runBlocking {
-                DataStoreUtils.getStringBlocking(context, DataStoreUtils.KEY_USERNAME, "Music Fan")
+            username = withContext(Dispatchers.IO) {
+                DataStoreUtils.getStringBlocking(
+                    context,
+                    DataStoreUtils.KEY_USERNAME,
+                    "Music Fan"
+                )
             }
-            
-            rewindData = RewindDataFetcher.getRewindData(currentYear)
-            
-        } catch (e: Exception) {
-            e.printStackTrace()
-            rewindData = createEmptyRewindData(currentYear)
+            rewindData = RewindDataFetcher.getRewindData(activeYear)
+        } catch (error: Throwable) {
+            Timber.e(error, "Failed to build Rewind for %d", activeYear)
+            rewindData = createEmptyRewindData(activeYear)
         } finally {
-            delay(600)
+            val elapsed = SystemClock.elapsedRealtime() - startedAt
+            val remaining = (MinimumOpeningRevealMs - elapsed).coerceAtLeast(0L)
+            if (remaining > 0L) delay(remaining)
             isLoading = false
         }
     }
-    
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (isLoading) {
-            // FLUID LOADING SCREEN using color palette
-            FluidLoadingScreen(colorPalette)
-        } else {
-            // FULL SCREEN SLIDES
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(colorPalette.background0)
-            ) {
-                val data = rewindData
-                
-                HorizontalPager(
-                    state = mainPagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    key = { page -> "page_$page" }
-                ) { page ->
-                    val safeData = data ?: createEmptyRewindData(currentYear)
-                    val nextPage: () -> Unit = {
-                        scope.launch {
-                            mainPagerState.animateScrollToPage((page + 1).coerceAtMost(RewindDeckPageCount - 1))
-                        }
-                    }
-                    when (page) {
-                        0 -> RewindIntroCard(
-                            username = username,
-                            year = currentYear,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        1 -> RewindTotalTimeCard(
-                            data = safeData,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        2 -> RewindTopSongCard(
-                            topSong = safeData.topSongs.firstOrNull(),
-                            year = safeData.year,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        3 -> RewindTopArtistsCard(
-                            artists = safeData.topArtists,
-                            year = safeData.year,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        4 -> RewindTopSongsCard(
-                            songs = safeData.topSongs,
-                            year = safeData.year,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        5 -> RewindPeakTimeCard(
-                            data = safeData,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        6 -> RewindListeningDaysCard(
-                            data = safeData,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        7 -> RewindDiscoveryCard(
-                            data = safeData,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        8 -> RewindTopAlbumCard(
-                            topAlbum = safeData.topAlbums.firstOrNull(),
-                            year = safeData.year,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        9 -> RewindAlbumsCard(
-                            albums = safeData.topAlbums,
-                            year = safeData.year,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        10 -> RewindMonthlyCard(
-                            data = safeData,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onNext = nextPage
-                        )
-                        11 -> RewindFinaleCard(
-                            data = safeData,
-                            page = page,
-                            pageCount = RewindDeckPageCount,
-                            onShare = {
-                                scope.launch { mainPagerState.animateScrollToPage(0) }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-    
-    miniPlayer()
-}
 
-@Composable
-fun FluidLoadingScreen(colorPalette: app.it.fast4x.rimusic.ui.styling.ColorPalette) {
-    val configuration = LocalConfiguration.current
-    
-    var currentProgress by remember { mutableStateOf(0) }
-    var loadingText by remember { mutableStateOf("Loading your music journey...") }
-    
-    // FLUID ANIMATION - these are Floats for position calculations, NOT colors
-    val infiniteTransition = rememberInfiniteTransition()
-    val fluidOffset1 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 2f * Math.PI.toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(8000, easing = LinearEasing)
-        )
-    )
-    val fluidOffset2 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 2f * Math.PI.toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing)
-        )
-    )
-    val fluidOffset3 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 2f * Math.PI.toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing)
-        )
-    )
-    
-    LaunchedEffect(Unit) {
-        repeat(100) {
-            delay(30)
-            currentProgress += 1
-            
-            loadingText = when {
-                currentProgress < 25 -> "Fetching your listening data..."
-                currentProgress < 50 -> "Analyzing top songs..."
-                currentProgress < 75 -> "Compiling artist stats..."
-                currentProgress < 90 -> "Preparing your rewind..."
-                else -> "Almost ready!"
-            }
-        }
-    }
-    
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorPalette.background0),
-        contentAlignment = Alignment.Center
+            .background(Color.Black)
     ) {
-        // FLUID BACKGROUND using accent colors - these are fixed Colors, not animated
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Transparent)
-        ) {
-            val width = size.width
-            val height = size.height
-            
-            // Create fluid wave effect using accent colors - THESE ARE COLORS, NOT ANIMATED FLOATS
-            val accentColor1 = colorPalette.accent.copy(alpha = 0.15f)
-            val accentColor2 = colorPalette.accent.copy(alpha = 0.1f)
-            val accentColor3 = colorPalette.accent.copy(alpha = 0.05f)
-            
-            // First wave - using fluidOffset1 for POSITION only
-            drawCircle(
-                color = accentColor1, // This is a Color
-                radius = width * 0.8f,
-                center = Offset(
-                    x = width * (0.5f + 0.2f * sin(fluidOffset1)), // fluidOffset1 used for position
-                    y = height * (0.5f + 0.2f * cos(fluidOffset1 * 1.3f))
-                )
+        if (isLoading) {
+            RewindLoadingScreen(
+                year = activeYear,
+                username = username,
+                data = rewindData
             )
-            
-            // Second wave - using fluidOffset2 for POSITION only
-            drawCircle(
-                color = accentColor2, // This is a Color
-                radius = width * 0.9f,
-                center = Offset(
-                    x = width * (0.5f + 0.25f * cos(fluidOffset2)), // fluidOffset2 used for position
-                    y = height * (0.5f + 0.25f * sin(fluidOffset2 * 1.7f))
-                )
-            )
-            
-            // Third wave - using fluidOffset3 for POSITION only
-            drawCircle(
-                color = accentColor3, // This is a Color
-                radius = width * 1.0f,
-                center = Offset(
-                    x = width * (0.5f + 0.15f * sin(fluidOffset3 * 1.2f)), // fluidOffset3 used for position
-                    y = height * (0.5f + 0.15f * cos(fluidOffset3 * 0.8f))
-                )
-            )
-        }
-        
-        // Gradient overlay - using proper Color list
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf<Color>( // Explicitly typed as List<Color>
-                            Color.Transparent,
-                            colorPalette.background0.copy(alpha = 0.7f),
-                            colorPalette.background0
-                        ),
-                        radius = 800f
-                    )
-                )
-        )
-        
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.padding(24.dp)
-        ) {
-            // Logo area
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(colorPalette.background2)
-                    .padding(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.rewind_playback_cover),
-                    contentDescription = "Rewind Logo",
-                    modifier = Modifier
-                        .size(83.dp)
-                        .clip(RoundedCornerShape(15.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            
-            // Loading content
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Title
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = LocalDate.now().year.toString(),
-                        color = colorPalette.accent,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "MUSIC",
-                        color = colorPalette.text,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "REWIND",
-                        color = colorPalette.accent,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 3.sp
-                    )
-                }
-                
-                // Progress indicator
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colorPalette.background2)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = loadingText,
-                            color = colorPalette.textSecondary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        
-                        LinearProgressIndicator(
-                            progress = { currentProgress / 100f },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
-                            color = colorPalette.accent,
-                            trackColor = colorPalette.background3
-                        )
+        } else {
+            val data = rewindData ?: createEmptyRewindData(activeYear)
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                key = { it }
+            ) { page ->
+                val active = pagerState.currentPage == page && !pagerState.isScrollInProgress
+                val next: () -> Unit = {
+                    scope.launch {
+                        if (page < RewindDeckPageCount - 1) {
+                            pagerState.animateScrollToPage(
+                                page + 1,
+                                animationSpec = tween(480, easing = FastOutSlowInEasing)
+                            )
+                        }
                     }
                 }
-                
-                // Hint
+
+                when (page) {
+                    0 -> RewindIntroCard(data, username, page, RewindDeckPageCount, active, next)
+                    1 -> RewindListenerBadgeCard(data, page, RewindDeckPageCount, active, next)
+                    2 -> RewindTotalTimeCard(data, page, RewindDeckPageCount, active, next)
+                    3 -> RewindTopSongCard(data.topSongs, data.year, page, RewindDeckPageCount, active, next)
+                    4 -> RewindTopArtistsCard(data.topArtists, data.year, page, RewindDeckPageCount, active, next)
+                    5 -> RewindTopArtistSpotlightCard(data.topArtists.firstOrNull(), data.year, page, RewindDeckPageCount, active, next)
+                    6 -> RewindTopSongsCard(data.topSongs, data.year, page, RewindDeckPageCount, active, next)
+                    7 -> RewindDeepCutsCard(data.topSongs, data.year, page, RewindDeckPageCount, active, next)
+                    8 -> RewindPeakTimeCard(data, page, RewindDeckPageCount, active, next)
+                    9 -> RewindListeningDaysCard(data, page, RewindDeckPageCount, active, next)
+                    10 -> RewindDiscoveryCard(data, page, RewindDeckPageCount, active, next)
+                    11 -> RewindTopAlbumCard(data.topAlbums.firstOrNull(), data.year, page, RewindDeckPageCount, active, next)
+                    12 -> RewindAlbumsCard(data.topAlbums, data.year, page, RewindDeckPageCount, active, next)
+                    13 -> RewindMonthlyCard(data, page, RewindDeckPageCount, active, next)
+                    else -> RewindFinaleCard(
+                        data = data,
+                        username = username,
+                        page = page,
+                        pageCount = RewindDeckPageCount,
+                        active = active,
+                        shareMode = shareMode,
+                        onShare = {
+                            if (!shareMode) {
+                                scope.launch {
+                                    shareMode = true
+                                    withFrameNanos { }
+                                    withFrameNanos { }
+                                    val shared = shareRewindScreenshot(
+                                        context = context,
+                                        view = rootView,
+                                        year = data.year
+                                    )
+                                    shareMode = false
+                                    if (!shared) {
+                                        Toast.makeText(
+                                            context,
+                                            "Couldn't create the Rewind image.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        },
+                        onRestart = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(
+                                    0,
+                                    animationSpec = tween(560, easing = FastOutSlowInEasing)
+                                )
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Deliberately dramatic, non-looping opening sequence.
+ * The technical monochrome language is inspired by the reference the user supplied, but the
+ * content/branding is Cubic Music and the year always comes from the requested rewind year.
+ */
+@Composable
+private fun RewindLoadingScreen(
+    year: Int,
+    username: String,
+    data: RewindData?
+) {
+    val timeline = remember(year) { Animatable(0f) }
+
+    LaunchedEffect(year) {
+        timeline.snapTo(0f)
+        timeline.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = MinimumOpeningRevealMs.toInt(),
+                easing = LinearEasing
+            )
+        )
+    }
+
+    val p = timeline.value
+    val cream = Color(0xFFFFF6E6)
+    val ink = Color(0xFF050507)
+    val lime = Color(0xFFD9FF31)
+    val purple = Color(0xFF461CF4)
+    val pink = Color(0xFFFF4B98)
+    val orange = Color(0xFFFF5A2E)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ink)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            // Angular campaign fields only. The loader never spins or loops.
+            val purpleIn = segment(p, 0.02f, 0.18f)
+            val pinkIn = segment(p, 0.10f, 0.27f)
+            val orangeIn = segment(p, 0.18f, 0.34f)
+
+            val purpleShape = androidx.compose.ui.graphics.Path().apply {
+                moveTo(size.width * 0.66f, 0f)
+                lineTo(size.width, 0f)
+                lineTo(size.width, size.height * 0.40f)
+                lineTo(size.width * 0.88f, size.height * 0.32f)
+                close()
+            }
+            drawPath(purpleShape, purple.copy(alpha = purpleIn))
+
+            val pinkShape = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, size.height * 0.72f)
+                lineTo(size.width * 0.52f, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            drawPath(pinkShape, pink.copy(alpha = pinkIn))
+
+            val orangeShape = androidx.compose.ui.graphics.Path().apply {
+                moveTo(size.width * 0.84f, size.height * 0.56f)
+                lineTo(size.width, size.height * 0.50f)
+                lineTo(size.width, size.height * 0.76f)
+                close()
+            }
+            drawPath(orangeShape, orange.copy(alpha = orangeIn))
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 22.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "Swipe to navigate",
-                    color = colorPalette.textDisabled,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal
+                    text = "CUBIC MUSIC",
+                    color = cream.copy(alpha = segment(p, 0.02f, 0.14f)),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.3.sp
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = year.toString(),
+                    color = lime.copy(alpha = segment(p, 0.08f, 0.20f)),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.1.sp
+                )
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(286.dp)
+            ) {
+                val wordsOut = 1f - segment(p, 0.50f, 0.62f)
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxWidth()
+                        .graphicsLayer { alpha = wordsOut },
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    LoadingWord("YOUR", lime, ink, segment(p, 0.11f, 0.22f), fromRight = false)
+                    LoadingWord("YEAR", pink, ink, segment(p, 0.19f, 0.30f), fromRight = true)
+                    LoadingWord("IN", orange, ink, segment(p, 0.27f, 0.38f), fromRight = false)
+                    LoadingWord("MUSIC", cream, ink, segment(p, 0.35f, 0.46f), fromRight = true)
+                }
+
+                RewindLoaderLockup(
+                    year = year,
+                    progress = segment(p, 0.56f, 0.80f),
+                    cream = cream,
+                    lime = lime,
+                    pink = pink,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxWidth()
+                )
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // Keep the understated status language: it worked better than the old giant
+            // "READY, username" message.
+            val finalMessage = when {
+                p < 0.68f -> "BUILDING YOUR REWIND"
+                p < 0.76f -> data?.let { "${formatRewindNumber(it.stats.totalPlays.toLong())} PLAYS" } ?: "COUNTING PLAYS"
+                p < 0.84f -> data?.let { "${formatRewindNumber(it.totalUniqueSongs.toLong())} UNIQUE SONGS" } ?: "COUNTING SONGS"
+                p < 0.91f -> data?.let { "${formatRewindNumber(it.stats.totalMinutes)} MINUTES" } ?: "COUNTING MINUTES"
+                p < 0.97f -> data?.let { "${formatRewindNumber(it.daysWithMusic.toLong())} LISTENING DAYS" } ?: "CHECKING LISTENING DAYS"
+                else -> "REWIND READY"
+            }
+
+            Text(
+                text = finalMessage,
+                color = if (p >= 0.97f) lime else cream.copy(alpha = 0.78f),
+                fontSize = 9.sp,
+                lineHeight = 12.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.1.sp
+            )
+
+            Spacer(Modifier.height(13.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(cream.copy(alpha = 0.14f), RoundedCornerShape(100.dp))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(p.coerceIn(0f, 1f))
+                        .height(3.dp)
+                        .background(if (p > 0.90f) lime else cream, RoundedCornerShape(100.dp))
                 )
             }
         }
     }
 }
 
-// Helper function to create empty RewindData
+@Composable
+private fun LoadingWord(
+    text: String,
+    background: Color,
+    foreground: Color,
+    progress: Float,
+    fromRight: Boolean
+) {
+    Text(
+        text = text,
+        color = foreground,
+        fontSize = 42.sp,
+        lineHeight = 42.sp,
+        letterSpacing = (-2.2).sp,
+        fontWeight = FontWeight.Black,
+        modifier = Modifier
+            .graphicsLayer {
+                alpha = progress
+                val distance = 90.dp.toPx() * (1f - progress)
+                translationX = if (fromRight) distance else -distance
+            }
+            .background(background)
+            .padding(horizontal = 12.dp, vertical = 5.dp)
+    )
+}
+
+@Composable
+private fun RewindLoaderLockup(
+    year: Int,
+    progress: Float,
+    cream: Color,
+    lime: Color,
+    pink: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.height(190.dp), contentAlignment = Alignment.CenterStart) {
+        // Colored shadow + compressed foreground makes a custom display lockup without requiring
+        // a bundled font file or a project-specific font resource.
+        Text(
+            text = "REWIND",
+            color = pink,
+            fontSize = 72.sp,
+            lineHeight = 68.sp,
+            letterSpacing = (-4.8).sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.graphicsLayer {
+                alpha = progress * 0.95f
+                translationX = (12f + (1f - progress) * 46f).dp.toPx()
+                translationY = 9.dp.toPx()
+                scaleX = 0.78f
+                scaleY = 1.04f
+                rotationZ = -2.3f
+            }
+        )
+
+        Text(
+            text = "REWIND",
+            color = cream,
+            fontSize = 72.sp,
+            lineHeight = 68.sp,
+            letterSpacing = (-4.8).sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.graphicsLayer {
+                alpha = progress
+                translationX = ((1f - progress) * -54f).dp.toPx()
+                scaleX = 0.78f
+                scaleY = 1.04f
+                rotationZ = -2.3f
+            }
+        )
+
+        Text(
+            text = year.toString(),
+            color = Color(0xFF050507),
+            fontSize = 43.sp,
+            lineHeight = 42.sp,
+            letterSpacing = (-2.3).sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .graphicsLayer {
+                    alpha = segment(progress, 0.42f, 1f)
+                    translationX = ((1f - segment(progress, 0.42f, 1f)) * 46f).dp.toPx()
+                    rotationZ = 2.5f
+                }
+                .background(lime, RoundedCornerShape(2.dp))
+                .padding(horizontal = 12.dp, vertical = 2.dp)
+        )
+    }
+}
+
+private fun segment(value: Float, start: Float, end: Float): Float {
+    if (end <= start) return if (value >= end) 1f else 0f
+    return ((value - start) / (end - start)).coerceIn(0f, 1f)
+}
+
+private suspend fun shareRewindScreenshot(
+    context: Context,
+    view: View,
+    year: Int
+): Boolean {
+    return runCatching {
+        val bitmap = withContext(Dispatchers.Main.immediate) {
+            val width = view.width.coerceAtLeast(1)
+            val height = view.height.coerceAtLeast(1)
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { target ->
+                view.draw(AndroidCanvas(target))
+            }
+        }
+
+        val imageFile = withContext(Dispatchers.IO) {
+            val shareDirectory = File(context.cacheDir, "shared_rewind").apply { mkdirs() }
+            val staleBefore = System.currentTimeMillis() - 24L * 60L * 60L * 1000L
+            shareDirectory.listFiles()
+                ?.filter { it.lastModified() < staleBefore }
+                ?.forEach(File::delete)
+
+            File(
+                shareDirectory,
+                "Cubic_Music_Rewind_${year}_${System.currentTimeMillis()}.png"
+            ).also { outputFile ->
+                outputFile.outputStream().buffered().use { output ->
+                    check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                        "PNG compression failed"
+                    }
+                }
+            }
+        }
+        bitmap.recycle()
+
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            imageFile
+        )
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_TEXT, "My Cubic Music Rewind $year")
+            clipData = ClipData.newUri(context.contentResolver, "Cubic Music Rewind", uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(sendIntent, "Share your Rewind").apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (context !is Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(chooser)
+        true
+    }.getOrElse { error ->
+        Timber.e(error, "Failed to share Rewind")
+        false
+    }
+}
 private fun createEmptyRewindData(year: Int): RewindData {
     return RewindData(
         topSongs = emptyList(),

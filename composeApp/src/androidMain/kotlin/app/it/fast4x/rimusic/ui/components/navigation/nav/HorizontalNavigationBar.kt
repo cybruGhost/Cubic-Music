@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -91,11 +92,13 @@ class HorizontalNavigationBar(
     @Composable
     override fun add(buttons: @Composable (@Composable (Int, String, Int) -> Unit) -> Unit) {
         val transition = updateTransition(targetState = tabIndex, label = null)
+        val selectedColor = if (UiType.Apple.isCurrent()) colorPalette().accent else colorPalette().text
+        val unselectedColor = colorPalette().textDisabled
 
         buttons { index, text, iconId ->
 
             val color by transition.animateColor(label = "") {
-                if (it == index) colorPalette().text else colorPalette().textDisabled
+                if (it == index) selectedColor else unselectedColor
             }
 
             val button: Button =
@@ -158,8 +161,11 @@ class HorizontalNavigationBar(
             ) {
 
                 val scrollState = rememberScrollState()
+                val isApple = UiType.Apple.isCurrent()
                 val roundedCornerShape =
-                    if ( NavigationBarPosition.Bottom.isCurrent() )
+                    if (isApple && NavigationBarPosition.Bottom.isCurrent())
+                        RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                    else if ( NavigationBarPosition.Bottom.isCurrent() )
                         RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
                     else
                         RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
@@ -173,7 +179,12 @@ class HorizontalNavigationBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(roundedCornerShape)
-                        .background(colorPalette().background1)
+                        .background(if (isApple) colorPalette().background0 else colorPalette().background1)
+                        .border(
+                            width = if (isApple) 1.dp else 0.dp,
+                            color = if (isApple) colorPalette().textDisabled.copy(alpha = 0.16f) else colorPalette().background1,
+                            shape = roundedCornerShape
+                        )
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,

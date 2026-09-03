@@ -250,7 +250,8 @@ fun HomeLibrary(
                 val isPinned = it.playlist.name.startsWith(PINNED_PREFIX, true)
                 val isPiped = it.playlist.name.startsWith(PIPED_PREFIX, true)
 
-                (!isMonthly || showMonthlyPlaylists) &&
+                !it.playlist.isYoutubePlaylist &&
+                    (!isMonthly || showMonthlyPlaylists) &&
                     (!isPinned || showPinnedPlaylists) &&
                     (!isPiped || showPipedPlaylists)
             }
@@ -377,7 +378,7 @@ fun HomeLibrary(
 }
 
 @Composable
-private fun CShareLibraryDialog(
+internal fun CShareLibraryDialog(
     playlists: List<PlaylistPreview>,
     onDismiss: () -> Unit,
     onImportClick: () -> Unit,

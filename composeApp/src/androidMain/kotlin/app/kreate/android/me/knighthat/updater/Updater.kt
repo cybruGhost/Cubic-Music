@@ -1,6 +1,7 @@
 package app.kreate.android.me.knighthat.updater
 
 import android.os.Looper
+import android.util.Xml
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,9 +32,16 @@ import app.it.fast4x.rimusic.utils.lastUpdateCheckKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import androidx.core.text.HtmlCompat
 import app.kreate.android.me.knighthat.utils.Repository
 import app.kreate.android.me.knighthat.utils.Toaster
 import okhttp3.OkHttpClient
@@ -44,10 +52,17 @@ import java.io.IOException
 import java.net.UnknownHostException
 import java.net.URLEncoder
 import java.nio.file.NoSuchFileException
+import java.io.StringReader
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.pow
 
 object Updater {
-    private const val AUTOMATIC_CHECK_INTERVAL_MS = 6L * 60L * 60L * 1_000L
+    private const val TRANSIENT_FAILURE_RETRY_MS = 15L * 60L * 1_000L
+    private const val RATE_LIMIT_RETRY_MS = 60L * 60L * 1_000L
+
+    private val updaterScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val automaticCheckStarted = AtomicBoolean(false)
+    private var automaticRetryJob: Job? = null
 
     private class UpdateHttpException(
         val statusCode: Int,
@@ -191,22 +206,24 @@ object Updater {
      * cannot hide a newer GitHub release.
      */
     private suspend fun fetchUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
-        val candidates = mutableListOf<UpdateCandidate>()
-        val errors = mutableListOf<Throwable>()
-
-        listOf<suspend () -> UpdateCandidate>(
-            { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = false) },
-            { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = true) },
-            { fetchGithubUpdateCandidate(checkBetaUpdates) }
-        ).forEach { fetcher ->
-            runCatching { fetcher() }
-                .onSuccess { candidate -> candidates += candidate }
-                .onFailure { error -> errors += error }
+        val results = supervisorScope {
+            listOf<suspend () -> UpdateCandidate>(
+                { fetchGithubAtomUpdateCandidate(checkBetaUpdates) },
+                { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = false) },
+                { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = true) },
+                { fetchGithubUpdateCandidate(checkBetaUpdates) }
+            ).map { fetcher ->
+                async { runCatching { fetcher() } }
+            }.awaitAll()
         }
 
+        val candidates = results.mapNotNull { it.getOrNull() }
+        val errors = results.mapNotNull { it.exceptionOrNull() }
         val best = candidates
             .filter { candidate -> isVersionNewer(candidate.release.tagName, BuildConfig.VERSION_NAME) }
-            .maxWithOrNull { left, right -> compareVersionStrings(left.release.tagName, right.release.tagName) }
+            .maxWithOrNull { left, right ->
+                compareVersionStrings(left.release.tagName, right.release.tagName)
+            }
 
         if (best == null) {
             val receivedValidResult =
@@ -218,6 +235,86 @@ object Updater {
         applyUpdateCandidate(best)
     }
 
+    /**
+     * The Atom feed is public and avoids GitHub's small unauthenticated REST quota.
+     * This keeps startup checks working while the update service or REST API is down.
+     */
+    private suspend fun fetchGithubAtomUpdateCandidate(
+        checkBetaUpdates: Boolean = false
+    ): UpdateCandidate = withContext(Dispatchers.IO) {
+        val body = executeUpdateRequest("${Repository.REPO_URL}/releases.atom")
+            .orEmpty()
+            .ifBlank { throw NoSuchFileException("") }
+        val parser = Xml.newPullParser().apply {
+            setInput(StringReader(body))
+        }
+        val releases = mutableListOf<GithubRelease>()
+        var inEntry = false
+        var entryId = ""
+        var entryTitle = ""
+        var entryContent = ""
+        var entryUpdated = "1970-01-01T00:00:00Z"
+        var entryLink = ""
+
+        while (parser.eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            when (parser.eventType) {
+                org.xmlpull.v1.XmlPullParser.START_TAG -> when (parser.name) {
+                    "entry" -> {
+                        inEntry = true
+                        entryId = ""
+                        entryTitle = ""
+                        entryContent = ""
+                        entryUpdated = "1970-01-01T00:00:00Z"
+                        entryLink = ""
+                    }
+                    "id" -> if (inEntry) entryId = parser.nextText()
+                    "title" -> if (inEntry) entryTitle = parser.nextText()
+                    "content" -> if (inEntry) entryContent = parser.nextText()
+                    "updated" -> if (inEntry) entryUpdated = parser.nextText()
+                    "link" -> if (
+                        inEntry &&
+                        parser.getAttributeValue(null, "rel") == "alternate"
+                    ) {
+                        entryLink = parser.getAttributeValue(null, "href").orEmpty()
+                    }
+                }
+                org.xmlpull.v1.XmlPullParser.END_TAG -> if (
+                    parser.name == "entry" &&
+                    inEntry
+                ) {
+                    inEntry = false
+                    val tag = entryLink.substringAfterLast("/tag/", "")
+                        .ifBlank { entryId.substringAfterLast('/') }
+                    if (tag.isNotBlank()) {
+                        val notes = HtmlCompat.fromHtml(
+                            entryContent,
+                            HtmlCompat.FROM_HTML_MODE_LEGACY
+                        ).toString().trim()
+                        releases += GithubRelease(
+                            id = 0u,
+                            tagName = tag,
+                            name = entryTitle.ifBlank { tag },
+                            body = notes,
+                            prerelease = extractVersionSuffix(tag) == "b",
+                            builds = listOf(directGithubFullBuild(entryUpdated))
+                        )
+                    }
+                }
+            }
+            parser.next()
+        }
+
+        val bestRelease = findBestRelease(releases, checkBetaUpdates)
+            ?: throw NoSuchFileException("")
+        UpdateCandidate(
+            release = bestRelease,
+            build = directGithubFullBuild(
+                bestRelease.builds.firstOrNull()?.createdAt.orEmpty()
+                    .ifBlank { "1970-01-01T00:00:00Z" }
+            ),
+            source = "github-atom"
+        )
+    }
     private suspend fun fetchGithubUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
         applyUpdateCandidate(fetchGithubUpdateCandidate(checkBetaUpdates))
     }
@@ -313,7 +410,17 @@ object Updater {
         var lastError: Throwable? = null
         repeat(2) { attempt ->
             try {
-                updateHttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                updateHttpClient.newCall(
+                    Request.Builder()
+                        .url(url)
+                        .header("User-Agent", "${BuildConfig.APP_NAME}/${BuildConfig.VERSION_NAME}")
+                        .header(
+                            "Accept",
+                            "application/json, application/atom+xml, application/xml, text/xml, */*"
+                        )
+                        .header("Cache-Control", "no-cache")
+                        .build()
+                ).execute().use { response ->
                     if (treat404AsNoFile && response.code == 404) throw NoSuchFileException("")
                     if (!response.isSuccessful) {
                         throw UpdateHttpException(
@@ -389,66 +496,69 @@ object Updater {
     fun checkForUpdate(
         isForced: Boolean = false,
         checkBetaUpdates: Boolean = false
-    ) = CoroutineScope(Dispatchers.IO).launch {
+    ): Job = updaterScope.launch {
+        if (!BuildConfig.IS_AUTOUPDATE) return@launch
+
+        // The app shell can be composed more than once. Run exactly one automatic
+        // check per process, while keeping every explicit manual check available.
+        if (!isForced && !automaticCheckStarted.compareAndSet(false, true)) return@launch
+
         val sharedPrefs = appContext().getSharedPreferences("settings", 0)
-        if (!BuildConfig.IS_AUTOUPDATE || (!isForced && NewUpdateAvailableDialog.isCancelled)) {
-            return@launch
-        }
-
         val now = System.currentTimeMillis()
-        val lastCheck = sharedPrefs.getLong(lastUpdateCheckKey, 0L)
-        val checkedRecently = lastCheck > 0L &&
-            now - lastCheck in 0 until AUTOMATIC_CHECK_INTERVAL_MS
-        if (!isForced && checkedRecently) return@launch
-
-        sharedPrefs.edit()
-            .putLong(lastUpdateCheckKey, now)
-            .apply()
 
         try {
-            if (!::build.isInitialized || isForced) {
-                fetchUpdate(checkBetaUpdates)
-            }
+            fetchUpdate(checkBetaUpdates)
 
-            // Check if the new version is actually newer
-            val hasUpdate = if (::tagName.isInitialized) {
+            val hasUpdate = ::tagName.isInitialized &&
                 isVersionNewer(tagName, BuildConfig.VERSION_NAME)
-            } else {
-                false
-            }
-            NewUpdateAvailableDialog.isActive = hasUpdate
-            
-            if (!NewUpdateAvailableDialog.isActive) {
-                if(isForced) {
+            withContext(Dispatchers.Main.immediate) {
+                NewUpdateAvailableDialog.isActive = hasUpdate
+                NewUpdateAvailableDialog.isCancelled = false
+                if (!hasUpdate && isForced) {
                     Toaster.i(R.string.info_no_update_available)
                 }
-                NewUpdateAvailableDialog.isCancelled = true
-                // Also reset the cancelled state in SharedPreferences when no update is available
-                sharedPrefs.edit()
-                    .putBoolean(updateCancelledKey, false)
-                    .apply()
-            } else {
-                // If there's an update available, reset the cancelled state
+            }
+
+            if (!hasUpdate) {
+                sharedPrefs.edit().putBoolean(updateCancelledKey, false).apply()
+            }
+            sharedPrefs.edit().putLong(lastUpdateCheckKey, now).apply()
+            automaticRetryJob?.cancel()
+            automaticRetryJob = null
+        } catch (error: NoSuchFileException) {
+            withContext(Dispatchers.Main.immediate) {
+                NewUpdateAvailableDialog.isActive = false
                 NewUpdateAvailableDialog.isCancelled = false
+                if (isForced) Toaster.i(R.string.info_no_update_available)
             }
-        } catch (e: Exception) {
-            val isRateLimited = e is UpdateHttpException && e.statusCode in setOf(403, 429)
-            val message = when (e) {
-                is UnknownHostException -> appContext().getString(R.string.error_no_internet)
-                is NoSuchFileException -> appContext().getString(R.string.info_no_update_available)
-                else -> appContext().getString(R.string.update_failed_message)
-            }
+            sharedPrefs.edit()
+                .putLong(lastUpdateCheckKey, now)
+                .putBoolean(updateCancelledKey, false)
+                .apply()
+            automaticRetryJob?.cancel()
+            automaticRetryJob = null
+        } catch (error: Exception) {
+            val isRateLimited =
+                error is UpdateHttpException && error.statusCode in setOf(403, 429)
+            val retryDelay =
+                if (isRateLimited) RATE_LIMIT_RETRY_MS else TRANSIENT_FAILURE_RETRY_MS
 
-            when {
-                e is NoSuchFileException -> if (isForced) Toaster.i(message)
-                !isForced && isRateLimited -> Unit
-                else -> Toaster.e(message)
+            if (isForced) {
+                val message = when (error) {
+                    is UnknownHostException -> appContext().getString(R.string.error_no_internet)
+                    else -> appContext().getString(R.string.update_failed_message)
+                }
+                withContext(Dispatchers.Main.immediate) { Toaster.e(message) }
+            } else {
+                automaticRetryJob?.cancel()
+                automaticRetryJob = updaterScope.launch {
+                    delay(retryDelay)
+                    automaticCheckStarted.set(false)
+                    checkForUpdate(checkBetaUpdates = checkBetaUpdates)
+                }
             }
-
-            NewUpdateAvailableDialog.isCancelled = true
         }
     }
-
     @Composable
     fun SettingEntry() {
         var checkUpdateState by rememberPreference(checkUpdateStateKey, CheckUpdateState.Enabled)

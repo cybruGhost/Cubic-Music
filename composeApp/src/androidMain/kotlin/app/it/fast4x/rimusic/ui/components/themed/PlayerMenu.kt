@@ -179,12 +179,11 @@ fun AddToPlaylistPlayerMenu(
             onClosePlayer()
         },
         onAddToPlaylist = { playlist, position ->
-            if (!isYouTubeSyncEnabled() || !playlist.isYoutubePlaylist){
-                Database.asyncTransaction {
-                    insertIgnore( mediaItem )
-                    mapIgnore( playlist, mediaItem.asSong )
-                }
-            } else {
+            Database.asyncTransaction {
+                insertIgnore( mediaItem )
+                mapIgnore( playlist, mediaItem.asSong )
+            }
+            if (isYouTubeSyncEnabled() && playlist.isYoutubePlaylist && playlist.isEditable) {
                 CoroutineScope(Dispatchers.IO).launch {
                     addSongToYtPlaylist(playlist.id, position, playlist.browseId ?: "", mediaItem)
                 }
@@ -265,9 +264,8 @@ fun AddToPlaylistArtistSongs(
             if (position > 0) position++ else position = 0
 
             Database.asyncTransaction {
-                if ( !isYouTubeSyncEnabled() || !playlistPreview.playlist.isYoutubePlaylist )
-                    mapIgnore( playlistPreview.playlist, *mediaItems.toTypedArray() )
-                else
+                mapIgnore( playlistPreview.playlist, *mediaItems.toTypedArray() )
+                if (isYouTubeSyncEnabled() && playlistPreview.playlist.isYoutubePlaylist && playlistPreview.playlist.isEditable)
                     CoroutineScope(Dispatchers.IO).launch {
                         addToYtPlaylist(playlistPreview.playlist.id, position, playlistPreview.playlist.browseId ?: "", mediaItems)
                     }

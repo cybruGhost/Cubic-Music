@@ -2,8 +2,14 @@ package app.it.fast4x.rimusic.ui.screens.rewind
 
 import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.models.*
+import app.kreate.android.me.knighthat.database.ext.EventWithSong
+import it.fast4x.innertube.YtMusic
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -95,6 +101,14 @@ data class RewindData(
 
 // Data fetcher class
 object RewindDataFetcher {
+
+    suspend fun latestAvailableYear(): Int {
+        val latestTimestamp = Database.eventTable.latestTimestamp()
+            ?: return LocalDate.now().year
+        return Instant.ofEpochMilli(latestTimestamp)
+            .atZone(ZoneId.systemDefault())
+            .year
+    }
     
     // Get rewind data for a specific year
     suspend fun getRewindData(year: Int): RewindData {
@@ -106,9 +120,12 @@ object RewindDataFetcher {
             val allEvents = Database.eventTable.allWithSong(Int.MAX_VALUE).first()
             
             // Filter events for the specific year
-            val yearlyEvents = allEvents.filter { eventWithSong -> 
-                eventWithSong.event.timestamp in yearStart..yearEnd 
-            }
+            val yearlyEvents = allEvents
+                .asSequence()
+                .filter { eventWithSong ->
+                    eventWithSong.event.timestamp in yearStart..yearEnd
+                }
+                .toList()
             
             if (yearlyEvents.isEmpty()) {
                 return createEmptyData(year)
@@ -117,10 +134,9 @@ object RewindDataFetcher {
             // Extract just the events
             val events = yearlyEvents.map { it.event }
             
-            // Get songs for the year using database query
-            val topSongs = getTopSongs(yearStart, yearEnd, yearlyEvents)
-            val topArtists = getTopArtists(yearStart, yearEnd, yearlyEvents)
-            val topAlbums = getTopAlbums(yearStart, yearEnd, yearlyEvents)
+            val topSongs = getTopSongs(yearlyEvents)
+            val topArtists = getTopArtists(yearStart, yearEnd)
+            val topAlbums = getTopAlbums(yearStart, yearEnd)
             val topPlaylists = getTopPlaylists(yearStart, yearEnd)
             
             // Get counts using actual database queries
@@ -144,7 +160,6 @@ object RewindDataFetcher {
                 .first()
                 .size
             
-            // Calculate statistics from real event data - use database queries for accurate playtime
             val monthlyStats = getMonthlyStats(yearStart, yearEnd, events)
             val dailyStats = getDailyStats(yearStart, yearEnd, events)
             val hourlyStats = getHourlyStats(yearStart, yearEnd, events)
@@ -194,100 +209,72 @@ object RewindDataFetcher {
         }
     }
     
-    private suspend fun getTopSongs(
-        yearStart: Long,
-        yearEnd: Long,
-        yearlyEvents: List<app.kreate.android.me.knighthat.database.ext.EventWithSong>
-    ): List<TopSong> = yearlyEvents
+    private fun getTopSongs(yearlyEvents: List<EventWithSong>): List<TopSong> = yearlyEvents
         .groupBy { it.song.id }
-        .mapNotNull { (_, songEvents) ->
-            val song = songEvents.firstOrNull()?.song ?: return@mapNotNull null
+        .map { (_, songEvents) ->
+            val first = songEvents.first()
             TopSong(
-                song = song,
+                song = first.song,
                 minutes = songEvents.sumOf { it.event.playTime.coerceAtLeast(0L) } / 60_000L,
                 playCount = songEvents.size
             )
         }
-        .sortedWith(compareByDescending<TopSong> { it.playCount }.thenByDescending { it.minutes })
+        .sortedWith(compareByDescending<TopSong> { it.playCount }
+            .thenByDescending { it.minutes }
+            .thenBy { it.song.id })
         .take(10)
 
     private suspend fun getTopArtists(
         yearStart: Long,
-        yearEnd: Long,
-        yearlyEvents: List<app.kreate.android.me.knighthat.database.ext.EventWithSong>
+        yearEnd: Long
     ): List<TopArtist> {
-        // Get top artists by playtime from database
-        val topArtistsFromDb = Database.eventTable
-            .findArtistsMostPlayedBetween(yearStart, yearEnd, 10)
+        val stats = Database.eventTable
+            .findArtistListeningStatsBetween(yearStart, yearEnd, 10)
             .first()
-        
-        return topArtistsFromDb.mapNotNull { artist ->
-            // Get all songs by this artist from database
-            val artistSongs = Database.songArtistMapTable.allSongsBy(artist.id, Int.MAX_VALUE)
-                .first()
-            
-            if (artistSongs.isEmpty()) return@mapNotNull null
-            
-            // Calculate total playtime for this artist's songs
-            var totalPlayTimeMs = 0L
-            var uniqueSongCount = 0
-            
-            artistSongs.forEach { song ->
-                val playtimeMs = Database.eventTable.getSongPlayTimeBetween(song.id, yearStart, yearEnd).first()
-                if (playtimeMs > 0) {
-                    totalPlayTimeMs += playtimeMs
-                    uniqueSongCount++
+
+        return coroutineScope {
+            stats.map { stat ->
+                async {
+                    val artist = if (
+                        stat.artist.thumbnailUrl.isNullOrBlank() &&
+                        stat.artist.id.startsWith("UC")
+                    ) {
+                        val resolvedThumbnail = runCatching {
+                            YtMusic.getArtistPage(stat.artist.id)
+                                .getOrNull()
+                                ?.artist
+                                ?.thumbnail
+                                ?.url
+                        }.getOrNull()
+                        stat.artist.copy(
+                            thumbnailUrl = resolvedThumbnail ?: stat.artist.thumbnailUrl
+                        )
+                    } else {
+                        stat.artist
+                    }
+                    TopArtist(
+                        artist = artist,
+                        minutes = stat.playTimeMs.coerceAtLeast(0L) / 60_000L,
+                        songCount = stat.songCount.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                    )
                 }
-            }
-            
-            if (totalPlayTimeMs == 0L) return@mapNotNull null
-            
-            TopArtist(
-                artist = artist,
-                minutes = totalPlayTimeMs / 60000,
-                songCount = uniqueSongCount
-            )
-        }.sortedByDescending { it.minutes }
+            }.awaitAll()
+        }
     }
     
     private suspend fun getTopAlbums(
         yearStart: Long,
-        yearEnd: Long,
-        yearlyEvents: List<app.kreate.android.me.knighthat.database.ext.EventWithSong>
-    ): List<TopAlbum> {
-        // Get top albums by playtime from database
-        val topAlbumsFromDb = Database.eventTable
-            .findAlbumsMostPlayedBetween(yearStart, yearEnd, 10)
-            .first()
-        
-        return topAlbumsFromDb.mapNotNull { album ->
-            // Get all songs from this album from database
-            val albumSongs = Database.songAlbumMapTable.allSongsOf(album.id, Int.MAX_VALUE)
-                .first()
-            
-            if (albumSongs.isEmpty()) return@mapNotNull null
-            
-            // Calculate total playtime for this album's songs
-            var totalPlayTimeMs = 0L
-            var uniqueSongCount = 0
-            
-            albumSongs.forEach { song ->
-                val playtimeMs = Database.eventTable.getSongPlayTimeBetween(song.id, yearStart, yearEnd).first()
-                if (playtimeMs > 0) {
-                    totalPlayTimeMs += playtimeMs
-                    uniqueSongCount++
-                }
-            }
-            
-            if (totalPlayTimeMs == 0L) return@mapNotNull null
-            
+        yearEnd: Long
+    ): List<TopAlbum> = Database.eventTable
+        .findAlbumListeningStatsBetween(yearStart, yearEnd, 10)
+        .first()
+        .map { stat ->
             TopAlbum(
-                album = album,
-                minutes = totalPlayTimeMs / 60000,
-                songCount = uniqueSongCount
+                album = stat.album,
+                minutes = stat.playTimeMs.coerceAtLeast(0L) / 60_000L,
+                songCount = stat.songCount.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             )
-        }.sortedByDescending { it.minutes }
-    }
+        }
     
     private suspend fun getTopPlaylists(yearStart: Long, yearEnd: Long): List<TopPlaylist> {
         // Get top playlists by playtime from database

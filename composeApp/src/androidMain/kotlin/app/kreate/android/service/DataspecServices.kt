@@ -584,11 +584,19 @@ suspend fun getInnertubePlayerFormatUrl(
                 }
         }
         ?: FALLBACK_CLIENTS
-    val clientsToTry = prioritizedClients
+    val eligibleClients = prioritizedClients
+        .filterNot { it.loginRequired && !isLoggedIn }
+    val clientsToTry = eligibleClients
         .filterNot { isStreamClientTemporarilyBlocked(videoId, it.clientName) }
         .ifEmpty {
-            clearFailedStreamClients(videoId)
-            prioritizedClients
+            if (eligibleClients.isNotEmpty()) {
+                clearFailedStreamClients(videoId)
+                Timber.d(
+                    "Retrying all eligible Innertube clients after per-video block exhaustion for %s",
+                    videoId
+                )
+            }
+            eligibleClients
         }
 
     var signatureTimestamp: Int? = null
@@ -1347,10 +1355,6 @@ fun invalidateFormatCache(
             if (removedUris.isNotEmpty()) {
                 Timber.w("Cleared %d cached stream URL(s) for %s", removedUris.size, videoId)
             }
-            appContext().preferences.edit()
-                .remove(LAST_SUCCESSFUL_YT_CLIENT_AUTH_KEY)
-                .remove(LAST_SUCCESSFUL_YT_CLIENT_NOAUTH_KEY)
-                .apply()
         }
     }
 }

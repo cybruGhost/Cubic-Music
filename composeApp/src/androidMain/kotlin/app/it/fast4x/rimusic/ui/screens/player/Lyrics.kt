@@ -758,7 +758,7 @@ fun Lyrics(
             source: String,
             allowSimpFallback: Boolean = true,
             preferBetterLyrics: Boolean = false
-        ) {
+        ): Boolean {
             selectedLyricsSource = source
             isError = false
             showPlaceholder = true
@@ -768,6 +768,7 @@ fun Lyrics(
             }
             val metadataArtist = mediaMetadata.artist?.toString().orEmpty()
             val metadataTitle = cleanPrefix(mediaMetadata.title?.toString().orEmpty())
+            var appliedLyrics = false
 
             suspend fun awaitPlaybackDurationMs(): Long {
                 var duration = withContext(Dispatchers.Main) { durationProvider() }
@@ -779,6 +780,7 @@ fun Lyrics(
             }
 
             fun applyLyrics(updatedLyrics: Lyrics) {
+                appliedLyrics = true
                 lyrics = updatedLyrics
                 if (isShowingSynchronizedLyrics && updatedLyrics.synced.isNullOrBlank() && !updatedLyrics.fixed.isNullOrBlank()) {
                     isShowingSynchronizedLyrics = false
@@ -792,8 +794,6 @@ fun Lyrics(
                 isError = true
             }
 
-            fun hasLoadedLyrics(): Boolean =
-                !lyrics?.synced.isNullOrBlank() || !lyrics?.fixed.isNullOrBlank()
 
             suspend fun persistLyricsSafely(updatedLyrics: Lyrics) {
                 val existingSong = withContext(Dispatchers.IO) {
@@ -815,26 +815,39 @@ fun Lyrics(
                 }
             }
 
-            suspend fun fetchFallbackSources(excluded: Set<String>) {
-                val fallbackSources = (
-                    if (preferBetterLyrics) {
-                        listOf("betterlyrics", defaultLyricsSource, "simpmusic", "lrclib", "kugou")
-                    } else {
-                        listOf(defaultLyricsSource, "simpmusic", "betterlyrics", "lrclib", "kugou")
-                    }
-                )
+            suspend fun fetchFallbackSources(excluded: Set<String>): Boolean {
+                val fallbackSources = when {
+                    preferBetterLyrics || source == "betterlyrics" ->
+                        listOf("betterlyrics", "simpmusic", "kugou", "lrclib")
+
+                    source == "lrclib" ->
+                        listOf("lrclib", "betterlyrics", "simpmusic", "kugou")
+
+                    source == "simpmusic" ->
+                        listOf("simpmusic", "kugou", "betterlyrics", "lrclib")
+
+                    source == "kugou" ->
+                        listOf("kugou", "betterlyrics", "simpmusic", "lrclib")
+
+                    else ->
+                        listOf("lrclib", "betterlyrics", "simpmusic", "kugou")
+                }
                     .map { it.ifBlank { "lrclib" } }
                     .distinct()
                     .filterNot { it in excluded }
 
                 for (fallbackSource in fallbackSources) {
-                    fetchLyricsFromSource(
-                        fallbackSource,
-                        allowSimpFallback = false,
-                        preferBetterLyrics = preferBetterLyrics
-                    )
-                    if (hasLoadedLyrics() && !isError) return
+                    if (
+                        fetchLyricsFromSource(
+                            fallbackSource,
+                            allowSimpFallback = false,
+                            preferBetterLyrics = preferBetterLyrics
+                        )
+                    ) {
+                        return true
+                    }
                 }
+                return false
             }
 
             when (source) {
@@ -896,6 +909,10 @@ fun Lyrics(
 
                     val simpLyrics = fetchSimpMusicLyrics(
                         videoId = mediaId,
+                        title = metadataTitle,
+                        artist = metadataArtist,
+                        album = mediaMetadata.albumTitle?.toString(),
+                        durationSeconds = awaitPlaybackDurationMs() / 1_000L,
                         translatedLanguage = simpLanguageCode,
                         useTranslatedLyrics = simpMusicTranslationEnabled
                     )
@@ -903,7 +920,7 @@ fun Lyrics(
                     val resolvedSyncedLyrics = when {
                         simpMusicTranslationEnabled && !simpLyrics?.translatedLyrics.isNullOrBlank() -> simpLyrics?.translatedLyrics
                         !simpLyrics?.syncedLyrics.isNullOrBlank() -> simpLyrics?.syncedLyrics
-                        else -> existingLyrics?.synced
+                        else -> null
                     }
                     val shouldFallbackToSyncedSources =
                         isShowingSynchronizedLyrics &&
@@ -933,13 +950,23 @@ fun Lyrics(
                         album = mediaMetadata.albumTitle?.toString(),
                         durationSeconds = (duration / 1000).toInt()
                     )
-                    if (result != null &&
-                        (!result.syncedLyrics.isNullOrBlank() || !result.plainLyrics.isNullOrBlank())
+                    if (
+                        result != null &&
+                        (
+                            if (isShowingSynchronizedLyrics) {
+                                !result.syncedLyrics.isNullOrBlank()
+                            } else {
+                                !result.syncedLyrics.isNullOrBlank() ||
+                                    !result.plainLyrics.isNullOrBlank()
+                            }
+                        )
                     ) {
                         val updatedLyrics = Lyrics(
                             songId = mediaId,
-                            fixed = result.plainLyrics ?: existingLyrics?.fixed,
-                            synced = result.syncedLyrics ?: existingLyrics?.synced
+                            fixed = result.plainLyrics
+                                ?: result.syncedLyrics?.let(::plainLyricsFromTimedText)
+                                ?: existingLyrics?.fixed,
+                            synced = result.syncedLyrics
                         )
                         applyLyrics(updatedLyrics)
                         persistLyricsSafely(updatedLyrics)
@@ -957,12 +984,13 @@ fun Lyrics(
                 else -> markFailure()
             }
 
-            if (allowSimpFallback && !hasLoadedLyrics()) {
-                fetchFallbackSources(setOf(source))
-                if (!hasLoadedLyrics()) {
-                    markFailure()
-                }
+            if (allowSimpFallback && !appliedLyrics) {
+                appliedLyrics = fetchFallbackSources(setOf(source))
             }
+            if (!appliedLyrics) {
+                markFailure()
+            }
+            return appliedLyrics
         }
 
         fun translateLyricsWithRomanization(output: MutableState<String>, textToTranslate: String, isSync: Boolean, destinationLanguage: Language = Language.AUTO) = @Composable{
@@ -1060,7 +1088,7 @@ fun Lyrics(
             Database.lyricsTable
                     .findBySongId( mediaId )
                     .collect { currentLyrics ->
-                        if (!showLyricsSourceSwitcher) {
+                        if (!showLyricsSourceSwitcher || !userSelectedLyricsSource) {
                             if (isShowingSynchronizedLyrics && currentLyrics?.synced.isNullOrBlank()) {
                                 fetchLyricsFromSource(defaultLyricsSource, allowSimpFallback = true)
                                 return@collect
@@ -1179,7 +1207,13 @@ fun Lyrics(
                                             }
                                         }?.onFailure {
                                             checkedLyricsKugou = true
-                                            val simpLyrics = fetchSimpMusicLyrics(mediaId)
+                                            val simpLyrics = fetchSimpMusicLyrics(
+                                                videoId = mediaId,
+                                                title = cleanPrefix(mediaMetadata.title?.toString().orEmpty()),
+                                                artist = cleanPrefix(mediaMetadata.artist?.toString().orEmpty()),
+                                                album = mediaMetadata.albumTitle?.toString(),
+                                                durationSeconds = duration / 1_000L,
+                                            )
                                             if (!simpLyrics?.syncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
                                                 if (playerEnableLyricsPopupMessage) {
                                                     coroutineScope.launch {
@@ -1462,7 +1496,14 @@ fun SelectLyricFromTrack(
                 onClick = {
                     menuState.hide()
                     coroutineScope.launch {
-                        val simpLyrics = fetchSimpMusicLyrics(mediaId)
+                        val durationMs = durationProvider().takeIf { it != C.TIME_UNSET } ?: 0L
+                        val simpLyrics = fetchSimpMusicLyrics(
+                            videoId = mediaId,
+                            title = title,
+                            artist = artistName,
+                            album = mediaMetadata.albumTitle?.toString(),
+                            durationSeconds = durationMs / 1_000L,
+                        )
                         if (!simpLyrics?.syncedLyrics.isNullOrBlank() || !simpLyrics?.plainLyrics.isNullOrBlank()) {
                             val updatedLyrics = Lyrics(
                                 songId = mediaId,
@@ -1701,7 +1742,13 @@ fun SelectLyricFromTrack(
 
                         tracks.clear()
                         val durationMs = durationProvider().takeIf { value -> value != C.TIME_UNSET } ?: 0L
-                        val bestTrack = pickBestLrcLibTrack(it, title, durationMs)
+                        val bestTrack = pickBestLrcLibTrack(
+                            tracks = it,
+                            title = title,
+                            artist = artistName,
+                            durationMs = durationMs,
+                            album = mediaMetadata.albumTitle?.toString(),
+                        )
                         bestTrack?.let { match -> tracks.add(match) }
                         tracks.addAll(it.filterNot { track -> track.id == bestTrack?.id })
                         loading = false

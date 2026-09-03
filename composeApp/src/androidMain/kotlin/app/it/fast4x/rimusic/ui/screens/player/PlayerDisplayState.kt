@@ -45,6 +45,7 @@ fun rememberDisplayedPlayerState(
     val sessionPlayer = binder.sessionPlayer
     val playbackProgress by sessionPlayer.playbackProgressState()
     val crossfadeState by binder.service.crossfadeState.collectAsState()
+    val publishedMediaItem by binder.service.currentMediaItem.collectAsState()
     var currentMediaItem by remember(sessionPlayer) {
         mutableStateOf(binder.displayedMediaItem ?: sessionPlayer.currentMediaItem ?: binder.player.currentMediaItem)
     }
@@ -64,7 +65,7 @@ fun rememberDisplayedPlayerState(
     sessionPlayer.DisposableListener {
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                currentMediaItem = binder.displayedMediaItem ?: mediaItem
+                currentMediaItem = mediaItem ?: binder.displayedMediaItem
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -88,11 +89,19 @@ fun rememberDisplayedPlayerState(
         }
     }
 
-    val mediaItem by remember(binder, sessionPlayer, currentMediaItem, crossfadeState) {
+    val mediaItem by remember(
+        binder,
+        sessionPlayer,
+        currentMediaItem,
+        publishedMediaItem,
+        crossfadeState,
+    ) {
         derivedStateOf {
             crossfadeState.displayedItem
+                ?: publishedMediaItem
                 ?: currentMediaItem
                 ?: binder.displayedMediaItem
+                ?: sessionPlayer.currentMediaItem
         }
     }
 

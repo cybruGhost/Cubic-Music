@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.cache.Cache
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.enums.CacheType
@@ -22,6 +23,9 @@ import app.it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.delay
 
+
+private fun Cache?.safeCacheSpace(): Long =
+    this?.let { cache -> runCatching { cache.cacheSpace }.getOrDefault(0L) } ?: 0L
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -64,15 +68,15 @@ fun CacheSpaceIndicator(
             delay(1000)
         }
     }
-    val cachedSongsDiskCacheSize by androidx.compose.runtime.produceState(initialValue = binder?.cache?.cacheSpace ?: 0L, binder?.cache) {
+    val cachedSongsDiskCacheSize by androidx.compose.runtime.produceState(initialValue = binder?.cache.safeCacheSpace(), binder?.cache) {
         while (true) {
-            value = binder?.cache?.cacheSpace ?: 0L
+            value = binder?.cache.safeCacheSpace()
             delay(1000)
         }
     }
-    val downloadedSongsDiskCacheSize by androidx.compose.runtime.produceState(initialValue = binder?.downloadCache?.cacheSpace ?: 0L, binder?.downloadCache) {
+    val downloadedSongsDiskCacheSize by androidx.compose.runtime.produceState(initialValue = binder?.downloadCache.safeCacheSpace(), binder?.downloadCache) {
         while (true) {
-            value = binder?.downloadCache?.cacheSpace ?: 0L
+            value = binder?.downloadCache.safeCacheSpace()
             delay(1000)
         }
     }

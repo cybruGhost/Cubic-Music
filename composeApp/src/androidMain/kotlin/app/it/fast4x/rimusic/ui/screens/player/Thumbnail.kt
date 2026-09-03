@@ -154,6 +154,17 @@ data class AuthorThumbnail(
     val height: Int
 )
 
+private fun normalizedAuthorThumbnailUrl(url: String?): String? {
+    var normalized = url?.trim().orEmpty()
+    if (normalized.isBlank()) return null
+    normalized = when {
+        normalized.startsWith("//") -> "https:$normalized"
+        normalized.startsWith("http://") -> normalized.replaceFirst("http://", "https://")
+        else -> normalized
+    }
+    return normalized.replace(Regex("=s\\d+"), "=s160")
+}
+
 // Data class for comment response with continuation
 data class CommentResponse(
     val comments: List<Comment>,
@@ -566,29 +577,20 @@ fun CommentsOverlay(
                                 .padding(16.dp)
                         ) {
                             // Author thumbnail (profile picture)
-                            val profilePicUrl = currentComment.authorThumbnails
-                                .maxByOrNull { it.width * it.height }?.url
-                            
-                            if (!profilePicUrl.isNullOrEmpty()) {
-                                Image(
-                                    painter = ImageCacheFactory.Painter(profilePicUrl),
-                                    contentDescription = "Profile picture",
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                // Fallback if no thumbnail available
-                                Image(
-                                    painter = painterResource(R.drawable.flowerfallback),
-                                    contentDescription = "Default profile",
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
+                            val profilePicUrl = normalizedAuthorThumbnailUrl(
+                                currentComment.authorThumbnails
+                                    .maxByOrNull { it.width * it.height }
+                                    ?.url
+                            )
+
+                            ImageCacheFactory.AsyncImage(
+                                thumbnailUrl = profilePicUrl,
+                                contentDescription = "Profile picture",
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
                             
                             Spacer(modifier = Modifier.width(12.dp))
                             
@@ -1112,7 +1114,7 @@ fun Thumbnail(
                             Image (
                                 painter = coverPainter,
                                 contentDescription = null,
-                                contentScale = ContentScale.Fit,
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .combinedClickable(
                                         onClick = {
@@ -1145,7 +1147,7 @@ fun Thumbnail(
                                 .clip(thumbnailShape())
                                 .graphicsLayer { alpha = thumbnailAlpha },
                             contentDescription = "Background Image",
-                            contentScale = ContentScale.Fit
+                            contentScale = ContentScale.Crop
                         )
                     }
 

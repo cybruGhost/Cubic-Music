@@ -75,11 +75,14 @@ import app.kreate.android.me.knighthat.component.song.ChangeAuthorDialog
 import app.kreate.android.me.knighthat.component.song.GoToAlbum
 import app.kreate.android.me.knighthat.component.song.GoToArtist
 import app.kreate.android.me.knighthat.component.song.RenameSongDialog
+import app.kreate.android.me.knighthat.component.song.SongInformationDialog
 import app.kreate.android.me.knighthat.component.tab.LikeComponent
 import app.kreate.android.me.knighthat.component.tab.Radio
 import app.kreate.android.me.knighthat.sync.YouTubeSync
 import app.kreate.android.me.knighthat.utils.Toaster
+import app.kreate.android.service.invalidateFormatCache
 import timber.log.Timber
+import kotlinx.coroutines.withContext
 
 @UnstableApi
 @ExperimentalFoundationApi
@@ -210,6 +213,7 @@ class PlayerItemMenu private constructor(
         val changeAuthor = ChangeAuthorDialog { song }
         val startRadio = Radio { listOf(song) }
         val addToFavorite = LikeComponent { listOf(song) }
+        var showInformationDialog by remember { mutableStateOf(false) }
         
         val activityResultLauncher =
             rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
@@ -250,6 +254,20 @@ class PlayerItemMenu private constructor(
 
         // Custom "Refetch" / "Update Song" button (from PlayerMenu logic)
         var showRefetchDialog by remember { mutableStateOf(false) }
+        val informationButton = remember {
+            object : MenuIcon, Descriptive, Clickable {
+                override val iconId: Int = R.drawable.information
+                override val messageId: Int = R.string.information
+                @get:Composable
+                override val menuIconTitle: String get() = stringResource(messageId)
+
+                override fun onShortClick() {
+                    showInformationDialog = true
+                }
+
+                override fun onLongClick() {}
+            }
+        }
         val refetchButton = remember {
             object : MenuIcon, Descriptive, Clickable {
                 override val iconId: Int = R.drawable.refresh
@@ -326,14 +344,15 @@ class PlayerItemMenu private constructor(
         // Re-order to match screenshot exactly
         buttons = remember(song, albumData, artistsData) {
             mutableListOf<Button>().apply {
-                add(renameSong)           // 1
-                add(changeAuthor)         // 2
-                add(uploadCoverButton)    // 3
-                add(startRadio)           // 4
-                add(equalizerButton)      // 5
-                add(sleepTimerButton)     // 6
-                add(addToFavorite)        // 7
-                add(addToPlaylist)        // 8
+                add(informationButton)
+                add(renameSong)
+                add(changeAuthor)
+                add(uploadCoverButton)
+                add(startRadio)
+                add(equalizerButton)
+                add(sleepTimerButton)
+                add(addToFavorite)
+                add(addToPlaylist)
                 
                 // Go to Album (Always visible, priority to direct navigation)
                 add(object : MenuIcon, Descriptive, Clickable {
@@ -437,7 +456,18 @@ class PlayerItemMenu private constructor(
         //<editor-fold desc="Dialog renders">
         renameSong.Render()
         changeAuthor.Render()
-        
+
+        if (showInformationDialog) {
+            SongInformationDialog(
+                song = song,
+                albumTitle = albumData?.title,
+                onDismiss = { showInformationDialog = false },
+                onChangeTitle = renameSong::onShortClick,
+                onChangeAuthors = changeAuthor::onShortClick,
+                onUploadCover = { uploadCoverLauncher.launch("image/*") },
+                onRefreshSong = { showRefetchDialog = true }
+            )
+        }
         if (showRefetchDialog) {
             ConfirmationDialog(
                 text = stringResource(R.string.update_song),
@@ -445,10 +475,62 @@ class PlayerItemMenu private constructor(
                 onConfirm = {
                     showRefetchDialog = false
                     menuState.hide()
-                    binder.cache.removeResource(mediaItem.mediaId)
-                    binder.downloadCache.removeResource(mediaItem.mediaId)
-                    Database.asyncTransaction {
-                        Database.songTable.updateTotalPlayTime(mediaItem.mediaId, 0)
+                    coroutineScope.launch {
+                        val refreshedSong = withContext(Dispatchers.IO) {
+                            Innertube.nextPage(NextBody(videoId = song.id))
+                                ?.getOrNull()
+                                ?.itemsPage
+                                ?.items
+                                ?.firstOrNull()
+                                ?.asSong
+                                ?.copy(
+                                    likedAt = song.likedAt,
+                                    totalPlayTimeMs = 0L
+                                )
+                        }
+
+                        if (refreshedSong == null) {
+                            Toaster.e(R.string.song_update_failed)
+                            return@launch
+                        }
+
+                        withContext(Dispatchers.IO) {
+                            runCatching { binder.cache.removeResource(song.id) }
+                                .onFailure { Timber.w(it, "Unable to clear playback cache for %s", song.id) }
+                            runCatching { binder.downloadCache.removeResource(song.id) }
+                                .onFailure { Timber.w(it, "Unable to clear download cache for %s", song.id) }
+                            invalidateFormatCache(song.id)
+                            Database.asyncTransaction {
+                                formatTable.deleteBySongId(song.id)
+                                formatTable.updateContentLengthOf(song.id)
+                                songTable.updateReplace(refreshedSong)
+                            }
+                        }
+
+                        val player = binder.player
+                        val currentIndex = player.currentMediaItemIndex
+                        val currentSongId = player.currentMediaItem?.mediaId?.substringAfterLast("/")
+                        val wasPlaying = player.playWhenReady
+                        val refreshedMetadata = refreshedSong.asMediaItem.mediaMetadata
+
+                        for (index in 0 until player.mediaItemCount) {
+                            val queueItem = player.getMediaItemAt(index)
+                            if (queueItem.mediaId.substringAfterLast("/") == song.id) {
+                                player.replaceMediaItem(
+                                    index,
+                                    queueItem.buildUpon()
+                                        .setMediaMetadata(refreshedMetadata)
+                                        .build()
+                                )
+                            }
+                        }
+
+                        if (currentSongId == song.id && currentIndex >= 0) {
+                            player.seekTo(currentIndex, 0L)
+                            player.prepare()
+                            player.playWhenReady = wasPlaying
+                        }
+                        Toaster.s(R.string.song_updated)
                     }
                 }
             )

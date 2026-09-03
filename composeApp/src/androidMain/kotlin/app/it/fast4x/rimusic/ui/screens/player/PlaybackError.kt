@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.PlaybackException
@@ -168,6 +171,50 @@ fun PlayerError(error: PlaybackException) {
 
 }
 
+@Composable
+internal fun PlayerSurfacePlaybackError(
+    message: String,
+    actionLabel: String?,
+    onAction: (() -> Unit)?,
+    foreground: Color,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .background(
+                color = Color.Black.copy(alpha = 0.46f),
+                shape = RoundedCornerShape(18.dp),
+            )
+            .border(
+                width = 1.dp,
+                color = foreground.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(18.dp),
+            )
+            .padding(horizontal = 22.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.alert_circle),
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(32.dp),
+        )
+        BasicText(
+            text = message,
+            style = typography().xs.medium.center.color(foreground),
+        )
+        if (!actionLabel.isNullOrBlank() && onAction != null) {
+            TextButton(onClick = onAction) {
+                BasicText(
+                    text = actionLabel,
+                    style = typography().xs.medium.color(accent),
+                )
+            }
+        }
+    }
+}
 @Composable
 fun PlaybackError(
     isDisplayed: Boolean,

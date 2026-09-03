@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -121,7 +122,7 @@ import java.util.concurrent.ConcurrentHashMap
 private object ReelCommentsCache {
     private const val MAX_ENTRIES = 24
     private const val TTL_MS = 10L * 60L * 1_000L
-    private const val FETCH_TIMEOUT_MS = 12_000L
+    private const val FETCH_TIMEOUT_MS = 8_000L
 
     private data class Entry(
         val response: CommentResponse,
@@ -168,6 +169,9 @@ private object ReelCommentsCache {
         }
     }
 }
+
+private const val SHORT_STREAM_TIMEOUT_MS = 20_000L
+private const val MAX_SHORT_STREAM_RETRIES = 1
 
 private fun YtmHomeSectionItem.musicShortArtworkUrl(size: Int = 1280): String? {
     val mediaId = videoId.trim().ifBlank { id.trim() }
@@ -368,9 +372,11 @@ internal fun MusicShortsFeed(
             activeStoredSong?.thumbnailUrl,
             fetchedArtwork,
         )
-        resolveArtworkUrl(activeMediaId, retainedArtwork).thumbnail(1280)
+        resolveArtworkUrl(activeMediaId, retainedArtwork).thumbnail(1920)
     }
-    val interactionOpen = commentsVideoId != null || menuState.isDisplayed
+    val commentsOpen = commentsVideoId != null
+    val menuOpen = menuState.isDisplayed
+    val interactionOpen = commentsOpen || menuOpen
 
     fun advancePreview(page: Int) {
         if (advanceInFlight || page != pagerState.currentPage) return
@@ -410,7 +416,7 @@ internal fun MusicShortsFeed(
             videoPlayer.clearMediaItems()
         }
         val resolvedStreams = withContext(Dispatchers.IO) {
-            withTimeoutOrNull(30_000L) {
+            withTimeoutOrNull(SHORT_STREAM_TIMEOUT_MS) {
                 coroutineScope {
                     val videoDeferred = async {
                         runCatching { getInnertubeVideoStream(activeMediaId) }.getOrNull()
@@ -432,7 +438,7 @@ internal fun MusicShortsFeed(
         val stream = resolvedStreams?.first
         val audioUrl = resolvedStreams?.second
         if (stream == null || audioUrl == null) {
-            if (videoLoadAttempt < 2) {
+            if (videoLoadAttempt < MAX_SHORT_STREAM_RETRIES) {
                 delay(750L * (videoLoadAttempt + 1L))
                 videoLoadAttempt += 1
             } else {
@@ -462,22 +468,45 @@ internal fun MusicShortsFeed(
         loadingVideo = false
     }
 
-    LaunchedEffect(activeMediaId, loadingVideo, videoError) {
-        if (loadingVideo || videoError) return@LaunchedEffect
+    // Start comments alongside stream resolution so opening the sheet never waits on playback.
+    LaunchedEffect(activeMediaId) {
         ReelCommentsCache.firstPage(activeMediaId)?.let { response ->
             commentCounts = commentCounts + (activeMediaId to response.comments.size)
         }
     }
 
-    LaunchedEffect(interactionOpen, activeMediaId) {
-        if (interactionOpen) {
+    LaunchedEffect(
+        commentsOpen,
+        menuOpen,
+        activeMediaId,
+        loadingVideo,
+        videoError,
+        pausedByUser,
+    ) {
+        videoPlayer.repeatMode =
+            if (commentsOpen) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        when {
+            menuOpen -> {
             if (videoPlayer.isPlaying && !pausedByUser) {
                 pausedForInteraction = true
                 videoPlayer.pause()
             }
-        } else if (pausedForInteraction && !pausedByUser && !videoError) {
-            pausedForInteraction = false
-            videoPlayer.play()
+            }
+
+            commentsOpen -> {
+                pausedForInteraction = false
+                previewElapsedMs = 0L
+                if (!pausedByUser && !loadingVideo && !videoError &&
+                    videoPlayer.playbackState != Player.STATE_IDLE
+                ) {
+                    videoPlayer.play()
+                }
+            }
+
+            pausedForInteraction && !pausedByUser && !videoError -> {
+                pausedForInteraction = false
+                videoPlayer.play()
+            }
         }
     }
 
@@ -488,7 +517,7 @@ internal fun MusicShortsFeed(
         loadingVideo,
         videoError,
     ) {
-        while (!interactionOpen && !loadingVideo && !videoError) {
+        while (!commentsOpen && !menuOpen && !loadingVideo && !videoError) {
             delay(250L)
             if (videoPlayer.isPlaying) {
                 previewElapsedMs += 250L
@@ -496,6 +525,22 @@ internal fun MusicShortsFeed(
                     advancePreview(activeIndex)
                     break
                 }
+            }
+        }
+    }
+
+    // Comments are a reading surface: keep the same 45-second sample looping behind them.
+    LaunchedEffect(commentsOpen, activeMediaId, loadingVideo, videoError, pausedByUser) {
+        while (commentsOpen && !loadingVideo && !videoError && !pausedByUser) {
+            delay(250L)
+            if (videoPlayer.currentPosition >= 45_000L) {
+                videoPlayer.seekTo(0L)
+                videoPlayer.play()
+            } else if (
+                videoPlayer.playbackState == Player.STATE_READY &&
+                !videoPlayer.isPlaying
+            ) {
+                videoPlayer.play()
             }
         }
     }
@@ -535,7 +580,7 @@ internal fun MusicShortsFeed(
                 artworkUrl = if (page == activeIndex) {
                     activeArtworkUrl
                 } else {
-                    item.musicShortArtworkUrl(size = 1280)
+                    item.musicShortArtworkUrl(size = 1920)
                 },
                 isActive = page == activeIndex,
                 player = videoPlayer,
@@ -564,7 +609,7 @@ internal fun MusicShortsFeed(
                 onOpenComments = { commentsVideoId = itemId },
                 onPlaybackError = {
                     if (page == pagerState.currentPage) {
-                        if (videoLoadAttempt < 2) {
+                        if (videoLoadAttempt < MAX_SHORT_STREAM_RETRIES) {
                             videoLoadAttempt += 1
                         } else {
                             loadingVideo = false
@@ -577,7 +622,11 @@ internal fun MusicShortsFeed(
                 onShare = { shareMusicShort(context, item) },
                 onVideoEnded = {
                     if (page == pagerState.currentPage) {
-                        if (interactionOpen) {
+                        if (commentsOpen) {
+                            previewElapsedMs = 0L
+                            videoPlayer.seekTo(0L)
+                            if (!pausedByUser) videoPlayer.play()
+                        } else if (menuOpen) {
                             advanceAfterInteraction = true
                         } else {
                             advancePreview(page)
@@ -770,9 +819,16 @@ private fun MusicShortVideoPage(
                 .padding(top = 78.dp)
                 .fillMaxWidth(0.82f)
                 .aspectRatio(0.84f)
+                .shadow(
+                    elevation = 22.dp,
+                    shape = mediaShape,
+                    clip = false,
+                    ambientColor = Color(0xFFB96CFF).copy(alpha = 0.30f),
+                    spotColor = Color(0xFF6EDBFF).copy(alpha = 0.26f),
+                )
                 .clip(mediaShape)
-                .background(Color(0xFF15151B))
-                .border(1.dp, Color.White.copy(alpha = 0.16f), mediaShape),
+                .background(Color.White.copy(alpha = 0.10f))
+                .border(1.dp, Color.White.copy(alpha = 0.30f), mediaShape),
         ) {
             ImageCacheFactory.AsyncImage(
                 thumbnailUrl = artworkUrl,
@@ -815,7 +871,7 @@ private fun MusicShortVideoPage(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.08f),
+                                Color.White.copy(alpha = 0.10f),
                                 Color.Transparent,
                                 Color.Black.copy(alpha = 0.38f),
                             )
@@ -1167,6 +1223,29 @@ private fun ReelCommentRow(comment: Comment) {
         .maxByOrNull { thumbnail -> thumbnail.width * thumbnail.height }
         ?.url
         .orEmpty()
+    val avatarInitials = remember(comment.author) {
+        comment.author
+            .trim()
+            .split(Regex("\\s+"))
+            .asSequence()
+            .filter(String::isNotBlank)
+            .take(2)
+            .mapNotNull(String::firstOrNull)
+            .joinToString("")
+            .uppercase()
+            .ifBlank { "CM" }
+    }
+    val avatarColor = remember(comment.author) {
+        val colors = listOf(
+            Color(0xFF3D6FB4),
+            Color(0xFF8A4F9E),
+            Color(0xFF2F7D6D),
+            Color(0xFF9A5B45),
+            Color(0xFF6E5BA7),
+            Color(0xFFAD3E62),
+        )
+        colors[(comment.author.hashCode() and Int.MAX_VALUE) % colors.size]
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1176,21 +1255,22 @@ private fun ReelCommentRow(comment: Comment) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.10f)),
+                .background(avatarColor)
+                .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
+            Text(
+                text = avatarInitials,
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+            )
             if (avatarUrl.isNotBlank()) {
                 ImageCacheFactory.AsyncImage(
                     thumbnailUrl = avatarUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Text(
-                    text = comment.author.firstOrNull()?.uppercase().orEmpty(),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
                 )
             }
         }

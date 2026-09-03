@@ -80,11 +80,16 @@ import app.it.fast4x.compose.persist.persist
 import app.it.fast4x.compose.persist.persistList
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
+import it.fast4x.innertube.models.NavigationEndpoint
+import it.fast4x.innertube.models.Thumbnail
 import it.fast4x.innertube.requests.PlaylistPage
 import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.appContext
 import app.it.fast4x.rimusic.cleanPrefix
+import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSong
 
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.enums.NavRoutes
@@ -153,6 +158,143 @@ import me.bush.translator.Language
 import me.bush.translator.Translator
 import app.kreate.android.me.knighthat.component.SongItem
 import app.kreate.android.me.knighthat.utils.Toaster
+import timber.log.Timber
+
+
+private fun YtmSong.asInnertubePlaylistSong(): Innertube.SongItem? {
+    val safeVideoId = videoId.trim()
+    val safeTitle = title.trim()
+    if (!isAvailable || safeVideoId.isBlank() || safeTitle.isBlank()) return null
+
+    val authorsFromApi = artists.mapNotNull { artistRef ->
+        val name = artistRef.name.trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val browseId = artistRef.id.trim()
+            .takeIf { it.isNotBlank() }
+            ?.let(YtmSessionApi::normalizeArtistBrowseId)
+        Innertube.Info<NavigationEndpoint.Endpoint.Browse>(
+            name = name,
+            endpoint = browseId?.let { NavigationEndpoint.Endpoint.Browse(browseId = it) }
+        )
+    }
+    val authors = authorsFromApi.ifEmpty {
+        val displayName = artistsText.ifBlank { artist }.trim()
+        if (displayName.isBlank()) {
+            emptyList()
+        } else {
+            val browseId = artistId.ifBlank { artistIds.firstOrNull().orEmpty() }
+                .trim()
+                .takeIf { it.isNotBlank() }
+                ?.let(YtmSessionApi::normalizeArtistBrowseId)
+            listOf(
+                Innertube.Info<NavigationEndpoint.Endpoint.Browse>(
+                    name = displayName,
+                    endpoint = browseId?.let { NavigationEndpoint.Endpoint.Browse(browseId = it) }
+                )
+            )
+        }
+    }
+    val albumInfo = album.trim().takeIf { it.isNotBlank() }?.let { albumName ->
+        Innertube.Info<NavigationEndpoint.Endpoint.Browse>(
+            name = albumName,
+            endpoint = albumId.trim().takeIf { it.isNotBlank() }?.let {
+                NavigationEndpoint.Endpoint.Browse(browseId = it)
+            }
+        )
+    }
+    val artwork = thumbnailUrl.ifBlank { thumbnail }.trim().takeIf { it.isNotBlank() }
+
+    return Innertube.SongItem(
+        info = Innertube.Info(
+            name = safeTitle,
+            endpoint = NavigationEndpoint.Endpoint.Watch(videoId = safeVideoId)
+        ),
+        authors = authors,
+        album = albumInfo,
+        durationText = durationText.ifBlank { duration }.takeIf { it.isNotBlank() },
+        thumbnail = artwork?.let { Thumbnail(url = it, height = null, width = null) },
+        explicit = false,
+        setVideoId = setVideoId.takeIf { it.isNotBlank() }
+    )
+}
+
+private suspend fun loadYtmSessionPlaylistPage(
+    browseId: String,
+    primaryPage: PlaylistPage?
+): PlaylistPage? {
+    val session = YouTubeSessionStore.applyCurrentSession(appContext())
+        ?.let { currentSession -> YtmSessionApi.ensureScopedSession(currentSession) }
+        ?: return null
+    if (!YouTubeSessionStore.hasAuthCookies(session.cookie)) return null
+
+    val normalizedPlaylistId = browseId.removePrefix("VL").trim()
+    if (normalizedPlaylistId.isBlank()) return null
+
+    val remoteSongs = YtmSessionApi.fetchPlaylistSongs(
+        cookies = session.cookie,
+        playlistId = normalizedPlaylistId,
+        authUser = session.authUser.ifBlank { null },
+        pageId = session.pageId.ifBlank { null }
+    ).onFailure { error ->
+        Timber.w(error, "YTM playlist screen fallback failed playlistId=%s", normalizedPlaylistId)
+    }.getOrNull()
+        ?.mapNotNull(YtmSong::asInnertubePlaylistSong)
+        .orEmpty()
+
+    if (remoteSongs.isEmpty()) return null
+
+    primaryPage?.let { page ->
+        Timber.d(
+            "YTM playlist screen restored songs playlistId=%s count=%d using primary header",
+            normalizedPlaylistId,
+            remoteSongs.size
+        )
+        return page.copy(
+            songs = remoteSongs,
+            songsContinuation = null,
+            continuation = null
+        )
+    }
+
+    val metadata = YtmSessionApi.fetchPlaylists(
+        cookies = session.cookie,
+        authUser = session.authUser.ifBlank { null },
+        pageId = session.pageId.ifBlank { null }
+    ).getOrNull()?.firstOrNull { playlist ->
+        sequenceOf(playlist.playlistId, playlist.browseId, playlist.rawPlaylistId)
+            .map { it.removePrefix("VL").trim() }
+            .any { it == normalizedPlaylistId }
+    } ?: return null
+    val title = metadata.title.ifBlank { metadata.name }.trim()
+    if (title.isBlank()) return null
+    val artwork = metadata.thumbnailUrl.ifBlank { metadata.thumbnail }
+        .trim()
+        .takeIf { it.isNotBlank() }
+    val parsedSongCount = metadata.songCount.filter { it.isDigit() }.toIntOrNull()
+
+    Timber.d(
+        "YTM playlist screen restored songs playlistId=%s count=%d using session header",
+        normalizedPlaylistId,
+        remoteSongs.size
+    )
+    return PlaylistPage(
+        playlist = Innertube.PlaylistItem(
+            info = Innertube.Info(
+                name = title,
+                endpoint = NavigationEndpoint.Endpoint.Browse(browseId = browseId)
+            ),
+            channel = null,
+            songCount = parsedSongCount ?: remoteSongs.size,
+            isEditable = false,
+            description = metadata.subtitle.takeIf { it.isNotBlank() },
+            thumbnail = artwork?.let { Thumbnail(url = it, height = null, width = null) }
+        ),
+        description = metadata.subtitle.takeIf { it.isNotBlank() },
+        songs = remoteSongs,
+        songsContinuation = null,
+        continuation = null,
+        isEditable = false
+    )
+}
 
 
 @ExperimentalTextApi
@@ -182,9 +324,17 @@ fun PlaylistSongList(
     var playlistSongs by persistList<Innertube.SongItem>("playlist/$browseId/songs")
 
     val updatedItemsPageProvider: suspend (String?) -> Result<PlaylistPage> by rememberUpdatedState {
-        if( it == null )
-            YtMusic.getPlaylist( browseId )
-        else
+        if (it == null) {
+            val primaryResult = YtMusic.getPlaylist(browseId)
+            val primaryPage = primaryResult.getOrNull()
+            if (primaryPage?.songs?.isNotEmpty() == true) {
+                primaryResult
+            } else {
+                loadYtmSessionPlaylistPage(browseId, primaryPage)
+                    ?.let(Result.Companion::success)
+                    ?: primaryResult
+            }
+        } else {
             YtMusic.getPlaylistContinuation( it )
                    .map { fetchedPlaylist ->
                        playlistPage!!.copy(
@@ -192,18 +342,32 @@ fun PlaylistSongList(
                            songsContinuation = fetchedPlaylist?.continuation
                        )
                    }
+        }
     }
 
-    LaunchedEffect( playlistPage ) {
-        if (playlistPage == null) {
+    LaunchedEffect(browseId) {
+        if (playlistPage == null || playlistSongs.isEmpty()) {
             withContext(Dispatchers.IO) {
                 updatedItemsPageProvider(null)
             }.onSuccess { onlinePlaylist ->
-                playlistPage = onlinePlaylist
-                playlistSongs = onlinePlaylist.songs
-                                               .fastFilter { !parentalControlEnabled || !it.explicit }
-                                               .fastDistinctBy( Innertube.SongItem::key )
-                continuation = onlinePlaylist.songsContinuation
+                val fetchedSongs = onlinePlaylist.songs
+                    .fastFilter { !parentalControlEnabled || !it.explicit }
+                    .fastDistinctBy(Innertube.SongItem::key)
+
+                if (fetchedSongs.isNotEmpty()) {
+                    playlistSongs = fetchedSongs
+                    playlistPage = onlinePlaylist.copy(songs = fetchedSongs)
+                    continuation = onlinePlaylist.songsContinuation
+                } else if (playlistSongs.isEmpty()) {
+                    playlistPage = onlinePlaylist
+                    continuation = onlinePlaylist.songsContinuation
+                } else {
+                    playlistPage = onlinePlaylist.copy(
+                        songs = playlistSongs,
+                        songsContinuation = null
+                    )
+                    continuation = null
+                }
             }.exceptionOrNull()?.printStackTrace()
         }
     }

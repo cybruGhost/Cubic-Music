@@ -1,17 +1,19 @@
 package app.it.fast4x.rimusic.ui.screens.rewind.slides
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,18 +24,21 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -43,159 +48,274 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.it.fast4x.rimusic.cleanPrefix
-import app.it.fast4x.rimusic.ui.styling.LocalAppearance
+import app.it.fast4x.rimusic.ui.screens.rewind.RewindData
 import app.kreate.android.R
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import it.fast4x.innertube.YtMusic
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import java.text.NumberFormat
-import kotlin.math.cos
-import kotlin.math.sin
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.roundToInt
 
-internal val RewindInk = Color(0xFF050508)
-internal val RewindSurface = Color(0xFF101018)
-internal val RewindCream = Color(0xFFFFF4EA)
-internal val RewindRed = Color(0xFFFF3157)
-internal val RewindOrange = Color(0xFFFF8A00)
-internal val RewindPink = Color(0xFFFF7AC8)
-internal val RewindPurple = Color(0xFFB36BFF)
-internal val RewindBlue = Color(0xFF74C7FF)
-internal val RewindGreen = Color(0xFF20E070)
-internal val RewindYellow = Color(0xFFFFD447)
+internal val RewindInk = Color(0xFF08070C)
+internal val RewindCream = Color(0xFFFFF6E6)
+internal val RewindPurple = Color(0xFF461CF4)
+internal val RewindPink = Color(0xFFFF4B98)
+internal val RewindRed = Color(0xFFE83B2F)
+internal val RewindOrange = Color(0xFFFF5A2E)
+internal val RewindLime = Color(0xFFD9FF31)
+internal val RewindBlue = Color(0xFF2369EB)
+internal val RewindYellow = Color(0xFFFFD72E)
+internal val RewindMuted = Color(0xFFB7B0C1)
 
+internal enum class RewindRevealDirection {
+    Up,
+    Down,
+    Left,
+    Right
+}
+
+/**
+ * Full-screen Rewind story shell.
+ *
+ * Important layout rule: slide content never owns the very bottom edge. That space is
+ * reserved for the Cubic Music signature so the brand cannot land on top of slide copy.
+ */
 @Composable
-internal fun RewindCanvasCard(
-    title: String,
-    year: Int,
+internal fun RewindStoryShell(
     page: Int,
     pageCount: Int,
-    accent: Color,
+    background: Color,
+    progressColor: Color,
     modifier: Modifier = Modifier,
-    secondary: Color = RewindPurple,
-    backgroundImageUrl: String? = null,
-    onClick: (() -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit
+    onNext: (() -> Unit)? = null,
+    showProgress: Boolean = true,
+    showBrand: Boolean = true,
+    backgroundArt: @Composable () -> Unit = {},
+    content: @Composable () -> Unit
 ) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(RewindInk)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(10.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .border(1.dp, accent.copy(alpha = 0.38f), RoundedCornerShape(28.dp))
-            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .background(background)
+            .clickable(enabled = onNext != null) { onNext?.invoke() }
     ) {
-        backgroundImageUrl?.let { imageUrl ->
-            RewindArtwork(
-                imageUrl = imageUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                RewindInk.copy(alpha = 0.28f),
-                                RewindInk.copy(alpha = 0.76f),
-                                RewindInk.copy(alpha = 0.97f)
-                            )
-                        )
-                    )
-            )
-        }
-
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                color = accent.copy(alpha = if (backgroundImageUrl == null) 0.28f else 0.14f),
-                radius = size.minDimension * 0.62f,
-                center = Offset(size.width * 0.88f, size.height * 0.10f)
-            )
-            drawCircle(
-                color = secondary.copy(alpha = if (backgroundImageUrl == null) 0.22f else 0.10f),
-                radius = size.minDimension * 0.52f,
-                center = Offset(size.width * 0.06f, size.height * 0.78f)
-            )
-            drawRect(
-                brush = Brush.verticalGradient(
-                    listOf(Color.Transparent, RewindInk.copy(alpha = 0.18f), RewindInk.copy(alpha = 0.55f)),
-                    startY = size.height * 0.48f
-                )
-            )
-        }
+        backgroundArt()
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 18.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(top = 14.dp, bottom = if (showBrand) 38.dp else 18.dp)
         ) {
-            RewindCardHeader(title = title, year = year, page = page, pageCount = pageCount, accent = accent)
-            content()
+            RewindStoryProgress(
+                page = page,
+                pageCount = pageCount,
+                color = progressColor,
+                visible = showProgress
+            )
+            Spacer(Modifier.height(16.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                content()
+            }
+        }
+
+        if (showBrand) {
+            RewindBrandBug(
+                foreground = progressColor,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 16.dp, bottom = 8.dp)
+            )
         }
     }
 }
 
 @Composable
-internal fun RewindCardHeader(
-    title: String,
-    year: Int,
+private fun RewindStoryProgress(
     page: Int,
     pageCount: Int,
-    accent: Color
+    color: Color,
+    visible: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Rewind",
-                color = accent,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = year.toString(),
-                color = RewindCream.copy(alpha = 0.92f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            repeat(pageCount) { index ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(if (index == page) 3.dp else 2.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(if (index == page) accent else RewindCream.copy(alpha = 0.24f))
-                )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        repeat(pageCount) { index ->
+            val alpha = if (!visible) 0f else when {
+                index < page -> 0.82f
+                index == page -> 1f
+                else -> 0.22f
             }
-            Text(
-                text = "${page + 1}/$pageCount",
-                color = RewindCream.copy(alpha = 0.76f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 7.dp)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(color.copy(alpha = alpha))
             )
         }
+    }
+}
+
+@Composable
+internal fun RewindBrandBug(
+    foreground: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher),
+            contentDescription = "Cubic Music",
+            modifier = Modifier
+                .size(18.dp)
+                .clip(RoundedCornerShape(5.dp))
+        )
         Text(
-            text = title,
-            color = RewindCream,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            text = "CUBIC MUSIC",
+            color = foreground.copy(alpha = 0.68f),
+            fontSize = 7.sp,
+            lineHeight = 8.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.9.sp
         )
     }
+}
+
+/**
+ * One-shot reveal. Nothing loops: when a page becomes active the element enters once,
+ * settles, and stays still until the user leaves the page.
+ */
+@Composable
+internal fun RewindReveal(
+    active: Boolean,
+    delayMillis: Int = 0,
+    modifier: Modifier = Modifier,
+    distance: Dp = 24.dp,
+    direction: RewindRevealDirection = RewindRevealDirection.Up,
+    scaleFrom: Float = 0.98f,
+    durationMillis: Int = 520,
+    content: @Composable () -> Unit
+) {
+    val progress = remember { Animatable(0f) }
+
+    LaunchedEffect(active) {
+        if (!active) {
+            progress.snapTo(0f)
+        } else {
+            progress.snapTo(0f)
+            if (delayMillis > 0) delay(delayMillis.toLong())
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis, easing = LinearOutSlowInEasing)
+            )
+        }
+    }
+
+    Box(
+        modifier = modifier.graphicsLayer {
+            alpha = progress.value
+            val travel = distance.toPx() * (1f - progress.value)
+            when (direction) {
+                RewindRevealDirection.Up -> translationY = travel
+                RewindRevealDirection.Down -> translationY = -travel
+                RewindRevealDirection.Left -> translationX = travel
+                RewindRevealDirection.Right -> translationX = -travel
+            }
+            scaleX = scaleFrom + (1f - scaleFrom) * progress.value
+            scaleY = scaleFrom + (1f - scaleFrom) * progress.value
+        }
+    ) {
+        content()
+    }
+}
+
+@Composable
+internal fun RewindAnimatedNumber(
+    value: Long,
+    active: Boolean,
+    color: Color,
+    fontSize: Int,
+    delayMillis: Int = 220,
+    modifier: Modifier = Modifier,
+    durationMillis: Int = 1050
+) {
+    val anim = remember(value) { Animatable(0f) }
+
+    LaunchedEffect(active, value) {
+        if (!active) {
+            anim.snapTo(0f)
+        } else {
+            anim.snapTo(0f)
+            delay(delayMillis.toLong())
+            anim.animateTo(
+                targetValue = value.coerceAtLeast(0).toFloat(),
+                animationSpec = tween(durationMillis, easing = FastOutSlowInEasing)
+            )
+        }
+    }
+
+    Text(
+        text = formatRewindNumber(anim.value.toLong()),
+        color = color,
+        fontSize = fontSize.sp,
+        lineHeight = (fontSize * 0.90f).sp,
+        letterSpacing = (-3.2).sp,
+        fontWeight = FontWeight.Black,
+        modifier = modifier
+    )
+}
+
+@Composable
+internal fun RewindTypewriterText(
+    text: String,
+    active: Boolean,
+    color: Color,
+    fontSize: Int,
+    modifier: Modifier = Modifier,
+    delayMillis: Int = 0,
+    lineHeight: Int = fontSize,
+    maxLines: Int = 2,
+    charDelayMillis: Long = 34L,
+    letterSpacing: Float = -1.2f
+) {
+    var visibleCharacters by remember(text) { mutableStateOf(0) }
+
+    LaunchedEffect(active, text) {
+        visibleCharacters = 0
+        if (!active) return@LaunchedEffect
+        delay(delayMillis.toLong())
+        text.indices.forEach { index ->
+            visibleCharacters = index + 1
+            delay(charDelayMillis)
+        }
+    }
+
+    Text(
+        text = text.take(visibleCharacters),
+        color = color,
+        fontSize = fontSize.sp,
+        lineHeight = lineHeight.sp,
+        letterSpacing = letterSpacing.sp,
+        fontWeight = FontWeight.Black,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -203,13 +323,293 @@ internal fun RewindArtwork(
     imageUrl: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    onError: (() -> Unit)? = null
 ) {
     ImageCacheFactory.AsyncImage(
         thumbnailUrl = imageUrl,
         contentDescription = contentDescription,
         contentScale = contentScale,
+        modifier = modifier,
+        onError = {
+            if (!imageUrl.isNullOrBlank()) onError?.invoke()
+        }
+    )
+}
+
+@Composable
+internal fun RewindArtworkWithFallback(
+    imageUrl: String?,
+    title: String,
+    modifier: Modifier = Modifier,
+    circular: Boolean = false,
+    background: Color = RewindPurple,
+    foreground: Color = RewindCream,
+    onError: (() -> Unit)? = null
+) {
+    Box(
         modifier = modifier
+            .clip(if (circular) CircleShape else RoundedCornerShape(8.dp))
+            .background(background),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = title.trim().take(2).uppercase().ifBlank { "♪" },
+            color = foreground.copy(alpha = 0.70f),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black
+        )
+        RewindArtwork(
+            imageUrl = imageUrl,
+            contentDescription = title,
+            modifier = Modifier.fillMaxSize(),
+            onError = onError
+        )
+    }
+}
+
+@Composable
+internal fun RewindArtistArtwork(
+    artistName: String,
+    primaryUrl: String?,
+    modifier: Modifier = Modifier,
+    preferWikipedia: Boolean = false,
+    circular: Boolean = true,
+    enableSlideshow: Boolean = false
+) {
+    var wikipediaUrl by remember(artistName) { mutableStateOf<String?>(null) }
+    var failedUrls by remember(artistName, primaryUrl) { mutableStateOf(emptySet<String>()) }
+    var activeIndex by remember(artistName, primaryUrl) { mutableStateOf(0) }
+
+    LaunchedEffect(artistName, primaryUrl, preferWikipedia, enableSlideshow) {
+        wikipediaUrl = null
+        failedUrls = emptySet()
+        activeIndex = 0
+        if (artistName.isBlank()) return@LaunchedEffect
+        if (enableSlideshow || preferWikipedia || primaryUrl.isNullOrBlank()) {
+            wikipediaUrl = withContext(Dispatchers.IO) {
+                WikipediaArtistImageResolver.findImage(artistName)
+            }
+        }
+    }
+
+    val orderedUrls = if (preferWikipedia) {
+        listOf(wikipediaUrl, primaryUrl)
+    } else {
+        listOf(primaryUrl, wikipediaUrl)
+    }
+    val candidates = orderedUrls
+        .filterNotNull()
+        .filter { it.isNotBlank() && it !in failedUrls }
+        .distinct()
+
+    LaunchedEffect(candidates, enableSlideshow) {
+        activeIndex = activeIndex.coerceIn(0, (candidates.size - 1).coerceAtLeast(0))
+        if (enableSlideshow && candidates.size > 1) {
+            while (true) {
+                delay(7_000)
+                activeIndex = (activeIndex + 1) % candidates.size
+            }
+        }
+    }
+
+    val selectedUrl = candidates.getOrNull(activeIndex) ?: candidates.firstOrNull()
+    Crossfade(
+        targetState = selectedUrl,
+        animationSpec = tween(durationMillis = 900),
+        label = "rewindArtistArtwork"
+    ) { imageUrl ->
+        RewindArtworkWithFallback(
+            imageUrl = imageUrl,
+            title = artistName,
+            modifier = modifier,
+            circular = circular,
+            background = RewindPurple,
+            foreground = RewindCream,
+            onError = {
+                if (!imageUrl.isNullOrBlank()) failedUrls = failedUrls + imageUrl
+            }
+        )
+    }
+}
+
+internal data class ArtistWikiMetadata(
+    val imageUrl: String?,
+    val description: String?,
+    val bio: String? = null,
+    val wikipediaUrl: String? = null
+)
+
+@Composable
+internal fun rememberArtistDescription(artistName: String): String? {
+    var description by remember(artistName) { mutableStateOf<String?>(null) }
+    LaunchedEffect(artistName) {
+        description = null
+        if (artistName.isBlank()) return@LaunchedEffect
+        description = withContext(Dispatchers.IO) {
+            WikipediaArtistMetadataResolver.find(artistName)?.description
+        }
+    }
+    return description
+}
+
+/**
+ * Full Wikipedia metadata (portrait, short description, longer bio paragraph and the article
+ * URL) for a single artist. Used by the Top Artist spotlight page. Returns null while loading
+ * or when nothing plausible was found — callers should render gracefully without it.
+ */
+@Composable
+internal fun rememberArtistWikiMetadata(
+    artistName: String,
+    fallbackBrowseId: String? = null
+): ArtistWikiMetadata? {
+    var metadata by remember(artistName, fallbackBrowseId) { mutableStateOf<ArtistWikiMetadata?>(null) }
+    LaunchedEffect(artistName, fallbackBrowseId) {
+        metadata = null
+        if (artistName.isBlank()) return@LaunchedEffect
+        metadata = withContext(Dispatchers.IO) {
+            val wikipedia = WikipediaArtistMetadataResolver.find(artistName)
+            if (wikipedia?.hasUsableDescription() == true) {
+                wikipedia
+            } else {
+                fallbackBrowseId
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { browseId ->
+                        YtMusic.getArtistPage(browseId).getOrNull()?.let { page ->
+                            ArtistWikiMetadata(
+                                imageUrl = page.artist.thumbnail?.url,
+                                description = page.description,
+                                bio = page.description
+                            )
+                        }
+                    }
+            }
+        }
+    }
+    return metadata
+}
+
+private fun ArtistWikiMetadata.hasUsableDescription(): Boolean {
+    val text = (bio ?: description).orEmpty().trim()
+    return text.isNotBlank() &&
+        !text.contains("may refer to", ignoreCase = true) &&
+        !text.contains("disambiguation", ignoreCase = true)
+}
+
+private object WikipediaArtistImageResolver {
+    fun findImage(artistName: String): String? =
+        WikipediaArtistMetadataResolver.find(artistName)?.imageUrl
+}
+
+private object WikipediaArtistMetadataResolver {
+    private const val MissCacheTtlMs = 5L * 60L * 1000L
+    private val cache = ConcurrentHashMap<String, ArtistWikiMetadata>()
+    private val misses = ConcurrentHashMap<String, Long>()
+
+    fun find(artistName: String): ArtistWikiMetadata? {
+        val key = artistName.trim().lowercase()
+        if (key.isBlank()) return null
+        cache[key]?.let { return it }
+        val now = System.currentTimeMillis()
+        misses[key]?.let { missedAt ->
+            if (now - missedAt < MissCacheTtlMs) return null
+            misses.remove(key, missedAt)
+        }
+
+        val candidates = listOf(
+            "$artistName musician",
+            "$artistName singer",
+            "$artistName rapper",
+            artistName
+        )
+
+        val resolved = candidates.firstNotNullOfOrNull { query ->
+            runCatching { requestMetadata(artistName, query) }.getOrNull()
+        }
+        if (resolved != null) {
+            cache[key] = resolved
+            misses.remove(key)
+        } else {
+            misses[key] = now
+        }
+        return resolved
+    }
+
+    private fun requestMetadata(artistName: String, query: String): ArtistWikiMetadata? {
+        val encoded = URLEncoder.encode(query, Charsets.UTF_8.name())
+        val endpoint =
+            "https://en.wikipedia.org/w/api.php?action=query&generator=search" +
+                "&gsrsearch=$encoded&gsrnamespace=0&gsrlimit=5" +
+                "&prop=pageimages|description|extracts|info&pithumbsize=1000" +
+                "&exintro=1&explaintext=1&exchars=480&inprop=url" +
+                "&format=json&formatversion=2&redirects=1"
+
+        val connection = URL(endpoint).openConnection() as HttpURLConnection
+        return try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 5000
+            connection.readTimeout = 7000
+            connection.setRequestProperty("User-Agent", "CubicMusic-Rewind/1.0")
+            connection.setRequestProperty("Accept", "application/json")
+            if (connection.responseCode !in 200..299) return null
+
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val pages = JSONObject(body)
+                .optJSONObject("query")
+                ?.optJSONArray("pages")
+                ?: return null
+
+            val normalized = artistName.trim().lowercase()
+            val results = buildList {
+                for (i in 0 until pages.length()) {
+                    val page = pages.optJSONObject(i) ?: continue
+                    val title = page.optString("title").trim().lowercase()
+                    val source = page.optJSONObject("thumbnail")?.optString("source").orEmpty()
+                    val description = page.optString("description")
+                        .takeIf { it.isNotBlank() && !it.contains("may refer to", ignoreCase = true) }
+                    val bio = page.optString("extract")
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                        .takeIf {
+                            it.isNotBlank() &&
+                                !it.contains("may refer to", ignoreCase = true) &&
+                                !it.contains("disambiguation", ignoreCase = true)
+                        }
+                    val pageUrl = page.optString("fullurl").takeIf { it.isNotBlank() }
+                    if (source.isBlank() && description.isNullOrBlank() && bio.isNullOrBlank()) continue
+                    val score = when {
+                        title == normalized -> 0
+                        title.startsWith("$normalized (") -> 1
+                        title.contains(normalized) -> 2
+                        else -> 3
+                    }
+                    add(score to ArtistWikiMetadata(source.ifBlank { null }, description, bio, pageUrl))
+                }
+            }
+            results.minByOrNull { it.first }?.second
+        } finally {
+            connection.disconnect()
+        }
+    }
+}
+
+@Composable
+internal fun RewindKicker(
+    text: String,
+    background: Color,
+    foreground: Color = RewindInk,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = text.uppercase(),
+        color = foreground,
+        fontSize = 9.sp,
+        lineHeight = 10.sp,
+        fontWeight = FontWeight.Black,
+        letterSpacing = 1.0.sp,
+        modifier = modifier
+            .background(background, RoundedCornerShape(2.dp))
+            .padding(horizontal = 9.dp, vertical = 6.dp)
     )
 }
 
@@ -220,134 +620,75 @@ internal fun RewindRankRow(
     subtitle: String,
     meta: String,
     imageUrl: String?,
+    foreground: Color,
     accent: Color,
-    circular: Boolean = false,
-    featured: Boolean = false
+    active: Boolean,
+    delayMillis: Int,
+    modifier: Modifier = Modifier,
+    circularArt: Boolean = false
 ) {
-    val shape = if (featured) RoundedCornerShape(22.dp) else RoundedCornerShape(15.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(if (featured) accent.copy(alpha = 0.22f) else RewindCream.copy(alpha = 0.055f))
-            .border(1.dp, RewindCream.copy(alpha = if (featured) 0.16f else 0.08f), shape)
-            .padding(horizontal = 10.dp, vertical = if (featured) 12.dp else 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    RewindReveal(
+        active = active,
+        delayMillis = delayMillis,
+        direction = RewindRevealDirection.Left,
+        distance = 18.dp,
+        modifier = modifier
     ) {
-        Text(
-            text = rank.toString(),
-            color = if (featured) RewindCream else accent,
-            fontSize = if (featured) 34.sp else 20.sp,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(34.dp)
-        )
-        RewindArtwork(
-            imageUrl = imageUrl,
-            contentDescription = title,
-            modifier = Modifier
-                .size(if (featured) 72.dp else 48.dp)
-                .clip(if (circular) CircleShape else RoundedCornerShape(12.dp)),
-            contentScale = ContentScale.Crop
-        )
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Text(
-                text = cleanPrefix(title).ifBlank { "-" },
-                color = RewindCream,
-                fontSize = if (featured) 17.sp else 14.sp,
-                lineHeight = if (featured) 19.sp else 16.sp,
+                text = rank.toString(),
+                color = accent,
+                fontSize = 25.sp,
+                lineHeight = 26.sp,
                 fontWeight = FontWeight.Black,
-                maxLines = if (featured) 2 else 1,
-                overflow = TextOverflow.Ellipsis
+                modifier = Modifier.width(27.dp),
+                textAlign = TextAlign.Center
             )
+
+            RewindArtworkWithFallback(
+                imageUrl = imageUrl,
+                title = title,
+                modifier = Modifier.size(44.dp),
+                circular = circularArt,
+                background = accent.copy(alpha = 0.28f),
+                foreground = foreground
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = cleanPrefix(title).ifBlank { "—" },
+                    color = foreground,
+                    fontSize = 13.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = cleanPrefix(subtitle).ifBlank { "—" },
+                    color = foreground.copy(alpha = 0.62f),
+                    fontSize = 9.sp,
+                    lineHeight = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
             Text(
-                text = cleanPrefix(subtitle).ifBlank { "-" },
-                color = RewindCream.copy(alpha = 0.68f),
-                fontSize = 11.sp,
-                maxLines = 1,
+                text = meta,
+                color = foreground.copy(alpha = 0.72f),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(60.dp),
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Text(
-            text = meta,
-            color = accent,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.End,
-            modifier = Modifier.width(54.dp),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-internal fun RewindMetricPill(
-    value: String,
-    label: String,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(RewindCream.copy(alpha = 0.075f))
-            .border(1.dp, accent.copy(alpha = 0.22f), RoundedCornerShape(18.dp))
-            .padding(horizontal = 14.dp, vertical = 13.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Text(
-            text = value,
-            color = accent,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = label,
-            color = RewindCream.copy(alpha = 0.72f),
-            fontSize = 11.sp,
-            lineHeight = 13.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-internal fun RewindShareButton(
-    text: String,
-    accent: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .background(accent.copy(alpha = 0.24f))
-            .border(1.dp, accent.copy(alpha = 0.58f), RoundedCornerShape(999.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = text,
-            color = RewindCream,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Black
-        )
-        Spacer(Modifier.width(10.dp))
-        Icon(
-            painter = painterResource(R.drawable.share_social),
-            contentDescription = null,
-            tint = RewindCream,
-            modifier = Modifier.size(18.dp)
-        )
     }
 }
 
@@ -355,253 +696,90 @@ internal fun RewindShareButton(
 internal fun RewindEmptyState(
     title: String,
     body: String,
+    foreground: Color,
     accent: Color,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(RewindCream.copy(alpha = 0.075f))
-            .border(1.dp, accent.copy(alpha = 0.18f), RoundedCornerShape(22.dp))
-            .padding(18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Icon(
-            painter = painterResource(R.drawable.rewind_color_cover),
-            contentDescription = null,
-            tint = Color.Unspecified,
-            modifier = Modifier.size(54.dp)
-        )
+        RewindKicker("REWIND", accent)
         Text(
             text = title,
-            color = RewindCream,
-            fontSize = 22.sp,
+            color = foreground,
+            fontSize = 34.sp,
+            lineHeight = 34.sp,
             fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center
+            letterSpacing = (-1.7).sp
         )
         Text(
             text = body,
-            color = RewindCream.copy(alpha = 0.68f),
+            color = foreground.copy(alpha = 0.66f),
             fontSize = 13.sp,
-            lineHeight = 17.sp,
-            textAlign = TextAlign.Center
+            lineHeight = 18.sp
         )
     }
 }
 
-@Composable
-internal fun RewindRadialMeter(
-    value: Float,
-    accent: Color,
-    modifier: Modifier = Modifier,
-    label: @Composable () -> Unit
-) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val stroke = 7.dp.toPx()
-            val radius = size.minDimension / 2f - stroke
-            val center = Offset(size.width / 2f, size.height / 2f)
-            repeat(56) { index ->
-                val angle = Math.toRadians((index * 360f / 56f - 90f).toDouble())
-                val active = index / 56f <= value.coerceIn(0f, 1f)
-                val inner = radius - if (index % 4 == 0) 15.dp.toPx() else 9.dp.toPx()
-                val outer = radius
-                drawLine(
-                    color = if (active) accent else RewindCream.copy(alpha = 0.18f),
-                    start = Offset(center.x + cos(angle).toFloat() * inner, center.y + sin(angle).toFloat() * inner),
-                    end = Offset(center.x + cos(angle).toFloat() * outer, center.y + sin(angle).toFloat() * outer),
-                    strokeWidth = if (active) 2.2.dp.toPx() else 1.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-            drawCircle(
-                color = RewindCream.copy(alpha = 0.06f),
-                radius = radius - 42.dp.toPx(),
-                center = center
-            )
-            drawCircle(
-                brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.28f), Color.Transparent), center, radius),
-                radius = radius,
-                center = center,
-                style = Stroke(width = stroke)
-            )
-        }
-        label()
-    }
-}
+internal data class ListenerBadge(
+    val title: String,
+    val subtitle: String,
+    val index: Int,
+    val tier: Int
+)
 
-@Composable
-internal fun RewindWaveform(
-    accent: Color,
-    secondary: Color,
-    modifier: Modifier = Modifier,
-    bars: Int = 42
-) {
-    val heights = remember(bars) {
-        List(bars) { index ->
-            0.22f + ((sin(index * 0.72f) + 1f) / 2f) * 0.62f
-        }
-    }
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        heights.forEachIndexed { index, height ->
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(height)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(if (index % 3 == 0) secondary else accent)
-            )
-        }
-    }
-}
+/**
+ * Cubic listening index. This is deliberately NOT called a percentile because the app only
+ * has the listener's local history, not a global population. The reference point is calibrated
+ * so ~45k minutes / 14k plays / 201 days / 5.6k unique songs lands around index 70, leaving
+ * several genuinely harder tiers above it.
+ */
+internal fun calculateListenerBadge(data: RewindData): ListenerBadge {
+    val minuteRatio = (data.stats.totalMinutes.toDouble() / 45_000.0).coerceIn(0.0, 2.4)
+    val playRatio = (data.stats.totalPlays.toDouble() / 14_000.0).coerceIn(0.0, 2.4)
+    val dayRatio = (data.daysWithMusic.toDouble() / 201.0).coerceIn(0.0, 1.82)
+    val uniqueRatio = (data.totalUniqueSongs.toDouble() / 5_612.0).coerceIn(0.0, 2.4)
 
-@Composable
-internal fun RewindOrbitalArt(
-    images: List<String?>,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            repeat(4) { ring ->
-                val radius = size.minDimension * (0.25f + ring * 0.07f)
-                drawCircle(
-                    color = Color.Transparent,
-                    radius = radius,
-                    center = center,
-                    style = Stroke(width = 1.dp.toPx())
-                )
-                drawArc(
-                    color = accent.copy(alpha = 0.22f + ring * 0.06f),
-                    startAngle = ring * 28f,
-                    sweepAngle = 92f,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-        }
-
-        val slots = listOf(
-            Triple(Alignment.TopStart, 92.dp, -10f),
-            Triple(Alignment.TopEnd, 76.dp, 8f),
-            Triple(Alignment.BottomStart, 78.dp, 11f),
-            Triple(Alignment.BottomEnd, 94.dp, -7f),
-            Triple(Alignment.Center, 132.dp, 0f)
+    val intensity = (
+        minuteRatio * 0.38 +
+            playRatio * 0.25 +
+            dayRatio * 0.22 +
+            uniqueRatio * 0.15
         )
-        slots.forEachIndexed { index, slot ->
-            val image = images.getOrNull(index)
-            Box(
-                modifier = Modifier
-                    .align(slot.first)
-                    .size(slot.second)
-                    .clip(RoundedCornerShape(if (index == 4) 28.dp else 18.dp))
-                    .border(1.dp, RewindCream.copy(alpha = 0.36f), RoundedCornerShape(if (index == 4) 28.dp else 18.dp))
-            ) {
-                RewindArtwork(image, null, Modifier.fillMaxSize(), ContentScale.Crop)
-            }
-        }
+    val index = (intensity * 70.0).roundToInt().coerceIn(0, 170)
+
+    return when {
+        index < 15 -> ListenerBadge("CURIOUS", "Still finding your sound.", index, 0)
+        index < 30 -> ListenerBadge("EXPLORER", "You tried a lot this year.", index, 1)
+        index < 45 -> ListenerBadge("IN ROTATION", "Music, most days.", index, 2)
+        index < 60 -> ListenerBadge("DEDICATED", "You kept coming back.", index, 3)
+        index < 75 -> ListenerBadge("HEAVY ROTATION", "Music ran through your whole year.", index, 4)
+        index < 90 -> ListenerBadge("RELENTLESS", "You barely hit pause.", index, 5)
+        index < 110 -> ListenerBadge("SOUND MACHINE", "Top-tier listening hours.", index, 6)
+        index < 130 -> ListenerBadge("TIME BENDER", "An absurd number of hours.", index, 7)
+        else -> ListenerBadge("BEYOND REPEAT", "One long, uninterrupted queue.", index, 8)
     }
 }
 
-internal fun formatRewindNumber(value: Long): String = NumberFormat.getIntegerInstance().format(value)
+internal fun formatRewindNumber(value: Long): String =
+    NumberFormat.getIntegerInstance().format(value.coerceAtLeast(0))
 
-internal fun formatRewindMinutes(minutes: Long): String {
-    val safe = minutes.coerceAtLeast(0)
-    return formatRewindNumber(safe)
-}
+internal fun formatRewindMinutes(minutes: Long): String =
+    formatRewindNumber(minutes.coerceAtLeast(0))
 
-internal fun formatRewindHours(minutes: Long): String {
-    val hours = minutes / 60
-    return if (hours > 0) "${formatRewindNumber(hours)}h" else "${formatRewindNumber(minutes)}m"
-}
+internal fun compactMetaMinutes(minutes: Long): String =
+    "${formatRewindNumber(minutes.coerceAtLeast(0))} min"
 
-internal fun compactMetaMinutes(minutes: Long): String = "${formatRewindNumber(minutes.coerceAtLeast(0))} min"
+internal fun firstNonBlank(vararg values: String?): String =
+    values.firstOrNull { !it.isNullOrBlank() && it != "null" }.orEmpty()
 
-internal fun firstNonBlank(vararg values: String?): String = values.firstOrNull { !it.isNullOrBlank() && it != "null" }.orEmpty()
-
-// Compatibility wrappers for older slide files that still compile.
-@Composable
-internal fun RewindStoryFrame(
-    header: String,
-    accent: Color = LocalAppearance.current.colorPalette.accent,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    RewindCanvasCard(
-        title = header,
-        year = java.time.LocalDate.now().year,
-        page = 0,
-        pageCount = 1,
-        accent = accent,
-        content = content
-    )
-}
-
-@Composable
-internal fun RewindMetricCard(
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier,
-    accent: Color = LocalAppearance.current.colorPalette.accent
-) {
-    RewindMetricPill(value = value, label = label, accent = accent, modifier = modifier)
-}
-
-@Composable
-internal fun RewindListRow(
-    rank: Int,
-    title: String,
-    subtitle: String,
-    meta: String,
-    imageUrl: String?,
-    featured: Boolean = false,
-    accent: Color = LocalAppearance.current.colorPalette.accent
-) {
-    RewindRankRow(rank, title, subtitle, meta, imageUrl, accent, featured = featured)
-}
-
-@Composable
-internal fun RewindHeroArt(imageUrl: String?, title: String, modifier: Modifier = Modifier) {
-    RewindArtwork(
-        imageUrl = imageUrl,
-        contentDescription = title,
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(22.dp)),
-        contentScale = ContentScale.Crop
-    )
-}
-
-@Composable
-internal fun RewindAction(
-    text: String,
-    accent: Color = LocalAppearance.current.colorPalette.accent,
-    onClick: (() -> Unit)? = null
-) {
-    RewindShareButton(text = text, accent = accent, onClick = { onClick?.invoke() })
-}
-
-@Composable
-internal fun RewindDots() {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Spacer(Modifier.weight(1f))
-        repeat(5) { index ->
-            Box(
-                modifier = Modifier
-                    .size(if (index == 1) 7.dp else 5.dp)
-                    .clip(CircleShape)
-                    .background(RewindCream.copy(alpha = if (index == 1) 0.88f else 0.28f))
-            )
-        }
-        Spacer(Modifier.weight(1f))
+internal fun formatHourLabel(hour: String?): String {
+    val raw = hour?.substringBefore(':')?.toIntOrNull() ?: return "—"
+    val normalized = when {
+        raw == 0 -> 12
+        raw > 12 -> raw - 12
+        else -> raw
     }
+    return "$normalized ${if (raw < 12) "AM" else "PM"}"
 }
