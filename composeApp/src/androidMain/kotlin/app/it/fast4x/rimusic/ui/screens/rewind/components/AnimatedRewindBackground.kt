@@ -1,7 +1,7 @@
 /**
- * Adapted from the Blazify Project (C) 2026 "Wrapped" feature.
+ *  (C) 2026 "Wrapped" feature.
  * Original licensed under GPL-3.0 | See git history for contributors.
- * Ported into RiMusic's Rewind feature.
+ * Ported into Rewind feature.
  */
 
 package app.it.fast4x.rimusic.ui.screens.rewind.components
