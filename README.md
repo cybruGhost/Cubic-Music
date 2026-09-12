@@ -42,6 +42,14 @@
 </p>
 
 ---
+## Development philosophy
+
+Cubic Music is developed locally, with development and testing happening primarily on my own machine. Changes are made carefully and incrementally, so updates to the public repository may sometimes appear slower than the actual development happening locally.
+
+The local development history currently contains **2,000+ commits**. GitHub is primarily used as a public repository and as a reliable backup of the project, rather than as a live mirror of every development change.
+
+This approach allows me to experiment, test, refactor, and stabilize changes locally before pushing them to the public repository. In other words, the GitHub repository represents the versions I am ready to share .. not necessarily every change being worked on locally. I just want the app to work and not have many commits with broken app. Please understand
+
 
 ## Experience
 
