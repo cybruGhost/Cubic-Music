@@ -69,6 +69,9 @@ This approach allows me to experiment, test, refactor, and stabilize changes loc
 > [!NOTE]
 > Cubic Music is independently developed and maintained. Account connections are optional, and the app does not require a Cubic Music subscription.
 
+> [!TIP]
+> Desktop Cubic Music v3 is in development. Follow its progress in the [DESKTOP-CUBIC-MUSIC repository](https://github.com/cybruGhost/DESKTOP-CUBIC-MUSIC).
+
 ## Built for the way you listen
 <summary><strong>😝DO YOU KNOW WE HAVE SPOTIFY CANVAS😏</strong></summary>
 <table>
