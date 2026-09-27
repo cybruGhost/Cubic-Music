@@ -1557,7 +1557,7 @@ Volume BAS : titre précédent</string>
     <string name="exportify_native_title">Exporter Spotify vers Cubic Music</string>
     <string name="exportify_native_subtitle">Déplacez vos playlists grâce à un processus d\'importation natif dédié.</string>
     <string name="exportify_open">Ouvrir Exportify</string>
-    <string name="exportify_open_detail">Sign in to Spotify and download your playlist CSV.</string>
+    <string name="exportify_open_detail">Se connecter à Spotify et télécharger vos playlists CSV.</string>
     <string name="exportify_how_it_works">Comment ça marche ?</string>
     <string name="exportify_step_one">Ouvrez Exportify et connectez-vous avec Spotify.</string>
     <string name="exportify_step_two">Sélectionnez les playlists à exporter, puis téléchargez le fichier CSV.</string>
@@ -1647,7 +1647,7 @@ Volume BAS : titre précédent</string>
     <string name="player_surface_standard">Standard</string>
     <string name="player_surface_liquid">Liquide</string>
     <string name="player_surface_liquid_description">Des effets visuels fluides, un contrôle de la progression de l\'arc et l\'affichage des paroles en temps réel avec une lecture Cubic complète.</string>
-    <string name="player_surface_ring">Ring</string>
+    <string name="player_surface_ring">Anneau</string>
     <string name="player_surface_ring_description">Circular artwork, seekable progress ring and live lyrics with complete Cubic playback.</string>
     <string name="player_surface_cassette">Cassette</string>
     <string name="player_surface_cassette_description">Bande rétro animée, curseur de forme d\'onde et commandes de lecture Cubic complètes.</string>
