@@ -1673,7 +1673,7 @@ Volume BAS : titre précédent</string>
     <string name="music_shorts_title">Cubic Bits</string>
     <string name="music_shorts_subtitle">45 secondes de découvertes musicales en fonction de vos habitudes d\'écoute</string>
     <string name="music_shorts_preview_label">Extrait de 45 secondes</string>
-    <string name="music_shorts_play_full">Play full song</string>
+    <string name="music_shorts_play_full">Jouer les sons en entier</string>
     <string name="music_shorts_unavailable">Fresh music previews are unavailable right now.</string>
     <string name="music_shorts_tap_playback">Appuyez pour mettre en pause ou reprendre la lecture</string>
     <string name="music_shorts_sample">Exemple</string>
