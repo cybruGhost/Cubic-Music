@@ -1729,7 +1729,7 @@ Volume BAS : titre précédent</string>
     <string name="weather_heavy">Lourd</string>
     <string name="weather_moderate">Modéré</string>
     <string name="weather_light">Clair</string>
-    <string name="weather_rain_description">%1$s rain</string>
+    <string name="weather_rain_description">%1$s de pluie</string>
     <string name="weather_light_drizzle">Légère bruine</string>
     <string name="weather_thunderstorm">Orage</string>
     <string name="weather_snowing">Neige</string>
@@ -1746,11 +1746,11 @@ Volume BAS : titre précédent</string>
     <string name="weather_analysis_rain_likely">Risque de pluie (%1$d%%) ☔</string>
     <string name="weather_analysis_possible_rain">Risque de pluie (%1$d%%) 🌦️</string>
     <string name="weather_analysis_no_rain">Pas de pluie (%1$d%%)</string>
-    <string name="weather_forecast_cold_day">Cold day — good time to stay cozy.</string>
-    <string name="weather_forecast_cool_air">Cool air — keep a layer on.</string>
-    <string name="weather_forecast_pleasant">Pleasant temperatures today.</string>
+    <string name="weather_forecast_cold_day">Il fait froid aujourd\'hui — c\'est le moment idéal pour rester bien au chaud.</string>
+    <string name="weather_forecast_cool_air">Il fait frais — pensez à vous couvrir un peu.</string>
+    <string name="weather_forecast_pleasant">Il fait bon aujourd\'hui.</string>
     <string name="weather_forecast_warm_day">Warm day — stay hydrated.</string>
-    <string name="weather_forecast_heavy_air">Air feels heavy despite mostly dry skies.</string>
+    <string name="weather_forecast_heavy_air">L\'air semble lourd malgré un ciel globalement dégagé.</string>
     <string name="weather_forecast_overcast">Overcast (%1$d%%).</string>
     <string name="weather_forecast_clouds">%1$s (%2$d%%).</string>
     <string name="weather_forecast_clear_skies">Clear skies.</string>
@@ -1759,9 +1759,9 @@ Volume BAS : titre précédent</string>
     <string name="weather_forecast_dry">Dry conditions expected.</string>
     <string name="weather_activity_stay_in">Good weather for staying in — a book, something on screen, or a quiet moment.</string>
     <string name="weather_activity_night">Peaceful night — a slow walk, dinner out, or just breathing the air in. 🌙</string>
-    <string name="weather_activity_morning">Fresh morning — a walk, run, or that first coffee outdoors. ☀️</string>
-    <string name="weather_activity_afternoon">Afternoon open — eat outside, swim, or soak up the warmth. 🌻</string>
-    <string name="weather_activity_evening">Evening setting in — catch the last light, meet someone, unwind. 🌇</string>
+    <string name="weather_activity_morning">Une belle matinée : une balade, un footing ou ce premier café en plein air. ☀️</string>
+    <string name="weather_activity_afternoon">Ouvert l\'après-midi : venez manger en terrasse, vous baigner ou profiter du soleil. 🌻</string>
+    <string name="weather_activity_evening">Le soir tombe… Profitez des dernières lueurs du jour, faites une rencontre, détendez-vous. 🌇</string>
     <string name="weather_activity_bundle_up">Bundle up if you head out. 🧥</string>
     <string name="weather_activity_waterproof">A jacket and waterproof shoes will do. 🌧️</string>
     <string name="weather_activity_dress_warm">Cold — dress warm. ❄️</string>
@@ -1804,5 +1804,5 @@ Volume BAS : titre précédent</string>
     <string name="song_info_upload_cover_detail">Choose a custom square cover from this device</string>
     <string name="song_info_refresh_detail">Clear cached playback data and fetch fresh song details</string>
     <string name="song_updated">Song refreshed</string>
-    <string name="song_update_failed">Could not refresh this song</string>
+    <string name="song_update_failed">Impossible d\'actualiser ce titre</string>
 </resources>
