@@ -1,0 +1,34 @@
+# Automated, reviewable dependency updates for Cubic Music.
+# Dependabot opens PRs only when newer dependency versions are available.
+# Never auto-merges updates or accesses the backupcubic repository.
+version: 2
+
+updates:
+  # Gradle build files and the default gradle/libs.versions.toml catalog.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "09:10"
+      timezone: "Africa/Nairobi"
+    open-pull-requests-limit: 20
+    assignees:
+      - "cybruGhost"
+    commit-message:
+      prefix: "build(deps)"
+    # Intentionally ungrouped: each PR represents a specific version update.
+    # Review major Kotlin, Android Gradle Plugin and Compose upgrades carefully.
+
+  # Keep GitHub Actions versions current through separate reviewable PRs.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:20"
+      timezone: "Africa/Nairobi"
+    open-pull-requests-limit: 5
+    assignees:
+      - "cybruGhost"
+    commit-message:
+      prefix: "ci(deps)"
