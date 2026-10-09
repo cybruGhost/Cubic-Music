@@ -112,8 +112,6 @@ jobs:
 
       - name: Compile Cubic Music Android debug APK
         shell: bash
-        env:
-          ORG_GRADLE_PROJECT_org.gradle.jvmargs: "-Xmx3g -Dfile.encoding=UTF-8"
         run: |
           set -euo pipefail
           # Debug build only. Do not expose signing or API secrets to PR runners.
