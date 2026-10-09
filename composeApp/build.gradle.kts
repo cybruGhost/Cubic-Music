@@ -83,8 +83,8 @@ kotlin {
 
             implementation(libs.material.icon.desktop)
             implementation(libs.vlcj)
-            implementation("ws.schild:jave-core:3.5.0")
-            runtimeOnly("ws.schild:jave-nativebin-win64:3.5.0")
+            implementation("ws.schild:jave-core:4.2.0")
+            runtimeOnly("ws.schild:jave-nativebin-win64:4.2.0")
             implementation(libs.hypnoticcanvas)
             implementation(libs.hypnoticcanvas.shaders)
 
