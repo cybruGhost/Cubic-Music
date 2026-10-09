@@ -1,0 +1,92 @@
+name: Safe Dependabot Patch Merges
+
+on:
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: safe-dependabot-patch-merges
+  cancel-in-progress: false
+
+jobs:
+  merge-safe-patches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Review and merge at most one eligible Dependabot patch PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100, sort: 'updated', direction: 'asc'
+            });
+            let merged = false;
+            for (const pr of pulls) {
+              if (merged) break; // At most one merge per workflow execution
+              if (pr.user?.login !== 'dependabot[bot]' || pr.draft || pr.base.ref !== 'main') continue;
+              if (!pr.head.ref.startsWith('dependabot/gradle/')) continue;
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner, repo, pull_number: pr.number, per_page: 100
+              });
+              if (files.length !== 1 || files[0].filename !== 'gradle/libs.versions.toml') continue;
+              if (files[0].status !== 'modified' || files[0].additions !== 1 || files[0].deletions !== 1) continue;
+              // Check exact diff lines, and only permit one small patch update
+              const patch = files[0].patch || '';
+              const removed = patch.split('\n').filter(x => x.startsWith('-') && !x.startsWith('---'));
+              const added = patch.split('\n').filter(x => x.startsWith('+') && !x.startsWith('+++'));
+              if (removed.length !== 1 || added.length !== 1) continue;
+              const versionPattern = /^[-+]([A-Za-z][A-Za-z0-9_-]*) = "([0-9]+)\.([0-9]+)\.([0-9]+)"$/;
+              const oldVer = removed[0].match(versionPattern), newVer = added[0].match(versionPattern);
+              if (!oldVer || !newVer || oldVer[1] !== newVer[1]) continue;
+              // Core build toolchains are excluded, even for patch releases.
+              const allowed = new Set([
+                'gson', 'timber', 'webkit', 'appcompat', 'constraintlayout',
+                'palette', 'androidmaterial', 'jetbrains-annotations'
+              ]);
+              if (!allowed.has(oldVer[1])) continue;
+              if (oldVer[2] !== newVer[2] || oldVer[3] !== newVer[3] ||
+                  Number(newVer[4]) <= Number(oldVer[4])) continue;
+              // No surprise commits: every candidate is refreshed just before evaluation
+              const info = (await github.rest.pulls.get({owner, repo, pull_number: pr.number})).data;
+              if (info.mergeable !== true || info.mergeable_state !== 'clean') {
+                core.info('#' + pr.number + ': conflict/unknown, requires manual review');
+                continue;
+              }
+              // PR must contain the current mainline, otherwise wait for Dependabot to rebase it.
+              const compare = (await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: info.head.sha + '...main'
+              })).data;
+              if (compare.ahead_by > 0) {
+                core.info('#' + pr.number + ': branch stale; awaiting clean update, no force resolution');
+                continue;
+              }
+              // Exact successful PR checks are required; no checks = no merge.
+              const sha = info.merge_commit_sha || info.head.sha;
+              const checks = await github.paginate(github.rest.checks.listForRef, {
+                owner, repo, ref: sha, per_page: 100
+              });
+              const required = ['Catalog and compatibility', 'Android debug build (Java 21)'];
+              const ok = required.every(name => checks.filter(c => c.name === name)
+                .some(c => c.status === 'completed' && c.conclusion === 'success'));
+              if (!ok) {
+                core.info('#' + pr.number + ': required build checks not both successful; skipped');
+                continue;
+              }
+              if (info.head.sha !== pr.head.sha) continue;
+              const res = await github.rest.pulls.merge({
+                owner, repo, pull_number: pr.number, merge_method: 'squash',
+                sha: info.head.sha, commit_title: 'build(deps): ' + info.title.replace(/^build\(deps\):\s*/, '')
+              });
+              core.info('#' + pr.number + ': merged=' + res.data.merged);
+              merged = Boolean(res.data.merged);
+            }
+            if (!merged) core.info('No eligible, fully verified patch PR to merge.');
+            
