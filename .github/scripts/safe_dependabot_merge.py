@@ -90,7 +90,7 @@ def main():
         detail = api(f"/pulls/{number}")
         if not detail:
             continue
-        if detail.get("mergeable") is not True or detail.get("mergeable_state") not in ("clean", "unstable"):
+        if detail.get("mergeable") is not True or detail.get("mergeable_state") != "clean":
             print(f"PR #{number}: not clean/mergeable; manual review required")
             continue
         changed = api(f"/pulls/{number}/files?per_page=100")
