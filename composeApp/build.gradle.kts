@@ -104,7 +104,7 @@ kotlin {
     // OkHttp dependencies
     implementation(libs.okhttp3.okhttp)
     implementation(libs.okhttp3.logging.interceptor)
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.media3:media3-ui:1.8.0")
     
     // Ktor OkHttp engine (THIS WAS MISSING)
