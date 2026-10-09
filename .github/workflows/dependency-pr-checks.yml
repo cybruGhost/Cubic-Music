@@ -1,0 +1,58 @@
+name: Dependency PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "gradle/**"
+      - "**/*.gradle"
+      - "**/*.gradle.kts"
+      - ".github/workflows/**"
+      - ".github/dependabot.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-sanity:
+    name: Dependency configuration sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout PR without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate Gradle version catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          catalog = Path("gradle/libs.versions.toml")
+          if not catalog.is_file():
+              raise SystemExit("Missing Gradle version catalog")
+          data = tomllib.loads(catalog.read_text(encoding="utf-8"))
+          versions = data.get("versions", {})
+          if not isinstance(versions, dict) or not versions:
+              raise SystemExit("Empty Gradle version catalog")
+          print("Gradle version catalog TOML parses correctly.")
+          print(f"Version aliases: {len(versions)}")
+          PY
+
+      - name: Validate Gradle wrapper integrity
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Explain check scope
+        run: |
+          echo "Configuration sanity checks passed."
+          echo "This is NOT an Android compilation or playback regression test."
+          echo "Major and minor dependency upgrades require manual compatibility review."
