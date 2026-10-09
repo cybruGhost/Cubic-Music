@@ -2,11 +2,14 @@ name: Cubic Music Engineering Activity
 
 on:
   schedule:
-    - cron: "23 */2 * * *"
+    # 8 runs every UTC hour: 192 runs per day
+    - cron: "6,13,20,27,34,41,48,55 * * * *"
+    # 8 additional runs spread across the day: 200 planned runs
+    - cron: "0 1,4,7,10,13,16,19,22 * * *"
   workflow_dispatch:
     inputs:
       preview_only:
-        description: "Preview only (no commits)"
+        description: "Preview the next source-reference entry without committing"
         type: boolean
         default: true
 
@@ -21,114 +24,26 @@ jobs:
   track-repository:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - name: Check out Cubic Music
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Record project-specific engineering snapshots
-        shell: bash
+          persist-credentials: true
+      - name: Create a transparent source-inventory entry
+        id: inventory
         env:
           PREVIEW_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_only || false }}
+        run: python3 .github/scripts/cubic_activity.py
+      - name: Commit one inventory entry
+        if: steps.inventory.outputs.commit_ready == 'true'
+        env:
+          COMMIT_SUBJECT: ${{ steps.inventory.outputs.subject }}
         run: |
           set -euo pipefail
           git config user.name "cybruGhost"
           git config user.email "113809799+cybruGhost@users.noreply.github.com"
-          python3 - <<'PY'
-          import hashlib
-          import os
-          import random
-          import subprocess
-          import time
-          from datetime import datetime, timezone
-          from pathlib import Path
-          
-          now = datetime.now(timezone.utc)
-          day = now.strftime("%Y-%m-%d")
-          journal = Path("automation/engineering-activity") / f"{day}.md"
-          preview = os.getenv("PREVIEW_ONLY", "false").lower() == "true"
-          
-          previous = journal.read_text(encoding="utf-8") if journal.exists() else ""
-          completed = sum(line.startswith("- ") for line in previous.splitlines())
-          slot = now.hour // 2
-          target = 60 if slot == 11 else min(60, max(0, 5 * (slot + 1) + random.randint(-2, 2)))
-          needed = max(0, target - completed)
-          print(f"UTC date={day}; completed={completed}; slot target={target}; pending={needed}; preview={preview}")
-          
-          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode("utf-8").split("\0")
-          allowed = {".kt", ".kts", ".java", ".xml", ".gradle", ".md", ".json", ".toml"}
-          paths = []
-          for name in tracked:
-              p = Path(name)
-              if not name or name.startswith("automation/") or name.startswith(".github/"):
-                  continue
-              if p.suffix.lower() in allowed and p.is_file() and not p.is_symlink() and p.stat().st_size <= 200_000:
-                  paths.append(p)
-          if not paths:
-              raise RuntimeError("No suitable tracked Cubic Music files found")
-          
-          def topic(path):
-              name = str(path).lower()
-              for marker, label in (
-                  ("lyric", "lyrics"), ("player", "playback"), ("playback", "playback"),
-                  ("innertube", "streaming"), ("invidious", "streaming"), ("piped", "streaming"),
-                  ("provider", "providers"), ("extension", "providers"),
-                  ("theme", "interface"), ("screen", "interface"), ("ui", "interface"),
-                  ("settings", "settings"), ("gradle", "build"), ("string", "localization"),
-                  ("translation", "localization"), ("readme", "documentation"),
-              ):
-                  if marker in name:
-                      return label
-              return "codebase"
-          
-          if preview:
-              print(f"Would add {needed} factual codebase snapshots. No files changed.")
-              raise SystemExit(0)
-          
-          if completed >= 60:
-              print("Today's journal already has 60 entries; nothing to do.")
-              raise SystemExit(0)
-          
-          journal.parent.mkdir(parents=True, exist_ok=True)
-          if not journal.exists():
-              journal.write_text(
-                  f"# Cubic Music automated engineering snapshots — {day} (UTC)\n\n"
-                  "Automated repository observations, not claims of fixes or development work.\n\n",
-                  encoding="utf-8",
-              )
-          
-          # Jitter gives each batch slightly different real execution times.
-          time.sleep(random.randint(0, 40))
-          for index in range(needed):
-              selected = random.choice(paths)
-              source = selected.read_bytes()
-              lines = len(source.splitlines())
-              digest = hashlib.sha256(source).hexdigest()[:12]
-              subject = topic(selected)
-              stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-              with journal.open("a", encoding="utf-8") as writer:
-                  writer.write(
-                      f"- {stamp} — {subject}: `{selected.as_posix()}` "
-                      f"({lines} lines, {len(source)} bytes, SHA256 {digest})\n"
-                  )
-              subprocess.run(["git", "add", "--", str(journal)], check=True)
-              subprocess.run(
-                  ["git", "commit", "--quiet", "-m",
-                   f"chore(auto): snapshot {subject} reference {completed + index + 1}/60"],
-                  check=True,
-              )
-              time.sleep(random.uniform(0.5, 3.5))
-          print(f"Created {needed} automated snapshot commits; UTC-day total is {completed + needed}/60.")
-          PY
-          if [[ "${PREVIEW_ONLY}" != "true" ]]; then
-            for attempt in 1 2 3; do
-              git pull --rebase origin main
-              if git push origin HEAD:main; then
-                exit 0
-              fi
-              sleep 5
-            done
-            echo "Push failed after three attempts" >&2
-            exit 1
-          fi
+          git add -- automation/engineering-activity/
+          git commit -m "$COMMIT_SUBJECT"
+          git pull --rebase origin main
+          git push origin HEAD:main
