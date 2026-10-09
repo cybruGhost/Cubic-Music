@@ -96,13 +96,14 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Configure Android SDK (no signing credentials)
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android API 35
+      - name: Use preinstalled Android SDK and install API 35
         shell: bash
         run: |
           set -euo pipefail
+          if ! command -v sdkmanager >/dev/null 2>&1; then
+            echo "Android SDK command-line tools are unavailable on this runner" >&2
+            exit 1
+          fi
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Setup Gradle and validate wrapper
