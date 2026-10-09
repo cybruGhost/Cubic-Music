@@ -90,8 +90,8 @@ def main():
         detail = api(f"/pulls/{number}")
         if not detail:
             continue
-        if detail.get("mergeable") is not True or detail.get("mergeable_state") != "clean":
-            print(f"PR #{number}: not clean/mergeable; manual review required")
+        if detail.get("mergeable") is not True:
+            print(f"PR #{number}: actual merge conflict or unknown state; manual review required")
             continue
         changed = api(f"/pulls/{number}/files?per_page=100")
         if not isinstance(changed, list) or len(changed) != 1:
@@ -102,6 +102,19 @@ def main():
             or file.get("status") != "modified"
             or file.get("deletions") != 1 or file.get("additions") != 1):
             print(f"PR #{number}: unexpected file change; manual review")
+            continue
+        if detail.get("mergeable_state") == "behind":
+            if dry:
+                print(f"DRY RUN: PR #{number} can be updated from main (no conflicts)")
+            else:
+                updated = api(f"/pulls/{number}/update-branch", "PUT", {
+                    "expected_head_sha": head["sha"],
+                })
+                print(f"PR #{number}: branch update requested" if updated else f"PR #{number}: branch update not performed")
+            # Run fresh checks on the updated head in a later scheduled pass.
+            continue
+        if detail.get("mergeable_state") != "clean":
+            print(f"PR #{number}: merge state is not clean; manual review required")
             continue
         if not successful_checks(head["sha"]):
             print(f"PR #{number}: full required checks not yet green for head; leaving open")
