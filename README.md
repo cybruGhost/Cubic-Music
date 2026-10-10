@@ -25,6 +25,18 @@
   </a>
 </p>
 
+<!-- THE CUBE DISCORD — INDEPENDENT COMMUNITY BUTTON -->
+
+<p align="center">
+  <a href="https://discord.com/invite/RebqmxXqGb">
+    <img src="https://img.shields.io/badge/JOIN_THE_CUBE_DISCORD-COMMUNITY_%26_SUPPORT-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join The Cube Discord community" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>🎬 The Cube on Android or Android TV? Join our Discord to report issues, get help, and follow updates.</sub>
+</p>
+
 <p align="center">
   <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest"><img src="https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?display_name=tag&sort=semver&style=flat-square&label=latest" alt="Latest Cubic Music version" /></a>
   <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest"><img src="https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?style=flat-square&label=latest%20release%20downloads&color=7C3AED" alt="Latest Cubic Music release downloads" /></a>
@@ -39,7 +51,6 @@
   <a href="#install">Install</a> |
   <a href="#playlists">Playlists</a> |
   <a href="#contribute">Contribute</a> |
-  <a href="#the-cube-discord">Discord</a> |
   <a href="#support-cubic">Support</a>
 </p>
 
@@ -51,11 +62,7 @@ Cubic Music is developed locally, with development and testing happening primari
 
 The local development history currently contains **2,000+ commits**. GitHub is primarily used as a public repository and as a reliable backup of the project, rather than as a live mirror of every development change.
 
-This approach allows me to experiment, test, refactor, and stabilize changes locally before pushing them to the public repository.
-
-In other words, the GitHub repository represents the versions I am ready to share, not necessarily every change being worked on locally.
-
-My priority is to deliver a stable, working application rather than push frequent commits containing unfinished or broken changes. Thank you for understanding.
+This approach allows me to experiment, test, refactor, and stabilize changes locally before pushing them to the public repository. In other words, the GitHub repository represents the versions I am ready to share .. not necessarily every change being worked on locally. I just want the app to work and not have many commits with broken app. Please understand.
 
 ## Experience
 
@@ -80,13 +87,7 @@ My priority is to deliver a stable, working application rather than push frequen
 
 ## Built for the way you listen
 
-<details>
-  <summary><strong>😝 DO YOU KNOW WE HAVE SPOTIFY CANVAS? 😏</strong></summary>
-  <br />
-  Cubic Music supports Spotify Canvas visuals where available, bringing moving artwork into your listening experience.
-</details>
-
-<br />
+<summary><strong>😝DO YOU KNOW WE HAVE SPOTIFY CANVAS😏</strong></summary>
 
 <table>
   <tr>
@@ -130,9 +131,7 @@ My priority is to deliver a stable, working application rather than push frequen
   </a>
 </p>
 
-Release notes, fixes, known limitations, and APK assets are published together on the [latest release page](https://github.com/cybruGhost/Cubic-Music/releases/latest).
-
-The badges above update automatically when a new release is published.
+Release notes, fixes, known limitations, and APK assets are published together on the [latest release page](https://github.com/cybruGhost/Cubic-Music/releases/latest). The badges above update automatically when a new release is published.
 
 > [!TIP]
 > If playback behavior changes unexpectedly, first install the newest release. Upstream YouTube changes can affect older builds without warning.
@@ -144,9 +143,9 @@ The badges above update automatically when a new release is published.
   <br />
 
 - YouTube Music streaming with automatic source recovery
-- Spotify Canvas
-- Shazam music recognition
-- Crossfading
+- Spotify canvas
+- Shazam Music recognition
+- crossfading
 - Discover-smart music filter and filler
 - Background, lock-screen, headset, and media-notification controls
 - Configurable crossfade and normal gapless transitions
@@ -287,39 +286,6 @@ Cubic Music grows through focused contributions and honest testing.
   </a>
 </p>
 
-## The Cube Discord
-
-**Need help with The Cube? Let's figure it out together.**
-
-The Cube is another independently developed project by the creator of Cubic Music, bringing movies and TV shows to Android phones and Android TV devices.
-
-If you're using The Cube and something isn't working as expected, you're welcome to join our Discord community.
-
-The community is a place to:
-
-- Report playback problems, broken streams, and server issues.
-- Get help with The Cube on Android and Android TV.
-- Discuss login, account, and premium access issues.
-- Share bug reports and suggestions for improvements.
-- Follow development updates, fixes, and announcements.
-- Help identify issues and improve the experience for everyone.
-
-<p align="center">
-  <a href="https://discord.com/invite/RebqmxXqGb">
-    <img src="https://img.shields.io/badge/JOIN_THE_CUBE-DISCORD_COMMUNITY-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join The Cube Discord community" />
-  </a>
-</p>
-
-<p align="center">
-  <strong>Found an issue? Have a suggestion? You're welcome here. ❤️</strong>
-</p>
-
-> [!TIP]
-> When asking for help, please mention whether you're using Android or Android TV, your app version, and what happened. Screenshots and clear reproduction steps are appreciated. Never share passwords, tokens, or other private account information.
-
-> [!NOTE]
-> The Cube and Cubic Music are separate applications developed by the same independent developer. This Discord invitation is provided to help The Cube users find support and report issues.
-
 ## Support Cubic
 
 You can support Cubic Music by starring the repository, reporting reproducible bugs, helping with translations, contributing code, or funding continued development.
@@ -335,26 +301,18 @@ You can support Cubic Music by starring the repository, reporting reproducible b
 
 ## Independent project
 
-Cubic Music is independently developed and maintained by [cybruGhost](https://github.com/cybruGhost), with help from its users, testers, translators, and contributors.
-
-Third-party libraries and components retain their own licenses and notices in the source tree.
+Cubic Music is independently developed and maintained by [cybruGhost](https://github.com/cybruGhost), with help from its users, testers, translators, and contributors. Third-party libraries and components retain their own licenses and notices in the source tree.
 
 ## Privacy and license
 
 - Read the [Privacy Policy](./privacy.md) and [Terms](./terms.md).
 - Cubic Music is licensed under the [GNU General Public License v3.0](./LICENSE).
 - Optional account integrations can be enabled or disabled from app settings.
-- You are responsible for the usage of this app. Please respect [YouTube's Terms of Service](https://www.youtube.com/static?template=terms).
+- You are responsible for the usage of this APP. Please be respectful towards Youtubes [Terms Of Service](https://www.youtube.com/static?template=terms)
 
 ## Legal notice
 
-Cubic Music is not affiliated with, endorsed by, or sponsored by YouTube, Google, Spotify, Discord, or their partners.
-
-Names and trademarks belong to their respective owners.
-
-Cubic Music does not host media. Availability can depend on upstream services, network conditions, account access, and region.
-
-Use the app only for content you are authorized to access or download.
+Cubic Music is not affiliated with, endorsed by, or sponsored by YouTube, Google, Spotify, Discord, or their partners. Names and trademarks belong to their respective owners. Cubic Music does not host media. Availability can depend on upstream services, network conditions, account access, and region. Use the app only for content you are authorized to access or download.
 
 ---
 
