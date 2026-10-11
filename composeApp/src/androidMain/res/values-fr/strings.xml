@@ -1498,7 +1498,7 @@ Volume BAS : titre précédent</string>
     <string name="rewind_unique_artists">Artistes uniques</string>
     <string name="rewind_unique_albums">Albums uniques</string>
     <string name="rewind_empty_line">Écoutez davantage de musique et cette diapositive s’illuminera la prochaine fois.</string>
-    <string name="rewind_finale_subtitle">Conçu localement à partir de votre historique d’écoute. Continuez à écouter, continuez à façonner le cube.</string>
+    <string name="rewind_finale_subtitle">Créé localement à partir de votre historique d\'écoute. Continuez à écouter pour continuer à façonner le cube.</string>
     <string name="rewind_card_intro_title">Votre année musicale</string>
     <string name="rewind_card_intro_headline">Votre année\nmusicale</string>
     <string name="rewind_card_intro_body">Retour sur la bande-son que vous avez créée en %1$d.</string>
@@ -1557,7 +1557,7 @@ Volume BAS : titre précédent</string>
     <string name="exportify_native_title">Exporter Spotify vers Cubic Music</string>
     <string name="exportify_native_subtitle">Déplacez vos playlists grâce à un processus d\'importation natif dédié.</string>
     <string name="exportify_open">Ouvrir Exportify</string>
-    <string name="exportify_open_detail">Se connecter à Spotify et télécharger vos playlists CSV.</string>
+    <string name="exportify_open_detail">Connectez-vous à Spotify et téléchargez le fichier CSV de votre playlist.</string>
     <string name="exportify_how_it_works">Comment ça marche ?</string>
     <string name="exportify_step_one">Ouvrez Exportify et connectez-vous avec Spotify.</string>
     <string name="exportify_step_two">Sélectionnez les playlists à exporter, puis téléchargez le fichier CSV.</string>
@@ -1673,7 +1673,7 @@ Volume BAS : titre précédent</string>
     <string name="music_shorts_title">Cubic Bits</string>
     <string name="music_shorts_subtitle">45 secondes de découvertes musicales en fonction de vos habitudes d\'écoute</string>
     <string name="music_shorts_preview_label">Extrait de 45 secondes</string>
-    <string name="music_shorts_play_full">Jouer les sons en entier</string>
+    <string name="music_shorts_play_full">Écouter le morceau dans son intégralité</string>
     <string name="music_shorts_unavailable">Les extraits musicaux ne sont pas disponibles pour le moment.</string>
     <string name="music_shorts_tap_playback">Appuyez pour mettre en pause ou reprendre la lecture</string>
     <string name="music_shorts_sample">Exemple</string>
