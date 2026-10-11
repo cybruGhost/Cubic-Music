@@ -1133,7 +1133,7 @@ Volume BAS : titre précédent</string>
     <string name="data_settings_description">La section données contient des paramètres qui modifient la façon dont l\'application gère les données localement et à distance</string>
     <string name="accounts_settings_description">La section Comptes contient les paramètres de synchronisation Youtube, les paramètres de streaming conduits et les paramètres Rpc Discord</string>
     <string name="quick_picks_description">La section « Cubic Picks » contient les paramètres de la page « Cubic Picks » ainsi que les recommandations générées par l\'IA.</string>
-    <string name="smart_recommendations_description">La section recommandations intelligentes contient les paramètres des recommandations alimentées par une IA</string>
+    <string name="smart_recommendations_description">La section « Recommandations intelligentes » contient les paramètres relatifs aux recommandations générées par l\'IA.</string>
     <string name="ai_recommendations">Recommandations IA</string>
     <string name="my_playlist_top1">Mon Top</string>
     <string name="auto_download_settings">Paramètres de téléchargement automatique</string>
