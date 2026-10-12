@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out Cubic Music
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: true
       - name: Create a transparent source-inventory entry
