@@ -63,12 +63,13 @@ fun playShuffled(
         return
     }
 
-    val maxSongsInQueue: Int = appContext().preferences
-                                           .getEnum( maxSongsInQueueKey, MaxSongs.`500` )
-                                           .toInt()
+    val maxSongs = appContext().preferences
+        .getEnum(maxSongsInQueueKey, MaxSongs.`500`)
 
-    // Create a properly shuffled list without duplicates
-    val shuffledSongs = songs.shuffled().take(maxSongsInQueue)
+    // Unlimited preserves the complete source list; finite choices cap it after shuffling.
+    val shuffledSongs = songs.shuffled().let { shuffled ->
+        if (maxSongs == MaxSongs.Unlimited) shuffled else shuffled.take(maxSongs.toInt())
+    }
     
     // Convert to MediaItems
     val songsToPlay = shuffledSongs.map(Song::asMediaItem)

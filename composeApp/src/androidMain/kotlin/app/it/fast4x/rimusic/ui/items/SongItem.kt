@@ -82,6 +82,7 @@ import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.shimmerEffect
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import app.kreate.android.me.knighthat.coil.resolveArtworkUrl
 import app.kreate.android.me.knighthat.coil.size
 import app.kreate.android.me.knighthat.coil.thumbnail
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -209,7 +210,9 @@ fun SongItem(
     SongItem(
         thumbnailSizeDp = thumbnailSizeDp,
         thumbnailContent = {
-            ImageCacheFactory.Thumbnail( thumbnailUrl )
+            ImageCacheFactory.Thumbnail(
+                resolveArtworkUrl(mediaItem.mediaId, thumbnailUrl)
+            )
 
             onThumbnailContent?.invoke(this)
 
@@ -351,7 +354,7 @@ fun SongItem(
     val isSongMappedToPlaylist by remember {
         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
     }.collectAsState( false, Dispatchers.IO )
-    val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+    val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
 
     val context = LocalContext.current
     val colorPalette = LocalAppearance.current.colorPalette

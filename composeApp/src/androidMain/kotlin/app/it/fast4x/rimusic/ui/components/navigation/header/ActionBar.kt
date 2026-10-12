@@ -31,7 +31,6 @@ import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
 import app.it.fast4x.rimusic.extensions.youtubelogin.YoutubeSession
 import app.it.fast4x.rimusic.ui.components.navigation.header.HeaderIcon
 import app.it.fast4x.rimusic.utils.enablePictureInPictureKey
-import app.it.fast4x.rimusic.utils.logDebugEnabledKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showRescueCenterInMenuKey
 import app.it.fast4x.rimusic.utils.ytCookieKey
@@ -49,9 +48,8 @@ private fun HamburgerMenu(
 ) {
     val enablePictureInPicture by rememberPreference(enablePictureInPictureKey, false)
     val showRescueCenterInMenu by rememberPreference(showRescueCenterInMenuKey, true)
-    val logDebugEnabled by rememberPreference(logDebugEnabledKey, false)
     val pipHandler = rememberPipHandler()
-    val showRescueCenter = showRescueCenterInMenu || logDebugEnabled
+    val showRescueCenter = showRescueCenterInMenu
     
     // Get typography instance
     val typography = typographyOf(

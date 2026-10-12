@@ -16,10 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,35 +28,30 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import app.kreate.android.R
+import app.kreate.android.service.getInnertubeVideoStream
 import app.it.fast4x.rimusic.colorPalette
 import app.it.fast4x.rimusic.typography
-import app.it.fast4x.rimusic.utils.getStreamUrl
+import app.it.fast4x.rimusic.utils.okHttpDataSourceFactory
 import app.it.fast4x.rimusic.utils.lastVideoIdKey
 import app.it.fast4x.rimusic.utils.lastVideoSecondsKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
-import com.google.gson.Gson
-import io.ktor.client.statement.bodyAsText
-import it.fast4x.innertube.Innertube
-import it.fast4x.innertube.Innertube.createPoTokenChallenge
-import it.fast4x.innertube.models.PlayerResponse
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
-import org.schabi.newpipe.extractor.localization.ContentCountry
-import org.schabi.newpipe.extractor.localization.Localization
-import org.schabi.newpipe.extractor.services.youtube.PoTokenResult
-import org.schabi.newpipe.extractor.services.youtube.YoutubeStreamHelper
-import java.util.UUID
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun YoutubePlayer(
@@ -75,79 +70,150 @@ fun YoutubePlayer(
     if (ytVideoId != lastYTVideoId) lastYTVideoSeconds = 0f
 
     val context = LocalContext.current
+    var videoPlaybackFailed by remember(ytVideoId) { mutableStateOf(false) }
     val resolvedVideoState by produceState<ResolvedYoutubeVideoState>(
         initialValue = ResolvedYoutubeVideoState.Loading,
         key1 = ytVideoId
     ) {
         value = withContext(Dispatchers.IO) {
-            resolveYoutubeVideo(ytVideoId)
+            withTimeoutOrNull(12_000L) {
+                resolveYoutubeVideo(ytVideoId)
+            } ?: ResolvedYoutubeVideoState.Unavailable
         }
     }
 
     val player = remember(ytVideoId, resolvedVideoState) {
         (resolvedVideoState as? ResolvedYoutubeVideoState.Ready)?.video?.let { video ->
-            ExoPlayer.Builder(context).build().apply {
-                volume = if (syncPlayer == null) 1f else 0f
-                repeatMode = Player.REPEAT_MODE_OFF
-                playWhenReady = syncPlayer?.playWhenReady ?: true
-                videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-                setMediaItem(
-                    MediaItem.Builder()
-                        .setUri(video.url)
-                        .setMimeType(video.mimeType)
-                        .build()
-                )
-                prepare()
-                val startPosition = syncPlayer?.currentPosition ?: (lastYTVideoSeconds * 1000).toLong()
-                if (startPosition > 0L) {
-                    seekTo(startPosition)
-                }
-                addListener(
-                    object : Player.Listener {
-                        override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            if (isPlaying) {
-                                lastYTVideoId = ytVideoId
-                            }
-                        }
-
-                        override fun onPlaybackStateChanged(playbackState: Int) {
-                            if (playbackState == Player.STATE_ENDED) {
-                                seekTo(0)
-                            }
-                        }
+            ExoPlayer.Builder(context)
+                .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
+                .setMediaSourceFactory(DefaultMediaSourceFactory(context.okHttpDataSourceFactory))
+                .build()
+                .apply {
+                    volume = if (syncPlayer == null) 1f else 0f
+                    repeatMode = Player.REPEAT_MODE_OFF
+                    playWhenReady = syncPlayer?.isPlaying ?: true
+                    videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                    setMediaItem(
+                        MediaItem.Builder()
+                            .setUri(video.url)
+                            .setMimeType(video.mimeType)
+                            .build()
+                    )
+                    val startPosition =
+                        syncPlayer?.currentPosition ?: (lastYTVideoSeconds * 1000).toLong()
+                    if (startPosition > 0L) {
+                        seekTo(startPosition)
                     }
-                )
-            }
+                    addListener(
+                        object : Player.Listener {
+                            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                                if (isPlaying) {
+                                    lastYTVideoId = ytVideoId
+                                }
+                            }
+
+                            override fun onPlaybackStateChanged(playbackState: Int) {
+                                if (playbackState == Player.STATE_READY) {
+                                    syncPlayer?.let { audioPlayer ->
+                                        val target = audioPlayer.currentPosition.coerceAtLeast(0L)
+                                        if (kotlin.math.abs(currentPosition - target) > 500L) {
+                                            seekTo(target)
+                                        }
+                                        playWhenReady = audioPlayer.isPlaying
+                                    }
+                                } else if (playbackState == Player.STATE_ENDED) {
+                                    pause()
+                                }
+                            }
+
+                            override fun onPlayWhenReadyChanged(
+                                playWhenReady: Boolean,
+                                reason: Int
+                            ) {
+                                if (
+                                    reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST &&
+                                    syncPlayer != null
+                                ) {
+                                    if (playWhenReady) syncPlayer.play() else syncPlayer.pause()
+                                }
+                            }
+
+                            override fun onPositionDiscontinuity(
+                                oldPosition: Player.PositionInfo,
+                                newPosition: Player.PositionInfo,
+                                reason: Int
+                            ) {
+                                if (
+                                    reason == Player.DISCONTINUITY_REASON_SEEK &&
+                                    syncPlayer != null &&
+                                    kotlin.math.abs(syncPlayer.currentPosition - newPosition.positionMs) > 1_000L
+                                ) {
+                                    syncPlayer.seekTo(newPosition.positionMs)
+                                }
+                            }
+
+                            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                                videoPlaybackFailed = true
+                            }
+                        }
+                    )
+                    prepare()
+                }
         }
     }
 
     LaunchedEffect(player) {
+        var stalledForMs = 0L
         while (player != null) {
             syncPlayer?.let { audioPlayer ->
-                val targetPosition = (audioPlayer.currentPosition + 120L).coerceAtLeast(0L)
-                if (kotlin.math.abs(player.currentPosition - targetPosition) > 140L) {
+                val targetPosition = audioPlayer.currentPosition.coerceAtLeast(0L)
+                if (
+                    player.playbackState == Player.STATE_READY &&
+                    kotlin.math.abs(player.currentPosition - targetPosition) > 1_500L
+                ) {
                     player.seekTo(targetPosition)
                 }
-                player.playWhenReady = audioPlayer.playWhenReady
-                if (audioPlayer.isPlaying && !player.isPlaying) player.play()
-                if (!audioPlayer.isPlaying && player.isPlaying) player.pause()
+                player.playWhenReady = audioPlayer.isPlaying
             }
+
+            stalledForMs = if (
+                player.playWhenReady &&
+                player.playbackState != Player.STATE_READY
+            ) {
+                stalledForMs + 500L
+            } else {
+                0L
+            }
+            if (stalledForMs >= 20_000L) {
+                videoPlaybackFailed = true
+                player.pause()
+                break
+            }
+
             val currentSecond = player.currentPosition / 1000f
             onCurrentSecond(currentSecond)
             lastYTVideoSeconds = currentSecond
-            withFrameMillis { }
+            delay(500L)
         }
     }
 
-    DisposableEffect(player) {
+    DisposableEffect(player, lifecycleOwner, syncPlayer) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> player?.playWhenReady = syncPlayer?.isPlaying ?: true
+                Lifecycle.Event.ON_STOP -> player?.pause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
             player?.release()
         }
     }
-
     Box {
         when {
-            player != null -> {
+            player != null && !videoPlaybackFailed -> {
                 AndroidView(
                     modifier = Modifier
                         .fillMaxSize()
@@ -158,6 +224,7 @@ fun YoutubePlayer(
                             useController = true
                             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                            setKeepContentOnPlayerReset(true)
                             layoutParams = ViewGroup.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -238,85 +305,15 @@ private sealed interface ResolvedYoutubeVideoState {
     data object Unavailable : ResolvedYoutubeVideoState
 }
 
-private val playerResponseJson = Json {
-    ignoreUnknownKeys = true
-    coerceInputValues = true
-    useArrayPolymorphism = true
-    explicitNulls = false
-}
-
 private suspend fun resolveYoutubeVideo(videoId: String): ResolvedYoutubeVideoState {
-    val playerResponse = runCatching {
-        getAndroidPlayerResponse(videoId)
-    }.recoverCatching {
-        getIosPlayerResponse(videoId)
-    }.getOrNull() ?: return ResolvedYoutubeVideoState.Unavailable
-
-    val playabilityStatus = playerResponse.playabilityStatus?.status
-    if (playabilityStatus != null && playabilityStatus != "OK") {
-        return ResolvedYoutubeVideoState.Unavailable
-    }
-
-    val selectedFormat = playerResponse.streamingData
-        ?.formats
-        ?.asSequence()
-        ?.filter { !it.isAudio }
-        ?.sortedWith(
-            compareByDescending<PlayerResponse.StreamingData.Format> { it.heightValue ?: 0 }
-                .thenByDescending { it.bitrateValue ?: 0 }
-        )
-        ?.firstOrNull { it.mimeType.startsWith("video/mp4") }
-        ?: playerResponse.streamingData
-            ?.formats
-            ?.firstOrNull { !it.isAudio }
+    val stream = runCatching { getInnertubeVideoStream(videoId) }
+        .getOrNull()
         ?: return ResolvedYoutubeVideoState.Unavailable
-
-    val streamUrl = getStreamUrl(selectedFormat, videoId)
-        ?: return ResolvedYoutubeVideoState.Unavailable
-    val mimeType = selectedFormat.mimeType.substringBefore(";")
 
     return ResolvedYoutubeVideoState.Ready(
         ResolvedYoutubeVideo(
-            url = streamUrl,
-            mimeType = mimeType
+            url = stream.url,
+            mimeType = stream.mimeType
         )
     )
 }
-
-private fun getAndroidPlayerResponse(videoId: String): PlayerResponse {
-    val cpn = randomCpn()
-    val response = YoutubeStreamHelper.getAndroidReelPlayerResponse(
-        ContentCountry.DEFAULT,
-        Localization.DEFAULT,
-        videoId,
-        cpn
-    )
-    return Gson().toJson(response).let(playerResponseJson::decodeFromString)
-}
-
-private suspend fun getIosPlayerResponse(videoId: String): PlayerResponse {
-    val cpn = randomCpn()
-    val visitorData = app.kreate.android.network.innertube.Store.getIosVisitorData()
-    val challenge = createPoTokenChallenge().bodyAsText()
-    val challengeTokens = playerResponseJson.decodeFromString<List<String?>>(challenge)
-    val challengeToken = challengeTokens.filterIsInstance<String>().firstOrNull().orEmpty()
-    val poToken = Innertube.generatePoToken(challengeToken).bodyAsText()
-        .replace("[", "")
-        .replace("]", "")
-        .split(",")
-        .findLast { it.contains("\"") }
-        ?.replace("\"", "")
-        .orEmpty()
-
-    val response = YoutubeStreamHelper.getIosPlayerResponse(
-        ContentCountry.DEFAULT,
-        Localization.DEFAULT,
-        videoId,
-        cpn,
-        PoTokenResult(visitorData, poToken, null)
-    )
-    return Gson().toJson(response).let(playerResponseJson::decodeFromString)
-}
-
-private fun randomCpn(): String =
-    UUID.randomUUID().toString().replace("-", "").take(16)

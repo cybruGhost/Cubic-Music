@@ -219,18 +219,26 @@ object NewUpdateAvailableDialog {
     private var showDeleteConfirm by mutableStateOf(false)
     private var parserFailed by mutableStateOf(false)
     private var downloadFolderHasFiles by mutableStateOf(false)
+    private var downloadFolderHasStaleUpdate by mutableStateOf(false)
 
     var isActive: Boolean by mutableStateOf( false )
 
-// Check if APK is already downloaded when dialog opens
-private fun checkIfAlreadyDownloaded() {
-    val downloadsDir = File(
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-        "CubicMusic"
-    )
-    downloadFolderHasFiles = downloadsDir.exists() && (downloadsDir.listFiles()?.isNotEmpty() == true)
-    this.isDownloaded = ApkInstallWorker.isApkDownloaded(Updater.build.name)
-}
+    private fun refreshDownloadFolderState() {
+        downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
+        downloadFolderHasStaleUpdate = ApkInstallWorker.hasStaleDownloadedApk(
+            Updater.build.name,
+            Updater.latestVersionName
+        )
+    }
+
+    // Check if APK is already downloaded when dialog opens.
+    private fun checkIfAlreadyDownloaded() {
+        refreshDownloadFolderState()
+        isDownloaded = ApkInstallWorker.isApkDownloaded(
+            Updater.build.name,
+            Updater.latestVersionName
+        )
+    }
     fun onDismiss() {
         isCancelled = true
         isActive = false
@@ -241,6 +249,7 @@ private fun checkIfAlreadyDownloaded() {
         downloadProgress = 0f
         showDeleteConfirm = false
         parserFailed = false
+        downloadFolderHasStaleUpdate = false
         
         // Mark update as cancelled when user cancels (but don't update the check time)
         val sharedPrefs = appContext().getSharedPreferences("settings", 0)
@@ -250,16 +259,13 @@ private fun checkIfAlreadyDownloaded() {
     }
 
     private fun startAutoInstall() {
-        // Re-check file existence (important!)
-        isDownloaded = ApkInstallWorker.isApkDownloaded(Updater.build.name)
+        checkIfAlreadyDownloaded()
 
-        // If already downloaded → install
         if (isDownloaded) {
             startInstallation()
             return
         }
 
-        // Otherwise start downloading
         isDownloading = true
         downloadProgress = 0f
 
@@ -267,23 +273,24 @@ private fun checkIfAlreadyDownloaded() {
             context = appContext(),
             downloadUrl = Updater.build.downloadUrl,
             fileName = Updater.build.name,
+            expectedVersionName = Updater.latestVersionName,
             onProgress = { progress ->
                 downloadProgress = progress
             },
             onComplete = {
                 isDownloading = false
-                isDownloaded = true
-                downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
+                checkIfAlreadyDownloaded()
 
                 Toast.makeText(
                     appContext(),
-                    "Download complete! Ready to install.",
+                    if (isDownloaded) "Download complete! Ready to install." else "Downloaded APK is stale. Delete it and download again.",
                     Toast.LENGTH_SHORT
                 ).show()
             },
             onError = { error ->
                 isDownloading = false
-                downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
+                isDownloaded = false
+                refreshDownloadFolderState()
 
                 Toast.makeText(
                     appContext(),
@@ -311,7 +318,8 @@ private fun checkIfAlreadyDownloaded() {
 
             val success = ApkInstallWorker.installDownloadedApk(
                 appContext(),
-                Updater.build.name
+                Updater.build.name,
+                Updater.latestVersionName
             )
 
             withContext(Dispatchers.Main) {
@@ -327,14 +335,22 @@ private fun checkIfAlreadyDownloaded() {
                     delay(1000)
                     onDismiss()
                 } else {
-                    installationStep = "Installation failed"
+                    installationStep = "Installation failed. Opening direct download..."
                     isInstalling = false
 
                     Toast.makeText(
                         appContext(),
-                        "Failed to start installation. Try again.",
+                        "Installation could not start. Download the APK directly from Cubic Music.",
                         Toast.LENGTH_LONG
                     ).show()
+                    runCatching {
+                        appContext().startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://thecub.netlify.app/cubicmusic")
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
                 }
             }
         }
@@ -347,7 +363,7 @@ private fun checkIfAlreadyDownloaded() {
         // Reset download state
         isDownloading = false
         downloadProgress = 0f
-        downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
+        refreshDownloadFolderState()
         
         // Show cancelled message
         Toast.makeText(
@@ -364,7 +380,7 @@ private fun checkIfAlreadyDownloaded() {
             isDownloaded = false
             isDownloading = false
             downloadProgress = 0f
-            downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
+            refreshDownloadFolderState()
 
             Toast.makeText(
                 appContext(),
@@ -380,51 +396,49 @@ private fun checkIfAlreadyDownloaded() {
         }
     }
     
-private fun reDownloadApk() {
-    // Reset states
-    isDownloaded = false
-    downloadProgress = 0f
-    isDownloading = true
-    downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
-    
-    // Show download starting message
-    Toast.makeText(
-        appContext(),
-        "Starting re-download...",
-        Toast.LENGTH_SHORT
-    ).show()
-    
-    // Start fresh download
-    ApkInstallWorker.startDownloadAndInstall(
-        context = appContext(),
-        downloadUrl = Updater.build.downloadUrl,
-        fileName = Updater.build.name,
-        onProgress = { progress ->
-            downloadProgress = progress
-        },
-        onComplete = {
-            isDownloading = false
-            isDownloaded = true
-            downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
-            
-            Toast.makeText(
-                appContext(),
-                "Re-download complete! Ready to install.",
-                Toast.LENGTH_SHORT
-            ).show()
-        },
-        onError = { error ->
-            isDownloading = false
-            downloadFolderHasFiles = ApkInstallWorker.hasDownloadedArtifacts()
-            
-            Toast.makeText(
-                appContext(),
-                "Re-download failed: $error",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    )
-}
+    private fun reDownloadApk() {
+        isDownloaded = false
+        downloadProgress = 0f
+        isDownloading = true
+        refreshDownloadFolderState()
+
+        Toast.makeText(
+            appContext(),
+            "Starting re-download...",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        ApkInstallWorker.startDownloadAndInstall(
+            context = appContext(),
+            downloadUrl = Updater.build.downloadUrl,
+            fileName = Updater.build.name,
+            expectedVersionName = Updater.latestVersionName,
+            onProgress = { progress ->
+                downloadProgress = progress
+            },
+            onComplete = {
+                isDownloading = false
+                checkIfAlreadyDownloaded()
+
+                Toast.makeText(
+                    appContext(),
+                    if (isDownloaded) "Re-download complete! Ready to install." else "Downloaded APK is stale. Delete it and download again.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            onError = { error ->
+                isDownloading = false
+                isDownloaded = false
+                refreshDownloadFolderState()
+
+                Toast.makeText(
+                    appContext(),
+                    "Re-download failed: $error",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        )
+    }
 
     @OptIn(ExperimentalAnimationApi::class)
     @Composable
@@ -1049,10 +1063,11 @@ AnimatedVisibility(
 ) {
     // Double-check file existence before showing install options
     LaunchedEffect(Unit) {
-        val fileExists = ApkInstallWorker.isApkDownloaded(Updater.build.name)
+        val fileExists = ApkInstallWorker.isApkDownloaded(Updater.build.name, Updater.latestVersionName)
         if (!fileExists) {
             // If file doesn't actually exist, reset the state
             isDownloaded = false
+            refreshDownloadFolderState()
         }
     }
     
@@ -1259,7 +1274,11 @@ AnimatedVisibility(
             Spacer(modifier = Modifier.height(4.dp))
             BasicText(
                 text = stringResource(
-                    if (downloadFolderHasFiles) R.string.apk_folder_has_files else R.string.apk_folder_empty
+                    when {
+                        downloadFolderHasStaleUpdate -> R.string.apk_folder_stale_update
+                        downloadFolderHasFiles -> R.string.apk_folder_has_files
+                        else -> R.string.apk_folder_empty
+                    }
                 ),
                 style = typography().xxs.copy(color = colorPalette().textSecondary)
             )

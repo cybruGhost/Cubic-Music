@@ -276,7 +276,7 @@ fun ArtistLocalSongs(
         } else {
             itemsIndexed(
                 items = songs ?: emptyList(),
-                key = { index, song -> song.id.ifBlank { "artist_song_$index" } }
+                key = { index, song -> "${song.id.ifBlank { "artist_song" }}_$index" }
             ) { index, song ->
                 val isDownloaded = isDownloadedSong(song.asMediaItem.mediaId)
                 Box(
@@ -509,7 +509,7 @@ fun ArtistLocalSongs(
                 songs?.let { songs ->
                     itemsIndexed(
                         items = songs,
-                        key = { index, song -> song.id.ifBlank { "artist_local_song_$index" } }
+                        key = { index, song -> "${song.id.ifBlank { "artist_local_song" }}_$index" }
                     ) { index, song ->
 
                         downloadState = getDownloadState(song.asMediaItem.mediaId)

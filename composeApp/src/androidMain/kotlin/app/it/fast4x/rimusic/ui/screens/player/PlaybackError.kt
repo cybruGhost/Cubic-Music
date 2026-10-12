@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.PlaybackException
@@ -54,12 +57,57 @@ import app.it.fast4x.rimusic.utils.secondary
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.SystemClock
+import java.io.InterruptedIOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+
+private fun Context.hasValidatedNetwork(): Boolean {
+    val connectivityManager =
+        getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}
+
+private fun Throwable.isNetworkFailure(): Boolean =
+    generateSequence(this) { it.cause }.any { cause ->
+        cause is NoInternetException ||
+            cause is UnknownHostException ||
+            cause is ConnectException ||
+            cause is NoRouteToHostException ||
+            cause is SocketTimeoutException ||
+            cause is InterruptedIOException ||
+            cause.message?.contains("Unable to resolve host", ignoreCase = true) == true ||
+            cause.message?.contains("Failed to connect", ignoreCase = true) == true ||
+            cause.message?.contains("ENETUNREACH", ignoreCase = true) == true ||
+            cause.message?.contains("EAI_NODATA", ignoreCase = true) == true
+    }
+
+private object PlaybackErrorToastGate {
+    private var lastMessage: String? = null
+    private var lastShownMs: Long = 0L
+
+    fun shouldShow(message: String): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (message == lastMessage && now - lastShownMs < 12_000L) return false
+        lastMessage = message
+        lastShownMs = now
+        return true
+    }
+}
+
 fun playbackExceptionMessage(
     context: Context,
     error: PlaybackException,
     isLocal: Boolean,
     isDownloaded: Boolean = false,
-    isNetworkAvailable: Boolean = true,
+    isNetworkAvailable: Boolean = context.hasValidatedNetwork(),
 ): String {
     val localMusicFileNotFoundError = context.getString(R.string.error_local_music_not_found)
     val playableFormatNotFoundError =
@@ -84,6 +132,7 @@ fun playbackExceptionMessage(
     if (!isNetworkAvailable && isDownloaded) {
         return context.getString(R.string.downloaded_song_corrupt_offline_message)
     }
+    if (!isNetworkAvailable || error.isNetworkFailure()) return noInternetError
 
     return when (deepestCause(error) ?: deepestCause(error.cause) ?: error.cause ?: error) {
         is PlayableFormatNotFoundException -> playableFormatNotFoundError
@@ -108,15 +157,64 @@ fun PlayerError(error: PlaybackException) {
         context = context,
         error = error,
         isLocal = binder?.player?.currentWindow?.mediaItem?.isLocal == true,
+        isNetworkAvailable = context.hasValidatedNetwork(),
     )
 
     LaunchedEffect(error, message) {
-        Timber.w("Playback error shown: ${error.cause?.cause?.javaClass?.simpleName ?: error.errorCodeName}")
-        Toaster.w(message)
+        if (PlaybackErrorToastGate.shouldShow(message)) {
+            Timber.w("Playback error shown: ${error.cause?.cause?.javaClass?.simpleName ?: error.errorCodeName}")
+            Toaster.w(message)
+        } else {
+            Timber.d("Playback error toast suppressed: %s", message)
+        }
     }
 
 }
 
+@Composable
+internal fun PlayerSurfacePlaybackError(
+    message: String,
+    actionLabel: String?,
+    onAction: (() -> Unit)?,
+    foreground: Color,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .background(
+                color = Color.Black.copy(alpha = 0.46f),
+                shape = RoundedCornerShape(18.dp),
+            )
+            .border(
+                width = 1.dp,
+                color = foreground.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(18.dp),
+            )
+            .padding(horizontal = 22.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.alert_circle),
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(32.dp),
+        )
+        BasicText(
+            text = message,
+            style = typography().xs.medium.center.color(foreground),
+        )
+        if (!actionLabel.isNullOrBlank() && onAction != null) {
+            TextButton(onClick = onAction) {
+                BasicText(
+                    text = actionLabel,
+                    style = typography().xs.medium.color(accent),
+                )
+            }
+        }
+    }
+}
 @Composable
 fun PlaybackError(
     isDisplayed: Boolean,

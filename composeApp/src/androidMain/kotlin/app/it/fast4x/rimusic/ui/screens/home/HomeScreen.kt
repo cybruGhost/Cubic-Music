@@ -67,7 +67,9 @@ import app.it.fast4x.compose.persist.PersistMapCleanup
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.enums.HomeScreenTabs
 import app.it.fast4x.rimusic.enums.NavRoutes
+import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.models.toUiMood
+import app.it.fast4x.rimusic.ui.screens.home.apple.AppleHomeScreen
 import app.it.fast4x.rimusic.ui.components.Skeleton
 import app.it.fast4x.rimusic.ui.components.themed.Loader
 import app.it.fast4x.rimusic.utils.enableQuickPicksPageKey
@@ -162,39 +164,59 @@ fun HomeScreen(
             Item(2, stringResource(R.string.artists), R.drawable.music_artist)
             Item(3, stringResource(R.string.albums), R.drawable.album)
             Item(4, stringResource(R.string.playlists), R.drawable.library)
-            Item(5, "Exportify", R.drawable.export_icon)
+            Item(5, stringResource(R.string.exportify), R.drawable.export_icon)
         }
     ) { currentTabIndex ->
         saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
             when (currentTabIndex) {
-                0 -> HomeQuickPicks(
-                    onAlbumClick = {
-                        navController.navigate(route = "${NavRoutes.album.name}/$it")
-                    },
-                    onArtistClick = {
-                        navController.navigate(route = "${NavRoutes.artist.name}/$it")
-                    },
-                    onPlaylistClick = {
-                        navController.navigate(route = "${NavRoutes.playlist.name}/$it")
-                    },
-                    onSearchClick = {
-                        navController.navigate(NavRoutes.search.name)
-                    },
-                    onMoodClick = { mood ->
-                        navController.currentBackStackEntry?.savedStateHandle?.set("mood", mood.toUiMood())
-                        navController.navigate(NavRoutes.mood.name)
-                    },
-                    onSettingsClick = {
-                        navController.navigate(NavRoutes.settings.name)
-                    },
-                    navController = navController
-                )
+                0 -> {
+                    val onAlbum: (String) -> Unit = { id ->
+                        navController.navigate(route = "${NavRoutes.album.name}/$id")
+                    }
+                    val onArtist: (String) -> Unit = { rawId ->
+                        rawId.trim().takeIf(String::isNotBlank)?.let { artistId ->
+                            navController.navigate(route = "${NavRoutes.artist.name}/${Uri.encode(artistId)}")
+                        }
+                    }
+                    val onPlaylist: (String) -> Unit = { id ->
+                        navController.navigate(route = "${NavRoutes.playlist.name}/$id")
+                    }
+
+                    if (UiType.Apple.isCurrent()) {
+                        AppleHomeScreen(
+                            navController = navController,
+                            onAlbumClick = onAlbum,
+                            onArtistClick = onArtist,
+                            onPlaylistClick = onPlaylist,
+                        )
+                    } else {
+                        HomeQuickPicks(
+                            onAlbumClick = onAlbum,
+                            onArtistClick = onArtist,
+                            onPlaylistClick = onPlaylist,
+                            onSearchClick = {
+                                navController.navigate(NavRoutes.search.name)
+                            },
+                            onMoodClick = { mood ->
+                                navController.currentBackStackEntry?.savedStateHandle?.set("mood", mood.toUiMood())
+                                navController.navigate(NavRoutes.mood.name)
+                            },
+                            onSettingsClick = {
+                                navController.navigate(NavRoutes.settings.name)
+                            },
+                            navController = navController
+                        )
+                    }
+                }
 
                 1 -> HomeSongsScreen(navController)
 
                 2 -> HomeArtists(
                     onArtistClick = {
-                        navController.navigate(route = "${NavRoutes.artist.name}/${it.id}")
+                        val artistId = it.id.trim()
+                        if (artistId.isNotBlank()) {
+                            navController.navigate(route = "${NavRoutes.artist.name}/${Uri.encode(artistId)}")
+                        }
                     },
                     onSearchClick = {
                         navController.navigate(NavRoutes.search.name)
@@ -229,7 +251,7 @@ fun HomeScreen(
                     }
                 )
                 
-                5 -> ExportifyWebViewScreen()
+                5 -> ExportifyScreen()
             }
         }
     }
@@ -255,469 +277,6 @@ fun HomeScreen(
             val activity = context as? Activity
             activity?.finishAffinity()
             exitProcess(0)
-        }
-    }
-}
-
-class ExportifyWebInterface(private val context: android.content.Context) {
-    @JavascriptInterface
-    fun onDownloadRequested(url: String) {
-        // Handle download requests from JavaScript
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-    }
-}
-
-@SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
-@Composable
-fun ExportifyWebViewScreen() {
-    val context = LocalContext.current
-    val exportifyDefaultUrl = "https://thecub4.netlify.app/spotifyfeature/"
-    val aniplayUrl = "https://sonic-scroll-48.lovable.app"
-    var selectedWebUrl by rememberPreference(exportifyWebUrlKey, exportifyDefaultUrl)
-    var isLoading by remember { mutableStateOf(true) }
-    var webView: WebView? by remember { mutableStateOf(null) }
-    var hasError by remember { mutableStateOf(false) }
-    var isConnectedToInternet by remember { mutableStateOf(true) } // Assume connected initially
-    var showDownloadDialog by remember { mutableStateOf(false) }
-    var showSiteDialog by remember { mutableStateOf(false) }
-    var siteSwitcherExpanded by remember { mutableStateOf(false) }
-    var downloadUrl by remember { mutableStateOf("") }
-
-    // Function to check internet connectivity
-    fun checkInternetConnection(): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-    }
-
-    // Update connection status on first composition
-    LaunchedEffect(Unit) {
-        isConnectedToInternet = checkInternetConnection()
-    }
-
-    LaunchedEffect(webView, selectedWebUrl) {
-        while (true) {
-            val connected = checkInternetConnection()
-            if (!connected && isConnectedToInternet) {
-                isConnectedToInternet = false
-                hasError = false
-                isLoading = false
-                webView?.stopLoading()
-                webView?.loadUrl("about:blank")
-            } else if (connected && !isConnectedToInternet) {
-                isConnectedToInternet = true
-            }
-            delay(3000L)
-        }
-    }
-
-    // Handle download dialog
-    if (showDownloadDialog) {
-        AlertDialog(
-            onDismissRequest = { showDownloadDialog = false },
-            title = { Text("Download CSV") },
-            text = { Text("Do you want to download the Spotify CSV file?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDownloadDialog = false
-                        // Open download link in browser for proper download handling
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
-                        context.startActivity(intent)
-                    }
-                ) {
-                    Text("Download")
-                }
-            },
-            dismissButton = {
-                Button(
-                    onClick = { showDownloadDialog = false }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    if (showSiteDialog) {
-        AlertDialog(
-            onDismissRequest = { showSiteDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            shape = RoundedCornerShape(28.dp),
-            title = {
-                Column {
-                    Text("Default page")
-                    Text(
-                        text = if (selectedWebUrl == aniplayUrl) "Aniplay is active" else "Exportify is active",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Choose the default web tool for this tab. You can switch anytime.")
-                    WebToolChoice(
-                        title = "Exportify",
-                        subtitle = "Spotify exports and music tools",
-                        selected = selectedWebUrl != aniplayUrl,
-                        onClick = {
-                            selectedWebUrl = exportifyDefaultUrl
-                            showSiteDialog = false
-                            if (isConnectedToInternet) {
-                                isLoading = true
-                                webView?.loadUrl(selectedWebUrl)
-                            }
-                        }
-                    )
-                    WebToolChoice(
-                        title = "Aniplay",
-                        subtitle = "Audiobooks, books, and anime",
-                        selected = selectedWebUrl == aniplayUrl,
-                        onClick = {
-                            selectedWebUrl = aniplayUrl
-                            showSiteDialog = false
-                            if (isConnectedToInternet) {
-                                isLoading = true
-                                webView?.loadUrl(selectedWebUrl)
-                            }
-                        }
-                    )
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Only show WebView if connected to internet
-        if (isConnectedToInternet) {
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        webView = this
-                        
-                        // Enhanced WebView settings to mimic a legitimate browser
-                        settings.apply {
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            setSupportMultipleWindows(true)
-                            loadWithOverviewMode = true
-                            useWideViewPort = true
-                            builtInZoomControls = true
-                            displayZoomControls = false
-                            javaScriptCanOpenWindowsAutomatically = true
-                            allowContentAccess = true
-                            allowFileAccess = true
-                            setSupportZoom(true)
-                            
-                            // Set realistic desktop user agent to avoid detection
-                            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                        }
-                        
-                        // Enhanced cookie handling for persistent login
-                        CookieManager.getInstance().setAcceptCookie(true)
-                        
-                        // Handle file downloads directly to device storage
-                        setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-                            val fileName = URLUtil.guessFileName(url, contentDisposition, mimetype)
-                            downloadUrl = url
-                            showDownloadDialog = true
-                        }
-                        
-                        webViewClient = object : WebViewClient() {
-                            override fun shouldOverrideUrlLoading(
-                                view: WebView?,
-                                request: WebResourceRequest?
-                            ): Boolean {
-                                val url = request?.url.toString()
-                                
-                                // Handle Spotify authentication by opening in external browser
-                                if (url.contains("accounts.spotify.com") || 
-                                    url.contains("login.spotify.com")) {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                    return true
-                                }
-                                
-                                // Handle CSV downloads through download listener
-                                if (url.endsWith(".csv") || url.contains("download=true")) {
-                                    // Let the download listener handle it
-                                    return false
-                                }
-                                
-                                return super.shouldOverrideUrlLoading(view, request)
-                            }
-
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                super.onPageFinished(view, url)
-                                isLoading = false
-                                hasError = false
-                                isConnectedToInternet = checkInternetConnection()
-                                
-                                // Inject JavaScript to handle authentication and downloads
-                                url?.let { currentUrl ->
-                                    if (currentUrl.contains("exportify.app", ignoreCase = true)) {
-                                        view?.evaluateJavascript("""
-                                            // Intercept download clicks
-                                            document.addEventListener('click', function(e) {
-                                                const target = e.target;
-                                                if (target.tagName === 'A' && 
-                                                    (target.href.includes('.csv') || 
-                                                     target.href.includes('download') ||
-                                                     target.download)) {
-                                                    e.preventDefault();
-                                                    // Let the native download listener handle it
-                                                    window.location.href = target.href;
-                                                }
-                                            });
-                                            
-                                            // Monitor for authentication completion
-                                            if (window.location.href.includes('exportify.app') && 
-                                                !window.location.href.includes('login')) {
-                                                console.log('Exportify authentication successful');
-                                                
-                                                // Store authentication state in localStorage for persistence
-                                                localStorage.setItem('spotify_authenticated', 'true');
-                                            }
-                                            
-                                            // Check if already authenticated
-                                            if (localStorage.getItem('spotify_authenticated') === 'true') {
-                                                console.log('User is already authenticated');
-                                            }
-                                        """.trimIndent(), null)
-                                    }
-                                }
-                            }
-                            
-                            override fun onReceivedError(
-                                view: WebView?,
-                                request: WebResourceRequest?,
-                                error: WebResourceError?
-                            ) {
-                                super.onReceivedError(view, request, error)
-                                isLoading = false
-                                hasError = true
-                                
-                                // Check if the error is due to no internet connection
-                                val errorCode = error?.errorCode
-                                if (errorCode == ERROR_HOST_LOOKUP || 
-                                    errorCode == ERROR_CONNECT || 
-                                    errorCode == ERROR_TIMEOUT) {
-                                    isConnectedToInternet = false
-                                }
-                            }
-                        }
-                        
-                        webChromeClient = WebChromeClient()
-                        
-                        // Add JavaScript interface for communication
-                        addJavascriptInterface(ExportifyWebInterface(ctx), "Android")
-                        
-                        // Load the Exportify website
-                        loadUrl(selectedWebUrl)
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                update = { view ->
-                    // Refresh if there was an error and we're connected
-                    if (hasError && isConnectedToInternet) {
-                        hasError = false
-                        isLoading = true
-                        view.loadUrl(selectedWebUrl)
-                    }
-                }
-            )
-        }
-
-        // Show loading indicator
-        if (isLoading && isConnectedToInternet) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .align(Alignment.Center)
-            ) {
-                Loader()
-            }
-        }
-        
-        // Show error message if there's an error but still connected
-        if (hasError && isConnectedToInternet) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .align(Alignment.Center),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Failed to load Exportify. Pull down to refresh.",
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-        
-        // Show "Connect to Internet" message with butterfly if no connection
-        if (!isConnectedToInternet) {
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(24.dp)
-                ) {
-
-                    // Butterfly Image inside Rounded Card
-                    Card(
-                        shape = RoundedCornerShape(28.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.butterfly),
-                            contentDescription = "Butterfly",
-                            modifier = Modifier
-                                .size(140.dp)
-                                .padding(20.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "Connect to Internet",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color(0xFF4CAF50) // Nice green
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Please check your internet connection and try again",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    Button(
-                        onClick = {
-                            isConnectedToInternet = checkInternetConnection()
-                            if (isConnectedToInternet) {
-                                isLoading = true
-                                webView?.loadUrl(selectedWebUrl)
-                            }
-                        }
-                    ) {
-                        Text("Retry")
-                    }
-                }
-            }
-        }
-
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .clickable {
-                    if (siteSwitcherExpanded) {
-                        showSiteDialog = true
-                    } else {
-                        siteSwitcherExpanded = true
-                    }
-                },
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 8.dp,
-            shadowElevation = 8.dp,
-            shape = RoundedCornerShape(22.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = if (siteSwitcherExpanded) 12.dp else 10.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(9.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-                if (siteSwitcherExpanded) {
-                    Text(
-                        text = if (selectedWebUrl == aniplayUrl) "Aniplay" else "Exportify",
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Text(
-                        text = "Change",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-    }
-
-    // Handle back navigation for WebView
-    BackHandler(enabled = true) {
-        if (webView?.canGoBack() == true) {
-            webView?.goBack()
-        } else if (hasError && isConnectedToInternet) {
-            // Refresh on back press if there's an error
-            hasError = false
-            isLoading = true
-            webView?.loadUrl(selectedWebUrl)
-        } else if (!isConnectedToInternet) {
-            // Check connection again on back press
-            isConnectedToInternet = checkInternetConnection()
-        }
-    }
-}
-
-@Composable
-private fun WebToolChoice(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-        },
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = MaterialTheme.colorScheme.onSurface)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            }
         }
     }
 }

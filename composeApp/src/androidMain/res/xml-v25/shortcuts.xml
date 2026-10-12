@@ -6,7 +6,7 @@
         android:icon="@drawable/search"
         android:shortcutShortLabel="@string/search">
         <intent
-            android:targetClass="it.fast4x.rimusic.MainActivity"
+            android:targetClass="app.it.fast4x.rimusic.MainActivity"
             android:targetPackage="com.Cubic.music"
             android:action="it.fast4x.rimusic.action.search" />
     </shortcut>
@@ -16,7 +16,7 @@
         android:icon="@drawable/album_alt2"
         android:shortcutShortLabel="@string/albums">
         <intent
-            android:targetClass="it.fast4x.rimusic.MainActivity"
+            android:targetClass="app.it.fast4x.rimusic.MainActivity"
             android:targetPackage="com.Cubic.music"
             android:action="it.fast4x.rimusic.action.albums" />
     </shortcut>
@@ -26,7 +26,7 @@
             android:icon="@drawable/people"
             android:shortcutShortLabel="@string/artists">
         <intent
-                android:targetClass="it.fast4x.rimusic.MainActivity"
+                android:targetClass="app.it.fast4x.rimusic.MainActivity"
                 android:targetPackage="com.Cubic.music"
                 android:action="it.fast4x.rimusic.action.artists" />
     </shortcut>
@@ -36,7 +36,7 @@
         android:icon="@drawable/playlist"
         android:shortcutShortLabel="@string/playlists">
         <intent
-            android:targetClass="it.fast4x.rimusic.MainActivity"
+            android:targetClass="app.it.fast4x.rimusic.MainActivity"
             android:targetPackage="com.Cubic.music"
             android:action="it.fast4x.rimusic.action.library" />
     </shortcut>
@@ -46,7 +46,7 @@
         android:icon="@drawable/copy"
         android:shortcutShortLabel="@string/copy_crash_log_to_clipboard">
         <intent
-            android:targetClass="it.fast4x.rimusic.MainActivity"
+            android:targetClass="app.it.fast4x.rimusic.MainActivity"
             android:targetPackage="com.Cubic.music"
             android:action="it.fast4x.rimusic.action.copy_crash_log" />
     </shortcut>

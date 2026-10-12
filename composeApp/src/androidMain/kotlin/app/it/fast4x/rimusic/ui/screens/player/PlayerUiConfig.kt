@@ -7,10 +7,10 @@ import app.it.fast4x.rimusic.enums.AnimatedGradient
 import app.it.fast4x.rimusic.enums.BackgroundProgress
 import app.it.fast4x.rimusic.enums.CarouselSize
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
-import app.it.fast4x.rimusic.enums.DurationInMilliseconds
 import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
 import app.it.fast4x.rimusic.enums.PlayerThumbnailSize
 import app.it.fast4x.rimusic.enums.PlayerType
+import app.it.fast4x.rimusic.enums.PlayerSurfaceStyle
 import app.it.fast4x.rimusic.enums.QueueLoopType
 import app.it.fast4x.rimusic.enums.QueueType
 import app.it.fast4x.rimusic.enums.SwipeAnimationNoThumbnail
@@ -41,6 +41,7 @@ import app.it.fast4x.rimusic.utils.playerBackgroundColorsKey
 import app.it.fast4x.rimusic.utils.playerThumbnailSizeKey
 import app.it.fast4x.rimusic.utils.playerThumbnailSizeLKey
 import app.it.fast4x.rimusic.utils.playerTypeKey
+import app.it.fast4x.rimusic.utils.playerSurfaceStyleKey
 import app.it.fast4x.rimusic.utils.queueDurationExpandedKey
 import app.it.fast4x.rimusic.utils.queueLoopTypeKey
 import app.it.fast4x.rimusic.utils.queueTypeKey
@@ -88,6 +89,7 @@ internal class PlayerUiConfig(
     val backgroundProgress: BackgroundProgress,
     val queueLoopState: MutableState<QueueLoopType>,
     val playerType: PlayerType,
+    val playerSurfaceStyle: PlayerSurfaceStyle,
     val queueType: QueueType,
     val noblur: Boolean,
     val fadingedge: Boolean,
@@ -120,13 +122,12 @@ internal class PlayerUiConfig(
     val spotifyCanvasEnabled: Boolean,
     val showSpotifyCanvasLogs: Boolean,
     val alternateSourceRetryEnabled: Boolean,
-    val playbackFadeAudioDuration: DurationInMilliseconds,
 )
 
 @Composable
 internal fun rememberPlayerUiConfig(): PlayerUiConfig {
-    val playerThumbnailSizeState = rememberPreference(playerThumbnailSizeKey, PlayerThumbnailSize.Biggest)
-    val playerThumbnailSizeLState = rememberPreference(playerThumbnailSizeLKey, PlayerThumbnailSize.Biggest)
+    val playerThumbnailSizeState = rememberPreference(playerThumbnailSizeKey, PlayerThumbnailSize.Big)
+    val playerThumbnailSizeLState = rememberPreference(playerThumbnailSizeLKey, PlayerThumbnailSize.Big)
     val thumbnailSpacingState = rememberPreference(thumbnailSpacingKey, 0f)
     val thumbnailSpacingLState = rememberPreference(thumbnailSpacingLKey, 0f)
     val thumbnailFadeState = rememberPreference(thumbnailFadeKey, 5f)
@@ -161,6 +162,7 @@ internal fun rememberPlayerUiConfig(): PlayerUiConfig {
         backgroundProgress = rememberPreference(backgroundProgressKey, BackgroundProgress.MiniPlayer).value,
         queueLoopState = queueLoopState,
         playerType = rememberPreference(playerTypeKey, PlayerType.Essential).value,
+        playerSurfaceStyle = rememberPreference(playerSurfaceStyleKey, PlayerSurfaceStyle.Standard).value,
         queueType = rememberPreference(queueTypeKey, QueueType.Essential).value,
         noblur = rememberPreference(noblurKey, true).value,
         fadingedge = rememberPreference(fadingedgeKey, false).value,
@@ -193,6 +195,5 @@ internal fun rememberPlayerUiConfig(): PlayerUiConfig {
         spotifyCanvasEnabled = rememberPreference("spotifyCanvasEnabled", false).value,
         showSpotifyCanvasLogs = rememberPreference("showSpotifyCanvasLogs", false).value,
         alternateSourceRetryEnabled = rememberPreference("alternateSourceRetryKey", true).value,
-        playbackFadeAudioDuration = rememberPreference("playbackFadeAudioDurationKey", DurationInMilliseconds.Disabled).value,
     )
 }

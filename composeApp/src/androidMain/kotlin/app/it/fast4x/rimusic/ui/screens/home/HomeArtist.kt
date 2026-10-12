@@ -154,26 +154,33 @@ fun HomeArtists(
     }
     LaunchedEffect( items, search.inputValue ) {
         itemsOnDisplay = items.filter {
-            it.name?.contains( search.inputValue, true ) ?: false
-        }
+            it.id.isNotBlank() && (it.name?.contains( search.inputValue, true ) ?: false)
+        }.distinctBy { it.id.trim() }
     }
     if (items.any{it.thumbnailUrl == null}) {
-        LaunchedEffect(Unit) {
+        LaunchedEffect(items) {
             withContext(Dispatchers.IO) {
                 val session = YouTubeSessionStore.applyCurrentSession()
-                items.filter { it.thumbnailUrl == null }.forEach { artist ->
+                items.asSequence()
+                    .filter { it.thumbnailUrl == null }
+                    .map { artist -> artist to artist.id.trim() }
+                    .filter { (_, artistId) -> artistId.isNotBlank() }
+                    .distinctBy { (_, artistId) -> artistId }
+                    .forEach { (artist, artistId) ->
                     coroutineScope.launch(Dispatchers.IO) {
-                        val apiArtist = session
-                            ?.takeIf { it.cookie.isNotBlank() }
-                            ?.let {
-                                YtmSessionApi.fetchArtist(
-                                    cookies = it.cookie,
-                                    artistId = artist.id,
-                                    authUser = it.authUser.ifBlank { null },
-                                    pageId = it.pageId.ifBlank { null }
-                                ).getOrNull()
-                            }
-                            ?: YtmSessionApi.fetchArtist("", artist.id, guest = true).getOrNull()
+                        val apiArtist = runCatching {
+                            session
+                                ?.takeIf { it.cookie.isNotBlank() }
+                                ?.let {
+                                    YtmSessionApi.fetchArtist(
+                                        cookies = it.cookie,
+                                        artistId = artistId,
+                                        authUser = it.authUser.ifBlank { null },
+                                        pageId = it.pageId.ifBlank { null }
+                                    ).getOrNull()
+                                }
+                                ?: YtmSessionApi.fetchArtist("", artistId, guest = true).getOrNull()
+                        }.getOrNull()
                         val artistThumbnail = apiArtist
                             ?.thumbnailUrl
                             ?.ifBlank { apiArtist.thumbnail }

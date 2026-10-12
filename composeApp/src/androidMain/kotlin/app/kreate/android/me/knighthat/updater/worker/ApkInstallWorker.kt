@@ -14,6 +14,8 @@ import android.os.Environment
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
+import app.it.fast4x.rimusic.appContext
+import app.kreate.android.BuildConfig
 import app.kreate.android.R
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +31,7 @@ class ApkInstallWorker {
         private const val CHANNEL_ID = "apk_download_channel"
         private const val NOTIFICATION_ID = 1001
         private const val MIN_VALID_APK_SIZE_BYTES = 32 * 1024L
+        private const val DIRECT_DOWNLOAD_URL = "https://thecub.netlify.app/cubicmusic"
         private var progressUpdateJob: Job? = null
         private var currentDownloadId: Long = -1
         private var currentContext: Context? = null
@@ -37,56 +40,130 @@ class ApkInstallWorker {
         private var currentTargetFile: File? = null
         private var pollingActive = false
 
-        private fun getDownloadsDir(): File = File(
+        private const val UPDATE_FOLDER = "CubicMusicUpdates"
+
+        private fun getDownloadsDir(context: Context? = currentContext): File {
+            val applicationContext = context?.applicationContext ?: appContext()
+            val root = applicationContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                ?: applicationContext.filesDir
+            return File(root, UPDATE_FOLDER)
+        }
+
+        @Suppress("DEPRECATION")
+        private fun getLegacyDownloadsDir(): File = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             "CubicMusic"
         )
 
-        private fun getTargetFile(fileName: String): File = File(getDownloadsDir(), fileName)
+        private fun getTargetFile(fileName: String, context: Context? = currentContext): File =
+            File(getDownloadsDir(context), fileName)
 
         private fun displayPath(file: File): String = file.absolutePath
 
         fun getDownloadFolderPath(): String = displayPath(getDownloadsDir())
 
         fun hasDownloadedArtifacts(): Boolean =
-            getDownloadsDir()
-                .takeIf(File::exists)
-                ?.listFiles()
-                ?.any { file ->
+            listOf(getDownloadsDir(), getLegacyDownloadsDir()).any { directory ->
+                directory.takeIf(File::exists)?.listFiles()?.any { file ->
                     file.isFile && (
                         file.name.endsWith(".apk", ignoreCase = true) ||
-                            file.name.endsWith(".apk.bak", ignoreCase = true)
+                            file.name.endsWith(".apk.bak", ignoreCase = true) ||
+                            file.name.endsWith(".part", ignoreCase = true) ||
+                            file.name.endsWith(".partial", ignoreCase = true) ||
+                            file.name.endsWith(".tmp", ignoreCase = true)
                         )
                 } == true
+            }
 
         private fun isValidApkFile(file: File?): Boolean =
             file?.exists() == true && file.length() >= MIN_VALID_APK_SIZE_BYTES
 
-        private fun cleanupStaleApkFiles(fileName: String) {
-            val downloadsDir = getDownloadsDir()
-            if (!downloadsDir.exists()) return
+        private fun normalizedVersionName(version: String?): String =
+            version.orEmpty().trim().removePrefix("v").substringBefore("-")
 
-            downloadsDir.listFiles()?.forEach { file ->
-                if (!file.isFile) return@forEach
-                val isTarget = file.name == fileName
-                val isStaleApk = file.name.endsWith(".apk", ignoreCase = true) && !isTarget
-                val isBackupApk = file.name.endsWith(".apk.bak", ignoreCase = true)
-                val isPartial = file.name.endsWith(".part", ignoreCase = true)
-                    || file.name.endsWith(".partial", ignoreCase = true)
-                    || file.name.endsWith(".tmp", ignoreCase = true)
-                val isBrokenTarget = isTarget && file.length() < MIN_VALID_APK_SIZE_BYTES
-                if (isStaleApk || isBackupApk || isPartial || isBrokenTarget) {
-                    file.delete()
+        private fun compareVersionNames(leftVersion: String?, rightVersion: String?): Int {
+            val left = normalizedVersionName(leftVersion).split(".").map { it.toIntOrNull() ?: 0 }
+            val right = normalizedVersionName(rightVersion).split(".").map { it.toIntOrNull() ?: 0 }
+            val maxLength = maxOf(left.size, right.size)
+            for (index in 0 until maxLength) {
+                val l = left.getOrNull(index) ?: 0
+                val r = right.getOrNull(index) ?: 0
+                if (l != r) return l.compareTo(r)
+            }
+            return 0
+        }
+
+        @Suppress("DEPRECATION")
+        private fun archiveVersionName(file: File?, context: Context? = currentContext): String? {
+            if (!isValidApkFile(file)) return null
+            val applicationContext = context?.applicationContext ?: appContext()
+            return runCatching {
+                applicationContext.packageManager
+                    .getPackageArchiveInfo(file!!.absolutePath, 0)
+                    ?.versionName
+            }.getOrNull()
+        }
+
+        private fun isExpectedUpdateApk(
+            file: File?,
+            expectedVersionName: String? = null,
+            context: Context? = currentContext
+        ): Boolean {
+            if (!isValidApkFile(file)) return false
+            val archiveVersion = archiveVersionName(file, context) ?: return false
+            val expected = normalizedVersionName(expectedVersionName).takeIf { it.isNotBlank() }
+            return if (expected != null) {
+                normalizedVersionName(archiveVersion) == expected
+            } else {
+                compareVersionNames(archiveVersion, BuildConfig.VERSION_NAME) > 0
+            }
+        }
+
+        private fun cleanupStaleApkFiles(fileName: String, context: Context? = currentContext) {
+            listOf(getDownloadsDir(context), getLegacyDownloadsDir()).forEach { downloadsDir ->
+                if (!downloadsDir.exists()) return@forEach
+
+                downloadsDir.listFiles()?.forEach fileLoop@{ file ->
+                    if (!file.isFile) return@fileLoop
+                    val isTarget = downloadsDir == getDownloadsDir(context) && file.name == fileName
+                    val isStaleApk = file.name.endsWith(".apk", ignoreCase = true) && !isTarget
+                    val isBackupApk = file.name.endsWith(".apk.bak", ignoreCase = true)
+                    val isPartial = file.name.endsWith(".part", ignoreCase = true)
+                        || file.name.endsWith(".partial", ignoreCase = true)
+                        || file.name.endsWith(".tmp", ignoreCase = true)
+                    val isBrokenTarget = isTarget && file.length() < MIN_VALID_APK_SIZE_BYTES
+                    if (isStaleApk || isBackupApk || isPartial || isBrokenTarget) {
+                        file.delete()
+                    }
                 }
             }
         }
 
-        fun isApkDownloaded(fileName: String): Boolean = isValidApkFile(getDownloadedApkFile(fileName))
+        fun isApkDownloaded(fileName: String, expectedVersionName: String? = null): Boolean =
+            isExpectedUpdateApk(getDownloadedApkFile(fileName, expectedVersionName), expectedVersionName)
+
+        fun hasStaleDownloadedApk(fileName: String, expectedVersionName: String? = null): Boolean {
+            val candidates = listOf(getDownloadsDir(), getLegacyDownloadsDir())
+                .flatMap { directory ->
+                    directory
+                        .takeIf(File::exists)
+                        ?.listFiles()
+                        ?.filter { file ->
+                            file.isFile && file.name.endsWith(".apk", ignoreCase = true)
+                        }
+                        .orEmpty()
+                }
+
+            return candidates.any { file ->
+                isValidApkFile(file) && !isExpectedUpdateApk(file, expectedVersionName)
+            }
+        }
         // Add this function to ApkInstallWorker companion object
         fun reDownloadApk(
             context: Context,
             downloadUrl: String,
             fileName: String,
+            expectedVersionName: String? = null,
             onProgress: (Float) -> Unit = {},
             onComplete: () -> Unit = {},
             onError: (String) -> Unit = {}
@@ -98,22 +175,36 @@ class ApkInstallWorker {
             deleteDownloadedApk(fileName)
             
             // Start fresh download
-            startDownloadAndInstall(context, downloadUrl, fileName, onProgress, onComplete, onError)
+            startDownloadAndInstall(
+                context = context,
+                downloadUrl = downloadUrl,
+                fileName = fileName,
+                expectedVersionName = expectedVersionName,
+                onProgress = onProgress,
+                onComplete = onComplete,
+                onError = onError
+            )
         }
    // Delete downloaded APK manually (NOT cancel)
 fun deleteDownloadedApk(fileName: String): Boolean {
     return try {
-        val downloadsDir = getDownloadsDir()
-
-        // If directory doesn't exist, nothing to delete
-        if (!downloadsDir.exists()) return false
-
-        val apkFile = getTargetFile(fileName)
-        val backupFile = File(downloadsDir, "$fileName.bak")
-        val deletedMain = if (apkFile.exists()) apkFile.delete() else false
-        val deletedBackup = if (backupFile.exists()) backupFile.delete() else false
-
-        cleanupStaleApkFiles(fileName)
+        var foundArtifact = false
+        var deletionFailed = false
+        listOf(getDownloadsDir(), getLegacyDownloadsDir()).forEach { downloadsDir ->
+            downloadsDir.takeIf(File::exists)?.listFiles()?.forEach { file ->
+                val isUpdaterArtifact = file.isFile && (
+                    file.name.endsWith(".apk", ignoreCase = true) ||
+                        file.name.endsWith(".apk.bak", ignoreCase = true) ||
+                        file.name.endsWith(".part", ignoreCase = true) ||
+                        file.name.endsWith(".partial", ignoreCase = true) ||
+                        file.name.endsWith(".tmp", ignoreCase = true)
+                    )
+                if (isUpdaterArtifact) {
+                    foundArtifact = true
+                    if (!file.delete() && file.exists()) deletionFailed = true
+                }
+            }
+        }
 
         // Remove notification if present
         currentContext?.let { context ->
@@ -126,28 +217,28 @@ fun deleteDownloadedApk(fileName: String): Boolean {
             currentTargetFile = null
         }
 
-        deletedMain || deletedBackup || !hasDownloadedArtifacts()
+        !deletionFailed && (foundArtifact || !hasDownloadedArtifacts())
     } catch (e: Exception) {
         e.printStackTrace()
         false
     }
 }
         // Get downloaded APK file
-        fun getDownloadedApkFile(fileName: String): File? {
+        fun getDownloadedApkFile(fileName: String, expectedVersionName: String? = null): File? {
             val downloadsDir = getDownloadsDir()
-            
+
             if (!downloadsDir.exists()) {
                 return null
             }
-            
+
             val apkFile = getTargetFile(fileName)
-            return apkFile.takeIf(::isValidApkFile)
+            return apkFile.takeIf { isExpectedUpdateApk(it, expectedVersionName) }
         }
         
         // Install already downloaded APK
-        fun installDownloadedApk(context: Context, fileName: String): Boolean {
+        fun installDownloadedApk(context: Context, fileName: String, expectedVersionName: String? = null): Boolean {
             return try {
-                val apkFile = getDownloadedApkFile(fileName)
+                val apkFile = getDownloadedApkFile(fileName, expectedVersionName)
                 if (apkFile != null) {
                     installApk(context, apkFile)
                     true
@@ -164,6 +255,7 @@ fun deleteDownloadedApk(fileName: String): Boolean {
             context: Context,
             downloadUrl: String,
             fileName: String,
+            expectedVersionName: String? = null,
             onProgress: (Float) -> Unit = {},
             onComplete: () -> Unit = {},
             onError: (String) -> Unit = {}
@@ -183,13 +275,13 @@ fun deleteDownloadedApk(fileName: String): Boolean {
                 currentDownloadManager = downloadManager
                 
                 // Create downloads directory path
-                val downloadsDir = getDownloadsDir()
+                val downloadsDir = getDownloadsDir(context)
                 if (!downloadsDir.exists()) {
                     downloadsDir.mkdirs()
                 }
-                cleanupStaleApkFiles(fileName)
+                cleanupStaleApkFiles(fileName, context)
 
-                val targetFile = getTargetFile(fileName)
+                val targetFile = getTargetFile(fileName, context)
                 if (targetFile.exists()) {
                     targetFile.delete()
                 }
@@ -205,7 +297,11 @@ fun deleteDownloadedApk(fileName: String): Boolean {
                         )
                     )
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    .setDestinationUri(Uri.fromFile(targetFile))
+                    .setDestinationInExternalFilesDir(
+                        context,
+                        Environment.DIRECTORY_DOWNLOADS,
+                        "$UPDATE_FOLDER/$fileName"
+                    )
                     .setAllowedOverMetered(true)
                     .setAllowedOverRoaming(true)
                 
@@ -221,7 +317,14 @@ fun deleteDownloadedApk(fileName: String): Boolean {
                     override fun onReceive(context: Context, intent: Intent) {
                         val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
                         if (id == downloadId) {
-                            handleDownloadCompletion(context, downloadManager, id, onComplete, onError)
+                            handleDownloadCompletion(
+                                context,
+                                downloadManager,
+                                id,
+                                expectedVersionName,
+                                onComplete,
+                                onError
+                            )
                             unregisterReceiver(context)
                         }
                     }
@@ -253,7 +356,7 @@ fun deleteDownloadedApk(fileName: String): Boolean {
                     e.message ?: context.getString(R.string.apk_unknown_error)
                 )
                 onError(errorMessage)
-                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                openDirectDownloadFallback(context, errorMessage)
                 cleanup()
             }
         }
@@ -294,6 +397,7 @@ fun deleteDownloadedApk(fileName: String): Boolean {
             context: Context,
             downloadManager: DownloadManager,
             downloadId: Long,
+            expectedVersionName: String?,
             onComplete: () -> Unit,
             onError: (String) -> Unit
         ) {
@@ -321,7 +425,16 @@ fun deleteDownloadedApk(fileName: String): Boolean {
                         if (!isValidApkFile(downloadedFile)) {
                             downloadedFile?.delete()
                             onError(context.getString(R.string.apk_download_invalid_file))
-                            Toast.makeText(context, context.getString(R.string.apk_download_invalid_file), Toast.LENGTH_LONG).show()
+                            openDirectDownloadFallback(context, context.getString(R.string.apk_download_invalid_file))
+                            cleanup()
+                            cursor.close()
+                            return
+                        }
+
+                        if (!isExpectedUpdateApk(downloadedFile, expectedVersionName, context)) {
+                            downloadedFile?.delete()
+                            onError(context.getString(R.string.apk_folder_stale_update))
+                            openDirectDownloadFallback(context, context.getString(R.string.apk_folder_stale_update))
                             cleanup()
                             cursor.close()
                             return
@@ -359,7 +472,7 @@ fun deleteDownloadedApk(fileName: String): Boolean {
                         }
                         currentTargetFile?.delete()
                         onError(errorMsg)
-                        Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                        openDirectDownloadFallback(context, errorMsg)
                     }
                 }
             }
@@ -624,15 +737,30 @@ fun deleteDownloadedApk(fileName: String): Boolean {
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(
+                openDirectDownloadFallback(
                     context,
                     context.getString(
                         R.string.apk_install_failed_with_reason,
                         e.message ?: context.getString(R.string.apk_download_failed)
-                    ),
-                    Toast.LENGTH_LONG
-                ).show()
+                    )
+                )
                 false
+            }
+        }
+
+        private fun openDirectDownloadFallback(context: Context, message: String) {
+            Toast.makeText(
+                context,
+                "$message\nOpening direct download page.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            runCatching {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(DIRECT_DOWNLOAD_URL)).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
             }
         }
         

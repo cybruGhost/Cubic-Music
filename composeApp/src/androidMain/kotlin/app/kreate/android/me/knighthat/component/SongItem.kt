@@ -220,7 +220,10 @@ fun SongItem(
                 }
                 
                 ImageCacheFactory.Thumbnail(
-                    thumbnailUrl = song.thumbnailUrl,
+                    thumbnailUrl = app.kreate.android.me.knighthat.coil.resolveArtworkUrl(
+                        song.id,
+                        song.thumbnailUrl
+                    ),
                     contentScale = ContentScale.FillHeight
                 )
             }

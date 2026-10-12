@@ -31,6 +31,11 @@ private fun Title( titleId: Int ) {
             ePadding = 12.dp
             alignment = TextAlign.Start
         }
+        UiType.Apple -> {
+            sPadding = Dp.Hairline
+            ePadding = 12.dp
+            alignment = TextAlign.Start
+        }
         UiType.ViMusic -> {
             sPadding = 12.dp
             ePadding = Dp.Hairline
@@ -71,6 +76,7 @@ interface TabHeader {
             when( UiType.current() ) {
                 UiType.RiMusic -> typography().xl.bold
                 UiType.ViMusic -> typography().xxxl.bold
+                UiType.Apple -> typography().xxxl.bold
             }
 
         @Composable
@@ -109,6 +115,7 @@ fun TabHeader(
         when( UiType.current() ) {
             UiType.RiMusic -> RiMusicHeader( titleId, additionalContent )
             UiType.ViMusic -> ViMusicHeader( titleId, additionalContent )
+            UiType.Apple -> RiMusicHeader(titleId, additionalContent)
         }
     }
 }

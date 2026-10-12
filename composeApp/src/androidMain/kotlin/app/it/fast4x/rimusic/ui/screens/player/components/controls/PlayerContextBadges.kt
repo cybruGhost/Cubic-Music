@@ -25,6 +25,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showPlayerOutputDeviceKey
 import app.it.fast4x.rimusic.utils.showPlayerPlaybackContextKey
+import app.kreate.android.R
 
 @Composable
 fun PlayerContextBadges(
@@ -84,5 +85,5 @@ private fun android.content.Context.currentAudioOutputName(): String {
         ?: return ""
 
     val name = device.productName?.toString()?.trim().orEmpty()
-    return if (name.isBlank()) "" else "Listening on $name"
+    return if (name.isBlank()) "" else getString(R.string.listening_on_device, name)
 }

@@ -45,6 +45,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -177,7 +178,7 @@ inline fun <T : Innertube.Item> ItemsPage(
                     }
                 }
 
-                items(
+                itemsIndexed(
                     itemsPage?.items?.filter { item ->
                         when {
                             item is Innertube.SongItem -> {
@@ -197,9 +198,10 @@ inline fun <T : Innertube.Item> ItemsPage(
                             else -> true
                         }
                     } ?: emptyList(),
-                    key = { item -> "${item::class.simpleName}_${item.key.ifEmpty { System.identityHashCode(item) }}" },
-                    itemContent = itemContent
-                )
+                    key = { index, item -> "${item::class.simpleName}_${item.key.ifEmpty { "item" }}_$index" },
+                ) { _, item ->
+                    itemContent(item)
+                }
 
                 if (itemsPage != null && itemsPage?.items.isNullOrEmpty()) {
                     item(key = "empty") {
@@ -361,7 +363,7 @@ inline fun <T : Innertube.Item> ItemsGridPage(
                     }
                 }
 
-                items(
+                gridItemsIndexed(
                     itemsPage?.items?.filter { item ->
                         when {
                             item is Innertube.SongItem -> {
@@ -381,9 +383,10 @@ inline fun <T : Innertube.Item> ItemsGridPage(
                             else -> true
                         }
                     } ?: emptyList(),
-                    key = { item -> "${item::class.simpleName}_${item.key.ifEmpty { System.identityHashCode(item) }}" },
-                    itemContent = itemContent
-                )
+                    key = { index, item -> "${item::class.simpleName}_${item.key.ifEmpty { "item" }}_$index" },
+                ) { _, item ->
+                    itemContent(item)
+                }
 
                 if (itemsPage != null && itemsPage?.items.isNullOrEmpty()) {
                     item(

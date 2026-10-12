@@ -114,7 +114,7 @@ fun OnlineSearchList(
                         navController = navController,
                         modifier = Modifier,
                         onClick = {
-                            PlaybackContextStore.set("Playing from Search", "\"$query\" in Search")
+                            PlaybackContextStore.set(context.getString(R.string.playing_from_search), context.getString(R.string.playing_from_search_detail, query))
                             binder?.startRadio(item.asMediaItem, false, item.info?.endpoint)
                         }
                     )
@@ -145,7 +145,7 @@ fun OnlineSearchList(
                                 },
                                 onClick = {
                                     binder?.stopRadio()
-                                    PlaybackContextStore.set("Playing from Search", "\"$query\" in Search")
+                                    PlaybackContextStore.set(context.getString(R.string.playing_from_search), context.getString(R.string.playing_from_search_detail, query))
                                     if (isVideoEnabled) binder?.player?.playVideo(item.asMediaItem)
                                     else binder?.player?.forcePlay(item.asMediaItem)
                                 }

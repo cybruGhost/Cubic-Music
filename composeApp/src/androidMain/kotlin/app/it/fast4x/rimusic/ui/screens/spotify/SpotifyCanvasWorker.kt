@@ -7,7 +7,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.Player
 import app.it.fast4x.rimusic.Database
@@ -688,6 +687,7 @@ object SpotifyCanvasState {
     var lastProcessedMediaId: String? by mutableStateOf(null)
     var hasTriedFetching: Boolean by mutableStateOf(false)
     var shouldRetryFetch: Boolean by mutableStateOf(false)
+    var suppressForActiveOverlay: Boolean by mutableStateOf(false)
 
     private const val MAX_LOG_ENTRIES = 20
 
@@ -732,8 +732,18 @@ object SpotifyCanvasState {
         lastProcessedMediaId = null
         hasTriedFetching = false
         shouldRetryFetch = false
+        suppressForActiveOverlay = false
         SpotifySessionApi.clearTokenCache()
         addLog(canvasString(R.string.cubic_canvas_all_state_cleared), LogType.INFO)
+    }
+
+    fun clearCompletedSong() {
+        currentCanvasUrl = null
+        currentTrackId = null
+        isLoading = false
+        isPlaying = false
+        hasTriedFetching = true
+        shouldRetryFetch = false
     }
 
     fun clearLogs() {
@@ -821,6 +831,23 @@ fun SpotifyCanvasWorker() {
         }
 
         val shouldPlay = binder.player.playWhenReady && binder.player.playbackState == Player.STATE_READY
+
+        CanvasVideoCache.cachedUri(context, mediaId)?.let { cachedCanvasUri ->
+            if (SpotifyCanvasState.matchesCurrentSong(mediaId, title, artist)) {
+                SpotifyCanvasState.currentCanvasUrl = cachedCanvasUri
+                SpotifyCanvasState.error = null
+                SpotifyCanvasState.isLoading = false
+                SpotifyCanvasState.isPlaying = shouldPlay
+                SpotifyCanvasState.hasTriedFetching = true
+                SpotifyCanvasState.shouldRetryFetch = false
+                CanvasPlayerManager.updatePlayState(shouldPlay)
+                if (showLogs) {
+                    SpotifyCanvasState.addLog(canvasString(R.string.cubic_canvas_using_cached_canvas), LogType.INFO)
+                }
+                return@LaunchedEffect
+            }
+        }
+
         if (SpotifyCanvasState.currentCanvasUrl != null &&
             SpotifyCanvasState.matchesCurrentSong(mediaId, title, artist)
         ) {
@@ -854,32 +881,57 @@ fun SpotifyCanvasWorker() {
         }
     }
 
-    LaunchedEffect(binder.player, displayedMediaItem?.mediaId, appRunningInBackground) {
+    DisposableEffect(binder.player, displayedMediaItem?.mediaId, appRunningInBackground) {
+        val player = binder.player
 
-        snapshotFlow {
-            Pair(binder.player.playbackState, binder.player.playWhenReady)
-        }.collect { (playbackState, playWhenReady) ->
+        fun syncCanvasPlaybackState() {
+            val playbackState = player.playbackState
+            if (playbackState == Player.STATE_ENDED) {
+                CanvasPlayerManager.forceCleanup()
+                CanvasVideoCache.clearAll(context)
+                SpotifyCanvasState.clearCompletedSong()
+                return
+            }
+
             if (appRunningInBackground) {
                 SpotifyCanvasState.isPlaying = false
                 CanvasPlayerManager.pauseKeepingState()
-                return@collect
+                return
             }
-            val mediaId = displayedMediaItem?.mediaId
 
-            if (mediaId == SpotifyCanvasState.currentMediaItemId &&
+            val mediaId = displayedMediaItem?.mediaId
+            if (
+                mediaId == SpotifyCanvasState.currentMediaItemId &&
                 SpotifyCanvasState.currentCanvasUrl != null
             ) {
-                val shouldPlay = playWhenReady && playbackState == Player.STATE_READY
+                val shouldPlay =
+                    player.playWhenReady && playbackState == Player.STATE_READY
                 if (shouldPlay != SpotifyCanvasState.isPlaying) {
                     SpotifyCanvasState.isPlaying = shouldPlay
                     CanvasPlayerManager.updatePlayState(shouldPlay)
                 }
             }
         }
-    }
 
-    DisposableEffect(Unit) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                syncCanvasPlaybackState()
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                syncCanvasPlaybackState()
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                syncCanvasPlaybackState()
+            }
+        }
+
+        player.addListener(listener)
+        syncCanvasPlaybackState()
+
         onDispose {
+            player.removeListener(listener)
             SpotifyCanvasState.isPlaying = false
             CanvasPlayerManager.pauseKeepingState()
         }

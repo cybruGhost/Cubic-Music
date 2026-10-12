@@ -107,6 +107,7 @@ import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import me.bush.translator.Language
 import me.bush.translator.Translator
@@ -154,12 +155,13 @@ fun AlbumDetails(
     val items by remember {
         Database.songAlbumMapTable
                 .allSongsOf( browseId )
+                .map { songs -> songs.deduplicateAlbumSongs() }
                 .distinctUntilChanged()
     }.collectAsState( emptyList(), Dispatchers.IO )
 
     val itemSelector = ItemSelector<Song>()
 
-    fun getSongs() = itemSelector.ifEmpty { items }
+    fun getSongs() = if (itemSelector.isActive) itemSelector.toList() else items
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
     val bookmark = AlbumBookmark( browseId )
@@ -386,13 +388,9 @@ fun AlbumDetails(
 
                 itemsIndexed(
                     items = items,
-                    key = { index, song -> song.id.ifBlank { "album_song_$index" } }
+                    key = { index, song -> "${song.id.ifBlank { "album_song" }}_$index" }
                 ) { index, song ->
-                    val visibleSong = if (song.thumbnailUrl.isNullOrBlank()) {
-                        song.copy(thumbnailUrl = album?.thumbnailUrl)
-                    } else {
-                        song
-                    }
+                    val visibleSong = song
 
                     SwipeablePlaylistItem(
                         mediaItem = visibleSong.asMediaItem,
@@ -437,7 +435,7 @@ fun AlbumDetails(
                             onClick = {
                                 binder?.stopRadio()
                                 PlaybackContextStore.set(
-                                    "Playing from Album",
+                                    context.getString(R.string.playing_from_album),
                                     album?.title.orEmpty()
                                 )
                                 binder?.player?.forcePlayAtIndex(

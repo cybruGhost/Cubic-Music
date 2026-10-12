@@ -56,6 +56,10 @@ class ImportDatabase private constructor(
     override val supportedMimes: Array<String> = arrayOf(
         "application/vnd.sqlite3",
         "application/x-sqlite3",
-        "application/octet-stream"
+        "application/x-sqlite",
+        "application/octet-stream",
+        "application/db",
+        "application/x-db",
+        "*/*"
     )
 }

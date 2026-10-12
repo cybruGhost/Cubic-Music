@@ -1228,6 +1228,7 @@ AnimatedVisibility(
                                     icon = R.drawable.logout,
                                     onClick = {
                                         if (discordPersonalAccessToken.isNotEmpty()) {
+                                            isDiscordPresenceEnabled = false
                                             discordPersonalAccessToken = ""
                                             discordUsername = ""
                                             discordAvatar = ""

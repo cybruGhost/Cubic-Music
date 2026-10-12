@@ -4,10 +4,13 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -24,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,12 +35,22 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -44,6 +58,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
@@ -76,6 +92,7 @@ import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.ui.styling.shimmer
 import app.it.fast4x.rimusic.utils.UpdateYoutubeAlbum
 import app.it.fast4x.rimusic.utils.UpdateYoutubeArtist
+import app.it.fast4x.rimusic.utils.PlaybackContextStore
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.center
 import app.it.fast4x.rimusic.utils.color
@@ -101,10 +118,17 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import app.it.fast4x.rimusic.utils.addNext
 import app.it.fast4x.rimusic.utils.enqueue
 import app.kreate.android.me.knighthat.coil.ImageCacheFactory
+import app.kreate.android.me.knighthat.coil.resolveArtworkUrl
+import app.kreate.android.me.knighthat.database.ext.AlbumListeningStat
+import app.kreate.android.me.knighthat.database.ext.ArtistListeningStat
+import app.kreate.android.me.knighthat.database.ext.SongListeningStat
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 
 @ExperimentalTextApi
@@ -147,22 +171,24 @@ fun StatisticsPage(
     val maxStatisticsItems by rememberPreference( maxStatisticsItemsKey, MaxStatisticsItems.`10` )
     val from = remember( statisticsType ) { statisticsType.timeStampInMillis() }
 
-    val artists by remember {
+    val artistStats by remember {
         Database.eventTable
-                .findArtistsMostPlayedBetween(
+                .findArtistListeningStatsBetween(
                     from = from,
                     limit = maxStatisticsItems.toInt()
                 )
                 .distinctUntilChanged()
     }.collectAsState( emptyList(), Dispatchers.IO )
-    val albums by remember {
+    val artists = artistStats.map(ArtistListeningStat::artist)
+    val albumStats by remember {
         Database.eventTable
-                .findAlbumsMostPlayedBetween(
+                .findAlbumListeningStatsBetween(
                     from = from,
                     limit = maxStatisticsItems.toInt()
                 )
                 .distinctUntilChanged()
     }.collectAsState( emptyList(), Dispatchers.IO )
+    val albums = albumStats.map(AlbumListeningStat::album)
     val playlists by remember {
         Database.eventTable
                 .findPlaylistMostPlayedBetweenAsPreview(
@@ -184,15 +210,15 @@ fun StatisticsPage(
     val totalPlayTimesState = totalPlayTimesFlow.collectAsState(0L, Dispatchers.IO)
     totalPlayTimes = totalPlayTimesState.value
 
-    val songs by remember {
+    val songStats by remember {
         Database.eventTable
-            .findSongsMostPlayedBetween(
+            .findSongListeningStatsBetween(
                 from = from,
                 limit = maxStatisticsItems.toInt()
             )
             .distinctUntilChanged()
-            .map { it.take(maxStatisticsItems.toInt()) }
     }.collectAsState(emptyList(), Dispatchers.IO)
+    val songs = songStats.map(SongListeningStat::song)
 
     val navigationBarPosition by rememberPreference(
 
@@ -210,6 +236,7 @@ fun StatisticsPage(
         StatisticsCategory.Albums to StatisticsCategory.Albums.text,
         StatisticsCategory.Playlists to StatisticsCategory.Playlists.text
     )
+    val statisticsPeriodText = statisticsType.text
 
     // Calcul of real listening time for the selected period (Songs category)
     var totalPlayTimesSongs by remember { mutableLongStateOf(0L) }
@@ -252,12 +279,37 @@ fun StatisticsPage(
                     span = { GridItemSpan(maxLineSpan) }
                 ) {
                     HeaderWithIcon(
-                        title = statisticsType.text,
+                        title = statisticsPeriodText,
                         iconId = statisticsType.iconId,
                         enabled = true,
                         showIcon = true,
                         modifier = Modifier,
                         onClick = {}
+                    )
+                }
+
+                item(
+                    key = "total_time_listened",
+                    span = { GridItemSpan(maxLineSpan) }
+                ) {
+                    ListeningTimeHero(
+                        entries = when (statisticsCategory) {
+                            StatisticsCategory.Songs -> songStats.map {
+                                ListeningWheelEntry(
+                                    it.playTimeMs,
+                                    resolveArtworkUrl(it.song.id, it.song.thumbnailUrl)
+                                )
+                            }
+                            StatisticsCategory.Artists -> artistStats.map {
+                                ListeningWheelEntry(it.playTimeMs, it.artist.thumbnailUrl)
+                            }
+                            StatisticsCategory.Albums -> albumStats.map {
+                                ListeningWheelEntry(it.playTimeMs, it.album.thumbnailUrl)
+                            }
+                            StatisticsCategory.Playlists -> emptyList()
+                        },
+                        totalTimeText = formatAsTime(totalPlayTimes),
+                        periodText = statisticsPeriodText
                     )
                 }
 
@@ -367,6 +419,10 @@ fun StatisticsPage(
                                         },
                                         onClick = {
                                             binder?.stopRadio()
+                                            PlaybackContextStore.set(
+                                                context.getString(R.string.playing_from_statistics),
+                                                statisticsPeriodText
+                                            )
                                             binder?.player?.forcePlayAtIndex(
                                                 songs.map(Song::asMediaItem),
                                                 it
@@ -517,4 +573,159 @@ fun StatisticsPage(
             Spacer(modifier = Modifier.height(Dimensions.bottomSpacer))
 
         }
+}
+
+private data class ListeningWheelEntry(
+    val playTimeMs: Long,
+    val artworkUrl: String?
+)
+
+private data class ListeningWheelSlice(
+    val playTimeMs: Long,
+    val image: ImageBitmap?
+)
+
+@Composable
+private fun ListeningTimeHero(
+    entries: List<ListeningWheelEntry>,
+    totalTimeText: String,
+    periodText: String
+) {
+    val topEntries = remember(entries) { entries.take(6) }
+    val slices by produceState(
+        initialValue = topEntries.map { ListeningWheelSlice(it.playTimeMs, null) },
+        key1 = topEntries
+    ) {
+        value = withContext(Dispatchers.IO) {
+            topEntries.map { entry ->
+                ListeningWheelSlice(
+                    playTimeMs = entry.playTimeMs.coerceAtLeast(1L),
+                    image = ImageCacheFactory.loadBitmap(
+                        entry.artworkUrl,
+                        allowHardware = false
+                    )?.asImageBitmap()
+                )
+            }
+        }
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 14.dp)
+    ) {
+        val wheelSize = if (maxWidth < 360.dp) 132.dp else 164.dp
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ListeningArtworkWheel(
+                slices = slices,
+                modifier = Modifier.size(wheelSize)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 22.dp)
+            ) {
+                BasicText(
+                    text = "Total time listened",
+                    style = typography().s.copy(color = colorPalette().textSecondary)
+                )
+                BasicText(
+                    text = totalTimeText,
+                    style = typography().xxl.semiBold.copy(color = colorPalette().accent),
+                    maxLines = 1
+                )
+                BasicText(
+                    text = periodText,
+                    modifier = Modifier.padding(top = 5.dp),
+                    style = typography().xxs.copy(color = colorPalette().textSecondary)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListeningArtworkWheel(
+    slices: List<ListeningWheelSlice>,
+    modifier: Modifier = Modifier
+) {
+    val palette = colorPalette()
+    val fallbackColors = listOf(
+        palette.accent,
+        palette.text.copy(alpha = 0.72f),
+        palette.background4,
+        palette.accent.copy(alpha = 0.58f),
+        palette.textSecondary,
+        palette.background2
+    )
+
+    Canvas(modifier = modifier.clip(androidx.compose.foundation.shape.CircleShape)) {
+        val diameter = min(size.width, size.height)
+        val destinationSize = IntSize(diameter.roundToInt(), diameter.roundToInt())
+        val total = slices.sumOf { it.playTimeMs }.coerceAtLeast(1L).toFloat()
+
+        fun drawSliceContent(slice: ListeningWheelSlice, index: Int) {
+            val image = slice.image
+            if (image == null) {
+                drawRect(fallbackColors[index % fallbackColors.size])
+                return
+            }
+
+            val sourceEdge = min(image.width, image.height)
+            drawImage(
+                image = image,
+                srcOffset = IntOffset(
+                    x = (image.width - sourceEdge) / 2,
+                    y = (image.height - sourceEdge) / 2
+                ),
+                srcSize = IntSize(sourceEdge, sourceEdge),
+                dstOffset = IntOffset.Zero,
+                dstSize = destinationSize,
+                filterQuality = FilterQuality.High
+            )
+        }
+
+        if (slices.isEmpty()) {
+            drawCircle(palette.accent.copy(alpha = 0.18f))
+        } else if (slices.size == 1) {
+            drawSliceContent(slices.first(), 0)
+        } else {
+            var startAngle = -90f
+            slices.forEachIndexed { index, slice ->
+                val sweep = if (index == slices.lastIndex) {
+                    270f - startAngle
+                } else {
+                    360f * (slice.playTimeMs / total)
+                }
+                val path = Path().apply {
+                    moveTo(diameter / 2f, diameter / 2f)
+                    arcTo(
+                        rect = Rect(0f, 0f, diameter, diameter),
+                        startAngleDegrees = startAngle,
+                        sweepAngleDegrees = sweep,
+                        forceMoveTo = false
+                    )
+                    close()
+                }
+                clipPath(path) {
+                    drawSliceContent(slice, index)
+                }
+                drawPath(
+                    path = path,
+                    color = palette.background0.copy(alpha = 0.62f),
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+                startAngle += sweep
+            }
+        }
+
+        drawCircle(
+            color = palette.text.copy(alpha = 0.14f),
+            radius = diameter / 2f - 1.dp.toPx(),
+            style = Stroke(width = 2.dp.toPx())
+        )
+    }
 }

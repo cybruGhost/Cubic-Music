@@ -83,6 +83,8 @@ import app.it.fast4x.rimusic.enums.BackgroundProgress
 import app.it.fast4x.rimusic.enums.MiniPlayerType
 import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.enums.ThumbnailRoundness
+import app.it.fast4x.rimusic.service.modern.CrossfadePhase
+import app.it.fast4x.rimusic.service.modern.CrossfadeState
 import app.it.fast4x.rimusic.service.modern.PlayerServiceModern
 import app.it.fast4x.rimusic.thumbnailShape
 import app.it.fast4x.rimusic.typography
@@ -115,7 +117,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import kotlin.math.absoluteValue
 
 // ─── Liquid crossfade palette (mirrors GetSeekBar.kt) ────────────────────────
 private val crossfadeLiquidColors = listOf(
@@ -192,7 +193,9 @@ fun MiniPlayer(
     val hapticFeedback = LocalHapticFeedback.current
 
     val displayedPlayerState = rememberDisplayedPlayerState(binder)
-    val isCrossfading        = false
+    val fallbackCrossfadeState = remember { mutableStateOf(CrossfadeState(CrossfadePhase.DISABLED)) }
+    val crossfadeState by binder.service.crossfadeState.collectAsState(fallbackCrossfadeState.value)
+    val isCrossfading = crossfadeState.isActive
 
     // ── Error state ───────────────────────────────────────────────────────────
     var playerError by remember { mutableStateOf<PlaybackException?>(binder.player.playerError) }
@@ -224,6 +227,15 @@ fun MiniPlayer(
     }
 
     val positionAndDuration = displayedPlayerState.position to displayedPlayerState.duration
+    val progressFraction = remember(positionAndDuration) {
+        val position = positionAndDuration.first
+        val duration = positionAndDuration.second
+        if (position < 0L || duration <= 0L) {
+            0f
+        } else {
+            (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+        }
+    }
 
     // ── Swipe-to-dismiss ──────────────────────────────────────────────────────
     @Suppress("DEPRECATION")
@@ -414,8 +426,7 @@ fun MiniPlayer(
                             color    = colorPaletteSnap.favoritesOverlay,
                             topLeft  = Offset.Zero,
                             size     = Size(
-                                width  = positionAndDuration.first.toFloat() /
-                                         positionAndDuration.second.absoluteValue * size.width,
+                                width  = progressFraction * size.width,
                                 height = size.maxDimension
                             )
                         )
@@ -430,9 +441,20 @@ fun MiniPlayer(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.height(Dimensions.miniPlayerHeight)
             ) {
-                val currentArtwork = mediaItem.mediaMetadata.artworkUri?.toString()
-                val incomingArtwork: String? = null
-                val crossfadeArtProgress = 0f
+                val outgoingArtwork = crossfadeState.outgoingItem
+                    ?.mediaMetadata
+                    ?.artworkUri
+                    ?.toString()
+                val currentArtwork = if (isCrossfading && !outgoingArtwork.isNullOrBlank()) {
+                    outgoingArtwork
+                } else {
+                    mediaItem.mediaMetadata.artworkUri?.toString()
+                }
+                val incomingArtwork = crossfadeState.incomingItem
+                    ?.mediaMetadata
+                    ?.artworkUri
+                    ?.toString()
+                val crossfadeArtProgress = crossfadeState.progress.coerceIn(0f, 1f)
                 val thumbnailShape = thumbnailShape()
 
                 val artworkContent: @Composable BoxScope.() -> Unit = {

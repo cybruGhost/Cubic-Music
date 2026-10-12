@@ -114,14 +114,14 @@
 <string name="about">אודות</string>
 <string name="more_of">יותר מ</string>
 <string name="sleep_timer">טיימר כיבוי</string>
-<string name="left">נשארו %2$s</string>
+<string name="left">נשארו %1$s</string>
 <string name="confirm">לאשר</string>
 <string name="show">הצג</string>
 <string name="unsynchronized_lyrics">מילים לא מסונכרנות</string>
 <string name="synchronized_lyrics">מילים מסונכרנות</string>
 <string name="provided_by">סופק על ידי</string>
-<string name="delete_playback_events">לִמְחוֹק %2$s אירועי השמעה</string>
-<string name="existing_data_will_be_overwritten">הנתונים הקיימים יוחלפו.%2$s\n יסגור את עצמו אוטומטית לאחר שחזור מסד הנתונים.</string>
+<string name="delete_playback_events">לִמְחוֹק %1$s אירועי השמעה</string>
+<string name="existing_data_will_be_overwritten">הנתונים הקיימים יוחלפו.%1$s\n יסגור את עצמו אוטומטית לאחר שחזור מסד הנתונים.</string>
 <string name="folder_cache">תיקיית מטמון</string>
 <string name="cache_reset_by_clicking_button">שימו לב לחיצה על הכפתור למטה, תיקיית מיקום המטמון תאופס לברירת המחדל</string>
 <string name="cache_location_folder">תיקיית מיקום</string>
@@ -502,7 +502,7 @@
 <string name="info_reorder_is_possible_only_in_ascending_sort">הסדר מחדש אפשרי רק במיון עולה</string>
 <string name="information">מידע</string>
 <string name="info_lyrics_found_on_s">מילות השיר נמצאו ב %1$s</string>
-<string name="info_lyrics_not_found_on_s_try_on_s">מילות השיר לא נמצאו ב %1$s, נסה ב %2$s</string>
+<string name="info_lyrics_not_found_on_s_try_on_s">מילות השיר לא נמצאו ב %1$s, נסה ב %1$s</string>
 <string name="info_lyrics_not_found_on_s">מילות השיר לא נמצאו ב %1$s</string>
 <string name="info_lyrics_tracks_found_on_s">רצועות מילים נמצאו ב %1$s</string>
 <string name="info_lyrics_tracks_not_found_on_s">רצועות המילים לא נמצאו ב %1$s</string>
@@ -706,7 +706,7 @@
 <string name="value_must_be_ip_address">Value must be an ip address</string>
 <string name="swipe_up_to_open_the_queue">Swipe up to open the queue</string>
 <string name="pinfo_show_icons">Show info with icons</string>
-<string name="format_ms">%2$s ms</string>
+<string name="format_ms">%1$s ms</string>
 <string name="minimum_silence_length">Minimum silence length</string>
 <string name="minimum_silence_length_description">The minimum time the audio has to be silent to get skipped</string>
 <string name="minimum_silence_length_warning">Player has to be restarted for the changes to be effective!</string>
@@ -760,7 +760,7 @@
 <string name="import_favorites">Import favorites</string>
 <string name="skip_media_on_error">Autoskip on error</string>
 <string name="skip_media_on_error_description">If an error occurs, the media is changed</string>
-<string name="skip_media_on_error_message">The media %2$s went wrong</string>
+<string name="skip_media_on_error_message">The media %1$s went wrong</string>
 <string name="login_required_to_play_this_media">Login required to play this media</string>
 <string name="skip_media_on_notavailable_message">Previous media is not available, skipped to next</string>
 <string name="search_results_for">Search results for:</string>
@@ -977,7 +977,7 @@
 <string name="app_update_dialog_version">The new version %1$s can be downloaded!</string>
 <string name="view_changelog_settings_title">View changelogs</string>
 <string name="view_changelog_settings_text">View changelogs of the version currently installed</string>
-<string name="artist_songs_count_duration">%1$d Songs • %2$s</string>
+<string name="artist_songs_count_duration">%1$d Songs • %1$s</string>
 <string name="beta_title"> Beta</string>
 <string name="beta_text">This is still in Beta and may contain bugs and crash</string>
     <string name="no_instances_found">No instances found</string>

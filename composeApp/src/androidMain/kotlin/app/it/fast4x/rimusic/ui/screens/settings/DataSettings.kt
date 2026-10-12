@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -19,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.cache.Cache
 import app.kreate.android.R
 import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.LocalPlayerServiceBinder
@@ -73,6 +75,7 @@ import app.it.fast4x.rimusic.typography
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.material3.Icon
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.text.BasicText
@@ -82,6 +85,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.window.Dialog
 
 
+
+private fun Cache.safeCacheSpaceForSettings(): Long =
+    runCatching { cacheSpace }.getOrDefault(0L)
 
 @SuppressLint("SuspiciousIndentation")
 @ExperimentalAnimationApi
@@ -306,9 +312,9 @@ fun DataSettings() {
                         }
                     }
                     binder?.cache?.let { cache ->
-                        val diskCacheSize by produceState(initialValue = cache.cacheSpace, cacheCleanedCounter) {
+                        val diskCacheSize by produceState(initialValue = cache.safeCacheSpaceForSettings(), cacheCleanedCounter) {
                             while (true) {
-                                value = cache.cacheSpace
+                                value = cache.safeCacheSpaceForSettings()
                                 delay(1000)
                             }
                         }
@@ -369,9 +375,9 @@ fun DataSettings() {
                     }
 
                     binder?.downloadCache?.let { downloadCache ->
-                        val diskDownloadCacheSize by produceState(initialValue = downloadCache.cacheSpace, cacheCleanedCounter) {
+                        val diskDownloadCacheSize by produceState(initialValue = downloadCache.safeCacheSpaceForSettings(), cacheCleanedCounter) {
                             while (true) {
-                                value = downloadCache.cacheSpace
+                                value = downloadCache.safeCacheSpaceForSettings()
                                 delay(1000)
                             }
                         }
@@ -406,6 +412,7 @@ fun DataSettings() {
                         CacheSpaceIndicator(cacheType = CacheType.DownloadedSongs, horizontalPadding = 20.dp)
                         
                         SettingsDescription(text = "${Formatter.formatShortFileSize(context, diskDownloadCacheSize)} ${stringResource(R.string.used)} (${if (exoPlayerDiskDownloadCacheMaxSize.bytes > 0) "${diskDownloadCacheSize * 100 / exoPlayerDiskDownloadCacheMaxSize.bytes}%" else stringResource(R.string.unlimited)})")
+                        SettingsDescription(text = "Downloaded songs are protected offline media. Cubic will not auto-delete completed downloads when storage is low.")
                         }
                     }
 

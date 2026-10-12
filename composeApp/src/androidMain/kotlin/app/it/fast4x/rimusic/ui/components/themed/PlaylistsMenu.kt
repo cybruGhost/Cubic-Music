@@ -99,7 +99,13 @@ class PlaylistsMenu private constructor(
 
     private fun onAdd( preview: PlaylistPreview ) = Database.asyncTransaction {
         try {
-            mapIgnore(preview.playlist, *mediaItems(preview).toTypedArray())
+            val targetMediaItems = mediaItems(preview).filter { it.mediaId.isNotBlank() }
+            if (targetMediaItems.isEmpty()) {
+                Toaster.i(R.string.info_no_songs_yet)
+                return@asyncTransaction
+            }
+
+            mapIgnore(preview.playlist, *targetMediaItems.toTypedArray())
             Toaster.done()
         } catch (e: Throwable) {
             onFailure(e, preview)

@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -70,7 +71,6 @@ import it.fast4x.innertube.requests.HomePage
 import it.fast4x.innertube.requests.chartsPageComplete
 import it.fast4x.innertube.requests.discoverPage
 import it.fast4x.innertube.requests.relatedPage
-import it.fast4x.innertube.requests.relatedPage
 import app.it.fast4x.rimusic.Database
 import app.it.fast4x.rimusic.EXPLICIT_PREFIX
 import app.it.fast4x.rimusic.LocalPlayerAwareWindowInsets
@@ -93,7 +93,6 @@ import app.it.fast4x.rimusic.extensions.youtubelogin.YtmHomeSection
 import app.it.fast4x.rimusic.extensions.youtubelogin.YtmHomeSectionItem
 import app.it.fast4x.rimusic.extensions.youtubelogin.YtmSessionApi
 import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeSessionStore
-import app.it.fast4x.rimusic.ui.components.ButtonsRow
 import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.ShimmerHost
@@ -107,7 +106,7 @@ import app.it.fast4x.rimusic.ui.components.themed.NonQueuedMediaItemGridMenu
 import app.it.fast4x.rimusic.ui.components.themed.TextPlaceholder
 import app.it.fast4x.rimusic.ui.components.themed.Title
 import app.it.fast4x.rimusic.ui.components.themed.Title2Actions
-import app.it.fast4x.rimusic.ui.components.themed.TitleMiniSection
+
 import app.it.fast4x.rimusic.ui.items.AlbumItem
 import app.it.fast4x.rimusic.ui.items.AlbumItemPlaceholder
 import app.it.fast4x.rimusic.ui.items.ArtistItem
@@ -132,6 +131,7 @@ import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.isNowPlaying
+import app.it.fast4x.rimusic.utils.isYouTubeVideoId
 import app.it.fast4x.rimusic.utils.loadedDataKey
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.PlaybackContextStore
@@ -167,6 +167,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import app.kreate.android.service.findReplacementVideoId
 import timber.log.Timber
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -179,6 +181,7 @@ import app.it.fast4x.rimusic.ui.components.themed.LazyMenu
 import coil.request.ImageRequest
 // checkupdate
 import app.kreate.android.BuildConfig
+import app.kreate.android.me.knighthat.coil.ImageCacheFactory
 
 //rewind
 import androidx.compose.foundation.layout.Box
@@ -209,6 +212,48 @@ data class NotificationData(
     val showImage: Boolean = true,
     val showText: Boolean = true
 )
+
+private data class SimilarArtistShelf(
+    val seedName: String,
+    val artists: List<Innertube.ArtistItem>,
+)
+
+private fun notificationDataFromJson(notificationJson: org.json.JSONObject): NotificationData {
+    val isForce = notificationJson.optBoolean(
+        "is_force",
+        notificationJson.optBoolean("force_update", false)
+    )
+    val forceUpdate = notificationJson.optBoolean("force_update", isForce)
+
+    return NotificationData(
+        version = notificationJson.optString("version"),
+        url = notificationJson.optString("url"),
+        title = notificationJson.optString("title"),
+        contents = notificationJson.optString("contents"),
+        show = notificationJson.optBoolean("show", false),
+        is_force = isForce,
+        force_update = forceUpdate,
+        isUpdate = notificationJson.optBoolean("isUpdate", false),
+        image_url = notificationJson.optString("image_url").takeUnless {
+            it.isBlank() || it.equals("null", ignoreCase = true)
+        },
+        showImage = notificationJson.optBoolean("show_image", true),
+        showText = notificationJson.optBoolean("show_text", true)
+    )
+}
+
+private fun notificationDataFromRawJson(rawJson: String): NotificationData? =
+    runCatching {
+        if (rawJson.isBlank()) return@runCatching null
+        val responseRoot = org.json.JSONObject(rawJson)
+        val wrappedContent = responseRoot.optString("content")
+            .takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+        val payloadRoot = wrappedContent
+            ?.let { org.json.JSONObject(it) }
+            ?: responseRoot
+        val notificationJson = payloadRoot.optJSONObject("notification") ?: payloadRoot
+        notificationDataFromJson(notificationJson)
+    }.getOrNull()
 
 // ===== END NOTIFICATION DATA CLASS =====
 
@@ -256,16 +301,14 @@ private fun YtmHomeCard(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(thumbnailUrl)
-                .build(),
+        ImageCacheFactory.AsyncImage(
+            thumbnailUrl = thumbnailUrl,
             contentDescription = title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(imageHeight)
-                .clip(if (rounded) RoundedCornerShape(20.dp) else CircleShape),
+                .clip(if (rounded) RoundedCornerShape(8.dp) else CircleShape),
         )
         BasicText(
             text = cleanPrefix(title),
@@ -344,8 +387,182 @@ private fun YtmHomeSectionItem.asQuickPickSong(): Song? {
     )
 }
 
+private fun YtmHomeSectionItem.artistDestinationId(): String =
+    browseId.ifBlank { artistId }.ifBlank { id }.trim()
+
 private fun isVisibleQuickPicksSection(title: String): Boolean {
     return title.trim().isNotBlank()
+}
+
+
+private enum class HomeQuickSectionGroup {
+    FOR_YOU,
+    NEW_RELEASES,
+    NEW_ALBUMS,
+    RELATED_ALBUMS,
+    SIMILAR_ARTISTS,
+    PLAYLISTS,
+    QUICK_PICKS,
+    MOODS,
+    CHARTS,
+    TOP_ARTISTS,
+    OTHER,
+}
+
+private fun homeQuickSectionGroup(title: String): HomeQuickSectionGroup {
+    val normalized = title.trim().lowercase()
+    return when {
+        normalized == "for you" || "mixed for you" in normalized -> HomeQuickSectionGroup.FOR_YOU
+        "new release" in normalized -> HomeQuickSectionGroup.NEW_RELEASES
+        "new album" in normalized -> HomeQuickSectionGroup.NEW_ALBUMS
+        "related album" in normalized || "albums for you" in normalized -> HomeQuickSectionGroup.RELATED_ALBUMS
+        "similar artist" in normalized ||
+            "music channel" in normalized ||
+            "artists you may like" in normalized ||
+            "recommended artist" in normalized -> HomeQuickSectionGroup.SIMILAR_ARTISTS
+        "playlist" in normalized -> HomeQuickSectionGroup.PLAYLISTS
+        "quick pick" in normalized -> HomeQuickSectionGroup.QUICK_PICKS
+        "mood" in normalized || "genre" in normalized -> HomeQuickSectionGroup.MOODS
+        "top artist" in normalized -> HomeQuickSectionGroup.TOP_ARTISTS
+        "chart" in normalized -> HomeQuickSectionGroup.CHARTS
+        else -> HomeQuickSectionGroup.OTHER
+    }
+}
+
+private fun isTastePlaylistSection(title: String): Boolean {
+    val normalized = title.trim().lowercase()
+    return "playlist you might like" in normalized ||
+        "playlists you might like" in normalized ||
+        "playlists for you" in normalized ||
+        "recommended playlist" in normalized ||
+        "mixed for you" in normalized ||
+        "create a mix" in normalized
+}
+
+private fun normalizedPlaylistId(value: String): String =
+    value.trim().removePrefix("VL")
+
+private fun ytmHomeItemStableKey(item: YtmHomeSectionItem): String = listOf(
+    item.type,
+    item.videoId,
+    item.playlistId,
+    item.browseId,
+    item.id,
+    item.title,
+).joinToString("|")
+
+private fun mergeYtmHomeSections(
+    vararg sources: List<YtmHomeSection>,
+): List<YtmHomeSection> {
+    val merged = linkedMapOf<String, YtmHomeSection>()
+    sources.forEach { sections ->
+        sections.forEach { section ->
+            val key = section.title.trim().lowercase()
+            if (key.isBlank()) return@forEach
+            val existing = merged[key]
+            merged[key] = if (existing == null) {
+                section.copy(items = section.items.distinctBy(::ytmHomeItemStableKey))
+            } else {
+                val items = (existing.items + section.items)
+                    .distinctBy(::ytmHomeItemStableKey)
+                existing.copy(
+                    subtitle = existing.subtitle.ifBlank { section.subtitle },
+                    itemCount = items.size,
+                    hasMore = existing.hasMore || section.hasMore,
+                    items = items,
+                )
+            }
+        }
+    }
+    return merged.values.toList()
+}
+
+@Composable
+private fun YtmHomeFeedSections(
+    sections: List<YtmHomeSection>,
+    endPaddingValues: PaddingValues,
+    onPlayableClick: (List<YtmHomeSectionItem>, YtmHomeSectionItem) -> Unit,
+    onAlbumClick: (String) -> Unit,
+    onArtistClick: (String) -> Unit,
+    onPlaylistClick: (String) -> Unit,
+) {
+    sections
+        .filter { section -> section.title.isNotBlank() && section.items.isNotEmpty() }
+        .forEach { section ->
+            BasicText(
+                text = section.title,
+                style = typography().l.semiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 24.dp, bottom = 6.dp),
+            )
+            if (section.subtitle.isNotBlank()) {
+                BasicText(
+                    text = section.subtitle,
+                    style = typography().xs.secondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                )
+            }
+
+            LazyRow(contentPadding = endPaddingValues) {
+                items(
+                    items = section.items.distinctBy(::ytmHomeItemStableKey),
+                    key = ::ytmHomeItemStableKey,
+                ) { item ->
+                    when (item.type.lowercase()) {
+                        "song", "video" -> YtmHomeCard(
+                            title = item.title,
+                            subtitle = item.artistsText.ifBlank { item.subtitle },
+                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
+                            modifier = Modifier.clickable {
+                                onPlayableClick(section.items, item)
+                            },
+                        )
+
+                        "album" -> YtmHomeCard(
+                            title = item.title,
+                            subtitle = item.subtitle,
+                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
+                            modifier = Modifier.clickable {
+                                item.browseId.ifBlank { item.albumId.ifBlank { item.playlistId } }
+                                    .takeIf(String::isNotBlank)
+                                    ?.let(onAlbumClick)
+                            },
+                        )
+
+                        "artist" -> YtmHomeCard(
+                            title = item.title,
+                            subtitle = item.subtitle.ifBlank { item.artistsText },
+                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
+                            imageWidth = 104.dp,
+                            imageHeight = 104.dp,
+                            rounded = false,
+                            modifier = Modifier.clickable {
+                                item.browseId.ifBlank { item.artistId }
+                                    .takeIf(String::isNotBlank)
+                                    ?.let(onArtistClick)
+                            },
+                        )
+
+                        "playlist" -> YtmHomeCard(
+                            title = item.title,
+                            subtitle = item.subtitle,
+                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
+                            modifier = Modifier.clickable {
+                                item.playlistId.ifBlank { item.browseId }
+                                    .takeIf(String::isNotBlank)
+                                    ?.let(onPlaylistClick)
+                            },
+                        )
+                    }
+                }
+            }
+        }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -385,10 +602,12 @@ fun HomeQuickPicks(
 
     // Variable to store the real most popular song (before shuffle)
     var mostPopularSong by remember { mutableStateOf<Song?>(null) }
+    var recentCasualIdsCsv by rememberPreference("homeQuickPicksRecentCasualIds", "")
 
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/quickpicks/relatedPageResult")
     var relatedInit by persist<Innertube.RelatedPage?>(tag = "home/relatedPage")
     var relatedPreference by rememberPreference(quickPicsRelatedPageKey, relatedInit)
+    var similarArtistShelves by remember { mutableStateOf<List<SimilarArtistShelf>>(emptyList()) }
 
     var discoverPageResult by persist<Result<Innertube.DiscoverPage?>>("home/quickpicks/discoveryAlbumsResult")
     var discoverPageInit by persist<Innertube.DiscoverPage>("home/quickpicks/discoveryAlbumsInit")
@@ -403,20 +622,37 @@ fun HomeQuickPicks(
     var selectedHomeChipParams by rememberPreference("quickPicsHomePageChipParams", "")
     var sessionHomeFeedResult by remember { mutableStateOf<Result<List<YtmHomeSection>?>?>(null) }
     var sessionHomeFeedInit by remember { mutableStateOf<List<YtmHomeSection>?>(null) }
+    var publicGuestHomeFeedResult by remember {
+        mutableStateOf(
+            HomeFeedSessionCache.publicGuestSections
+                ?.let { sections -> Result.success(sections) }
+        )
+    }
     var sessionHomeFeedSessionId by rememberPreference("quickPicsSessionHomeFeedSessionId", "")
     var sessionHomeFeedAccountHandle by rememberPreference("quickPicsSessionHomeFeedAccountHandle", "")
 
     var chartsPageResult by persist<Result<Innertube.ChartsPage?>>("home/quickpicks/chartsPageResult")
     var chartsPageInit by persist<Innertube.ChartsPage>("home/quickpicks/chartsPageInit")
+    var chartsPageCountryCode by rememberPreference("quickPicsChartsPageCountryCode", "")
     //    var chartsPagePreference by rememberPreference(quickPicsChartsPageKey, chartsPageInit)
 
-    // ===== FIX: localCount declared early so buildCasualMix can use it =====
-    val localRecommandationsNumber by rememberPreference(
+    var localRecommandationsNumber by rememberPreference(
         key = "LocalRecommandationsNumber",
-        defaultValue = app.it.fast4x.rimusic.enums.LocalRecommandationsNumber.SixQ
+        defaultValue = app.it.fast4x.rimusic.enums.LocalRecommandationsNumber.TwelveQ
     )
+    var recommendations12Migrated by rememberPreference(
+        key = "homeQuickPicksRecommendations12Migrated",
+        defaultValue = false
+    )
+    LaunchedEffect(recommendations12Migrated) {
+        if (!recommendations12Migrated) {
+            if (localRecommandationsNumber == app.it.fast4x.rimusic.enums.LocalRecommandationsNumber.SixQ) {
+                localRecommandationsNumber = app.it.fast4x.rimusic.enums.LocalRecommandationsNumber.TwelveQ
+            }
+            recommendations12Migrated = true
+        }
+    }
     val localCount = localRecommandationsNumber.value
-    // ===== END FIX =====
 
     fun legacyHomePersonalizedSongs(): List<Song> =
         (homePageResult?.getOrNull() ?: homePageInit)
@@ -431,13 +667,16 @@ fun HomeQuickPicks(
                 }
             }
             ?.map { song -> song.copy(title = cleanPrefix(song.title)) }
-            ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
+            ?.filter { song -> song.id.isYouTubeVideoId() && song.title.isNotBlank() }
             ?.distinctBy { song -> song.id }
             ?: emptyList()
 
     fun homePersonalizedSongs(): List<Song> =
-        (sessionHomeFeedResult?.getOrNull() ?: sessionHomeFeedInit)
-            ?.flatMap { section ->
+        mergeYtmHomeSections(
+            sessionHomeFeedResult?.getOrNull() ?: sessionHomeFeedInit.orEmpty(),
+            publicGuestHomeFeedResult?.getOrNull().orEmpty(),
+        )
+            .flatMap { section ->
                 section.items.mapNotNull { item ->
                     when (item.type.lowercase()) {
                         "song", "video" -> {
@@ -460,10 +699,9 @@ fun HomeQuickPicks(
                     }
                 }
             }
-            ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
-            ?.distinctBy { song -> song.id }
-            ?.ifEmpty { legacyHomePersonalizedSongs() }
-            ?: legacyHomePersonalizedSongs()
+            .filter { song -> song.id.isYouTubeVideoId() && song.title.isNotBlank() }
+            .distinctBy { song -> song.id }
+            .ifEmpty { legacyHomePersonalizedSongs() }
 
     suspend fun localLikedSongs(limit: Int = 25): List<Song> =
         Database.songTable
@@ -499,6 +737,14 @@ fun HomeQuickPicks(
             ?.takeIf { it.isNotBlank() }
             ?: title.substringBefore("-").trim().lowercase()
 
+    fun Song.primaryArtistName(): String =
+        artistsText
+            ?.split(",", "&", "feat.", "ft.", ignoreCase = true)
+            ?.firstOrNull()
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: title.substringBefore("-").trim()
+
     fun List<Song>.artistVariety(maxPerArtist: Int = 2): List<Song> {
         val counts = mutableMapOf<String, Int>()
         return filter { song ->
@@ -513,40 +759,173 @@ fun HomeQuickPicks(
         }
     }
 
+    fun interleaveSongPools(pools: List<List<Song>>): List<Song> {
+        val shuffledPools = pools.map { pool ->
+            pool.filter { it.id.isNotBlank() && it.title.isNotBlank() }
+                .distinctBy { it.id }
+                .shuffled()
+        }
+        val largestPool = shuffledPools.maxOfOrNull { it.size } ?: 0
+        return (0 until largestPool)
+            .flatMap { index -> shuffledPools.mapNotNull { pool -> pool.getOrNull(index) } }
+            .distinctBy { it.id }
+    }
+
+    fun rememberCasualMix(songs: List<Song>) {
+        val previousIds = recentCasualIdsCsv
+            .split(',')
+            .filter { it.isNotBlank() }
+        recentCasualIdsCsv = (songs.map { it.id } + previousIds)
+            .distinct()
+            .take(localCount * 5)
+            .joinToString(",")
+    }
+
+    fun mergeRelatedPages(
+        current: Innertube.RelatedPage?,
+        incoming: Innertube.RelatedPage?
+    ): Innertube.RelatedPage? {
+        if (current == null) return incoming
+        if (incoming == null) return current
+
+        return Innertube.RelatedPage(
+            songs = (current.songs.orEmpty() + incoming.songs.orEmpty())
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+            playlists = (current.playlists.orEmpty() + incoming.playlists.orEmpty())
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+            albums = (current.albums.orEmpty() + incoming.albums.orEmpty())
+                .filter { item -> item.key.startsWith("MPR") }
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+            artists = (current.artists.orEmpty() + incoming.artists.orEmpty())
+                .filter { item -> item.key.startsWith("UC") }
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+        )
+    }
+
+    suspend fun loadRelatedForSeeds(seedSongs: List<Song>): Result<Innertube.RelatedPage?>? {
+        val pages = mutableListOf<Innertube.RelatedPage>()
+        val distinctSeeds = seedSongs
+            .filter { song -> song.id.isYouTubeVideoId() }
+            .distinctBy { song -> song.id }
+            .take(6)
+        for (seed in distinctSeeds) {
+            var page: Innertube.RelatedPage? = null
+            repeat(2) { attempt ->
+                if (page != null) return@repeat
+                page = runCatching { Innertube.relatedPage(NextBody(videoId = seed.id)) }
+                    .getOrNull()
+                    ?.getOrNull()
+                if (page == null && attempt == 0) delay(180L)
+            }
+            page?.let(pages::add)
+        }
+
+        if (pages.isEmpty()) return null
+
+        val merged = Innertube.RelatedPage(
+            songs = pages
+                .flatMap { page -> page.songs.orEmpty() }
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+            playlists = pages
+                .flatMap { page -> page.playlists.orEmpty() }
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+            albums = pages
+                .flatMap { page -> page.albums.orEmpty() }
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+            artists = pages
+                .flatMap { page -> page.artists.orEmpty() }
+                .distinctBy { item -> item.key }
+                .takeIf { items -> items.isNotEmpty() },
+        )
+        val hasContent = !merged.songs.isNullOrEmpty() ||
+            !merged.playlists.isNullOrEmpty() ||
+            !merged.albums.isNullOrEmpty() ||
+            !merged.artists.isNullOrEmpty()
+
+        return merged
+            .takeIf { hasContent }
+            ?.let { Result.success<Innertube.RelatedPage?>(it) }
+    }
+
+    suspend fun loadSimilarArtistShelves(seedSongs: List<Song>): List<SimilarArtistShelf> {
+        val seeds = seedSongs
+            .filter { song -> song.id.isYouTubeVideoId() }
+            .distinctBy(Song::primaryArtistKey)
+            .take(4)
+
+        return seeds.mapNotNull { seed ->
+            var page: Innertube.RelatedPage? = null
+            repeat(2) { attempt ->
+                if (page != null) return@repeat
+                page = runCatching { Innertube.relatedPage(NextBody(videoId = seed.id)) }
+                    .getOrNull()
+                    ?.getOrNull()
+                if (page == null && attempt == 0) delay(180L)
+            }
+
+            val seedName = seed.primaryArtistName()
+            val artists = page
+                ?.artists
+                .orEmpty()
+                .filter { artist ->
+                    artist.key.startsWith("UC") &&
+                        !artist.info?.name.isNullOrBlank() &&
+                        !artist.info?.name.equals(seedName, ignoreCase = true)
+                }
+                .distinctBy(Innertube.ArtistItem::key)
+                .take(14)
+
+            artists.takeIf(List<Innertube.ArtistItem>::isNotEmpty)
+                ?.let { SimilarArtistShelf(seedName = seedName, artists = it) }
+        }
+    }
+
     suspend fun buildCasualMix(
         personalizedHomeSongs: List<Song>,
         favoriteSongs: List<Song>,
         discoverySongs: List<Song>
     ): Pair<List<Song>, Result<Innertube.RelatedPage?>?> {
+        val recentIds = recentCasualIdsCsv
+            .split(',')
+            .filter { it.isNotBlank() }
+            .toSet()
+        val idsToAvoid = recentIds + trendingList.map { it.id }
         val playedIds = favoriteSongs.map { it.id }.toSet()
         val freshDiscoverySongs = discoverySongs
             .filter { song -> song.id !in playedIds }
             .distinctBy { it.id }
         val ytmPool = (casualFallbackSongs(personalizedHomeSongs) + freshDiscoverySongs)
             .distinctBy { it.id }
-        val seedCandidates = (personalizedHomeSongs + freshDiscoverySongs + favoriteSongs + ytmPool)
+        val allSeedCandidates = (personalizedHomeSongs + freshDiscoverySongs + favoriteSongs + ytmPool)
             .filter { it.id.isNotBlank() }
+            .distinctBy { it.id }
+        val freshSeedCandidates = allSeedCandidates.filterNot { it.id in idsToAvoid }
+        val seedCandidates = freshSeedCandidates.ifEmpty { allSeedCandidates }
             .shuffled()
             .artistVariety(maxPerArtist = 1)
         val preferredSeed = seedCandidates.firstOrNull()
         val seedSongs = seedCandidates.take(3).ifEmpty { listOfNotNull(preferredSeed) }
 
         mostPopularSong = preferredSeed ?: favoriteSongs.firstOrNull()
-        if (preferredSeed == null) return ytmPool.shuffled().take(localCount) to null
-
-        var firstRelatedResult: Result<Innertube.RelatedPage?>? = null
-        val relatedSongs = seedSongs.flatMapIndexed { index, seed ->
-            val relatedResult = runCatching {
-                Innertube.relatedPage(NextBody(videoId = seed.id))
-            }.getOrNull()
-            if (index == 0) firstRelatedResult = relatedResult
-            relatedResult
-                ?.getOrNull()
-                ?.songs
-                ?.map { it.asSong }
-                ?.filter { song -> song.id.isNotBlank() && song.title.isNotBlank() }
-                .orEmpty()
+        if (preferredSeed == null) {
+            val freshFallback = ytmPool.filterNot { it.id in idsToAvoid }
+            return freshFallback.ifEmpty { ytmPool }.shuffled().take(localCount) to null
         }
+
+        val relatedResult = loadRelatedForSeeds(seedSongs)
+        val relatedSongs = relatedResult
+            ?.getOrNull()
+            ?.songs
+            .orEmpty()
+            .map { it.asSong }
+            .filter { song -> song.id.isYouTubeVideoId() && song.title.isNotBlank() }
 
         val ytmQuota = if (personalizedHomeSongs.isNotEmpty()) {
             (localCount * 0.65f).toInt().coerceAtLeast(1)
@@ -560,17 +939,27 @@ fun HomeQuickPicks(
             0
         }
 
-        val mixedSongs = (
-            ytmPool.shuffled().take(ytmQuota) +
-                favoriteSongs.shuffled().take(favoriteQuota) +
-                relatedSongs
+        val balancedCandidates = interleaveSongPools(
+            listOf(
+                relatedSongs,
+                personalizedHomeSongs.take(ytmQuota * 2),
+                freshDiscoverySongs,
+                favoriteSongs.take(maxOf(favoriteQuota * 2, 2)),
+                ytmPool,
             )
-            .distinctBy { it.id }
-            .shuffled()
+        )
+        val unseenCandidates = balancedCandidates.filterNot { it.id in idsToAvoid }
+        val firstPass = unseenCandidates
+            .artistVariety(maxPerArtist = 1)
+            .take(localCount)
+        val fill = balancedCandidates
+            .filterNot { candidate -> firstPass.any { it.id == candidate.id } }
             .artistVariety(maxPerArtist = 2)
+        val mixedSongs = (firstPass + fill)
+            .distinctBy { it.id }
             .take(localCount)
 
-        return mixedSongs to firstRelatedResult
+        return mixedSongs to relatedResult
     }
 
     var downloadState by remember {
@@ -602,9 +991,17 @@ fun HomeQuickPicks(
     val showTips by rememberPreference(showTipsKey, true)
     val showCharts by rememberPreference(showChartsKey, true)
     // ===== NOTIFICATION MESSAGE =====
+    var cachedNotificationJson by rememberPreference("homeQuickPicksNotificationJson", "")
+    val cachedNotificationData = remember(cachedNotificationJson) {
+        notificationDataFromRawJson(cachedNotificationJson)
+    }
     var notificationResult by remember { mutableStateOf<Result<NotificationData?>?>(null) }
-    var notificationInit by remember { mutableStateOf<NotificationData?>(null) }
+    var notificationInit by remember { mutableStateOf(cachedNotificationData) }
     // ===== END NOTIFICATION MESSAGE =====
+
+    LaunchedEffect(cachedNotificationData) {
+        cachedNotificationData?.let { notificationInit = it }
+    }
 
     val refreshScope = rememberCoroutineScope()
     val last50Year: Duration = 18250.days
@@ -740,7 +1137,7 @@ fun HomeQuickPicks(
             }.takeIf { it >= 0 }
             ?: 0
         binder?.stopRadio()
-        PlaybackContextStore.set("Playing from Quick Picks", targetTitle.ifBlank { "Home" })
+        PlaybackContextStore.set(context.getString(R.string.playing_from_quick_picks), targetTitle.ifBlank { context.getString(R.string.home) })
         binder?.player?.forcePlayAtIndex(playableItems, startIndex)
     }
 
@@ -748,25 +1145,54 @@ fun HomeQuickPicks(
         items: List<YtmHomeSectionItem>,
         clickedItem: YtmHomeSectionItem
     ) {
+        val clickedSourceId = clickedItem.videoId.trim().ifBlank { clickedItem.id.trim() }
+        val clickedTitle = cleanPrefix(clickedItem.title).trim()
+        val clickedArtist = clickedItem.artistsText.trim()
+            .ifBlank { clickedItem.subtitle.trim() }
+        val clickedMediaId = if (clickedSourceId.isYouTubeVideoId()) {
+            clickedSourceId
+        } else {
+            withTimeoutOrNull(12_000L) {
+                findReplacementVideoId(
+                    videoId = clickedSourceId,
+                    titleHint = clickedTitle,
+                    artistHint = clickedArtist
+                )
+            }?.takeIf { it.isYouTubeVideoId() }
+        }
+
+        if (clickedMediaId == null) {
+            Timber.w(
+                "Home recommendation has no playable source id=%s title=%s",
+                clickedSourceId,
+                clickedTitle
+            )
+            app.kreate.android.me.knighthat.utils.Toaster.w(
+                "Searching could not find a playable version of this song"
+            )
+            return
+        }
+
         val queuedSongs = items.mapNotNull { sectionItem ->
-            sectionItem.asQuickPickSong()?.let { song ->
-                val resolvedSong = preferredCachedSong(song)
-                sectionItem to resolvedSong.asMediaItem
-            }
+            val rawSong = sectionItem.asQuickPickSong() ?: return@mapNotNull null
+            val sourceId = rawSong.id
+            val song = when {
+                sourceId.isYouTubeVideoId() -> rawSong
+                sectionItem == clickedItem -> rawSong.copy(id = clickedMediaId)
+                else -> null
+            } ?: return@mapNotNull null
+
+            val resolvedSong = preferredCachedSong(song)
+            sectionItem to resolvedSong.asMediaItem
         }
         if (queuedSongs.isEmpty()) return
 
-        val clickedMediaId = clickedItem.videoId.trim()
-        val clickedTitle = cleanPrefix(clickedItem.title).trim()
-        val clickedArtist = clickedItem.subtitle.trim()
-
         val exactIndex = queuedSongs.indexOfFirst { (sourceItem, mediaItem) ->
-            sourceItem.videoId.trim() == clickedMediaId &&
-                mediaItem.mediaMetadata.title?.toString()?.trim() == clickedTitle &&
-                mediaItem.mediaMetadata.artist?.toString().orEmpty().trim() == clickedArtist
+            sourceItem == clickedItem &&
+                mediaItem.mediaId == clickedMediaId
         }
-        val idIndex = queuedSongs.indexOfFirst { (sourceItem, _) ->
-            sourceItem.videoId.trim() == clickedMediaId
+        val idIndex = queuedSongs.indexOfFirst { (_, mediaItem) ->
+            mediaItem.mediaId == clickedMediaId
         }
         val metadataIndex = queuedSongs.indexOfFirst { (_, mediaItem) ->
             mediaItem.mediaMetadata.title?.toString()?.trim() == clickedTitle &&
@@ -775,16 +1201,24 @@ fun HomeQuickPicks(
         val startIndex = listOf(exactIndex, idIndex, metadataIndex).firstOrNull { it >= 0 } ?: 0
 
         binder?.stopRadio()
-        PlaybackContextStore.set("Playing from Quick Picks", clickedTitle.ifBlank { "Home" })
+        PlaybackContextStore.set(
+            context.getString(R.string.playing_from_quick_picks),
+            clickedTitle.ifBlank { context.getString(R.string.home) }
+        )
         binder?.player?.forcePlayAtIndex(queuedSongs.map { it.second }, startIndex)
     }
-
     suspend fun loadData(forceReload: Boolean = false) {
         if (appRunningInBackground) return
         coroutineScope {
+            val requestedChartsCountry = selectedCountryCode.name
+            val shouldFetchCharts = showCharts && (
+                chartsPageResult == null ||
+                    forceReload ||
+                    chartsPageCountryCode != requestedChartsCountry
+                )
             val chartsDeferred = async(Dispatchers.IO) {
-                if (showCharts && (chartsPageResult == null || forceReload)) {
-                    Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
+                if (shouldFetchCharts) {
+                    Innertube.chartsPageComplete(countryCode = requestedChartsCountry)
                 } else {
                     chartsPageResult
                 }
@@ -792,51 +1226,88 @@ fun HomeQuickPicks(
 
             val notificationDeferred = async(Dispatchers.IO) {
                 if (notificationResult == null || forceReload) {
-                    runCatching {
-                        val url = SecureApiConfig.cubicNotificationConfigUrl
-                        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                        connection.requestMethod = "GET"
-                        connection.connectTimeout = 2500
-                        connection.readTimeout = 2500
+                    runCatching<Pair<NotificationData?, String?>> {
+                        val sources = listOf(
+                            SecureApiConfig.cubicNotificationConfigUrl,
+                            SecureApiConfig.cubicNotificationConfigFallbackUrl
+                        )
+                        sources.firstNotNullOfOrNull { url ->
+                            runCatching {
+                                val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                                try {
+                                    connection.requestMethod = "GET"
+                                    connection.connectTimeout = 5_000
+                                    connection.readTimeout = 5_000
+                                    connection.setRequestProperty("Accept", "application/json")
 
-                        if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                            val response = connection.inputStream.bufferedReader().use { it.readText() }
-                            val json = org.json.JSONObject(response)
-                            val notificationJson = json.getJSONObject("notification")
-
-                            NotificationData(
-                                version = notificationJson.getString("version"),
-                                url = notificationJson.getString("url"),
-                                title = notificationJson.getString("title"),
-                                contents = notificationJson.getString("contents"),
-                                show = notificationJson.getBoolean("show"),
-                                is_force = notificationJson.getBoolean("is_force"),
-                                force_update = notificationJson.getBoolean("force_update"),
-                                isUpdate = notificationJson.getBoolean("isUpdate"),
-                                image_url = notificationJson.optString("image_url").takeUnless {
-                                    it.isBlank() || it.equals("null", ignoreCase = true)
-                                },
-                                showImage = notificationJson.optBoolean("show_image", true),
-                                showText = notificationJson.optBoolean("show_text", true)
-                            )
-                        } else {
-                            null
-                        }
+                                    if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                                        val parsedNotification = notificationDataFromRawJson(response)
+                                        parsedNotification?.let { it to response }
+                                    } else {
+                                        null
+                                    }
+                                } finally {
+                                    connection.disconnect()
+                                }
+                            }.getOrNull()
+                        } ?: (null to null)
                     }
                 } else {
-                    notificationResult
+                    notificationResult?.map { notification -> Pair(notification, null as String?) }
                 }
             }
 
             val discoverDeferred = async(Dispatchers.IO) {
                 if ((showNewAlbums || showNewAlbumsArtists || showMoodsAndGenres) && (discoverPageResult == null || forceReload)) {
-                    Innertube.discoverPage()
+                    if (!forceReload && HomeFeedSessionCache.discoverPage != null) {
+                        Result.success(HomeFeedSessionCache.discoverPage)
+                    } else {
+                        Innertube.discoverPage()
+                    }
                 } else {
                     discoverPageResult
                 }
             }
 
+            val guestHomeDeferred = async(Dispatchers.IO) {
+                val needsGuestHome =
+                    forceReload ||
+                        (selectedHomeChipParams.isBlank() && HomeFeedSessionCache.directHomePage == null) ||
+                        homePageResult == null ||
+                        homePageResult?.isFailure == true ||
+                        homePageResult?.getOrNull()?.sections.isNullOrEmpty()
+                if (needsGuestHome) {
+                    val cached = if (!forceReload && selectedHomeChipParams.isBlank()) {
+                        HomeFeedSessionCache.directHomePage
+                    } else {
+                        null
+                    }
+                    cached?.let { Result.success(it as HomePage?) }
+                        ?: YtMusic.getHomePage(
+                            setLogin = false,
+                            params = selectedHomeChipParams.takeIf(String::isNotBlank)
+                        ).map { it as HomePage? }
+                } else {
+                    homePageResult
+                }
+            }
+
+            val publicGuestHomeDeferred = async(Dispatchers.IO) {
+                val cached = if (!forceReload) HomeFeedSessionCache.publicGuestSections else null
+                cached?.let { Result.success(it) }
+                    ?: YtmSessionApi.fetchAllHomeFeed(
+                        cookies = "",
+                        guest = true,
+                        maxPages = 50,
+                        safetyCap = 5,
+                    ).map { feed -> feed.sections }
+            }
+
             val homeDeferred = async(Dispatchers.IO) {
+                val accountKey = activeYouTubeAccountIdentity.ifBlank {
+                    activeYouTubeCookie.hashCode().toString()
+                }
                 val shouldFetchSessionHomeFeed =
                     isYouTubeLoggedIn() && (
                         forceReload ||
@@ -845,20 +1316,24 @@ fun HomeQuickPicks(
                             sessionHomeFeedResult?.getOrNull().isNullOrEmpty()
                         )
                 if (shouldFetchSessionHomeFeed) {
+                    val cachedSignedSections = HomeFeedSessionCache.signedSections(accountKey)
                     val session = YouTubeSessionStore.applyCurrentSession(context)
                         ?.let { YtmSessionApi.ensureScopedSession(it) }
                     val cookie = session?.cookie?.takeIf { it.isNotBlank() }
                     if (cookie.isNullOrBlank()) {
-                        Result.success(null)
+                        Result.success(cachedSignedSections)
                     } else {
-                        YouTubeRequestThrottler.run {
+                        val fetched = YouTubeRequestThrottler.run {
                             YtmSessionApi.fetchAllHomeFeed(
                                 cookies = cookie,
                                 authUser = session.authUser.ifBlank { null },
                                 pageId = session.pageId.ifBlank { null },
-                                maxPages = 50
+                                maxPages = 50,
+                                safetyCap = 5
                             ).map { it.sections }
                         }
+                        if (fetched.isSuccess) fetched
+                        else cachedSignedSections?.let { Result.success(it) } ?: fetched
                     }
                 } else {
                     sessionHomeFeedResult
@@ -866,13 +1341,43 @@ fun HomeQuickPicks(
             }
 
             val likedSongsDeferred = async(Dispatchers.IO) {
-                if (isYouTubeLoggedIn()) currentAccountLikedSongs() else emptyList()
+                if (isYouTubeLoggedIn() && (forceReload || sessionLikedSongsPreview.isEmpty())) {
+                    currentAccountLikedSongs()
+                } else if (isYouTubeLoggedIn()) {
+                    sessionLikedSongsPreview
+                } else {
+                    emptyList()
+                }
             }
 
             chartsPageResult = chartsDeferred.await()
-            notificationResult = notificationDeferred.await()
+            if (shouldFetchCharts) {
+                chartsPageResult?.getOrNull()?.let { chartsPage ->
+                    chartsPageInit = chartsPage
+                    chartsPageCountryCode = requestedChartsCountry
+                }
+            }
+            val notificationFetch = notificationDeferred.await()
+            notificationResult = notificationFetch?.map { it.first }
+            notificationFetch?.getOrNull()?.second
+                ?.takeIf { it.isNotBlank() }
+                ?.let { cachedNotificationJson = it }
             discoverPageResult = discoverDeferred.await()
+            discoverPageResult?.getOrNull()?.let(HomeFeedSessionCache::storeDiscover)
+            homePageResult = guestHomeDeferred.await()
+            if (selectedHomeChipParams.isBlank()) {
+                homePageResult?.getOrNull()?.let(HomeFeedSessionCache::storeDirectHome)
+            }
+            publicGuestHomeFeedResult = publicGuestHomeDeferred.await()
+            publicGuestHomeFeedResult?.getOrNull()
+                ?.let(HomeFeedSessionCache::storePublicGuest)
             sessionHomeFeedResult = homeDeferred.await()
+            sessionHomeFeedResult?.getOrNull()?.let { sections ->
+                val accountKey = activeYouTubeAccountIdentity.ifBlank {
+                    activeYouTubeCookie.hashCode().toString()
+                }
+                HomeFeedSessionCache.storeSigned(accountKey, sections)
+            }
             sessionLikedSongsPreview = likedSongsDeferred.await()
         }
 
@@ -899,7 +1404,9 @@ fun HomeQuickPicks(
         val isUiHydrated =
             relatedInit != null &&
                 discoverPageInit != null &&
+                homePageInit != null &&
                 (!showCharts || chartsPageInit != null) &&
+                publicGuestHomeFeedResult != null &&
                 (!isYouTubeLoggedIn() || sessionHomeFeedInit != null || sessionHomeFeedResult != null)
 
         if (loadedData && !forceReload && isUiHydrated) return
@@ -917,13 +1424,7 @@ fun HomeQuickPicks(
                         trending = trendingList.firstOrNull()
                         mostPopularSong = trending
 
-                        if (relatedPageResult == null ||
-                            trending?.id != trendingList.firstOrNull()?.id
-                        ) {
-                            relatedPageResult = Innertube.relatedPage(
-                                NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
-                            )
-                        }
+                        relatedPageResult = loadRelatedForSeeds(trendingList.take(3))
                     }
 
                     PlayEventsType.LastPlayed -> {
@@ -936,13 +1437,7 @@ fun HomeQuickPicks(
                         trending = trendingList.firstOrNull()
                         mostPopularSong = trending
 
-                        if (relatedPageResult == null ||
-                            trending?.id != trendingList.firstOrNull()?.id
-                        ) {
-                            relatedPageResult = Innertube.relatedPage(
-                                NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
-                            )
-                        }
+                        relatedPageResult = loadRelatedForSeeds(trendingList.take(3))
                     }
 
                     PlayEventsType.CasualPlayed -> {
@@ -955,7 +1450,7 @@ fun HomeQuickPicks(
                         val personalizedHomeSongs = if (isYouTubeLoggedIn()) {
                             (homePersonalizedSongs() + accountLikedSongs).distinctBy { it.id }
                         } else {
-                            emptyList()
+                            legacyHomePersonalizedSongs()
                         }
                         val casualSongs = casualFallbackSongs(personalizedHomeSongs)
                         showNewUserMessage = personalizedHomeSongs.isEmpty() && favoriteSongs.isEmpty() && casualSongs.isEmpty()
@@ -967,13 +1462,12 @@ fun HomeQuickPicks(
                         )
 
                         trendingList = mixedSongs.ifEmpty { casualSongs.shuffled().take(localCount) }
+                        rememberCasualMix(trendingList)
                         trending = trendingList.firstOrNull()
                         relatedPageResult = relatedResult
 
-                        if (relatedPageResult == null && trending != null) {
-                            relatedPageResult = Innertube.relatedPage(
-                                NextBody(videoId = trending!!.id)
-                            )
+                        if (relatedPageResult?.getOrNull() == null && trendingList.isNotEmpty()) {
+                            relatedPageResult = loadRelatedForSeeds(trendingList.take(3))
                         }
                     }
                 }
@@ -1012,6 +1506,15 @@ fun HomeQuickPicks(
     }
 
     LaunchedEffect(playEventType) {
+        val cachedRelatedPage = relatedPageResult?.getOrNull() ?: relatedInit
+        val hasRelatedContent = cachedRelatedPage?.let { page ->
+            !page.songs.isNullOrEmpty() ||
+                !page.playlists.isNullOrEmpty() ||
+                !page.albums.isNullOrEmpty() ||
+                !page.artists.isNullOrEmpty()
+        } == true
+        if (loadedData && trendingList.isNotEmpty() && hasRelatedContent) return@LaunchedEffect
+
         // Only reset trending-related data
         trendingList = emptyList()
         trending = null
@@ -1032,13 +1535,7 @@ fun HomeQuickPicks(
                                 trending = trendingList.firstOrNull()
                                 mostPopularSong = trending
 
-                                if (relatedPageResult == null ||
-                                    trending?.id != trendingList.firstOrNull()?.id
-                                ) {
-                                    relatedPageResult = Innertube.relatedPage(
-                                        NextBody(videoId = trending?.id ?: "rY2LUmLw_DQ")
-                                    )
-                                }
+                                relatedPageResult = loadRelatedForSeeds(trendingList.take(3))
                                 return@collect
                             }
                     }
@@ -1052,13 +1549,7 @@ fun HomeQuickPicks(
                                 trending = trendingList.firstOrNull()
                                 mostPopularSong = trending
 
-                                if (relatedPageResult == null ||
-                                    trending?.id != trendingList.firstOrNull()?.id
-                                ) {
-                                    relatedPageResult = Innertube.relatedPage(
-                                        NextBody(videoId = trending?.id ?: "DCYmJDO2_IE")
-                                    )
-                                }
+                                relatedPageResult = loadRelatedForSeeds(trendingList.take(3))
                                 return@collect
                             }
                     }
@@ -1073,7 +1564,7 @@ fun HomeQuickPicks(
                                 val personalizedHomeSongs = if (isYouTubeLoggedIn()) {
                                     (homePersonalizedSongs() + accountLikedSongs).distinctBy { it.id }
                                 } else {
-                                    emptyList()
+                                    legacyHomePersonalizedSongs()
                                 }
                                 val casualSongs = casualFallbackSongs(personalizedHomeSongs)
                                 showNewUserMessage = personalizedHomeSongs.isEmpty() && favoriteSongs.isEmpty() && casualSongs.isEmpty()
@@ -1085,14 +1576,15 @@ fun HomeQuickPicks(
                                 )
 
                                 trendingList = mixedSongs.ifEmpty { casualSongs.shuffled().take(localCount) }
+                                rememberCasualMix(trendingList)
                                 trending = trendingList.firstOrNull()
                                 relatedPageResult = relatedResult
 
-                                if (relatedPageResult == null && trending != null) {
-                                    relatedPageResult = Innertube.relatedPage(
-                                        NextBody(videoId = trending!!.id)
-                                    )
+                                if (relatedPageResult?.getOrNull() == null && trendingList.isNotEmpty()) {
+                                    relatedPageResult = loadRelatedForSeeds(trendingList.take(3))
                                 }
+                                relatedInit = relatedPageResult?.getOrNull()
+                                relatedPreference = relatedInit
                                 return@collect
                             }
                     }
@@ -1101,20 +1593,57 @@ fun HomeQuickPicks(
         }
     }
 
+    LaunchedEffect(
+        playEventType,
+        showRelatedAlbums,
+        showSimilarArtists,
+        trendingList.joinToString(separator = ",") { song -> song.id }
+    ) {
+        if (trendingList.isEmpty()) return@LaunchedEffect
+
+        val current = relatedPageResult?.getOrNull() ?: relatedInit
+        val albumsMissing = showRelatedAlbums && current?.albums.isNullOrEmpty()
+        val artistsMissing = showSimilarArtists && current?.artists.isNullOrEmpty()
+        if (!albumsMissing && !artistsMissing) return@LaunchedEffect
+
+        val refreshed = withContext(Dispatchers.IO) {
+            loadRelatedForSeeds(trendingList)
+        }?.getOrNull()
+        val merged = mergeRelatedPages(current, refreshed)
+        if (merged != null) {
+            relatedPageResult = Result.success(merged)
+            relatedInit = merged
+            relatedPreference = merged
+            Timber.d(
+                "Related home shelves refreshed albums=%s artists=%s seeds=%s",
+                merged.albums.orEmpty().size,
+                merged.artists.orEmpty().size,
+                trendingList.count { song -> song.id.isYouTubeVideoId() }
+            )
+        }
+    }
+
+    LaunchedEffect(
+        showSimilarArtists,
+        trendingList.joinToString(separator = ",") { song -> song.id }
+    ) {
+        if (!showSimilarArtists || trendingList.isEmpty()) {
+            similarArtistShelves = emptyList()
+            return@LaunchedEffect
+        }
+
+        similarArtistShelves = withContext(Dispatchers.IO) {
+            loadSimilarArtistShelves(trendingList)
+        }
+    }
+
     LaunchedEffect(activeYouTubeCookie, activeYouTubeSessionId, activeYouTubeAccountIdentity) {
         if (!YouTubeSessionStore.hasAuthCookies(activeYouTubeCookie)) {
-            homePageResult = null
-            homePageInit = null
-            homePagePreference = null
-            homePageSessionId = ""
-            homePageAccountHandle = ""
             sessionHomeFeedResult = null
             sessionHomeFeedInit = null
             sessionHomeFeedSessionId = ""
             sessionHomeFeedAccountHandle = ""
             sessionLikedSongsPreview = emptyList()
-            selectedHomeChipTitle = ""
-            selectedHomeChipParams = ""
             return@LaunchedEffect
         }
 
@@ -1122,38 +1651,49 @@ fun HomeQuickPicks(
             activeYouTubeSessionId.isNotBlank() &&
             (homePageSessionId != activeYouTubeSessionId || homePageAccountHandle != activeYouTubeAccountIdentity)
         ) {
-            homePageResult = null
-            homePageInit = null
-            homePagePreference = null
-            homePageSessionId = activeYouTubeSessionId
-            homePageAccountHandle = activeYouTubeAccountIdentity
             sessionHomeFeedResult = null
             sessionHomeFeedInit = null
             sessionHomeFeedSessionId = activeYouTubeSessionId
             sessionHomeFeedAccountHandle = activeYouTubeAccountIdentity
             sessionLikedSongsPreview = emptyList()
-            selectedHomeChipTitle = ""
-            selectedHomeChipParams = ""
             loadData(forceReload = false)
         }
     }
 
-    LaunchedEffect(selectedCountryCode) {
-        if (showCharts) {
-            chartsPageResult = Innertube.chartsPageComplete(
-                countryCode = selectedCountryCode.name
-            )
-            chartsPageInit = chartsPageResult?.getOrNull() ?: chartsPageInit
+    LaunchedEffect(selectedCountryCode, showCharts) {
+        val requestedCountry = selectedCountryCode.name
+        if (!showCharts || chartsPageCountryCode == requestedCountry) return@LaunchedEffect
+
+        val result = withContext(Dispatchers.IO) {
+            Innertube.chartsPageComplete(countryCode = requestedCountry)
+        }
+        if (selectedCountryCode.name != requestedCountry) return@LaunchedEffect
+
+        chartsPageResult = result
+        result?.getOrNull()?.let { chartsPage ->
+            chartsPageInit = chartsPage
+            chartsPageCountryCode = requestedCountry
         }
     }
 
     LaunchedEffect(Unit) {
+        if (selectedHomeChipTitle.isNotBlank() || selectedHomeChipParams.isNotBlank()) {
+            selectedHomeChipTitle = ""
+            selectedHomeChipParams = ""
+            homePageResult = null
+            homePageInit = null
+            homePagePreference = null
+        }
+        val needsGuestHomeFeed = HomeFeedSessionCache.directHomePage == null
+        val needsPublicGuestHomeFeed = publicGuestHomeFeedResult == null
         val needsSignedInHomeFeed =
             isYouTubeLoggedIn() && sessionHomeFeedInit == null && sessionHomeFeedResult == null
         val shouldLoad =
             !loadedData ||
                 relatedInit == null ||
                 discoverPageInit == null ||
+                needsGuestHomeFeed ||
+                needsPublicGuestHomeFeed ||
                 (showCharts && chartsPageInit == null) ||
                 needsSignedInHomeFeed
 
@@ -1161,9 +1701,13 @@ fun HomeQuickPicks(
     }
 
     var refreshing by remember { mutableStateOf(false) }
+    var lastManualRefreshMs by remember { mutableStateOf(0L) }
 
     fun refresh() {
         if (refreshing || appRunningInBackground) return
+        val now = System.currentTimeMillis()
+        if (now - lastManualRefreshMs < 30_000L) return
+        lastManualRefreshMs = now
 
         refreshScope.launch(Dispatchers.IO) {
             if (appRunningInBackground) return@launch
@@ -1183,6 +1727,15 @@ fun HomeQuickPicks(
 
             delay(500)
             refreshing = false
+        }
+    }
+
+    fun selectPlayEventType(target: PlayEventsType) {
+        if (playEventType == target) {
+            refresh()
+        } else {
+            loadedData = false
+            playEventType = target
         }
     }
 
@@ -1224,6 +1777,142 @@ fun HomeQuickPicks(
     val hapticFeedback = LocalHapticFeedback.current
 
     val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
+    val signedApiHomeSections = remember(sessionHomeFeedResult, sessionHomeFeedInit) {
+        sessionHomeFeedResult?.getOrNull() ?: sessionHomeFeedInit.orEmpty()
+    }
+    val guestApiHomeSections = remember(publicGuestHomeFeedResult) {
+        publicGuestHomeFeedResult?.getOrNull().orEmpty()
+    }
+    val liveApiHomeSections = remember(signedApiHomeSections, guestApiHomeSections) {
+        mergeYtmHomeSections(signedApiHomeSections, guestApiHomeSections)
+    }
+    val activeRelatedPage = relatedPageResult?.getOrNull() ?: relatedInit
+    val newReleaseApiSections = remember(liveApiHomeSections) {
+        liveApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.NEW_RELEASES }
+    }
+    val newAlbumApiSections = remember(liveApiHomeSections) {
+        liveApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.NEW_ALBUMS }
+    }
+    val relatedAlbumApiSections = remember(liveApiHomeSections) {
+        liveApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.RELATED_ALBUMS }
+    }
+    val similarArtistApiSections = remember(liveApiHomeSections) {
+        liveApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.SIMILAR_ARTISTS }
+    }
+    val tasteInnertubeArtists = remember(activeRelatedPage) {
+        activeRelatedPage
+            ?.artists
+            .orEmpty()
+            .filter { artist -> artist.key.isNotBlank() && !artist.info?.name.isNullOrBlank() }
+            .distinctBy(Innertube.ArtistItem::key)
+    }
+    val tasteInnertubeArtistIds = remember(tasteInnertubeArtists) {
+        tasteInnertubeArtists.mapTo(mutableSetOf(), Innertube.ArtistItem::key)
+    }
+    val tasteSessionArtistItems = remember(similarArtistApiSections, tasteInnertubeArtistIds) {
+        similarArtistApiSections
+            .flatMap(YtmHomeSection::items)
+            .filter { item -> item.type.equals("artist", ignoreCase = true) }
+            .filter { item -> item.title.isNotBlank() && item.artistDestinationId().isNotBlank() }
+            .distinctBy(YtmHomeSectionItem::artistDestinationId)
+            .filterNot { item -> item.artistDestinationId() in tasteInnertubeArtistIds }
+    }
+    val hasTasteArtistRecommendations =
+        tasteInnertubeArtists.isNotEmpty() || tasteSessionArtistItems.isNotEmpty()
+    val guestQuickPickSections = remember(guestApiHomeSections) {
+        guestApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.QUICK_PICKS }
+    }
+    val topArtistApiSections = remember(liveApiHomeSections) {
+        liveApiHomeSections.filter { homeQuickSectionGroup(it.title) == HomeQuickSectionGroup.TOP_ARTISTS }
+    }
+    val remainingApiHomeSections = remember(liveApiHomeSections) {
+        liveApiHomeSections
+            .filter { section ->
+                homeQuickSectionGroup(section.title) == HomeQuickSectionGroup.OTHER &&
+                    section.items.isNotEmpty()
+            }
+            .sortedBy { section -> section.title.lowercase() }
+    }
+    val playApiHomeItem: (List<YtmHomeSectionItem>, YtmHomeSectionItem) -> Unit =
+        { sectionItems, item ->
+            refreshScope.launch {
+                playSessionHomeSectionItems(sectionItems, item)
+            }
+        }
+    val tasteSessionPlaylistItems = remember(liveApiHomeSections) {
+        liveApiHomeSections
+            .filter { section -> isTastePlaylistSection(section.title) }
+            .flatMap(YtmHomeSection::items)
+            .filter { item -> item.type.equals("playlist", ignoreCase = true) }
+            .distinctBy { item -> item.playlistId.ifBlank { item.browseId } }
+            .filter { item -> item.playlistId.isNotBlank() || item.browseId.isNotBlank() }
+    }
+    val tasteGuestPlaylistItems = remember(homePageResult, homePageInit) {
+        (homePageResult?.getOrNull() ?: homePageInit)
+            ?.sections
+            .orEmpty()
+            .filter { section -> isTastePlaylistSection(section.title) }
+            .flatMap(HomePage.Section::items)
+            .filterIsInstance<Innertube.PlaylistItem>()
+            .distinctBy(Innertube.PlaylistItem::key)
+            .filter { item -> item.key.isNotBlank() }
+    }
+    val allHitsPlaylistIds = remember(liveApiHomeSections, homePageResult, homePageInit) {
+        buildSet {
+            liveApiHomeSections
+                .filter { section -> section.title.contains("all hits", ignoreCase = true) }
+                .flatMap(YtmHomeSection::items)
+                .forEach { item ->
+                    normalizedPlaylistId(item.playlistId.ifBlank { item.browseId })
+                        .takeIf(String::isNotBlank)
+                        ?.let(::add)
+                }
+            (homePageResult?.getOrNull() ?: homePageInit)
+                ?.sections
+                .orEmpty()
+                .filter { section -> section.title.contains("all hits", ignoreCase = true) }
+                .flatMap(HomePage.Section::items)
+                .filterIsInstance<Innertube.PlaylistItem>()
+                .forEach { item ->
+                    normalizedPlaylistId(item.key)
+                        .takeIf(String::isNotBlank)
+                        ?.let(::add)
+                }
+        }
+    }
+    val radioPlaylistItems = remember(activeRelatedPage) {
+        activeRelatedPage
+            ?.playlists
+            .orEmpty()
+            .distinctBy(Innertube.PlaylistItem::key)
+            .filter { item -> item.key.isNotBlank() }
+    }
+    val uniqueRadioPlaylistItems = remember(radioPlaylistItems, allHitsPlaylistIds) {
+        radioPlaylistItems.filterNot { item ->
+            normalizedPlaylistId(item.key) in allHitsPlaylistIds
+        }
+    }
+    val uniqueSessionPlaylistItems = remember(tasteSessionPlaylistItems, allHitsPlaylistIds) {
+        tasteSessionPlaylistItems.filterNot { item ->
+            normalizedPlaylistId(item.playlistId.ifBlank { item.browseId }) in allHitsPlaylistIds
+        }
+    }
+    val uniqueGuestPlaylistItems = remember(tasteGuestPlaylistItems, allHitsPlaylistIds) {
+        tasteGuestPlaylistItems.filterNot { item ->
+            normalizedPlaylistId(item.key) in allHitsPlaylistIds
+        }
+    }
+    val hasTastePlaylistRecommendations =
+        uniqueRadioPlaylistItems.isNotEmpty() ||
+            uniqueSessionPlaylistItems.isNotEmpty() ||
+            uniqueGuestPlaylistItems.isNotEmpty()
+    val hasRenderableHomeContent =
+        trendingList.isNotEmpty() ||
+            activeRelatedPage != null ||
+            discoverPageInit != null ||
+            homePageInit?.sections.orEmpty().isNotEmpty() ||
+            liveApiHomeSections.isNotEmpty() ||
+            chartsPageInit != null
 
     PullToRefreshBox(
         isRefreshing = refreshing,
@@ -1295,7 +1984,7 @@ fun HomeQuickPicks(
                                             icon = R.drawable.chevron_up,
                                             text = stringResource(R.string.by_most_played_song),
                                             onClick = {
-                                                playEventType = PlayEventsType.MostPlayed
+                                                selectPlayEventType(PlayEventsType.MostPlayed)
                                                 menuState.hide()
                                             }
                                         )
@@ -1303,7 +1992,7 @@ fun HomeQuickPicks(
                                             icon = R.drawable.chevron_down,
                                             text = stringResource(R.string.by_last_played_song),
                                             onClick = {
-                                                playEventType = PlayEventsType.LastPlayed
+                                                selectPlayEventType(PlayEventsType.LastPlayed)
                                                 menuState.hide()
                                             }
                                         )
@@ -1311,7 +2000,7 @@ fun HomeQuickPicks(
                                             icon = R.drawable.random,
                                             text = stringResource(R.string.by_casual_played_song),
                                             onClick = {
-                                                playEventType = PlayEventsType.CasualPlayed
+                                                selectPlayEventType(PlayEventsType.CasualPlayed)
                                                 menuState.hide()
                                             }
                                         )
@@ -1381,7 +2070,7 @@ fun HomeQuickPicks(
                                             )
                                         }.distinctBy { it.mediaId }
                                         binder?.stopRadio()
-                                        PlaybackContextStore.set("Playing from Quick Picks", context.resources.getString(playEventType.textId))
+                                        PlaybackContextStore.set(context.getString(R.string.playing_from_quick_picks), context.resources.getString(playEventType.textId))
                                         binder?.player?.forcePlayAtIndex(queue, 0)
                                     }
                                 },
@@ -1389,7 +2078,7 @@ fun HomeQuickPicks(
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.play),
-                                    contentDescription = "Play",
+                                    contentDescription = stringResource(R.string.play),
                                     tint = colorPalette().text
                                 )
                             }
@@ -1405,7 +2094,8 @@ fun HomeQuickPicks(
                     )
 
                     if (relatedPageResult != null) {
-                        // Prepare the final list: localCount locals + YT recommendations, then shuffle to show max 21 songs
+                        // Keep a compact 3 x 5 discovery set: three vertical rows and
+                        // five horizontal columns of real recommendations.
 
                         // KEEP the persistList for persistence
                         var recommendations by persistList<Song>("home/quickpicks/recommendations_list")
@@ -1414,9 +2104,11 @@ fun HomeQuickPicks(
                         LaunchedEffect(trendingList, relatedInit, localCount, playEventType) {
                             val mainIds = trendingList.map { it.id }.toSet()
 
-                            // Create a stable seed based on the content IDs for consistent shuffling
+                            // Keep recommendations stable during the day while rotating discovery daily.
+                            val discoveryDay = System.currentTimeMillis() / 86_400_000L
                             val seed = (trendingList.joinToString { it.id } +
-                                (relatedInit?.songs?.joinToString { it.key } ?: "")).hashCode()
+                                (relatedInit?.songs?.joinToString { it.key } ?: "") +
+                                discoveryDay).hashCode()
                             val random = kotlin.random.Random(seed)
 
                             val newRecommendations = if (playEventType == PlayEventsType.MostPlayed ||
@@ -1427,20 +2119,20 @@ fun HomeQuickPicks(
                                     ?.map { it.asSong }
                                     ?.filter { it.id !in mainIds }
                                     ?.distinctBy { it.id }
-                                    ?.take(21 - (1 + others.size))
+                                    ?.take((15 - (1 + others.size)).coerceAtLeast(0))
                                     .orEmpty()
                                 val total = (others + relatedSongs)
-                                val extra = if (total.size < 21) {
+                                val extra = if (total.size < 15) {
                                     relatedInit?.songs
                                         ?.map { it.asSong }
                                         ?.filter { it.id !in (others.map { s -> s.id } + (first?.id ?: "")) }
                                         ?.distinctBy { it.id }
-                                        ?.take(21 - total.size)
+                                        ?.take((15 - total.size).coerceAtLeast(0))
                                         .orEmpty()
                                 } else emptyList()
 
                                 // Use seeded random for consistent shuffling
-                                (listOfNotNull(first) + (total + extra)).shuffled(random).distinctBy { it.id }
+                                (listOfNotNull(first) + (total + extra)).shuffled(random).distinctBy { it.id }.take(15)
                             } else {
                                 // Random Mode will randomize the list: all mixed
                                 val locals = trendingList.take(localCount)
@@ -1448,20 +2140,20 @@ fun HomeQuickPicks(
                                     ?.map { it.asSong }
                                     ?.filter { it.id !in locals.map { it.id } }
                                     ?.distinctBy { it.id }
-                                    ?.take(21 - locals.size)
+                                    ?.take((15 - locals.size).coerceAtLeast(0))
                                     .orEmpty()
                                 val total = (locals + relatedSongs)
-                                val extra = if (total.size < 21) {
+                                val extra = if (total.size < 15) {
                                     relatedInit?.songs
                                         ?.map { it.asSong }
                                         ?.filter { it.id !in total.map { s -> s.id } }
                                         ?.distinctBy { it.id }
-                                        ?.take(21 - total.size)
+                                        ?.take((15 - total.size).coerceAtLeast(0))
                                         .orEmpty()
                                 } else emptyList()
 
                                 // Use seeded random for consistent shuffling
-                                (total + extra).shuffled(random).distinctBy { it.id }
+                                (total + extra).shuffled(random).distinctBy { it.id }.take(15)
                             }
 
                             // Update the persisted recommendations
@@ -1470,24 +2162,19 @@ fun HomeQuickPicks(
 
                         LazyHorizontalGrid(
                             state = quickPicksLazyGridState,
-                            rows = GridCells.Fixed(if (relatedInit != null) 3 else 1),
+                            rows = GridCells.Fixed(3),
                             flingBehavior = ScrollableDefaults.flingBehavior(),
                             contentPadding = endPaddingValues,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(
-                                    if (relatedInit != null)
-                                        Dimensions.itemsVerticalPadding * 3 * 9
-                                    else
-                                        Dimensions.itemsVerticalPadding * 9
-                                )
+                                .height(Dimensions.itemsVerticalPadding * 3 * 9)
                         ) {
                             items(recommendations, key = { it.id }) { song ->
                                 app.kreate.android.me.knighthat.component.SongItem(
                                     song = song,
                                     navController = navController,
                                     onClick = {
-                                        PlaybackContextStore.set("Playing from Quick Picks", context.resources.getString(playEventType.textId))
+                                        PlaybackContextStore.set(context.getString(R.string.playing_from_quick_picks), context.resources.getString(playEventType.textId))
                                         binder?.startRadio(song, true)
                                     },
                                     modifier = Modifier.width(itemInHorizontalGridWidth),
@@ -1572,125 +2259,15 @@ fun HomeQuickPicks(
                     }
                 }                // ===== END NOTIFICATION MESSAGE SECTION =====
 
-                if (isYouTubeLoggedIn()) {
-                    if (sessionLikedSongsPreview.isNotEmpty()) {
-                        val likedSongsPreview = sessionLikedSongsPreview
-                            .distinctBy { it.id }
-                            .take(14)
-                        TitleMiniSection(
-                            stringResource(R.string.ytm_likes_title),
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 24.dp, bottom = 8.dp)
-                        )
+                YtmHomeFeedSections(
+                    sections = newReleaseApiSections,
+                    endPaddingValues = endPaddingValues,
+                    onPlayableClick = playApiHomeItem,
+                    onAlbumClick = onAlbumClick,
+                    onArtistClick = onArtistClick,
+                    onPlaylistClick = onPlaylistClick,
+                )
 
-                        LazyHorizontalGrid(
-                            rows = GridCells.Fixed(2),
-                            modifier = Modifier
-                                .height(126.dp)
-                                .fillMaxWidth(),
-                            state = ytmLikesLazyGridState,
-                            flingBehavior = ScrollableDefaults.flingBehavior(),
-                            contentPadding = endPaddingValues,
-                        ) {
-                            itemsIndexed(
-                                items = likedSongsPreview,
-                                key = { _, song -> song.id }
-                            ) { index, song ->
-                                app.kreate.android.me.knighthat.component.SongItem(
-                                    song = song,
-                                    modifier = Modifier
-                                        .width(itemInHorizontalGridWidth),
-                                    navController = navController,
-                                    onClick = {
-                                            val queue = likedSongsPreview
-                                                .map(Song::asMediaItem)
-                                                .distinctBy { it.mediaId }
-                                            val startIndex = queue.indexOfFirst { it.mediaId == song.id }
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlayAtIndex(
-                                                queue,
-                                                startIndex.takeIf { it >= 0 } ?: index
-                                            )
-                                    },
-                                    trailingContent = {
-                                        HeaderIconButton(
-                                            icon = R.drawable.ellipsis_horizontal,
-                                            color = colorPalette().textSecondary,
-                                            onClick = {
-                                                menuState.display {
-                                                    NonQueuedMediaItemGridMenu(
-                                                        navController = navController,
-                                                        mediaItem = song.asMediaItem,
-                                                        onDismiss = menuState::hide,
-                                                        disableScrollingText = disableScrollingText
-                                                    )
-                                                }
-                                            },
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    if (syncedYtmArtists.isNotEmpty()) {
-                        TitleMiniSection(
-                            "Artists from your YT Music account",
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 14.dp, bottom = 4.dp)
-                        )
-
-                        LazyRow(contentPadding = endPaddingValues) {
-                            items(
-                                items = syncedYtmArtists.take(16),
-                                key = { artist -> artist.id }
-                            ) { artist ->
-                                ArtistItem(
-                                    artist = artist,
-                                    thumbnailSizePx = artistThumbnailSizePx,
-                                    thumbnailSizeDp = artistThumbnailSizeDp,
-                                    alternative = true,
-                                    modifier = Modifier.clickable {
-                                        onArtistClick(artist.id)
-                                    },
-                                    disableScrollingText = disableScrollingText,
-                                    isYoutubeArtist = artist.isYoutubeArtist
-                                )
-                            }
-                        }
-                    }
-
-                    if (syncedYtmAlbums.isNotEmpty()) {
-                        TitleMiniSection(
-                            "Albums from your YT Music account",
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 14.dp, bottom = 4.dp)
-                        )
-
-                        LazyRow(contentPadding = endPaddingValues) {
-                            items(
-                                items = syncedYtmAlbums.take(16),
-                                key = { album -> album.id }
-                            ) { album ->
-                                AlbumItem(
-                                    album = album,
-                                    thumbnailSizePx = albumThumbnailSizePx,
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true,
-                                    modifier = Modifier.clickable {
-                                        onAlbumClick(album.id)
-                                    },
-                                    disableScrollingText = disableScrollingText,
-                                    isYoutubeAlbum = album.isYoutubeAlbum
-                                )
-                            }
-                        }
-                    }
-                }
 
                 discoverPageInit?.let { page ->
                     val artists by remember {
@@ -1758,8 +2335,20 @@ fun HomeQuickPicks(
                             }
                         }
                     }
+
+
                 }
 
+                if (discoverPageInit?.newReleaseAlbums.isNullOrEmpty()) {
+                    YtmHomeFeedSections(
+                        sections = newAlbumApiSections,
+                        endPaddingValues = endPaddingValues,
+                        onPlayableClick = playApiHomeItem,
+                        onAlbumClick = onAlbumClick,
+                        onArtistClick = onArtistClick,
+                        onPlaylistClick = onPlaylistClick,
+                    )
+                }
                 // Show only from December 6th (month=11, day>=6) to December 31st (month=11, day<=31)
                 if (currentMonth == 11 && currentDay in 6..31) {
                     val currentYear = calendar.get(java.util.Calendar.YEAR)
@@ -1827,7 +2416,7 @@ fun HomeQuickPicks(
                 // ===== END REWIND SECTION =====
 
                 if (showRelatedAlbums)
-                    relatedInit?.albums?.let { albums ->
+                    activeRelatedPage?.albums?.takeIf { it.isNotEmpty() }?.let { albums ->
                         BasicText(
                             text = stringResource(R.string.related_albums),
                             style = typography().l.semiBold,
@@ -1852,62 +2441,155 @@ fun HomeQuickPicks(
                         }
                     }
 
-                if (showSimilarArtists)
-                    relatedInit?.artists?.let { artists ->
+
+                if (showRelatedAlbums && activeRelatedPage?.albums.isNullOrEmpty()) {
+                    YtmHomeFeedSections(
+                        sections = relatedAlbumApiSections,
+                        endPaddingValues = endPaddingValues,
+                        onPlayableClick = playApiHomeItem,
+                        onAlbumClick = onAlbumClick,
+                        onArtistClick = onArtistClick,
+                        onPlaylistClick = onPlaylistClick,
+                    )
+                }
+                if (showSimilarArtists && hasTasteArtistRecommendations) {
+                    BasicText(
+                        text = stringResource(R.string.artists_for_your_taste),
+                        style = typography().l.semiBold,
+                        modifier = sectionTextModifier
+                    )
+
+                    LazyRow(contentPadding = endPaddingValues) {
+                        items(
+                            items = tasteInnertubeArtists.take(18),
+                            key = { artist -> "taste_innertube_${artist.key}" },
+                        ) { artist ->
+                            ArtistItem(
+                                artist = artist,
+                                thumbnailSizePx = artistThumbnailSizePx,
+                                thumbnailSizeDp = artistThumbnailSizeDp,
+                                alternative = true,
+                                modifier = Modifier.clickable { onArtistClick(artist.key) },
+                                disableScrollingText = disableScrollingText
+                            )
+                        }
+
+                        items(
+                            items = tasteSessionArtistItems.take(
+                                (18 - tasteInnertubeArtists.size).coerceAtLeast(0)
+                            ),
+                            key = { item -> "taste_session_${item.artistDestinationId()}" },
+                        ) { item ->
+                            YtmHomeCard(
+                                title = item.title,
+                                subtitle = item.subtitle.ifBlank { item.artistsText },
+                                thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
+                                imageWidth = 104.dp,
+                                imageHeight = 104.dp,
+                                rounded = false,
+                                modifier = Modifier.clickable {
+                                    onArtistClick(item.artistDestinationId())
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (showSimilarArtists) {
+                    similarArtistShelves.forEach { shelf ->
                         BasicText(
-                            text = stringResource(R.string.similar_artists),
+                            text = stringResource(R.string.similar_to_artist, shelf.seedName),
                             style = typography().l.semiBold,
                             modifier = sectionTextModifier
                         )
 
                         LazyRow(contentPadding = endPaddingValues) {
                             items(
-                                items = artists.distinctBy { it.key },
-                                key = { artist -> artist.key.takeIf { it.isNotBlank() } ?: "artist_${artist.info?.name.orEmpty()}" },
+                                items = shelf.artists,
+                                key = { artist -> "similar_${shelf.seedName}_${artist.key}" },
                             ) { artist ->
                                 ArtistItem(
                                     artist = artist,
                                     thumbnailSizePx = artistThumbnailSizePx,
                                     thumbnailSizeDp = artistThumbnailSizeDp,
                                     alternative = true,
-                                    modifier = Modifier
-                                        .clickable(onClick = { onArtistClick(artist.key) }),
+                                    modifier = Modifier.clickable { onArtistClick(artist.key) },
                                     disableScrollingText = disableScrollingText
                                 )
                             }
                         }
                     }
+                }
 
-                if (showPlaylistMightLike)
-                    relatedInit?.playlists?.let { playlists ->
-                        BasicText(
-                            text = stringResource(R.string.playlists_you_might_like),
-                            style = typography().l.semiBold,
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 24.dp, bottom = 8.dp)
-                        )
+                if (showPlaylistMightLike && hasTastePlaylistRecommendations) {
+                    BasicText(
+                        text = stringResource(R.string.playlists_you_might_like),
+                        style = typography().l.semiBold,
+                        modifier = sectionTextModifier
+                    )
 
-                        LazyRow(contentPadding = endPaddingValues) {
-                            items(
-                                items = playlists.distinctBy { it.key },
-                                key = { homeQuickPlaylistKey(it) },
-                            ) { playlist ->
+                    LazyRow(contentPadding = endPaddingValues) {
+                        when {
+                            uniqueRadioPlaylistItems.isNotEmpty() -> items(
+                                items = uniqueRadioPlaylistItems.take(18),
+                                key = { item -> homeQuickPlaylistKey(item) },
+                            ) { item ->
                                 PlaylistItem(
-                                    playlist = playlist,
+                                    playlist = item,
                                     thumbnailSizePx = playlistThumbnailSizePx,
                                     thumbnailSizeDp = playlistThumbnailSizeDp,
                                     alternative = true,
                                     showSongsCount = false,
                                     isYoutubePlaylist = true,
+                                    modifier = Modifier.clickable { onPlaylistClick(item.key) },
+                                    disableScrollingText = disableScrollingText
+                                )
+                            }
+
+                            uniqueSessionPlaylistItems.isNotEmpty() -> items(
+                                items = uniqueSessionPlaylistItems.take(18),
+                                key = { item -> item.playlistId.ifBlank { item.browseId } }
+                            ) { item ->
+                                YtmHomeCard(
+                                    title = item.title,
+                                    subtitle = item.subtitle,
+                                    thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
                                     modifier = Modifier.clickable {
-                                        navController.navigate("${NavRoutes.playlist.name}/${playlist.key}")
-                                    },
+                                        item.playlistId.ifBlank { item.browseId }
+                                            .takeIf(String::isNotBlank)
+                                            ?.let(onPlaylistClick)
+                                    }
+                                )
+                            }
+
+                            else -> items(
+                                items = uniqueGuestPlaylistItems.take(18),
+                                key = { item -> item.key }
+                            ) { item ->
+                                PlaylistItem(
+                                    playlist = item,
+                                    thumbnailSizePx = playlistThumbnailSizePx,
+                                    thumbnailSizeDp = playlistThumbnailSizeDp,
+                                    alternative = true,
+                                    showSongsCount = false,
+                                    isYoutubePlaylist = true,
+                                    modifier = Modifier.clickable { onPlaylistClick(item.key) },
                                     disableScrollingText = disableScrollingText
                                 )
                             }
                         }
                     }
+                }
+                YtmHomeFeedSections(
+                    sections = guestQuickPickSections,
+                    endPaddingValues = endPaddingValues,
+                    onPlayableClick = playApiHomeItem,
+                    onAlbumClick = onAlbumClick,
+                    onArtistClick = onArtistClick,
+                    onPlaylistClick = onPlaylistClick,
+                )
+
+
 
                 if (showMoodsAndGenres)
                     discoverPageInit?.let { page ->
@@ -2084,7 +2766,7 @@ fun HomeQuickPicks(
                                                             val mediaItems = songs.map { preferredCachedMediaItem(it) }
                                                             val mediaItemIndex = mediaItems.indexOfFirst { it.mediaId == song.key }
                                                             binder?.stopRadio()
-                                                            PlaybackContextStore.set("Playing from Quick Picks", "Top songs")
+                                                            PlaybackContextStore.set(context.getString(R.string.playing_from_quick_picks), context.getString(R.string.top_songs))
                                                             binder?.player?.forcePlayAtIndex(
                                                                 mediaItems,
                                                                 mediaItemIndex.takeIf { it >= 0 } ?: 0
@@ -2184,157 +2866,171 @@ fun HomeQuickPicks(
                         }
                     }
                 }
-
-                val sessionSections = (sessionHomeFeedResult?.getOrNull() ?: sessionHomeFeedInit)
-                    ?.filter { section -> isVisibleQuickPicksSection(section.title) && section.items.isNotEmpty() }
-                    .orEmpty()
-
-                if (isYouTubeLoggedIn() && sessionSections.isNotEmpty()) {
-                    sessionSections.forEach { section ->
-                        TitleMiniSection(
-                            section.title,
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 14.dp, bottom = 4.dp)
+                if (chartsPageInit?.artists.isNullOrEmpty()) {
+                    YtmHomeFeedSections(
+                        sections = topArtistApiSections,
+                        endPaddingValues = endPaddingValues,
+                        onPlayableClick = playApiHomeItem,
+                        onAlbumClick = onAlbumClick,
+                        onArtistClick = onArtistClick,
+                        onPlaylistClick = onPlaylistClick,
+                    )
+                }
+                if (isYouTubeLoggedIn()) {
+                    if (sessionLikedSongsPreview.isNotEmpty()) {
+                        val likedSongsPreview = sessionLikedSongsPreview
+                            .distinctBy { it.id }
+                            .take(14)
+                        BasicText(
+                            text = stringResource(R.string.ytm_likes_title),
+                            style = typography().l.semiBold,
+                            modifier = sectionTextModifier,
                         )
 
-                        if (section.subtitle.isNotBlank()) {
-                            BasicText(
-                                text = section.subtitle,
-                                style = typography().xs.secondary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-                        }
-
-                        LazyRow(contentPadding = endPaddingValues) {
-                            items(
-                                items = section.items,
-                                key = { item ->
-                                    listOf(
-                                        item.type,
-                                        item.videoId,
-                                        item.playlistId,
-                                        item.browseId,
-                                        item.title
-                                    ).joinToString("|")
-                                }
-                            ) { item ->
-                                when (item.type.lowercase()) {
-                                    "song", "video" -> {
-                                        YtmHomeCard(
-                                            title = item.title,
-                                            subtitle = item.artistsText.ifBlank { item.subtitle },
-                                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
-                                            modifier = Modifier.clickable(onClick = {
-                                                refreshScope.launch {
-                                                    playSessionHomeSectionItems(section.items, item)
+                        LazyHorizontalGrid(
+                            rows = GridCells.Fixed(2),
+                            modifier = Modifier
+                                .height(126.dp)
+                                .fillMaxWidth(),
+                            state = ytmLikesLazyGridState,
+                            flingBehavior = ScrollableDefaults.flingBehavior(),
+                            contentPadding = endPaddingValues,
+                        ) {
+                            itemsIndexed(
+                                items = likedSongsPreview,
+                                key = { index, song -> "${song.id.ifBlank { "liked_song" }}_$index" }
+                            ) { index, song ->
+                                app.kreate.android.me.knighthat.component.SongItem(
+                                    song = song,
+                                    modifier = Modifier
+                                        .width(itemInHorizontalGridWidth),
+                                    navController = navController,
+                                    onClick = {
+                                            val queue = likedSongsPreview
+                                                .map(Song::asMediaItem)
+                                                .distinctBy { it.mediaId }
+                                            val startIndex = queue.indexOfFirst { it.mediaId == song.id }
+                                            binder?.stopRadio()
+                                            binder?.player?.forcePlayAtIndex(
+                                                queue,
+                                                startIndex.takeIf { it >= 0 } ?: index
+                                            )
+                                    },
+                                    trailingContent = {
+                                        HeaderIconButton(
+                                            icon = R.drawable.ellipsis_horizontal,
+                                            color = colorPalette().textSecondary,
+                                            onClick = {
+                                                menuState.display {
+                                                    NonQueuedMediaItemGridMenu(
+                                                        navController = navController,
+                                                        mediaItem = song.asMediaItem,
+                                                        onDismiss = menuState::hide,
+                                                        disableScrollingText = disableScrollingText
+                                                    )
                                                 }
-                                            })
+                                            },
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
-
-                                    "album" -> {
-                                        YtmHomeCard(
-                                            title = item.title,
-                                            subtitle = item.subtitle,
-                                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
-                                            modifier = Modifier.clickable(onClick = {
-                                                item.browseId.ifBlank { item.playlistId }
-                                                    .takeIf { it.isNotBlank() }
-                                                    ?.let(onAlbumClick)
-                                            })
-                                        )
-                                    }
-
-                                    "artist" -> {
-                                        YtmHomeCard(
-                                            title = item.title,
-                                            subtitle = item.subtitle.ifBlank { item.artistsText },
-                                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
-                                            imageWidth = 104.dp,
-                                            imageHeight = 104.dp,
-                                            rounded = false,
-                                            modifier = Modifier.clickable(onClick = {
-                                                item.browseId
-                                                    .takeIf { it.isNotBlank() }
-                                                    ?.let(onArtistClick)
-                                            })
-                                        )
-                                    }
-
-                                    "playlist" -> {
-                                        YtmHomeCard(
-                                            title = item.title,
-                                            subtitle = item.subtitle,
-                                            thumbnailUrl = item.thumbnailUrl.ifBlank { item.thumbnail },
-                                            modifier = Modifier.clickable(onClick = {
-                                                item.playlistId.ifBlank { item.browseId }
-                                                    .takeIf { it.isNotBlank() }
-                                                    ?.let(onPlaylistClick)
-                                            })
-                                        )
-                                    }
-                                }
+                                )
                             }
                         }
                     }
-                } else homePageInit?.let { page ->
-                    page.chips
-                        ?.takeIf { it.isNotEmpty() }
-                        ?.let { chips ->
-                            val currentChipTitle = selectedHomeChipTitle.ifBlank {
-                                chips.firstOrNull { it.isSelected }?.title.orEmpty()
+
+                    if (syncedYtmArtists.isNotEmpty()) {
+                        BasicText(
+                            text = "Artists from your YT Music account",
+                            style = typography().l.semiBold,
+                            modifier = sectionTextModifier,
+                        )
+
+                        LazyRow(contentPadding = endPaddingValues) {
+                            items(
+                                items = syncedYtmArtists.take(16),
+                                key = { artist -> artist.id }
+                            ) { artist ->
+                                ArtistItem(
+                                    artist = artist,
+                                    thumbnailSizePx = artistThumbnailSizePx,
+                                    thumbnailSizeDp = artistThumbnailSizeDp,
+                                    alternative = true,
+                                    modifier = Modifier.clickable {
+                                        onArtistClick(artist.id)
+                                    },
+                                    disableScrollingText = disableScrollingText,
+                                    isYoutubeArtist = artist.isYoutubeArtist
+                                )
                             }
-                            ButtonsRow(
-                                chips = chips.map { chip -> chip.title to chip.title },
-                                currentValue = currentChipTitle,
-                                onValueUpdate = { chipTitle ->
-                                    val chip = chips.firstOrNull { it.title == chipTitle } ?: return@ButtonsRow
-                                    val isSameChip = currentChipTitle == chipTitle
-                                    val targetParams = if (isSameChip) {
-                                        chip.deselectEndPoint?.params.orEmpty()
-                                    } else {
-                                        chip.endpoint?.params.orEmpty()
-                                    }
-
-                                    selectedHomeChipTitle = if (isSameChip && targetParams.isBlank()) "" else chipTitle
-                                    selectedHomeChipParams = targetParams
-                                    homePageResult = null
-                                    homePageInit = null
-                                    homePagePreference = null
-                                    refreshScope.launch {
-                                        loadData(forceReload = false)
-                                    }
-                                },
-                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                            )
                         }
+                    }
 
-                    page.sections.forEach {
-                        if (it.items.isEmpty() || it.items.firstOrNull()?.key == null) return@forEach
-                        TitleMiniSection(it.label ?: "", modifier = Modifier.padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 4.dp))
+                    if (syncedYtmAlbums.isNotEmpty()) {
+                        BasicText(
+                            text = "Albums from your YT Music account",
+                            style = typography().l.semiBold,
+                            modifier = sectionTextModifier,
+                        )
 
-                        Row(
+                        LazyRow(contentPadding = endPaddingValues) {
+                            items(
+                                items = syncedYtmAlbums.take(16),
+                                key = { album -> album.id }
+                            ) { album ->
+                                AlbumItem(
+                                    album = album,
+                                    thumbnailSizePx = albumThumbnailSizePx,
+                                    thumbnailSizeDp = albumThumbnailSizeDp,
+                                    alternative = true,
+                                    modifier = Modifier.clickable {
+                                        onAlbumClick(album.id)
+                                    },
+                                    disableScrollingText = disableScrollingText,
+                                    isYoutubeAlbum = album.isYoutubeAlbum
+                                )
+                            }
+                        }
+                    }
+                }
+
+                val sessionSections = remainingApiHomeSections
+                YtmHomeFeedSections(
+                    sections = sessionSections,
+                    endPaddingValues = endPaddingValues,
+                    onPlayableClick = playApiHomeItem,
+                    onAlbumClick = onAlbumClick,
+                    onArtistClick = onArtistClick,
+                    onPlaylistClick = onPlaylistClick,
+                )
+                val apiSectionTitles = liveApiHomeSections
+                    .map { section -> section.title.trim().lowercase() }
+                    .toSet()
+                (homePageResult?.getOrNull() ?: homePageInit)?.let { page ->
+                    page.sections
+                        .filterNot { section -> section.items.any { item -> item is Innertube.PlaylistItem } }
+                        .filterNot { section ->
+                            val title = section.title.trim().lowercase()
+                            title.isNotBlank() && title in apiSectionTitles
+                        }
+                        .forEach {
+                            if (it.items.isEmpty() || it.items.firstOrNull()?.key == null) return@forEach
+
+                            Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp)
-                                .padding(vertical = 4.dp)
+                                .padding(top = 24.dp, bottom = 8.dp)
                         ) {
                             val sectionLabel = it.label
                             it.thumbnail?.takeIf { thumbnail -> thumbnail.isNotBlank() }?.let { thumbnail ->
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(thumbnail)
-                                        .crossfade(true)
-                                        .build(),
+                                ImageCacheFactory.AsyncImage(
+                                    thumbnailUrl = thumbnail,
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(40.dp)
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .clip(RoundedCornerShape(8.dp))
                                 )
                             }
 
@@ -2429,19 +3125,9 @@ fun HomeQuickPicks(
                             }
                         }
                     }
-                } ?: if (!isYouTubeLoggedIn()) BasicText(
-                    text = stringResource(R.string.log_in_to_ytm),
-                    style = typography().xs.center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .padding(vertical = 32.dp)
-                        .fillMaxWidth()
-                        .clickable {
-                            navController.navigate(NavRoutes.settings.name)
-                        }
-                ) else {
-                    ShimmerHost {
+                } ?: run {
+                    if (!hasRenderableHomeContent && !loadedData) {
+                        ShimmerHost {
                         repeat(3) {
                             SongItemPlaceholder()
                         }
@@ -2467,12 +3153,23 @@ fun HomeQuickPicks(
                                 )
                             }
                         }
+                        }
                     }
                 }
 
+                BasicText(
+                    text = stringResource(R.string.home_quick_picks_footer),
+                    style = typography().xs.secondary.center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 20.dp)
+                )
+
                 Spacer(modifier = Modifier.height(Dimensions.bottomSpacer))
 
-                relatedPageResult?.exceptionOrNull()?.let {
+                if (!hasRenderableHomeContent && !refreshing) relatedPageResult?.exceptionOrNull()?.let {
                     BasicText(
                         text = stringResource(R.string.page_not_been_loaded),
                         style = typography().s.secondary.center,
@@ -2523,15 +3220,18 @@ private fun RemoteConfigQuickPicksCard(
     onOpenUrl: (String) -> Unit,
     onOpenAboutUpdate: () -> Unit,
 ) {
-    val context = LocalContext.current
     var contentExpanded by remember(notification.contents) { mutableStateOf(false) }
-    val canExpandContent = notification.contents.length > 220
+    val showArtwork = hasNewUpdate || notification.showImage
+    val collapsedContentLines = if (showArtwork) 4 else 6
+    val canExpandContent =
+        notification.contents.length > 140 ||
+            notification.contents.lineSequence().count() > collapsedContentLines
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(8.dp))
             .clickable(enabled = notification.url.isNotBlank()) { onOpenUrl(notification.url) }
             .background(
                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
@@ -2548,19 +3248,27 @@ private fun RemoteConfigQuickPicksCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            if (notification.showImage) {
-                notification.image_url?.takeIf { it.isNotBlank() }?.let { image_url ->
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(image_url)
-                            .crossfade(true)
-                            .build(),
+            if (hasNewUpdate) {
+                Image(
+                    painter = painterResource(R.drawable.critical_update_cubic),
+                    contentDescription = stringResource(R.string.critical_update_artwork),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(if (notification.showText) 164.dp else 204.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+            } else if (notification.showImage) {
+                notification.image_url?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+                    ImageCacheFactory.AsyncImage(
+                        thumbnailUrl = imageUrl,
                         contentDescription = notification.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(if (notification.showText) 156.dp else 196.dp)
-                            .clip(RoundedCornerShape(32.dp))
+                            .clip(RoundedCornerShape(8.dp))
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                 }
@@ -2581,14 +3289,14 @@ private fun RemoteConfigQuickPicksCard(
                 BasicText(
                     text = notification.contents,
                     style = typography().s.color(colorPalette().textSecondary),
-                    maxLines = if (contentExpanded) Int.MAX_VALUE else if (notification.showImage) 4 else 6,
+                    maxLines = if (contentExpanded) Int.MAX_VALUE else collapsedContentLines,
                     overflow = TextOverflow.Ellipsis
                 )
 
                 if (canExpandContent) {
                     Spacer(modifier = Modifier.height(6.dp))
                     BasicText(
-                        text = if (contentExpanded) "Read less" else "Read more",
+                        text = stringResource(if (contentExpanded) R.string.read_less else R.string.read_more),
                         style = typography().xs.semiBold.color(colorPalette().accent),
                         modifier = Modifier.clickable { contentExpanded = !contentExpanded }
                     )
@@ -2598,9 +3306,9 @@ private fun RemoteConfigQuickPicksCard(
             Spacer(modifier = Modifier.height(8.dp))
             BasicText(
                 text = if (hasNewUpdate) {
-                    "Available: ${notification.version} - Installed: ${BuildConfig.VERSION_NAME}"
+                    stringResource(R.string.update_versions, notification.version, BuildConfig.VERSION_NAME)
                 } else {
-                    "Installed version: ${BuildConfig.VERSION_NAME}"
+                    stringResource(R.string.installed_version, BuildConfig.VERSION_NAME)
                 },
                 style = typography().xs.secondary,
                 maxLines = 1
@@ -2609,9 +3317,9 @@ private fun RemoteConfigQuickPicksCard(
             Spacer(modifier = Modifier.height(4.dp))
             BasicText(
                 text = if (showEmergency) {
-                    "Critical fixes are ready in this release."
+                    stringResource(R.string.critical_fixes_ready)
                 } else {
-                    "Tap this card to open the linked announcement."
+                    stringResource(R.string.open_linked_announcement)
                 },
                 style = typography().xs.semiBold.color(
                     if (showEmergency) Color(0xFFFF8C8C) else colorPalette().accent
@@ -2627,7 +3335,7 @@ private fun RemoteConfigQuickPicksCard(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(
                             if (hasNewUpdate) colorPalette().accent
                             else colorPalette().background2.copy(alpha = 0.7f)
@@ -2640,7 +3348,7 @@ private fun RemoteConfigQuickPicksCard(
                     contentAlignment = Alignment.Center
                 ) {
                     BasicText(
-                        text = if (hasNewUpdate) "Update Now" else "Open Notice",
+                        text = stringResource(if (hasNewUpdate) R.string.update_now else R.string.open_notice),
                         style = typography().s.semiBold.color(
                             if (hasNewUpdate) colorPalette().background0 else colorPalette().text
                         ),
@@ -2651,14 +3359,14 @@ private fun RemoteConfigQuickPicksCard(
                 if (hasNewUpdate && notification.url.isNotBlank()) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(colorPalette().background2.copy(alpha = 0.72f))
                             .clickable { onOpenUrl(notification.url) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         BasicText(
-                            text = "Open Link",
+                            text = stringResource(R.string.open_link),
                             style = typography().s.semiBold.color(colorPalette().text)
                         )
                     }
@@ -2666,4 +3374,5 @@ private fun RemoteConfigQuickPicksCard(
             }
         }
     }
+
 }

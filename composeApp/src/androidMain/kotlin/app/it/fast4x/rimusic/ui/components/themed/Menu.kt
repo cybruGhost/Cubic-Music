@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -79,24 +80,25 @@ fun MenuEntry(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier
             .combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
             .fillMaxWidth()
+            .heightIn(min = 52.dp)
             .alpha(if (enabled) 1f else 0.4f)
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 18.dp)
     ) {
         Image(
             painter = painter,
             contentDescription = null,
             colorFilter = ColorFilter.tint(colorPalette().text),
             modifier = Modifier
-                .size(15.dp)
+                .size(20.dp)
         )
 
         Column(
             modifier = Modifier
-                .padding(vertical = 16.dp)
+                .padding(vertical = 13.dp)
                 .weight(1f)
         ) {
             BasicText(

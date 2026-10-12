@@ -5,9 +5,12 @@ import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -59,7 +62,7 @@ object ImageCacheFactory {
     val DISK_CACHE: DiskCache by lazy {
         val preferences = appContext().preferences
         val diskSize = preferences.getEnum(coilDiskCacheMaxSizeKey, CoilDiskCacheMaxSize.`128MB`)
-        val cacheLocation = preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System)
+        val cacheLocation = preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.Private)
         val cacheDir = when (cacheLocation) {
             ExoPlayerCacheLocation.System -> appContext().cacheDir
             ExoPlayerCacheLocation.Private -> appContext().filesDir
@@ -87,8 +90,12 @@ object ImageCacheFactory {
 
     private const val COOLDOWN_MS = 10 * 1000L
     private val cooldownMap = ConcurrentHashMap<String, Long>()
+    private val retryScheduleMap = ConcurrentHashMap<String, Long>()
     private val cacheKeyMap = ConcurrentHashMap<String, String>()
     private val storeVersion = kotlinx.coroutines.flow.MutableStateFlow(0)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    @Volatile
+    private var connectivityRefreshScheduled = false
 
     internal object PlaylistThumbnailStore {
         private const val PREFS_NAME = "playlist_thumbnail_store"
@@ -260,28 +267,36 @@ object ImageCacheFactory {
         if (!isNetworkConnected()) {
             return DownloadDecision(false, CacheMetadataStore.get(thumbnailUrl) ?: getNetworkQuality())
         }
-        
-        val lastAttempt = cooldownMap[thumbnailUrl]
-        val now = System.currentTimeMillis()
-        if (lastAttempt != null && (now - lastAttempt) < COOLDOWN_MS) {
-            val cachedQuality = CacheMetadataStore.get(thumbnailUrl) ?: NetworkQuality.LOW
-            return DownloadDecision(false, cachedQuality)
-        }
 
         val currentQuality = getNetworkQuality()
         val cachedQuality = CacheMetadataStore.get(thumbnailUrl)
+        val physicalCache = cachedVariantCandidates(
+            thumbnailUrl,
+            cachedQuality ?: currentQuality
+        ).firstOrNull { (url, quality) -> hasCachedImage(url, quality) }
 
-        if (cachedQuality == null) {
+        val lastAttempt = cooldownMap[thumbnailUrl]
+        val now = System.currentTimeMillis()
+        if (lastAttempt != null && (now - lastAttempt) < COOLDOWN_MS) {
+            return if (physicalCache != null) {
+                DownloadDecision(false, physicalCache.second)
+            } else {
+                DownloadDecision(true, currentQuality)
+            }
+        }
+
+        if (physicalCache == null) {
+            if (cachedQuality != null) CacheMetadataStore.remove(thumbnailUrl)
             cooldownMap[thumbnailUrl] = now
             return DownloadDecision(true, currentQuality)
         }
 
-        if (currentQuality.ordinal > cachedQuality.ordinal) {
+        if (currentQuality.ordinal > physicalCache.second.ordinal) {
             cooldownMap[thumbnailUrl] = now
             return DownloadDecision(true, currentQuality)
         }
 
-        return DownloadDecision(false, cachedQuality)
+        return DownloadDecision(false, physicalCache.second)
     }
 
     private fun isNetworkConnected(): Boolean {
@@ -304,7 +319,7 @@ object ImageCacheFactory {
         if (inMemory) return true
 
         return runCatching {
-            DISK_CACHE.openSnapshot(key) != null
+            DISK_CACHE.openSnapshot(key)?.use { true } ?: false
         }.getOrDefault(false)
     }
 
@@ -316,22 +331,22 @@ object ImageCacheFactory {
             add(NetworkQuality.LOW)
         }.distinct()
 
-    private fun cachedVariantCandidates(url: String?, preferred: NetworkQuality): List<String> {
+    private fun cachedVariantCandidates(url: String?, preferred: NetworkQuality): List<Pair<String, NetworkQuality>> {
         if (url.isNullOrBlank()) return emptyList()
 
-        val candidates = linkedSetOf<String>()
+        val candidates = linkedSetOf<Pair<String, NetworkQuality>>()
         val qualityOrder = qualitySearchOrder(preferred)
 
-        candidates += url
+        candidates += url to preferred
         qualityOrder.forEach { quality ->
-            url.thumbnail(quality.size)?.let(candidates::add)
+            url.thumbnail(quality.size)?.let { candidates += it to quality }
         }
 
         if (url.contains("i.ytimg.com/vi/")) {
             qualityOrder.forEach { quality ->
                 var fallback = url.thumbnail(quality.size)
                 while (fallback != null) {
-                    candidates += fallback
+                    candidates += fallback to quality
                     fallback = fallback.getNextYouTubeFallback()
                 }
             }
@@ -339,24 +354,77 @@ object ImageCacheFactory {
 
         val id = url.getYouTubeId()
         if (id != null && (url.contains("pl_c") || url.contains("podcasts"))) {
-            PlaylistThumbnailStore.getHighUrl(id)?.let(candidates::add)
-            PlaylistThumbnailStore.getLowUrl(id)?.let(candidates::add)
+            PlaylistThumbnailStore.getHighUrl(id)?.let { highUrl ->
+                qualityOrder.forEach { quality -> candidates += highUrl to quality }
+            }
+            PlaylistThumbnailStore.getLowUrl(id)?.let { lowUrl ->
+                qualityOrder.forEach { quality -> candidates += lowUrl to quality }
+            }
         }
 
-        candidates += url
+        candidates += url to preferred
         return candidates.toList()
     }
 
-    private fun resolveDisplayUrl(thumbnailUrl: String?, quality: NetworkQuality, useNetwork: Boolean): String? {
+    private fun resolveDisplaySource(
+        thumbnailUrl: String?,
+        quality: NetworkQuality,
+        useNetwork: Boolean
+    ): Pair<String?, NetworkQuality> {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
-        if (validUrl == null) return null
-        if (validUrl.isLocalArtSource()) return validUrl
+        if (validUrl == null) return null to quality
+        if (validUrl.isLocalArtSource()) return validUrl to NetworkQuality.HIGH
         if (!useNetwork) {
             cachedVariantCandidates(validUrl, quality)
-                .firstOrNull { hasCachedImage(it, quality) }
+                .firstOrNull { (url, candidateQuality) -> hasCachedImage(url, candidateQuality) }
                 ?.let { return it }
         }
-        return validUrl.thumbnail(quality.size)
+        return validUrl.thumbnail(quality.size) to quality
+    }
+
+    private fun scheduleOnlineRetry(thumbnailUrl: String?) {
+        val validUrl = thumbnailUrl?.takeIf { it.isNotBlank() && it != "null" } ?: return
+        if (!isNetworkConnected()) return
+
+        val now = System.currentTimeMillis()
+        val previous = retryScheduleMap.putIfAbsent(validUrl, now)
+        if (previous != null && now - previous < COOLDOWN_MS) return
+        retryScheduleMap[validUrl] = now
+
+        mainHandler.postDelayed(
+            {
+                CacheMetadataStore.remove(validUrl)
+                cooldownMap.remove(validUrl)
+                retryScheduleMap.remove(validUrl)
+                storeVersion.value++
+            },
+            3_000L
+        )
+    }
+
+    private fun scheduleConnectivityRefresh() {
+        if (connectivityRefreshScheduled) return
+        connectivityRefreshScheduled = true
+        mainHandler.postDelayed(
+            {
+                connectivityRefreshScheduled = false
+                if (isNetworkConnected()) {
+                    cooldownMap.clear()
+                    retryScheduleMap.clear()
+                    storeVersion.value++
+                } else {
+                    scheduleConnectivityRefresh()
+                }
+            },
+            5_000L
+        )
+    }
+
+    private fun markImageLoaded(thumbnailUrl: String?) {
+        thumbnailUrl?.let {
+            retryScheduleMap.remove(it)
+            cooldownMap.remove(it)
+        }
     }
 
     @Composable
@@ -369,17 +437,29 @@ object ImageCacheFactory {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
         val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
+        val initialSource = remember(validUrl, version, decision.quality, decision.useNetwork) {
+            resolveDisplaySource(validUrl, decision.quality, decision.useNetwork)
+        }
         var currentUrl by remember(validUrl, version) {
-            mutableStateOf(resolveDisplayUrl(validUrl, decision.quality, decision.useNetwork))
+            mutableStateOf(initialSource.first)
+        }
+        var currentQuality by remember(validUrl, version) { mutableStateOf(initialSource.second) }
+
+        LaunchedEffect(validUrl, decision.useNetwork, initialSource.first) {
+            if (validUrl != null && !decision.useNetwork && initialSource.first == null) {
+                scheduleConnectivityRefresh()
+            }
         }
         
         
         val request = ImageRequest.Builder(appContext())
             .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+            .diskCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+            .memoryCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+            .networkCachePolicy(if (decision.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
             .listener(
                 onSuccess = { _, result ->
+                    markImageLoaded(validUrl)
                     val dataSource = result.dataSource
                     if (dataSource != coil3.decode.DataSource.MEMORY_CACHE) {
                         val id = currentUrl?.getYouTubeId()
@@ -392,7 +472,6 @@ object ImageCacheFactory {
                     }
                 },
                 onError = { _, result ->
-                    val errorMsg = result.throwable.message ?: ""
                     val id = currentUrl?.getYouTubeId()
                     
                     // Un-swap fallback for Playlists/Podcasts (handling expired signatures)
@@ -400,19 +479,20 @@ object ImageCacheFactory {
                     if (currentUrl != validUrl && id != null &&
                         (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
                         
-                        clearCacheForKey(currentUrl, decision.quality)
+                        clearCacheForKey(currentUrl, currentQuality)
                         PlaylistThumbnailStore.clear(id)
                         currentUrl = validUrl
                         return@listener
                     }
                     
-                    if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
+                    if (currentUrl?.contains("i.ytimg.com/vi/") == true) {
                         val fallback = currentUrl.getNextYouTubeFallback()
                         if (fallback != null) {
                             currentUrl = fallback
                             return@listener
                         }
                     }
+                    scheduleOnlineRetry(validUrl)
                 }
             )
             .build()
@@ -424,8 +504,8 @@ object ImageCacheFactory {
             contentScale = contentScale,
             modifier = modifier,
             placeholder = painterResource(R.drawable.loader),
-            error = painterResource(R.drawable.ic_launcher_box),
-            fallback = painterResource(R.drawable.ic_launcher_box)
+            error = painterResource(R.drawable.flowerfallback),
+            fallback = painterResource(R.drawable.flowerfallback)
         )
     }
 
@@ -434,8 +514,8 @@ object ImageCacheFactory {
         thumbnailUrl: String?,
         contentScale: ContentScale = ContentScale.Crop,
         @DrawableRes placeholder: Int? = null,
-        @DrawableRes error: Int = R.drawable.ic_launcher_box,
-        @DrawableRes fallback: Int = R.drawable.ic_launcher_box,
+        @DrawableRes error: Int = R.drawable.flowerfallback,
+        @DrawableRes fallback: Int = R.drawable.flowerfallback,
         onLoading: ((State.Loading) -> Unit)? = null,
         onSuccess: ((State.Success) -> Unit)? = null,
         onError: ((State.Error) -> Unit)? = null
@@ -443,17 +523,29 @@ object ImageCacheFactory {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
         val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
+        val initialSource = remember(validUrl, version, decision.quality, decision.useNetwork) {
+            resolveDisplaySource(validUrl, decision.quality, decision.useNetwork)
+        }
         var currentUrl by remember(validUrl, version) {
-            mutableStateOf(resolveDisplayUrl(validUrl, decision.quality, decision.useNetwork))
+            mutableStateOf(initialSource.first)
+        }
+        var currentQuality by remember(validUrl, version) { mutableStateOf(initialSource.second) }
+
+        LaunchedEffect(validUrl, decision.useNetwork, initialSource.first) {
+            if (validUrl != null && !decision.useNetwork && initialSource.first == null) {
+                scheduleConnectivityRefresh()
+            }
         }
         
         
         val request = ImageRequest.Builder(appContext())
             .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+            .diskCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+            .memoryCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+            .networkCachePolicy(if (decision.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
             .listener(
                 onSuccess = { _, result ->
+                    markImageLoaded(validUrl)
                     val dataSource = result.dataSource
                     if (dataSource != coil3.decode.DataSource.MEMORY_CACHE) {
                         val id = currentUrl?.getYouTubeId()
@@ -466,25 +558,25 @@ object ImageCacheFactory {
                     }
                 },
                 onError = { _, result ->
-                    val errorMsg = result.throwable.message ?: ""
                     val id = currentUrl?.getYouTubeId()
 
                     if (currentUrl != validUrl && id != null &&
                         (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
                         
-                        clearCacheForKey(currentUrl, decision.quality)
+                        clearCacheForKey(currentUrl, currentQuality)
                         PlaylistThumbnailStore.clear(id)
                         currentUrl = validUrl
                         return@listener
                     }
 
-                    if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
+                    if (currentUrl?.contains("i.ytimg.com/vi/") == true) {
                         val fallback = currentUrl.getNextYouTubeFallback()
                         if (fallback != null) {
                             currentUrl = fallback
                             return@listener
                         }
                     }
+                    scheduleOnlineRetry(validUrl)
                 }
             )
             .build()
@@ -517,16 +609,28 @@ object ImageCacheFactory {
         val validUrl = if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") null else thumbnailUrl
         val decision = getDownloadDecision(validUrl)
         val version by storeVersion.collectAsState()
+        val initialSource = remember(validUrl, version, decision.quality, decision.useNetwork) {
+            resolveDisplaySource(validUrl, decision.quality, decision.useNetwork)
+        }
         var currentUrl by remember(validUrl, version) {
-            mutableStateOf(resolveDisplayUrl(validUrl, decision.quality, decision.useNetwork))
+            mutableStateOf(initialSource.first)
+        }
+        var currentQuality by remember(validUrl, version) { mutableStateOf(initialSource.second) }
+
+        LaunchedEffect(validUrl, decision.useNetwork, initialSource.first) {
+            if (validUrl != null && !decision.useNetwork && initialSource.first == null) {
+                scheduleConnectivityRefresh()
+            }
         }
         
         val request = ImageRequest.Builder(appContext())
             .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+            .diskCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+            .memoryCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+            .networkCachePolicy(if (decision.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
             .listener(
                 onSuccess = { _, result ->
+                    markImageLoaded(validUrl)
                     val dataSource = result.dataSource
                     if (dataSource != coil3.decode.DataSource.MEMORY_CACHE) {
                         val id = currentUrl?.getYouTubeId()
@@ -539,25 +643,25 @@ object ImageCacheFactory {
                     }
                 },
                 onError = { _, result ->
-                    val errorMsg = result.throwable.message ?: ""
                     val id = currentUrl?.getYouTubeId()
 
                     if (currentUrl != validUrl && id != null &&
                         (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
                         
-                        clearCacheForKey(currentUrl, decision.quality)
+                        clearCacheForKey(currentUrl, currentQuality)
                         PlaylistThumbnailStore.clear(id)
                         currentUrl = validUrl
                         return@listener
                     }
 
-                    if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
+                    if (currentUrl?.contains("i.ytimg.com/vi/") == true) {
                         val fallback = currentUrl.getNextYouTubeFallback()
                         if (fallback != null) {
                             currentUrl = fallback
                             return@listener
                         }
                     }
+                    scheduleOnlineRetry(validUrl)
                 }
             )
             .build()
@@ -569,13 +673,13 @@ object ImageCacheFactory {
             contentScale = contentScale,
             modifier = modifier,
             placeholder = painterResource(R.drawable.loader),
-            error = painterResource(R.drawable.ic_launcher_box),
-            fallback = painterResource(R.drawable.ic_launcher_box),
+            error = painterResource(R.drawable.flowerfallback),
+            fallback = painterResource(R.drawable.flowerfallback),
             onLoading = onLoading,
             onSuccess = onSuccess,
             onError = { state ->
                 val errorMsg = state.result.throwable.message ?: ""
-                if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
+                if (currentUrl?.contains("i.ytimg.com/vi/") == true) {
                     val fallback = currentUrl.getNextYouTubeFallback()
                     if (fallback != null) {
                         // Re-trigger via currentUrl in listener above
@@ -593,20 +697,24 @@ object ImageCacheFactory {
         }
         
         val decision = getDownloadDecision(url)
-        var currentUrl = resolveDisplayUrl(url, decision.quality, decision.useNetwork)
+        val initialSource = resolveDisplaySource(url, decision.quality, decision.useNetwork)
+        var currentUrl = initialSource.first
+        var currentQuality = initialSource.second
         var lastError: String? = null
         
         while (currentUrl != null) {
             
             val request = ImageRequest.Builder(appContext())
                 .data(currentUrl)
-                .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-                .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
+                .diskCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+                .memoryCacheKey(generateCacheKeySync(currentUrl, currentQuality))
+                .networkCachePolicy(if (decision.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
                 .allowHardware(allowHardware)
                 .build()
                 
             val result = LOADER.execute(request)
             if (result.image != null) {
+                markImageLoaded(url)
                 val dataSource = (result as? SuccessResult)?.dataSource
                 
                 if (dataSource != null && dataSource != coil3.decode.DataSource.MEMORY_CACHE) {
@@ -627,13 +735,13 @@ object ImageCacheFactory {
             val id = currentUrl.getYouTubeId()
             if (currentUrl != url && id != null && (currentUrl.contains("pl_c") || currentUrl.contains("podcasts"))) {
                 
-                clearCacheForKey(currentUrl, decision.quality)
+                clearCacheForKey(currentUrl, currentQuality)
                 PlaylistThumbnailStore.clear(id)
                 currentUrl = url
                 continue
             }
 
-            if (lastError.contains("404") && currentUrl.contains("i.ytimg.com/vi/")) {
+            if (currentUrl.contains("i.ytimg.com/vi/")) {
                 val fallback = currentUrl.getNextYouTubeFallback()
                 if (fallback != null) {
 
@@ -641,6 +749,7 @@ object ImageCacheFactory {
                     continue
                 }
             }
+            scheduleOnlineRetry(url)
             break
         }
         
@@ -653,28 +762,31 @@ object ImageCacheFactory {
         }
         
         val decision = getDownloadDecision(thumbnailUrl)
-        val finalUrl = resolveDisplayUrl(thumbnailUrl, decision.quality, decision.useNetwork)
+        val (finalUrl, finalQuality) = resolveDisplaySource(thumbnailUrl, decision.quality, decision.useNetwork)
         
         fun enqueueWithFallback(url: String) {
             val request = ImageRequest.Builder(appContext())
                 .data(url)
-                .diskCacheKey(generateCacheKeySync(url, decision.quality))
-                .memoryCacheKey(generateCacheKeySync(url, decision.quality))
+                .diskCacheKey(generateCacheKeySync(url, finalQuality))
+                .memoryCacheKey(generateCacheKeySync(url, finalQuality))
+                .networkCachePolicy(if (decision.useNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
                 .listener(
                     onSuccess = { _, result ->
+                        markImageLoaded(thumbnailUrl)
                         if (decision.useNetwork) {
                             CacheMetadataStore.save(thumbnailUrl, decision.quality)
                         }
                     },
                     onError = { _, result ->
                         val errorMsg = result.throwable.message ?: ""
-                        if (errorMsg.contains("404") && url.contains("i.ytimg.com/vi/")) {
+                        if (url.contains("i.ytimg.com/vi/")) {
                             val fallback = url.getNextYouTubeFallback()
                             if (fallback != null) {
                                 enqueueWithFallback(fallback)
                                 return@listener
                             }
                         }
+                        scheduleOnlineRetry(thumbnailUrl)
                     }
                 )
                 .build()
@@ -684,7 +796,12 @@ object ImageCacheFactory {
         if (finalUrl != null) enqueueWithFallback(finalUrl)
     }
 
-    fun isImageCached(thumbnailUrl: String?): Boolean = CacheMetadataStore.get(thumbnailUrl ?: "") != null
+    fun isImageCached(thumbnailUrl: String?): Boolean {
+        val validUrl = thumbnailUrl?.takeIf { it.isNotBlank() && it != "null" } ?: return false
+        val preferred = CacheMetadataStore.get(validUrl) ?: getNetworkQuality()
+        return cachedVariantCandidates(validUrl, preferred)
+            .any { (url, quality) -> hasCachedImage(url, quality) }
+    }
 
     fun getDiskCache(): DiskCache = DISK_CACHE
 
@@ -705,6 +822,7 @@ object ImageCacheFactory {
             // 5. On réinitialise les registres temporaires
             cacheKeyMap.clear()
             cooldownMap.clear()
+            retryScheduleMap.clear()
             
         } catch (e: Exception) {
         }
@@ -743,6 +861,21 @@ fun String.resize(width: Int? = null, height: Int? = null): String {
     }
     
     return this
+}
+
+fun resolveArtworkUrl(mediaId: String, thumbnailUrl: String?): String? {
+    thumbnailUrl
+        ?.takeIf { it.isNotBlank() && it != "null" }
+        ?.let { return it }
+
+    val candidateId = mediaId
+        .substringAfterLast("/")
+        .substringAfterLast(":")
+        .substringBefore("?")
+        .trim()
+    return candidateId
+        .takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
+        ?.let { "https://i.ytimg.com/vi/$it/maxresdefault.jpg" }
 }
 
 private fun String.getYouTubeId(): String? {

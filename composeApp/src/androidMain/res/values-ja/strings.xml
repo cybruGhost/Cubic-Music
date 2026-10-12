@@ -114,14 +114,14 @@
   <string name="about">アプリの情報</string>
   <string name="more_of">表示</string>
   <string name="sleep_timer">スリープタイマー</string>
-  <string name="left">残り%2$s</string>
+  <string name="left">残り%1$s</string>
   <string name="confirm">確認</string>
   <string name="show">表示</string>
   <string name="unsynchronized_lyrics">歌詞を同期しない</string>
   <string name="synchronized_lyrics">同期している歌詞</string>
   <string name="provided_by">提供</string>
-  <string name="delete_playback_events">%2$s 再生イベントを削除</string>
-  <string name="existing_data_will_be_overwritten">既存のデータは上書きされます。 %2$s はデータベースを復元すると自動的に閉じられます。</string>
+  <string name="delete_playback_events">%1$s 再生イベントを削除</string>
+  <string name="existing_data_will_be_overwritten">既存のデータは上書きされます。 %1$s はデータベースを復元すると自動的に閉じられます。</string>
   <string name="folder_cache">CACHE FOLDER</string>
   <string name="cache_reset_by_clicking_button">下のボタンをクリックすると、キャッシュのフォルダの保存先がデフォルトにリセットされます</string>
   <string name="cache_location_folder">フォルダの場所</string>
@@ -501,7 +501,7 @@
   <string name="info_reorder_is_possible_only_in_ascending_sort">並べ替えは昇順のソートでのみ可能です</string>
   <string name="information">情報</string>
   <string name="info_lyrics_found_on_s">%1$s で歌詞を発見</string>
-  <string name="info_lyrics_not_found_on_s_try_on_s">%1$s に歌詞なし。%2$s をお試しください</string>
+  <string name="info_lyrics_not_found_on_s_try_on_s">%1$s に歌詞なし。%1$s をお試しください</string>
   <string name="info_lyrics_not_found_on_s">%1$s に歌詞なし</string>
   <string name="info_lyrics_tracks_found_on_s">%1$s で歌詞トラックを発見</string>
   <string name="info_lyrics_tracks_not_found_on_s">%1$s に歌詞トラックなし</string>
@@ -705,7 +705,7 @@
   <string name="value_must_be_ip_address">値はIPアドレスでなければなりません</string>
   <string name="swipe_up_to_open_the_queue">上にスワイプしてキューを開く</string>
   <string name="pinfo_show_icons">アイコン付きの情報を表示</string>
-  <string name="format_ms">%2$s ミリ秒</string>
+  <string name="format_ms">%1$s ミリ秒</string>
   <string name="minimum_silence_length">サイレントの最小時間</string>
   <string name="minimum_silence_length_description">スキップできるサイレントオーディオの最小持続時間</string>
   <string name="minimum_silence_length_warning">有効な変更を行うには、プレイヤーを再起動する必要があります！</string>
@@ -759,7 +759,7 @@
   <string name="import_favorites">お気に入りをインポート</string>
   <string name="skip_media_on_error">エラー時に曲をスキップ</string>
   <string name="skip_media_on_error_description">エラーが発生した場合は、次の曲にスキップ</string>
-  <string name="skip_media_on_error_message">曲 %2$sの再生中にエラーが発生しました</string>
+  <string name="skip_media_on_error_message">曲 %1$sの再生中にエラーが発生しました</string>
   <string name="login_required_to_play_this_media">この曲を再生するにはログインが必要です</string>
   <string name="skip_media_on_notavailable_message">前の曲は利用できません。次の曲にスキップします</string>
   <string name="search_results_for">検索結果:</string>
@@ -977,7 +977,7 @@
   <string name="app_update_dialog_version">最新のバージョン %1$s をダウンロードできます！</string>
   <string name="view_changelog_settings_title">更新履歴を表示</string>
   <string name="view_changelog_settings_text">現在インストールされているバージョンの更新履歴を表示</string>
-  <string name="artist_songs_count_duration">%1$d 曲 • %2$s</string>
+  <string name="artist_songs_count_duration">%1$d 曲 • %1$s</string>
   <string name="beta_title"> BETA</string>
   <string name="stable_title"> 安定版</string>
   <string name="beta_text">これはベータ版であり、バグやクラッシュが含まれている可能性があります</string>

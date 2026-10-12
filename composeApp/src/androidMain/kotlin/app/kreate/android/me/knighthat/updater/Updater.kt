@@ -1,6 +1,7 @@
 package app.kreate.android.me.knighthat.updater
 
 import android.os.Looper
+import android.util.Xml
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,9 +32,16 @@ import app.it.fast4x.rimusic.utils.lastUpdateCheckKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import androidx.core.text.HtmlCompat
 import app.kreate.android.me.knighthat.utils.Repository
 import app.kreate.android.me.knighthat.utils.Toaster
 import okhttp3.OkHttpClient
@@ -44,12 +52,28 @@ import java.io.IOException
 import java.net.UnknownHostException
 import java.net.URLEncoder
 import java.nio.file.NoSuchFileException
+import java.io.StringReader
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.pow
 
 object Updater {
+    private const val TRANSIENT_FAILURE_RETRY_MS = 15L * 60L * 1_000L
+    private const val RATE_LIMIT_RETRY_MS = 60L * 60L * 1_000L
+
+    private val updaterScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val automaticCheckStarted = AtomicBoolean(false)
+    private var automaticRetryJob: Job? = null
+
+    private class UpdateHttpException(
+        val statusCode: Int,
+        message: String
+    ) : IOException(message)
+
     private lateinit var tagName: String
     lateinit var build: GithubRelease.Build
     var githubRelease: GithubRelease? = null
+    val latestVersionName: String
+        get() = if (::tagName.isInitialized) tagName else githubRelease?.tagName.orEmpty()
     private val updateHttpClient by lazy {
         OkHttpClient.Builder()
             .retryOnConnectionFailure(true)
@@ -78,6 +102,16 @@ object Updater {
         val parts = versionStr.removePrefix("v").split("-")
         return if (parts.size > 1) parts[1] else ""
     }
+
+    private fun directGithubFullBuild(createdAt: String = "1970-01-01T00:00:00Z"): GithubRelease.Build =
+        GithubRelease.Build(
+            id = 0u,
+            url = SecureApiConfig.githubLatestFullApkUrl,
+            name = "${BuildConfig.APP_NAME}-full.apk",
+            size = 0u,
+            createdAt = createdAt,
+            downloadUrl = SecureApiConfig.githubLatestFullApkUrl
+        )
 
     private fun extractBuild(assets: List<GithubRelease.Build>, checkBetaUpdates: Boolean = false): GithubRelease.Build {
         val appName = BuildConfig.APP_NAME
@@ -154,59 +188,178 @@ object Updater {
         return versionStr.removePrefix("v").substringBefore("-")
     }
 
-    /**
-     * Sends out requests to Github for latest version.
-     *
-     * Results are downloaded, filtered, and saved to [build]
-     *
-     * > **NOTE**: This is a blocking process, it should never run on UI thread
-     */
-    private suspend fun fetchUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
-        val githubResult = runCatching { fetchGithubUpdate(checkBetaUpdates) }
-        if (githubResult.isSuccess) return@withContext
+    private data class UpdateCandidate(
+        val release: GithubRelease,
+        val build: GithubRelease.Build,
+        val source: String
+    )
 
-        val fallbackResult = runCatching { fetchUpdateBuddyRelease(checkBetaUpdates) }
-        if (fallbackResult.isSuccess) return@withContext
-
-        throw fallbackResult.exceptionOrNull()
-            ?: githubResult.exceptionOrNull()
-            ?: NoSuchFileException("")
+    private fun applyUpdateCandidate(candidate: UpdateCandidate) {
+        githubRelease = candidate.release
+        build = candidate.build
+        tagName = candidate.release.tagName
     }
 
+    /**
+     * Checks all available update sources and uses the newest valid release.
+     * Order still gives Update Buddy the first network attempt, but a stale dashboard
+     * cannot hide a newer GitHub release.
+     */
+    private suspend fun fetchUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+        val results = supervisorScope {
+            listOf<suspend () -> UpdateCandidate>(
+                { fetchGithubAtomUpdateCandidate(checkBetaUpdates) },
+                { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = false) },
+                { fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = true) },
+                { fetchGithubUpdateCandidate(checkBetaUpdates) }
+            ).map { fetcher ->
+                async { runCatching { fetcher() } }
+            }.awaitAll()
+        }
+
+        val candidates = results.mapNotNull { it.getOrNull() }
+        val errors = results.mapNotNull { it.exceptionOrNull() }
+        val best = candidates
+            .filter { candidate -> isVersionNewer(candidate.release.tagName, BuildConfig.VERSION_NAME) }
+            .maxWithOrNull { left, right ->
+                compareVersionStrings(left.release.tagName, right.release.tagName)
+            }
+
+        if (best == null) {
+            val receivedValidResult =
+                candidates.isNotEmpty() || errors.any { error -> error is NoSuchFileException }
+            if (receivedValidResult) throw NoSuchFileException("")
+            throw (errors.firstOrNull() ?: NoSuchFileException(""))
+        }
+
+        applyUpdateCandidate(best)
+    }
+
+    /**
+     * The Atom feed is public and avoids GitHub's small unauthenticated REST quota.
+     * This keeps startup checks working while the update service or REST API is down.
+     */
+    private suspend fun fetchGithubAtomUpdateCandidate(
+        checkBetaUpdates: Boolean = false
+    ): UpdateCandidate = withContext(Dispatchers.IO) {
+        val body = executeUpdateRequest("${Repository.REPO_URL}/releases.atom")
+            .orEmpty()
+            .ifBlank { throw NoSuchFileException("") }
+        val parser = Xml.newPullParser().apply {
+            setInput(StringReader(body))
+        }
+        val releases = mutableListOf<GithubRelease>()
+        var inEntry = false
+        var entryId = ""
+        var entryTitle = ""
+        var entryContent = ""
+        var entryUpdated = "1970-01-01T00:00:00Z"
+        var entryLink = ""
+
+        while (parser.eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            when (parser.eventType) {
+                org.xmlpull.v1.XmlPullParser.START_TAG -> when (parser.name) {
+                    "entry" -> {
+                        inEntry = true
+                        entryId = ""
+                        entryTitle = ""
+                        entryContent = ""
+                        entryUpdated = "1970-01-01T00:00:00Z"
+                        entryLink = ""
+                    }
+                    "id" -> if (inEntry) entryId = parser.nextText()
+                    "title" -> if (inEntry) entryTitle = parser.nextText()
+                    "content" -> if (inEntry) entryContent = parser.nextText()
+                    "updated" -> if (inEntry) entryUpdated = parser.nextText()
+                    "link" -> if (
+                        inEntry &&
+                        parser.getAttributeValue(null, "rel") == "alternate"
+                    ) {
+                        entryLink = parser.getAttributeValue(null, "href").orEmpty()
+                    }
+                }
+                org.xmlpull.v1.XmlPullParser.END_TAG -> if (
+                    parser.name == "entry" &&
+                    inEntry
+                ) {
+                    inEntry = false
+                    val tag = entryLink.substringAfterLast("/tag/", "")
+                        .ifBlank { entryId.substringAfterLast('/') }
+                    if (tag.isNotBlank()) {
+                        val notes = HtmlCompat.fromHtml(
+                            entryContent,
+                            HtmlCompat.FROM_HTML_MODE_LEGACY
+                        ).toString().trim()
+                        releases += GithubRelease(
+                            id = 0u,
+                            tagName = tag,
+                            name = entryTitle.ifBlank { tag },
+                            body = notes,
+                            prerelease = extractVersionSuffix(tag) == "b",
+                            builds = listOf(directGithubFullBuild(entryUpdated))
+                        )
+                    }
+                }
+            }
+            parser.next()
+        }
+
+        val bestRelease = findBestRelease(releases, checkBetaUpdates)
+            ?: throw NoSuchFileException("")
+        UpdateCandidate(
+            release = bestRelease,
+            build = directGithubFullBuild(
+                bestRelease.builds.firstOrNull()?.createdAt.orEmpty()
+                    .ifBlank { "1970-01-01T00:00:00Z" }
+            ),
+            source = "github-atom"
+        )
+    }
     private suspend fun fetchGithubUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+        applyUpdateCandidate(fetchGithubUpdateCandidate(checkBetaUpdates))
+    }
+
+    private suspend fun fetchGithubUpdateCandidate(checkBetaUpdates: Boolean = false): UpdateCandidate = withContext(Dispatchers.IO) {
         assert(Looper.myLooper() != Looper.getMainLooper()) {
             "Cannot run fetch update on main thread"
         }
 
-        // Get all releases to find the best one
         val url = "${Repository.GITHUB_API}/repos/${Repository.REPO}/releases"
         val resBody = executeUpdateRequest(url)
-        if (resBody.isNullOrBlank()) {
-            Toaster.i(R.string.info_no_update_available)
-            return@withContext
-        }
+        if (resBody.isNullOrBlank()) throw NoSuchFileException("")
 
-        val json = Json {
-            ignoreUnknownKeys = true
-        }
+        val json = Json { ignoreUnknownKeys = true }
         val releases = json.decodeFromString<List<GithubRelease>>(resBody)
-        
-        // Find the best release based on current version and beta preferences
-        val bestRelease = findBestRelease(releases, checkBetaUpdates)
-        
-        if (bestRelease != null) {
-            this@Updater.githubRelease = bestRelease
-            build = extractBuild(bestRelease.builds, checkBetaUpdates)
-            tagName = bestRelease.tagName
-        } else {
-            throw NoSuchFileException("")
-        }
+        val bestRelease = findBestRelease(releases, checkBetaUpdates) ?: throw NoSuchFileException("")
+        val bestBuild = runCatching { extractBuild(bestRelease.builds, checkBetaUpdates) }
+            .getOrElse {
+                if (extractBuildType(BuildConfig.VERSION_NAME) == "full") {
+                    directGithubFullBuild(bestRelease.builds.firstOrNull()?.createdAt ?: "1970-01-01T00:00:00Z")
+                } else {
+                    throw it
+                }
+            }
+
+        UpdateCandidate(bestRelease, bestBuild, "github")
     }
 
     private suspend fun fetchUpdateBuddyRelease(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+        applyUpdateCandidate(fetchUpdateBuddyReleaseCandidate(checkBetaUpdates, viaGithubFallback = false))
+    }
+
+    private suspend fun fetchUpdateBuddyReleaseCandidate(
+        checkBetaUpdates: Boolean = false,
+        viaGithubFallback: Boolean = false
+    ): UpdateCandidate = withContext(Dispatchers.IO) {
         val channel = if (checkBetaUpdates || extractVersionSuffix(BuildConfig.VERSION_NAME) == "b") "beta" else "stable"
         val current = URLEncoder.encode(BuildConfig.VERSION_NAME, Charsets.UTF_8.name())
-        val url = "${SecureApiConfig.updateBuddyLatestReleaseEndpoint}?channel=$channel&current=$current"
+        val url = if (viaGithubFallback) {
+            val repo = URLEncoder.encode(Repository.REPO, Charsets.UTF_8.name())
+            "${SecureApiConfig.updateBuddyGithubReleaseEndpoint}?repo=$repo&current=$current"
+        } else {
+            "${SecureApiConfig.updateBuddyLatestReleaseEndpoint}?channel=$channel&current=$current"
+        }
+
         val body = executeUpdateRequest(url, treat404AsNoFile = true).orEmpty()
         if (body.isBlank()) throw NoSuchFileException("")
 
@@ -215,8 +368,11 @@ object Updater {
 
         val latest = root.optJSONObject("latest") ?: throw NoSuchFileException("")
         val version = latest.optString("version").ifBlank { throw NoSuchFileException("") }
-        val downloadUrl = latest.optString("downloadUrl").ifBlank { throw NoSuchFileException("") }
         val buildType = if (channel == "beta") "beta" else extractBuildType(BuildConfig.VERSION_NAME)
+        val downloadUrl = latest.optString("downloadUrl")
+            .takeIf { it.isNotBlank() }
+            ?: if (buildType == "full") SecureApiConfig.githubLatestFullApkUrl else throw NoSuchFileException("")
+        val createdAt = latest.optString("publishedAt").ifBlank { "1970-01-01T00:00:00Z" }
         val release = GithubRelease(
             id = 0u,
             tagName = version,
@@ -226,27 +382,52 @@ object Updater {
             builds = listOf(
                 GithubRelease.Build(
                     id = 0u,
-                    url = downloadUrl,
+                    url = root.optString("htmlUrl").ifBlank { downloadUrl },
                     name = "${BuildConfig.APP_NAME}-$buildType.apk",
                     size = 0u,
-                    createdAt = latest.optString("publishedAt").ifBlank { "1970-01-01T00:00:00Z" },
+                    createdAt = createdAt,
                     downloadUrl = downloadUrl
                 )
             )
         )
 
-        this@Updater.githubRelease = release
-        build = release.builds.first()
-        tagName = release.tagName
+        UpdateCandidate(release, release.builds.first(), if (viaGithubFallback) "update-buddy-github" else "update-buddy")
+    }
+
+    private fun compareVersionStrings(version1: String, version2: String): Int {
+        val v1Parts = version1.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+        val v2Parts = version2.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+        val maxLength = maxOf(v1Parts.size, v2Parts.size)
+        for (index in 0 until maxLength) {
+            val left = v1Parts.getOrNull(index) ?: 0
+            val right = v2Parts.getOrNull(index) ?: 0
+            if (left != right) return left.compareTo(right)
+        }
+        return 0
     }
 
     private fun executeUpdateRequest(url: String, treat404AsNoFile: Boolean = false): String? {
         var lastError: Throwable? = null
         repeat(2) { attempt ->
             try {
-                updateHttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                updateHttpClient.newCall(
+                    Request.Builder()
+                        .url(url)
+                        .header("User-Agent", "${BuildConfig.APP_NAME}/${BuildConfig.VERSION_NAME}")
+                        .header(
+                            "Accept",
+                            "application/json, application/atom+xml, application/xml, text/xml, */*"
+                        )
+                        .header("Cache-Control", "no-cache")
+                        .build()
+                ).execute().use { response ->
                     if (treat404AsNoFile && response.code == 404) throw NoSuchFileException("")
-                    if (!response.isSuccessful) throw IOException(response.message)
+                    if (!response.isSuccessful) {
+                        throw UpdateHttpException(
+                            statusCode = response.code,
+                            message = "Update service unavailable (${response.code})"
+                        )
+                    }
                     return response.body?.string()
                 }
             } catch (error: IOException) {
@@ -284,6 +465,8 @@ object Updater {
             }
         }
         
+        if (eligibleReleases.isEmpty()) return null
+
         // Find the release with the highest version number
         // Find the maximum number of version parts to normalize all versions
         val maxParts = eligibleReleases.maxOf { release ->
@@ -313,58 +496,69 @@ object Updater {
     fun checkForUpdate(
         isForced: Boolean = false,
         checkBetaUpdates: Boolean = false
-    ) = CoroutineScope(Dispatchers.IO).launch {
-        // Update the last check timestamp at the beginning
+    ): Job = updaterScope.launch {
+        if (!BuildConfig.IS_AUTOUPDATE) return@launch
+
+        // The app shell can be composed more than once. Run exactly one automatic
+        // check per process, while keeping every explicit manual check available.
+        if (!isForced && !automaticCheckStarted.compareAndSet(false, true)) return@launch
+
         val sharedPrefs = appContext().getSharedPreferences("settings", 0)
-        sharedPrefs.edit()
-            .putLong(lastUpdateCheckKey, System.currentTimeMillis())
-            .apply()
-            
-        if (!BuildConfig.IS_AUTOUPDATE || NewUpdateAvailableDialog.isCancelled) return@launch
+        val now = System.currentTimeMillis()
 
         try {
-            if (!::build.isInitialized || isForced) {
-                fetchUpdate(checkBetaUpdates)
-            }
+            fetchUpdate(checkBetaUpdates)
 
-            // Check if the new version is actually newer
-            val hasUpdate = if (::tagName.isInitialized) {
+            val hasUpdate = ::tagName.isInitialized &&
                 isVersionNewer(tagName, BuildConfig.VERSION_NAME)
-            } else {
-                false
-            }
-            NewUpdateAvailableDialog.isActive = hasUpdate
-            
-            if (!NewUpdateAvailableDialog.isActive) {
-                if(isForced) {
+            withContext(Dispatchers.Main.immediate) {
+                NewUpdateAvailableDialog.isActive = hasUpdate
+                NewUpdateAvailableDialog.isCancelled = false
+                if (!hasUpdate && isForced) {
                     Toaster.i(R.string.info_no_update_available)
                 }
-                NewUpdateAvailableDialog.isCancelled = true
-                // Also reset the cancelled state in SharedPreferences when no update is available
-                sharedPrefs.edit()
-                    .putBoolean(updateCancelledKey, false)
-                    .apply()
-            } else {
-                // If there's an update available, reset the cancelled state
-                NewUpdateAvailableDialog.isCancelled = false
-            }
-        } catch (e: Exception) {
-            val message = when (e) {
-                is UnknownHostException -> appContext().getString(R.string.error_no_internet)
-                is NoSuchFileException -> appContext().getString(R.string.info_no_update_available)
-                else -> e.message ?: appContext().getString(R.string.error_unknown)
-            }
-            
-            // Use appropriate toast type based on exception
-            when (e) {
-                is NoSuchFileException -> Toaster.i(message) // Blue for no update available
-                else -> Toaster.e(message) // Red for other errors
             }
 
-            NewUpdateAvailableDialog.isCancelled = true
+            if (!hasUpdate) {
+                sharedPrefs.edit().putBoolean(updateCancelledKey, false).apply()
+            }
+            sharedPrefs.edit().putLong(lastUpdateCheckKey, now).apply()
+            automaticRetryJob?.cancel()
+            automaticRetryJob = null
+        } catch (error: NoSuchFileException) {
+            withContext(Dispatchers.Main.immediate) {
+                NewUpdateAvailableDialog.isActive = false
+                NewUpdateAvailableDialog.isCancelled = false
+                if (isForced) Toaster.i(R.string.info_no_update_available)
+            }
+            sharedPrefs.edit()
+                .putLong(lastUpdateCheckKey, now)
+                .putBoolean(updateCancelledKey, false)
+                .apply()
+            automaticRetryJob?.cancel()
+            automaticRetryJob = null
+        } catch (error: Exception) {
+            val isRateLimited =
+                error is UpdateHttpException && error.statusCode in setOf(403, 429)
+            val retryDelay =
+                if (isRateLimited) RATE_LIMIT_RETRY_MS else TRANSIENT_FAILURE_RETRY_MS
+
+            if (isForced) {
+                val message = when (error) {
+                    is UnknownHostException -> appContext().getString(R.string.error_no_internet)
+                    else -> appContext().getString(R.string.update_failed_message)
+                }
+                withContext(Dispatchers.Main.immediate) { Toaster.e(message) }
+            } else {
+                automaticRetryJob?.cancel()
+                automaticRetryJob = updaterScope.launch {
+                    delay(retryDelay)
+                    automaticCheckStarted.set(false)
+                    checkForUpdate(checkBetaUpdates = checkBetaUpdates)
+                }
+            }
         }
     }
-
     @Composable
     fun SettingEntry() {
         var checkUpdateState by rememberPreference(checkUpdateStateKey, CheckUpdateState.Enabled)

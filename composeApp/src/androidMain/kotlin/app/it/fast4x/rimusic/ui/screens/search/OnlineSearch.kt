@@ -1,5 +1,6 @@
 package app.it.fast4x.rimusic.ui.screens.search
 
+import android.net.Uri
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -86,6 +87,7 @@ import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.SearchDisplayOrder
 import app.it.fast4x.rimusic.enums.ThumbnailRoundness
 import app.it.fast4x.rimusic.models.SearchQuery
+import app.it.fast4x.rimusic.repository.QuickPicksRepository
 import app.it.fast4x.rimusic.models.toUiMood
 import app.it.fast4x.rimusic.typography
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
@@ -112,12 +114,15 @@ import app.it.fast4x.rimusic.utils.searchDisplayOrderKey
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.thumbnailRoundnessKey
+import app.it.fast4x.rimusic.extensions.youtubelogin.YtmHomeSectionItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 @UnstableApi
 @ExperimentalFoundationApi
@@ -157,18 +162,70 @@ fun OnlineSearch(
 
     // Fetch moods and genres for search screen
     var discoverPage by persist<Result<Innertube.DiscoverPage>>("search/moods")
+    var musicShorts by remember { mutableStateOf(emptyList<YtmHomeSectionItem>()) }
+    var musicShortsLoading by remember { mutableStateOf(true) }
+    var recentSearchShortIds by rememberPreference("searchMusicShortsRecentIds", "")
+    val musicShortShuffleSeed = remember {
+        (System.nanoTime() xor System.currentTimeMillis()).toInt()
+    }
+
+    fun rotateMusicShorts(candidates: List<YtmHomeSectionItem>): List<YtmHomeSectionItem> {
+        val recentIds = recentSearchShortIds
+            .split(',')
+            .filter(String::isNotBlank)
+            .toSet()
+        val unique = candidates.distinctBy { item -> item.videoId.ifBlank { item.id } }
+        val fresh = unique
+            .filterNot { item -> item.videoId.ifBlank { item.id } in recentIds }
+            .shuffled(Random(musicShortShuffleSeed))
+        return (fresh + unique.shuffled(Random(musicShortShuffleSeed xor 0x45A91)))
+            .distinctBy { item -> item.videoId.ifBlank { item.id } }
+            .take(24)
+    }
 
     LaunchedEffect(Unit) {
-        if (discoverPage == null) {
-            discoverPage = Innertube.discoverPage()
+        if (discoverPage == null) discoverPage = Innertube.discoverPage()
+
+        val recentIds = recentSearchShortIds
+            .split(',')
+            .filter(String::isNotBlank)
+            .toSet()
+        val casualCandidates = withContext(Dispatchers.IO) {
+            QuickPicksRepository.loadCasualPlayedRecommendations(
+                limit = 48,
+                excludedIds = recentIds,
+            )
+        }.mapNotNull { song -> song.asMusicShortCandidate() }
+        val radioCandidates = withContext(Dispatchers.IO) {
+            relatedMusicShortCandidates(casualCandidates)
         }
+        val candidates = (
+            MusicShortRecommendationCache.items +
+                casualCandidates +
+                radioCandidates
+            ).distinctBy { item -> item.videoId.ifBlank { item.id } }
+        musicShorts = rotateMusicShorts(candidates)
+        MusicShortRecommendationCache.store(musicShorts)
+        recentSearchShortIds = (musicShorts.map { item -> item.videoId.ifBlank { item.id } } +
+            recentSearchShortIds.split(','))
+            .filter(String::isNotBlank)
+            .distinct()
+            .take(120)
+            .joinToString(",")
+        musicShortsLoading = false
     }
 
     LaunchedEffect(textFieldValue.text) {
-        if (textFieldValue.text.isNotEmpty()) {
-            delay(200)
-            suggestionsResult =
-                Innertube.searchSuggestionsWithItems(SearchSuggestionsBody(input = textFieldValue.text))
+        val query = textFieldValue.text.trim()
+        if (query.isBlank()) {
+            suggestionsResult = null
+            return@LaunchedEffect
+        }
+
+        delay(250)
+        val result = Innertube.searchSuggestionsWithItems(SearchSuggestionsBody(input = query))
+        if (textFieldValue.text.trim() == query) {
+            suggestionsResult = result
         }
     }
 
@@ -197,6 +254,7 @@ fun OnlineSearch(
     val menuState = LocalMenuState.current
     val hapticFeedback = LocalHapticFeedback.current
     val binder = LocalPlayerServiceBinder.current
+
 
     val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 
@@ -289,6 +347,19 @@ fun OnlineSearch(
                 }
 
                 if (showDiscover) {
+                        item(key = "music_shorts") {
+                            MusicShortsShelf(
+                                items = musicShorts,
+                                isLoading = musicShortsLoading,
+                                onOpenFeed = { item ->
+                                    val selectedId = item.videoId.ifBlank { item.id }
+                                    navController.navigate(
+                                        "${NavRoutes.musicShorts.name}?videoId=${Uri.encode(selectedId)}"
+                                    )
+                                },
+                            )
+                        }
+
                     // Show Discover (All Moods & Genres) - Use items directly without nested LazyVerticalGrid
                     discoverPage?.getOrNull()?.let { page ->
                         if (page.moods.isNotEmpty()) {
@@ -772,13 +843,13 @@ fun ModernSearchSuggestionItem(
                 onClick = onSearchClick,
                 onLongClick = { /* optional long press */ },
                 indication = ripple(
-                    bounded = true,  // 👈 CHANGE to bounded ripple
-                    color = colorPalette().accent.copy(alpha = 0.3f)  // 👈 Custom ripple color
+                    bounded = true,
+                    color = colorPalette().accent.copy(alpha = 0.3f)
                 ),
                 interactionSource = interactionSource
             )
             .then(
-                if (isPressed) Modifier.background(colorPalette().accent.copy(alpha = 0.1f)) // 👈 Visual feedback
+                if (isPressed) Modifier.background(colorPalette().accent.copy(alpha = 0.1f))
                 else Modifier
             )
             .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -834,7 +905,7 @@ fun ModernHistoryItem(
             .combinedClickable(
                 onClick = onSearchClick,
                 indication = ripple(
-                    bounded = true,  // 👈 FIXED
+                    bounded = true,
                     color = colorPalette().accent.copy(alpha = 0.3f)
                 ),
                 interactionSource = remember { MutableInteractionSource() }

@@ -30,14 +30,14 @@ data class PlaylistPage(
 ) {
     companion object {
         fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): Innertube.SongItem {
-            println("YtMusic getPlaylist PlaylistPage setVideoId ${renderer.playlistItemData?.playlistSetVideoId}")
+            println("YtMusic getPlaylist PlaylistPage videoId ${renderer.videoId} setVideoId ${renderer.playlistSetVideoId}")
             return Innertube.SongItem(
                 info = Innertube.Info(
                     name = renderer.flexColumns.firstOrNull()
                         ?.musicResponsiveListItemFlexColumnRenderer?.text
                         ?.runs?.firstOrNull()?.text,
                     endpoint = NavigationEndpoint.Endpoint.Watch(
-                        videoId = renderer.playlistItemData?.videoId
+                        videoId = renderer.videoId
                     )
                 ),
                 authors = renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.oddElements()
@@ -59,7 +59,7 @@ data class PlaylistPage(
                 explicit = renderer.badges?.find {
                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                 } != null,
-                setVideoId = renderer.playlistItemData?.playlistSetVideoId,
+                setVideoId = renderer.playlistSetVideoId,
 //                endpoint = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint,
 
             )
@@ -309,5 +309,4 @@ private fun BrowseResponse.ContinuationContents.MusicPlaylistShelfContinuation?.
         ?.nextContinuationData
         ?.continuation
 )
-
 

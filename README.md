@@ -1,230 +1,329 @@
-# 
-<p align="center">
-  <img width="1024" height="1024" alt="Image" src="https://github.com/user-attachments/assets/15bd0440-9b2d-4de9-b823-ecd8434889f9" />
-</p>
-
-<h1 align="center" style="font-size: 3.2rem;">Cubic Music</h1>
-
-<div align="center">
-
-[![Latest Version](https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?label=Latest%20Version)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
-[![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases)  
-[![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release%20Downloads)](https://github.com/cybruGhost/Cubic-Music/releases/latest)  
-[![License: GPL v3](https://img.shields.io/github/license/cybruGhost/Cubic-Music?color=blue)](https://www.gnu.org/licenses/gpl-3.0)
-
-[![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
-
-<br/>
-
-**Cubic Music** is a powerful, multilingual YouTube Music frontend for Android.  
-It features a sleek, modern UI focused on performance and user freedom, offering seamless streaming, full downloads, and stunning visuals.
-
-*While not as polished as some mature apps yet, it remains a solid, lightweight, and visually appealing alternative — actively maintained with frequent improvements.*
-
-🚀 **[Download Latest Release](https://github.com/cybruGhost/Cubic-Music/releases/latest)**  
-⭐ **Star this repository to support development!**
-
-</div>
-
----
-
-## 🚀 Current Version: `v1.8.3` (latest)
-
-🔧 **Status:** Active development — continuous improvements and new features.
-
----
-
-## 🆕 What’s New in v1.8.3
-
-### 🖼️ Spotify Canvas (Beta)
-
-Short looping visuals (3–8s) replace static album covers during playback, enhancing the mood and identity of each track.
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/00de30f0-b436-4a3d-8b59-5af9a0a44881" width="280" alt="Cubic Music Screenshot 1"/>
-  <img src="https://github.com/user-attachments/assets/a40120a1-73b1-455a-860d-68e75175d2c2" width="280" alt="Cubic Music Screenshot 2"/>
-  <img src="https://github.com/user-attachments/assets/830f4a15-ac76-422f-9762-a69e17b34568" width="280" alt="Cubic Music Screenshot 3"/>
+  <img width="210" src="https://github.com/user-attachments/assets/15bd0440-9b2d-4de9-b823-ecd8434889f9" alt="Cubic Music logo" />
+</p>
+
+<h1 align="center">Cubic Music</h1>
+
+<p align="center">
+  <strong>Your music. Your rules. Your freedom.</strong>
+  <br />
+  A bold, independent, open-source music player for Android.
+</p>
+
+<p align="center">
+  Stream from YouTube Music, download for offline listening, follow word-by-word karaoke lyrics,
+  rediscover your year with Rewind, and shape the player around the way you listen.
+</p>
+
+<p align="center">
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest/download/Cubic-Music-full.apk">
+    <img src="https://img.shields.io/badge/GET_CUBIC_MUSIC-DOWNLOAD_APK-7C3AED?style=for-the-badge&logo=android&logoColor=white" alt="Download Cubic Music APK" />
+  </a>
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest">
+    <img src="https://img.shields.io/badge/SEE_WHAT'S_NEW-LATEST_RELEASE-111111?style=for-the-badge&logo=github&logoColor=white" alt="View the latest Cubic Music release" />
+  </a>
+</p>
+
+<!-- THE CUBE DISCORD — INDEPENDENT COMMUNITY BUTTON -->
+
+<p align="center">
+  <a href="https://discord.com/invite/RebqmxXqGb">
+    <img src="https://img.shields.io/badge/JOIN_THE_CUBE_DISCORD-COMMUNITY_%26_SUPPORT-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join The Cube Discord community" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>🎬 The Cube on Android or Android TV? Join our Discord to report issues, get help, and follow updates.</sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest"><img src="https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?display_name=tag&sort=semver&style=flat-square&label=latest" alt="Latest Cubic Music version" /></a>
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest"><img src="https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?style=flat-square&label=latest%20release%20downloads&color=7C3AED" alt="Latest Cubic Music release downloads" /></a>
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases"><img src="https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?style=flat-square&label=all-time%20downloads&color=2563EB" alt="All-time Cubic Music downloads" /></a>
+  <img src="https://img.shields.io/badge/Android-6.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 6.0 or newer" />
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/cybruGhost/Cubic-Music?style=flat-square&label=license" alt="GPL-3.0 license" /></a>
+</p>
+
+<p align="center">
+  <a href="#experience">Experience</a> |
+  <a href="#features">Features</a> |
+  <a href="#install">Install</a> |
+  <a href="#playlists">Playlists</a> |
+  <a href="#contribute">Contribute</a> |
+  <a href="#support-cubic">Support</a>
 </p>
 
 ---
 
-## ✨ Key Features
+## Development philosophy
 
-### 🔁 Music Rewind
-Cubic Music’s take on *Spotify Wrapped* — a smart, shareable recap of your listening habits:
+Cubic Music is developed locally, with development and testing happening primarily on my own machine. Changes are made carefully and incrementally, so updates to the public repository may sometimes appear slower than the actual development happening locally.
 
-- 🎧 Top songs & artists  
-- ⏱️ Total listening time  
-- 🔥 Favorite genres & moods  
-- 📅 Listening streaks & highlights  
+The local development history currently contains **2,000+ commits**. GitHub is primarily used as a public repository and as a reliable backup of the project, rather than as a live mirror of every development change.
 
----
+This approach allows me to experiment, test, refactor, and stabilize changes locally before pushing them to the public repository. In other words, the GitHub repository represents the versions I am ready to share .. not necessarily every change being worked on locally. I just want the app to work and not have many commits with broken app. Please understand.
 
-### 🆕 Latest Additions
-- **Spotify Playlist Import**  
-- **Explicit Content Tags**  
-- **Comments System**  
+## Experience
 
----
+<p align="center">
+  <img width="180" src="https://github.com/user-attachments/assets/51fd5bd4-55a5-4fe0-9204-1294c8b13f3a" alt="Cubic Music word-by-word karaoke lyrics" />
+  <img width="180" src="https://github.com/user-attachments/assets/94dfbb46-5f6c-46e6-a657-8cecdb0e2af6" alt="Cubic Music now playing screen" />
+  <img width="180" src="https://github.com/user-attachments/assets/24e40588-85d8-4028-8c7f-2b4ba78b6285" alt="Cubic Music Canvas video background" />
+  <img width="180" src="https://github.com/user-attachments/assets/830f4a15-ac76-422f-9762-a69e17b34568" alt="Cubic Music Android interface" />
+</p>
 
-### 🎧 Core Capabilities
-- **Smart Caching** (custom size)  
-- **Batch Downloads** (songs & playlists)  
-- **Full Offline Mode**  
-- **Background Playback**  
-- **Advanced Audio Controls:** speed, pitch, normalization, skip silence  
-- **Audio Visualizers** (multiple styles)  
+<!-- Add future Cubic Music screenshots here using the same 180px image pattern. -->
 
----
+<p align="center">
+  <strong>One library. Online or offline. Familiar when you want it, completely yours when you do not.</strong>
+</p>
 
-### 🎨 Customization & UI
-- **Dynamic Themes**  
-- **Lyrics Engine:** fetch, edit, translate, synced/unsynced  
-- **Playlist Management:** import/export, RiMusic-compatible  
-- **Custom Sleep Timer**  
+> [!NOTE]
+> Cubic Music is independently developed and maintained. Account connections are optional, and the app does not require a Cubic Music subscription.
 
----
+> [!TIP]
+> Desktop Cubic Music v3 is in development. Follow its progress in the [DESKTOP-CUBIC-MUSIC repository](https://github.com/cybruGhost/DESKTOP-CUBIC-MUSIC).
 
-### 📱 Integrations & Utilities
-- **Android Auto & Android TV**  
-- **Homescreen Widgets** *(experimental)*  
-- **In-app Update Checker**  
-- **Full Data Export:** settings, downloads, cache  
+## Built for the way you listen
 
----
+<summary><strong>😝DO YOU KNOW WE HAVE SPOTIFY CANVAS😏</strong></summary>
 
-## 🛠️ Roadmap & To‑Do
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>Play without friction</h3>
+      Stream, queue, shuffle, repeat, crossfade, or keep it gapless. Cubic keeps the listening session at the center.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Take music offline</h3>
+      Download songs and playlists, tune the cache, and keep a real offline library ready when the network is not.
+    </td>
+    <td width="33%" valign="top">
+      <h3>See every word</h3>
+      Use synced lyrics, translations, romanization, editing tools, and word-timed karaoke where timing is available.
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>Make it unmistakably yours</h3>
+      Dynamic colors, multiple player surfaces, visualizers, Canvas, artwork styling, and configurable notifications.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Know your music story</h3>
+      Exact play counts, complete history, streaks, favorites, and shareable Cubic Rewind cards built from real listening data.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Keep your library portable</h3>
+      Import and export playlists, restore settings and data, and bring Spotify or Exportify CSV libraries into Cubic.
+    </td>
+  </tr>
+</table>
 
-- [ ] Improved playlist mood detection  
-- [ ] Memory optimization for large caches  
-- [ ] UI refinements inspired by RiMusic  
-- [ ] General performance improvements  
-- [ ] More languages  
+## Latest release
 
----
+<p align="center">
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest">
+    <img src="https://img.shields.io/github/v/release/cybruGhost/Cubic-Music?display_name=tag&sort=semver&style=for-the-badge&label=Current%20Version&color=111111" alt="Current Cubic Music version" />
+  </a>
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases/latest">
+    <img src="https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?style=for-the-badge&label=Release%20Downloads&color=7C3AED" alt="Downloads for the latest Cubic Music release" />
+  </a>
+</p>
 
-# 📋 Supported Playlist Formats
+Release notes, fixes, known limitations, and APK assets are published together on the [latest release page](https://github.com/cybruGhost/Cubic-Music/releases/latest). The badges above update automatically when a new release is published.
 
-Cubic Music supports multiple CSV playlist formats.
+> [!TIP]
+> If playback behavior changes unexpectedly, first install the newest release. Upstream YouTube changes can affect older builds without warning.
 
----
+## Features
 
-## 🧩 1. Compatible App Format (Native)
+<details open>
+  <summary><strong>Playback and audio</strong></summary>
+  <br />
 
-Imported directly — no conversion needed.  
-Uses raw YouTube video IDs.
+- YouTube Music streaming with automatic source recovery
+- Spotify canvas
+- Shazam Music recognition
+- crossfading
+- Discover-smart music filter and filler
+- Background, lock-screen, headset, and media-notification controls
+- Configurable crossfade and normal gapless transitions
+- Playback speed, pitch, volume normalization, and silence skipping
+- Queue management, shuffle, repeat, song radio, and sleep timer
+- Optional video mode and multiple audio visualizers
+
+</details>
+
+<details open>
+  <summary><strong>Downloads and library</strong></summary>
+  <br />
+
+- Song and playlist downloads
+- Configurable playback cache and full offline mode
+- Separate downloaded, cached, and verified corrupt-file views
+- Local-song playback and persistent playlists
+- Exact song play counts and complete listening history
+- Database, settings, library, and playlist export tools
+
+</details>
+
+<details open>
+  <summary><strong>Lyrics and discovery</strong></summary>
+  <br />
+
+- Synchronized and unsynchronized lyrics
+- Word-by-word karaoke timing where available
+- Provider selection, translation, romanization, and lyric editing
+- Personalized For You recommendations and quick picks
+- Search suggestions, artist pages, albums, and related music
+- Cubic Rewind recaps generated from real listening history
+
+</details>
+
+<details open>
+  <summary><strong>Design and connections</strong></summary>
+  <br />
+
+- Material You and artwork-derived color palettes
+- Standard, Liquid, and alternative player surfaces
+- Cubic Canvas and Spotify Canvas support where available
+- Automatic, custom, and high-contrast notification colors
+- Optional YouTube Music synchronization and Discord Rich Presence
+- Android Auto, Android TV, homescreen widgets, and in-app updates
+
+</details>
+
+## Install
+
+### Requirements
+
+- Android 6.0 (API 23) or newer
+- Internet access for streaming, search, artwork, and online lyrics
+- Available storage for downloads and cache
+
+### Get Cubic Music
+
+1. Open the [latest official release](https://github.com/cybruGhost/Cubic-Music/releases/latest).
+2. Download `Cubic-Music-full.apk`.
+3. Open the APK on your Android device.
+4. Allow installation from your browser or file manager if Android requests it.
+
+> [!IMPORTANT]
+> Install Cubic Music only from this repository. Third-party APK mirrors may distribute outdated or modified builds.
+
+## Playlists
+
+Cubic Music can move libraries between apps without locking users into one format.
+
+| Format | Recognition | Import behavior |
+|---|---|---|
+| Cubic/native CSV | Playlist, media ID, title, artist, duration | Imported directly |
+| Extended native CSV | Native fields plus album, artwork, and artist IDs | Imported directly |
+| Spotify export | Track name and artist columns | Matched to playable results |
+| Exportify | Track URI, name, artists, and album | Matched to playable results |
+
+<details>
+  <summary><strong>Native CSV example</strong></summary>
 
 ```csv
 PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
-,Swipefy,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://inv.perditum.com/vi/1pEe7-tWv2M/hqdefault.jpg
+,Favorites,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://i.ytimg.com/vi/1pEe7-tWv2M/hqdefault.jpg
 ```
 
----
+</details>
 
-## 🧱 2. Extended App Format (With Album Info)
+## Build from source
 
-```csv
-PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl,AlbumId,AlbumTitle,ArtistIds
-,MyPlaylist,abc123,Song Title,Artist Name,180,https://example.com/thumb.jpg,album123,Album Name,artist123
+<details>
+  <summary><strong>Developer setup</strong></summary>
+  <br />
+
+Requirements:
+
+- Git
+- JDK 21
+- Android SDK with the required compile SDK installed
+
+```bash
+git clone https://github.com/cybruGhost/Cubic-Music.git
+cd Cubic-Music
+./gradlew assembleFull
 ```
 
----
+Windows:
 
-## 🎧 3. Spotify Export Format
-
-```csv
-Track Name,Artist Name(s),Track Duration (ms),Album Name,Album Image URL,Explicit
-Blinding Lights,The Weeknd,200040,After Hours,https://i.scdn.co/image/ab67616d0000b273,false
+```powershell
+.\gradlew.bat assembleFull
 ```
 
----
+Output:
 
-## 💽 4. Exportify Format (Enhanced Spotify Export)
-
-```csv
-Track URI,Track Name,Artist Name(s),Album Name,Album Image URL,Track Duration (ms),Explicit,Playlist Name
-spotify:track:123,Blinding Lights,The Weeknd,After Hours,https://i.scdn.co/image/ab67616d0000b273,200040,false,My Playlist
+```text
+composeApp/build/outputs/apk/full/Cubic-Music-full.apk
 ```
 
----
+Keep API keys and private endpoints in `local.properties`. Never commit them.
 
-## 🪶 5. Custom Minimal Format
+</details>
 
-```csv
-PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration
-,MyPlaylist,abc123,Song Title,Artist Name,180
-```
+## Contribute
 
----
+Cubic Music grows through focused contributions and honest testing.
 
-## 🔄 Conversion Rules
+- Search [existing issues](https://github.com/cybruGhost/Cubic-Music/issues) before creating a report.
+- Include the app version, Android version, device, clear reproduction steps, and only the relevant sanitized log lines.
+- Never post cookies, tokens, API keys, account details, or complete private logs.
+- Discuss major behavior or architecture changes before opening a large pull request.
+- Keep pull requests focused and test Android changes before submission.
 
-### ✅ Direct Import (no conversion)
-- App Format  
-- Extended App Format  
-- Custom Format  
+<p align="center">
+  <a href="https://github.com/cybruGhost/Cubic-Music/issues/new">
+    <img src="https://img.shields.io/badge/REPORT_A_BUG-OPEN_ISSUE-D73A49?style=for-the-badge&logo=github&logoColor=white" alt="Report a Cubic Music issue" />
+  </a>
+  <a href="https://crowdin.com/project/cubic-music">
+    <img src="https://img.shields.io/badge/HELP_TRANSLATE-CROWDIN-2E3340?style=for-the-badge&logo=crowdin&logoColor=white" alt="Translate Cubic Music on Crowdin" />
+  </a>
+</p>
 
-### 🔁 Conversion Required (YouTube API)
-- Spotify Export  
-- Exportify  
+## Support Cubic
 
-### 📦 Standardized Output Format
+You can support Cubic Music by starring the repository, reporting reproducible bugs, helping with translations, contributing code, or funding continued development.
 
-```csv
-PlaylistBrowseId,PlaylistName,MediaId,Title,Artists,Duration,ThumbnailUrl
-,Imported Playlist,1pEe7-tWv2M,Good Grief,Jenna Raine,160,https://yt.omada.cafe/vi/1pEe7-tWv2M/hqdefault.jpg
-```
+<p align="center">
+  <a href="https://cyberghost-shop.fourthwall.com/">
+    <img src="https://img.shields.io/badge/SUPPORT_CUBIC-FOURTHWALL-111111?style=for-the-badge" alt="Support Cubic Music on Fourthwall" />
+  </a>
+  <a href="https://github.com/cybruGhost/Cubic-Music/stargazers">
+    <img src="https://img.shields.io/badge/STAR_THE_PROJECT-GITHUB-7C3AED?style=for-the-badge&logo=github&logoColor=white" alt="Star Cubic Music on GitHub" />
+  </a>
+</p>
 
----
+## Independent project
 
-# 📊 Live System Status & Stats
+Cubic Music is independently developed and maintained by [cybruGhost](https://github.com/cybruGhost), with help from its users, testers, translators, and contributors. Third-party libraries and components retain their own licenses and notices in the source tree.
 
-## 📥 Download Counters
+## Privacy and license
 
-| Metric | Badge | Description |
-|-------|--------|-------------|
-| **All-Time Downloads** | ![Total Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/total?label=Total%20Downloads&color=blue) | Across all versions |
-| **Current Release** | ![Latest Release Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/latest/total?label=Latest%20Release&color=green) | `v1.8.2` only |
-| **Version-Specific** | ![v1.8.0 Downloads](https://img.shields.io/github/downloads/cybruGhost/Cubic-Music/v1.8.0/total?label=v1.8.0%20Downloads&color=orange) | Specific build |
+- Read the [Privacy Policy](./privacy.md) and [Terms](./terms.md).
+- Cubic Music is licensed under the [GNU General Public License v3.0](./LICENSE).
+- Optional account integrations can be enabled or disabled from app settings.
+- You are responsible for the usage of this APP. Please be respectful towards Youtubes [Terms Of Service](https://www.youtube.com/static?template=terms)
 
----
+## Legal notice
 
-## ⚙️ API Status
-
-![API Status](https://img.shields.io/badge/dynamic/json?label=API&query=$.0.type&url=https://yt.omada.cafe/api/v1/search?q=test&color=brightgreen)
-![Search](https://img.shields.io/badge/dynamic/json?label=Search&query=$.0.type&prefix=OK&url=https://yt.omada.cafe/api/v1/search?q=test)
-![Results](https://img.shields.io/badge/dynamic/json?label=Results&query=$.length&url=https://yt.omada.cafe/api/v1/search?q=test)
-
----
-
-# 🌍 Help Translate Cubic Music
-
-Join our Crowdin project to help bring Cubic Music to more languages:
-
-[![Crowdin](https://img.shields.io/badge/𝐓𝐑𝐀𝐍𝐒𝐋𝐀𝐓𝐄-2E3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/cubic-music)
+Cubic Music is not affiliated with, endorsed by, or sponsored by YouTube, Google, Spotify, Discord, or their partners. Names and trademarks belong to their respective owners. Cubic Music does not host media. Availability can depend on upstream services, network conditions, account access, and region. Use the app only for content you are authorized to access or download.
 
 ---
 
-# ❤️ Support the Project
-
-If you enjoy Cubic Music, consider supporting development:
-
-☕ **[Support via Fourthwall Shop](https://cyberghost-shop.fourthwall.com/)**
-
----
-
-# ⚖️ Legal Notice & Disclaimer
-
-- **Copyright:** Cubic Music respects copyrights and **does not enable illegal downloads**.  
-- **Affiliation:** Not affiliated with YouTube, Google LLC, or their partners.  
-All trademarks belong to their respective owners.
-
----
-
-<div align="center">
-
-Made with ❤️ by [cybruGhost](https://github.com/cybruGhost)  
-⭐ **Don’t forget to star and follow for updates!** 🚀
-
-</div>
-
+<p align="center">
+  <strong>Cubic Music</strong>
+  <br />
+  Built independently for listeners who want more control over their music.
+  <br /><br />
+  <a href="https://github.com/cybruGhost/Cubic-Music/releases">Releases</a> |
+  <a href="https://github.com/cybruGhost/Cubic-Music/issues">Issues</a> |
+  <a href="https://crowdin.com/project/cubic-music">Translate</a> |
+  <a href="https://discord.com/invite/RebqmxXqGb">The Cube Discord</a> |
+  <a href="https://cyberghost-shop.fourthwall.com/">Support</a>
+</p>

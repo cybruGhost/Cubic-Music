@@ -119,7 +119,7 @@ object CShareClient {
                             .ifBlank { item.optString("thumbnail") }
                             .ifBlank {
                                 playableId.takeIf { it.isYoutubeVideoId() }
-                                    ?.let { "https://yt.omada.cafe/vi/$it/hqdefault.jpg" }
+                                    ?.let { "https://vi/$it/hqdefault.jpg" }
                                     .orEmpty()
                             }
                     )

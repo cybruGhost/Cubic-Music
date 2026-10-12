@@ -49,14 +49,12 @@ import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -71,6 +69,7 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -85,6 +84,8 @@ import androidx.media3.session.SessionToken
 import app.kreate.android.R
 import app.kreate.android.service.PlaybackSourceMonitor
 import app.kreate.android.service.createDataSourceFactory
+import app.kreate.android.service.findReplacementVideoId
+import app.kreate.android.service.invalidateFormatCache
 import app.kreate.android.widget.Widget
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.MoreExecutors
@@ -103,6 +104,7 @@ import app.it.fast4x.rimusic.enums.ExoPlayerDiskCacheMaxSize
 import app.it.fast4x.rimusic.enums.ExoPlayerMinTimeForEvent
 import app.it.fast4x.rimusic.enums.NotificationButtons
 import app.it.fast4x.rimusic.enums.NotificationType
+import app.it.fast4x.rimusic.enums.NotificationColorMode
 import app.it.fast4x.rimusic.enums.PresetsReverb
 import app.it.fast4x.rimusic.enums.QueueLoopType
 import app.it.fast4x.rimusic.enums.WallpaperType
@@ -133,8 +135,11 @@ import app.it.fast4x.rimusic.utils.autoLoadSongsInQueueKey
 import app.it.fast4x.rimusic.utils.bassboostEnabledKey
 import app.it.fast4x.rimusic.utils.bassboostLevelKey
 import app.it.fast4x.rimusic.utils.broadCastPendingIntent
+import app.it.fast4x.rimusic.utils.cleaned
 import app.it.fast4x.rimusic.utils.closebackgroundPlayerKey
 import app.it.fast4x.rimusic.utils.collect
+import app.it.fast4x.rimusic.utils.crossfadeDurationSecondsKey
+import app.it.fast4x.rimusic.utils.crossfadeEnabledKey
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import app.it.fast4x.rimusic.utils.enableWallpaperKey
 import app.it.fast4x.rimusic.utils.encryptedPreferences
@@ -162,6 +167,8 @@ import app.it.fast4x.rimusic.utils.loudnessBaseGainKey
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.mediaItems
 import app.it.fast4x.rimusic.utils.minimumSilenceDurationKey
+import app.it.fast4x.rimusic.utils.notificationColorModeKey
+import app.it.fast4x.rimusic.utils.notificationCustomColorKey
 import app.it.fast4x.rimusic.utils.notificationPlayerFirstIconKey
 import app.it.fast4x.rimusic.utils.notificationPlayerSecondIconKey
 import app.it.fast4x.rimusic.utils.notificationTypeKey
@@ -196,6 +203,7 @@ import app.it.fast4x.rimusic.utils.toggleShuffleMode
 import app.it.fast4x.rimusic.utils.volumeNormalizationKey
 import app.it.fast4x.rimusic.utils.wallpaperTypeKey
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -216,8 +224,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
+import java.io.EOFException
 import java.io.InterruptedIOException
 import java.io.File
 import java.io.FileOutputStream
@@ -231,7 +241,9 @@ import java.net.UnknownHostException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createTempDirectory
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.system.exitProcess
 import app.it.fast4x.rimusic.repository.QuickPicksRepository
 import android.os.Binder as AndroidBinder
@@ -239,6 +251,8 @@ import androidx.compose.ui.util.fastMap
 import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 import android.app.Notification
 import android.app.NotificationChannel
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import app.it.fast4x.rimusic.utils.safeSetMediaItems
 
 const val LOCAL_KEY_PREFIX = "local:"
@@ -263,6 +277,15 @@ private fun Throwable.isNetworkUnavailablePlaybackFailure(): Boolean =
             cause.message?.contains("ECONNABORTED", ignoreCase = true) == true
     }
 
+private fun Context.hasValidatedNetwork(): Boolean {
+    val connectivityManager =
+        getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}
+
 @UnstableApi
 class PlayerServiceModern : MediaLibraryService(),
     Player.Listener,
@@ -278,6 +301,21 @@ class PlayerServiceModern : MediaLibraryService(),
         MediaLibrarySessionCallback(this, Database, MyDownloadHelper)
     lateinit var player: ExoPlayer
     private lateinit var sessionPlayer: ExoPlayer
+    private lateinit var sharedMediaSourceFactory: MediaSourceFactory
+    private lateinit var sharedRenderersFactory: DefaultRenderersFactory
+    private var crossfadePlayer: ExoPlayer? = null
+    private var crossfadeMonitorJob: Job? = null
+    private var crossfadeJob: Job? = null
+    private var crossfadeTargetIndex = C.INDEX_UNSET
+    private var crossfadeTargetMediaId: String? = null
+    private var crossfadeTargetItem: MediaItem? = null
+    private var crossfadeHandoffInProgress = false
+    private var crossfadePlaybackRequested = false
+    private var crossfadeUiCommittedToIncoming = false
+    private var isCrossfadeEnabled = false
+    private var crossfadeDurationMs = 21_000L
+    private val _crossfadeState = MutableStateFlow(CrossfadeState(CrossfadePhase.DISABLED))
+    val crossfadeState: StateFlow<CrossfadeState> = _crossfadeState
     lateinit var cache: Cache
     lateinit var downloadCache: Cache
     private lateinit var audioVolumeObserver: AudioVolumeObserver
@@ -315,6 +353,21 @@ class PlayerServiceModern : MediaLibraryService(),
     private var lastExtractorRecoveryMs = 0L
     private var lastEndedRecoveryMediaId: String? = null
     private var lastEndedRecoveryMs = 0L
+    private var lastStreamRefreshMediaId: String? = null
+    private var lastStreamRefreshMs = 0L
+    private var pendingStreamRefreshValidationMediaId: String? = null
+    private var refreshValidatedPlayingMediaId: String? = null
+    private var streamValidationJob: Job? = null
+    private var replacementSearchJob: Job? = null
+    private var replacementSearchGeneration = 0L
+    private var replacementSearchMediaId: String? = null
+    private var replacementQueueIndex = C.INDEX_UNSET
+    private var replacementAttemptsForQueueItem = 0
+    private var unavailableRecoveryAttempts = 0
+    private val replacementTriedMediaIds = linkedSetOf<String>()
+    private val maxReplacementCandidates = 3
+    private var playbackRecoveryGeneration = 0L
+    private val streamRecoveryState = mutableMapOf<String, Pair<Int, Long>>()
     private var currentSongRetryCount = 0
     private var resumeOnNetworkRestore = false
     private var pauseTriggeredByNetworkWait = false
@@ -325,10 +378,13 @@ class PlayerServiceModern : MediaLibraryService(),
     private var consecutiveErrorSkipCount = 0
     private val maxConsecutiveErrorSkips = 5
     private val maxCurrentSongRetries = 2
+    private val streamRecoveryValidationMs = 6_000L
     private var lastWidgetUpdateMs = 0L
     private var widgetUpdateJob: Job? = null
     private var cacheCompletionJob: Job? = null
     private var cacheCompletionMediaId: String? = null
+    private var lastCacheWarmupFailureMediaId: String? = null
+    private var lastCacheWarmupFailureMs = 0L
 
     // FIX: Track whether audio focus was successfully granted so we know if we should
     // respond to AUDIOFOCUS_GAIN after an AUDIOFOCUS_LOSS. This prevents the race
@@ -427,45 +483,47 @@ class PlayerServiceModern : MediaLibraryService(),
 
         coroutineScope.launch {
             connectivityObserver.networkStatus.collect { isAvailable ->
-                isNetworkAvailable.value = isAvailable
-                Timber.d("PlayerServiceModern network status: $isAvailable")
-                if (isAvailable && waitingForNetwork.value) {
-                    applyRecoveryDecision(
-                        playbackRecoveryHelper.onNetworkRestored(recoverySnapshot())
-                    )
+                withContext(Dispatchers.Main.immediate) {
+                    isNetworkAvailable.value = isAvailable
+                    Timber.d("PlayerServiceModern network status: $isAvailable")
+                    if (isAvailable && waitingForNetwork.value) {
+                        applyRecoveryDecision(
+                            playbackRecoveryHelper.onNetworkRestored(recoverySnapshot())
+                        )
+                    }
                 }
             }
         }
 
         val notificationType = preferences.getEnum(notificationTypeKey, NotificationType.Default)
-        when (notificationType) {
-            NotificationType.Default -> {
-                setMediaNotificationProvider(CustomMediaNotificationProvider(this)
-                    .apply {
-                        setSmallIcon(R.drawable.ic_launcher_monochrome)
-                    }
-                )
-            }
-            NotificationType.Advanced -> {
-                setMediaNotificationProvider(object : MediaNotification.Provider {
-                    override fun createNotification(
-                        mediaSession: MediaSession,
-                        customLayout: ImmutableList<CommandButton>,
-                        actionFactory: MediaNotification.ActionFactory,
-                        onNotificationChangedCallback: MediaNotification.Provider.Callback
-                    ): MediaNotification {
-                        return updateCustomNotification(mediaSession)
-                    }
+        val notificationColorMode = preferences.getEnum(
+            notificationColorModeKey,
+            NotificationColorMode.Automatic
+        )
+        if (
+            notificationType == NotificationType.Default &&
+            notificationColorMode == NotificationColorMode.Automatic
+        ) {
+            setMediaNotificationProvider(
+                CustomMediaNotificationProvider(this).apply {
+                    setSmallIcon(R.drawable.ic_launcher_monochrome)
+                }
+            )
+        } else {
+            setMediaNotificationProvider(object : MediaNotification.Provider {
+                override fun createNotification(
+                    mediaSession: MediaSession,
+                    customLayout: ImmutableList<CommandButton>,
+                    actionFactory: MediaNotification.ActionFactory,
+                    onNotificationChangedCallback: MediaNotification.Provider.Callback
+                ): MediaNotification = updateCustomNotification(mediaSession)
 
-                    override fun handleCustomCommand(
-                        session: MediaSession,
-                        action: String,
-                        extras: Bundle
-                    ): Boolean {
-                        return false
-                    }
-                })
-            }
+                override fun handleCustomCommand(
+                    session: MediaSession,
+                    action: String,
+                    extras: Bundle
+                ): Boolean = false
+            })
         }
 
         runCatching {
@@ -502,7 +560,7 @@ class PlayerServiceModern : MediaLibraryService(),
         val cacheDir = when (cacheSize) {
             ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory(CACHE_DIRNAME).toFile()
             else ->
-                when (preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System)) {
+                when (preferences.getEnum(exoPlayerCacheLocationKey, ExoPlayerCacheLocation.Private)) {
                     ExoPlayerCacheLocation.System -> super.getCacheDir()
                     ExoPlayerCacheLocation.Private -> filesDir
                 }.resolve(CACHE_DIRNAME)
@@ -521,10 +579,13 @@ class PlayerServiceModern : MediaLibraryService(),
         // which then propagated as a spurious loss to us.
         wakeLockManager = WakeLockManager(this, "CubicMusic::Playback")
 
+        sharedMediaSourceFactory = createMediaSourceFactory()
+        sharedRenderersFactory = createRendersFactory()
+
         val playerSet = PlayerInitializer.createPlayers(
             context = this,
-            mediaSourceFactory = createMediaSourceFactory(),
-            renderersFactory = createRendersFactory(),
+            mediaSourceFactory = sharedMediaSourceFactory,
+            renderersFactory = sharedRenderersFactory,
         )
         player = playerSet.player
         player.trackSelectionParameters = player.trackSelectionParameters
@@ -532,6 +593,7 @@ class PlayerServiceModern : MediaLibraryService(),
             .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
             .build()
         sessionPlayer = player
+        updateCrossfadePreferences()
 
         // FIX: Request audio focus ONCE. Abandon any stale focus from previous crashed
         // instance before requesting to prevent the OS immediately sending AUDIOFOCUS_LOSS.
@@ -564,20 +626,7 @@ class PlayerServiceModern : MediaLibraryService(),
         player.addListener(this@PlayerServiceModern)
         player.addAnalyticsListener(playbackStatsListener)
 
-        val forwardingPlayer =
-            object : ForwardingPlayer(sessionPlayer) {
-                override fun getAvailableCommands(): Player.Commands {
-                    return super.getAvailableCommands()
-                        .buildUpon()
-                        .addAllCommands()
-                        .build()
-                }
-
-                override fun getBufferedPercentage(): Int {
-                    return runCatching { super.getBufferedPercentage().coerceIn(0, 100) }
-                        .getOrDefault(0)
-                }
-            }
+        val forwardingPlayer = createSessionForwardingPlayer(sessionPlayer)
 
         mediaLibrarySessionCallback.apply {
             binder = this@PlayerServiceModern.binder
@@ -640,7 +689,7 @@ class PlayerServiceModern : MediaLibraryService(),
         }
         MyDownloadHelper.getDownloadManager(this).addListener(downloadListener)
 
-        notificationActionReceiver = NotificationActionReceiver(sessionPlayer)
+        notificationActionReceiver = NotificationActionReceiver()
         QuickPicksRepository.refreshIfNeeded()
 
         val filter = IntentFilter().apply {
@@ -695,7 +744,7 @@ class PlayerServiceModern : MediaLibraryService(),
             if (token?.isNotEmpty() == true) {
                 discordPresenceManager = DiscordPresenceManager(
                     context = this,
-                    getToken = { token },
+                    getToken = { encryptedPreferences.getString(discordPersonalAccessTokenKey, "") },
                 )
             }
         }
@@ -714,8 +763,8 @@ class PlayerServiceModern : MediaLibraryService(),
             releasePlaybackWakeLock()
             if (waitingForNetwork.value) {
                 // Keep restoration armed. Network-recovery pauses also trigger this callback;
-                // clearing the flags here makes playback stay paused after the stream returns.
-                pauseTriggeredByNetworkWait = false
+                // clearing this guard here makes playback stay paused after the stream returns.
+                pauseTriggeredByNetworkWait = true
             }
         }
     } catch (e: Exception) {
@@ -815,6 +864,8 @@ class PlayerServiceModern : MediaLibraryService(),
 @UnstableApi
 override fun onDestroy() {
     isServiceReady = false
+    replacementSearchJob?.cancel()
+    replacementSearchJob = null
     try {
         releasePlaybackWakeLock()
     } catch (e: Exception) {
@@ -831,7 +882,6 @@ override fun onDestroy() {
     )
         runCatching {
             if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
-                Toaster.i("[DiscordPresence] onStop: call the manager (close discord presence)")
                 discordPresenceManager?.onStop()
             }
             if (isPersistentQueueEnabled) maybeSavePlayerQueue()
@@ -840,6 +890,8 @@ override fun onDestroy() {
                 player.removeListener(this)
             }
             cacheCompletionJob?.cancel()
+            runCatching { cancelCrossfade(releasePlayer = true, phase = CrossfadePhase.DISABLED) }
+                .onFailure { Timber.e(it, "Failed to release crossfade deck in onDestroy") }
             if (::player.isInitialized) {
                 runCatching { player.stop() }
                     .onFailure { Timber.e(it, "Failed to stop player during onDestroy") }
@@ -914,6 +966,7 @@ override fun onDestroy() {
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 Timber.d("Audio focus lost transient - ducking volume")
+                cancelCrossfade(phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED)
                 if (player.volume > 0.15f) {
                     volumeBeforeDuck = player.volume
                 }
@@ -952,8 +1005,12 @@ private fun releasePlaybackWakeLock() {
 
 private fun shouldHoldPlaybackWakeLock(): Boolean {
     if (!isServiceReady) return false
-    return player.isPlaying ||
-        (player.playWhenReady && (player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_BUFFERING))
+    fun Player.shouldHoldWakeLock(): Boolean =
+        isPlaying ||
+            (playWhenReady && (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING))
+
+    return player.shouldHoldWakeLock() ||
+        crossfadePlayer?.shouldHoldWakeLock() == true
 }
 
 private fun syncPlaybackWakeLockState() {
@@ -963,6 +1020,583 @@ private fun syncPlaybackWakeLockState() {
         releasePlaybackWakeLock()
     }
 }
+
+    private fun updateCrossfadePreferences() {
+        applyCrossfadePreferences(
+            enabled = preferences.getBoolean(crossfadeEnabledKey, false),
+            durationSeconds = preferences.getInt(crossfadeDurationSecondsKey, 21)
+        )
+    }
+
+    fun applyCrossfadePreferences(enabled: Boolean, durationSeconds: Int) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post { applyCrossfadePreferences(enabled, durationSeconds) }
+            return
+        }
+
+        isCrossfadeEnabled = enabled
+        crossfadeDurationMs = durationSeconds.coerceIn(5, 27) * 1000L
+
+        if (isCrossfadeEnabled) {
+            _crossfadeState.value = CrossfadeState(CrossfadePhase.IDLE)
+            startCrossfadeMonitor()
+            runCatching { tickCrossfade() }
+        } else {
+            cancelCrossfade(releasePlayer = true, phase = CrossfadePhase.DISABLED)
+        }
+    }
+
+    private fun ensureCrossfadePlayer(): ExoPlayer {
+        return crossfadePlayer ?: PlayerInitializer.createPlayers(
+            context = this,
+            mediaSourceFactory = sharedMediaSourceFactory,
+            renderersFactory = sharedRenderersFactory,
+        ).player.apply {
+            volume = 0f
+            playWhenReady = false
+            repeatMode = Player.REPEAT_MODE_OFF
+            skipSilenceEnabled = preferences.getBoolean(skipSilenceKey, false)
+            runCatching {
+                player.audioSessionId.takeIf { it > 0 }?.let(::setAudioSessionId)
+            }.onFailure {
+                Timber.w(it, "Crossfade deck could not share the active audio session")
+            }
+            playbackParameters = PlaybackParameters(
+                preferences.getFloat(playbackSpeedKey, 1f),
+                preferences.getFloat(playbackPitchKey, 1f)
+            )
+            setWakeMode(C.WAKE_MODE_NONE)
+        }.also {
+            crossfadePlayer = it
+        }
+    }
+
+    private fun createSessionForwardingPlayer(delegate: ExoPlayer): ForwardingPlayer =
+        object : ForwardingPlayer(delegate) {
+            override fun getAvailableCommands(): Player.Commands {
+                return super.getAvailableCommands()
+                    .buildUpon()
+                    .addAllCommands()
+                    .build()
+            }
+
+            override fun getBufferedPercentage(): Int {
+                return runCatching { super.getBufferedPercentage().coerceIn(0, 100) }
+                    .getOrDefault(0)
+            }
+        }
+    private fun startCrossfadeMonitor() {
+        if (crossfadeMonitorJob?.isActive == true) return
+        crossfadeMonitorJob = coroutineScope.launch(Dispatchers.Main.immediate) {
+            while (isCrossfadeEnabled) {
+                if (isServiceReady) {
+                    runCatching { tickCrossfade() }
+                        .onFailure { Timber.w(it, "Crossfade tick failed") }
+                }
+                delay(250L)
+            }
+        }
+    }
+
+    @MainThread
+    private fun tickCrossfade() {
+        if (!isCrossfadeEnabled || !isServiceReady || crossfadeJob?.isActive == true) return
+        if (!player.isPlaying || !player.playWhenReady) return
+        if (player.repeatMode == Player.REPEAT_MODE_ONE) {
+            cancelPreparedCrossfade()
+            return
+        }
+
+        val currentItem = player.currentMediaItem ?: return
+        if (!isCrossfadeEligibleItem(currentItem)) {
+            cancelPreparedCrossfade()
+            return
+        }
+
+        val duration = player.duration
+        val position = player.currentPosition.coerceAtLeast(0L)
+        if (duration <= 0L || duration == C.TIME_UNSET) {
+            cancelPreparedCrossfade()
+            return
+        }
+        if (duration < crossfadeDurationMs * 2L + 5_000L) {
+            cancelPreparedCrossfade()
+            return
+        }
+
+        val nextIndex = player.nextMediaItemIndex
+        if (nextIndex == C.INDEX_UNSET || nextIndex !in 0 until player.mediaItemCount) {
+            cancelPreparedCrossfade()
+            return
+        }
+        val nextItem = runCatching { player.getMediaItemAt(nextIndex) }.getOrNull()
+        if (nextItem == null || !isCrossfadeEligibleItem(nextItem)) {
+            cancelPreparedCrossfade()
+            return
+        }
+
+        val remainingMs = (duration - position).coerceAtLeast(0L)
+        val completion = (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+        if (completion >= 0.84f) {
+            prepareCrossfadeTarget(nextIndex)
+        }
+
+        if (remainingMs <= crossfadeDurationMs + 300L && crossfadeTargetIndex == nextIndex) {
+            startCrossfade(nextIndex)
+        }
+    }
+
+    private fun isCrossfadeEligibleItem(mediaItem: MediaItem): Boolean {
+        if (mediaItem.mediaMetadata.extras?.getBoolean("isVideo") == true) return false
+        if (!mediaItem.isPlayable()) return false
+        return mediaItem.mediaId.isNotBlank()
+    }
+
+    private fun isCrossfadeTargetAvailableOffline(mediaItem: MediaItem): Boolean {
+        if (mediaItem.isLocal) return true
+        val cacheKey = mediaItem.playbackVideoIdOrNull()
+            ?: mediaItem.mediaId.takeIf { it.isNotBlank() }
+            ?: return false
+
+        if (MyDownloadHelper.isDownloadCached(cacheKey)) return true
+
+        val hasDownloadSpan = runCatching {
+            this::downloadCache.isInitialized && downloadCache.getCachedSpans(cacheKey).isNotEmpty()
+        }.getOrDefault(false)
+        if (hasDownloadSpan) return true
+
+        return runCatching {
+            this::cache.isInitialized && cache.getCachedSpans(cacheKey).isNotEmpty()
+        }.getOrDefault(false)
+    }
+
+    @MainThread
+    private fun prepareCrossfadeTarget(nextIndex: Int) {
+        val queueItem = runCatching { player.getMediaItemAt(nextIndex) }.getOrNull() ?: return
+        if (!isCrossfadeEligibleItem(queueItem)) {
+            cancelPreparedCrossfade()
+            return
+        }
+        val targetId = queueItem.mediaId
+        val existingIncomingPlayer = crossfadePlayer
+        if (
+            crossfadeTargetIndex == nextIndex &&
+            crossfadeTargetMediaId == targetId &&
+            existingIncomingPlayer != null &&
+            existingIncomingPlayer.playbackState != Player.STATE_IDLE
+        ) {
+            _crossfadeState.value = _crossfadeState.value.copy(
+                phase = if (existingIncomingPlayer.playbackState == Player.STATE_READY) {
+                    CrossfadePhase.READY
+                } else {
+                    CrossfadePhase.PREPARING
+                },
+                outgoingItem = player.currentMediaItem,
+                incomingItem = crossfadeTargetItem
+            )
+            return
+        }
+
+        val queueSnapshot = (0 until player.mediaItemCount).map { index ->
+            val item = player.getMediaItemAt(index)
+            item.cleaned.buildUpon()
+                .setUri(
+                    sanitizePlaybackUri(
+                        item.localConfiguration?.uri?.toString()
+                            ?.takeIf { it.isNotBlank() }
+                            ?: item.mediaId
+                    )
+                )
+                .apply {
+                    val cacheKey = item.playbackVideoIdOrNull()
+                        ?: item.mediaId.takeIf { it.isNotBlank() && !item.isLocal }
+                    if (!cacheKey.isNullOrBlank()) setCustomCacheKey(cacheKey)
+                }
+                .build()
+        }
+        val safeItem = queueSnapshot[nextIndex]
+
+        val networkAvailable = isNetworkConnected(this)
+        if (!networkAvailable && !isCrossfadeTargetAvailableOffline(safeItem)) {
+            Timber.d("Crossfade standby skipped offline uncached target mediaId=%s", targetId)
+            cancelPreparedCrossfade()
+            return
+        }
+
+        val incomingPlayer = ensureCrossfadePlayer()
+        crossfadeTargetIndex = nextIndex
+        crossfadeTargetMediaId = targetId
+        crossfadeTargetItem = safeItem
+        incomingPlayer.stop()
+        incomingPlayer.clearMediaItems()
+        incomingPlayer.volume = 0f
+        incomingPlayer.playWhenReady = false
+        incomingPlayer.playbackParameters = player.playbackParameters
+        incomingPlayer.repeatMode = player.repeatMode
+        incomingPlayer.shuffleModeEnabled = player.shuffleModeEnabled
+        incomingPlayer.setWakeMode(
+            if (networkAvailable) C.WAKE_MODE_NETWORK else C.WAKE_MODE_LOCAL
+        )
+        incomingPlayer.setMediaItems(queueSnapshot, nextIndex, 0L)
+        incomingPlayer.prepare()
+        _crossfadeState.value = CrossfadeState(
+            phase = CrossfadePhase.PREPARING,
+            outgoingItem = player.currentMediaItem,
+            incomingItem = safeItem
+        )
+    }
+
+    @MainThread
+    private fun startCrossfade(nextIndex: Int) {
+        val incomingPlayer = ensureCrossfadePlayer()
+        val incomingItem = crossfadeTargetItem ?: runCatching { player.getMediaItemAt(nextIndex) }.getOrNull() ?: return
+        val outgoingItem = player.currentMediaItem ?: return
+        val liveIncomingId = runCatching { player.getMediaItemAt(nextIndex).mediaId }.getOrNull()
+        if (
+            crossfadeJob?.isActive == true ||
+            crossfadeTargetIndex != nextIndex ||
+            crossfadeTargetMediaId != incomingItem.mediaId ||
+            liveIncomingId != incomingItem.mediaId
+        ) return
+
+        crossfadeJob = coroutineScope.launch(Dispatchers.Main.immediate) {
+            val masterVolume = preferences
+                .getFloat(playbackVolumeKey, player.volume.coerceIn(0f, 1f))
+                .coerceIn(0f, 1f)
+            val expectedOutgoingId = outgoingItem.mediaId
+            val expectedIncomingId = incomingItem.mediaId
+            val incomingFloorGain = 0.02f
+
+            runCatching {
+                val requiredBufferMs = (crossfadeDurationMs + 2_000L).coerceIn(4_000L, 12_000L)
+                val readyDeadline = SystemClock.elapsedRealtime() + 8_000L
+                while (
+                    isServiceReady &&
+                    SystemClock.elapsedRealtime() < readyDeadline &&
+                    (
+                        incomingPlayer.playbackState != Player.STATE_READY ||
+                            incomingPlayer.totalBufferedDuration.coerceAtLeast(0L) < requiredBufferMs
+                    )
+                ) {
+                    if (incomingPlayer.playbackState == Player.STATE_IDLE) {
+                        incomingPlayer.prepare()
+                    }
+                    delay(25L)
+                }
+                if (!isServiceReady || incomingPlayer.currentMediaItem?.mediaId != expectedIncomingId) {
+                    error("Crossfade incoming deck lost target")
+                }
+                if (incomingPlayer.playbackState != Player.STATE_READY) {
+                    error("Crossfade incoming deck not ready")
+                }
+
+                val remainingAtStartMs = (player.duration - player.currentPosition.coerceAtLeast(0L))
+                    .takeIf { it > 0L && it != C.TIME_UNSET }
+                    ?: crossfadeDurationMs
+                val effectiveFadeDurationMs = (remainingAtStartMs - 300L)
+                    .coerceAtMost(crossfadeDurationMs)
+                    .coerceAtLeast(1_000L)
+
+                crossfadePlaybackRequested = player.playWhenReady || player.isPlaying
+                crossfadeUiCommittedToIncoming = false
+                incomingPlayer.volume = masterVolume * incomingFloorGain
+                incomingPlayer.playWhenReady = crossfadePlaybackRequested
+                incomingPlayer.playbackParameters = player.playbackParameters
+                if (crossfadePlaybackRequested) {
+                    incomingPlayer.play()
+                }
+
+                val startedAt = SystemClock.elapsedRealtime()
+                while (isServiceReady && isCrossfadeEnabled) {
+                    val activeMediaId = player.currentMediaItem?.mediaId
+                    val activeIndex = player.currentMediaItemIndex
+                    if (activeMediaId != expectedOutgoingId) {
+                        val expectedAutoHandoff =
+                            activeMediaId == expectedIncomingId &&
+                                activeIndex == nextIndex
+                        if (expectedAutoHandoff) {
+                            Timber.d(
+                                "Crossfade accepting automatic handoff outgoing=%s incoming=%s index=%d",
+                                expectedOutgoingId,
+                                expectedIncomingId,
+                                nextIndex
+                            )
+                            break
+                        }
+                        error("Crossfade outgoing item changed")
+                    }
+                    if (incomingPlayer.currentMediaItem?.mediaId != expectedIncomingId) error("Crossfade incoming item changed")
+                    incomingPlayer.playerError?.let {
+                        throw IllegalStateException("Crossfade incoming player failed", it)
+                    }
+                    if (
+                        incomingPlayer.playbackState == Player.STATE_IDLE ||
+                        incomingPlayer.playbackState == Player.STATE_ENDED
+                    ) {
+                        error("Crossfade incoming player stopped unexpectedly")
+                    }
+                    if (crossfadePlaybackRequested && !incomingPlayer.playWhenReady) incomingPlayer.playWhenReady = true
+
+                    val progress = ((SystemClock.elapsedRealtime() - startedAt).toFloat() / effectiveFadeDurationMs)
+                        .coerceIn(0f, 1f)
+                    val angle = progress.toDouble() * Math.PI / 2.0
+                    val outgoingGain = cos(angle).toFloat()
+                    val rawIncomingGain = sin(angle).toFloat()
+                    val incomingGain = rawIncomingGain.coerceAtLeast(incomingFloorGain)
+                    val displayOwner =
+                        if (crossfadeUiCommittedToIncoming || incomingGain >= outgoingGain) {
+                            CrossfadeDisplayOwner.INCOMING
+                        } else {
+                            CrossfadeDisplayOwner.OUTGOING
+                        }
+                    val shouldPublishIncoming =
+                        !crossfadeUiCommittedToIncoming && displayOwner == CrossfadeDisplayOwner.INCOMING
+
+                    player.volume = masterVolume * outgoingGain
+                    incomingPlayer.volume = masterVolume * incomingGain
+                    _crossfadeState.value = CrossfadeState(
+                        phase = CrossfadePhase.FADING,
+                        outgoingItem = outgoingItem,
+                        incomingItem = incomingItem,
+                        outgoingPositionMs = player.currentPosition.coerceAtLeast(0L),
+                        outgoingDurationMs = player.duration.takeIf { it > 0L && it != C.TIME_UNSET } ?: 0L,
+                        incomingPositionMs = incomingPlayer.currentPosition.coerceAtLeast(0L),
+                        incomingDurationMs = incomingPlayer.duration.takeIf { it > 0L && it != C.TIME_UNSET } ?: 0L,
+                        progress = progress,
+                        outgoingGain = outgoingGain,
+                        incomingGain = incomingGain,
+                        displayOwner = displayOwner
+                    )
+                    if (shouldPublishIncoming) {
+                        crossfadeUiCommittedToIncoming = true
+                        publishCrossfadeDisplayItem(incomingItem)
+                    }
+
+                    if (progress >= 1f) break
+                    delay(25L)
+                }
+
+                if (!isServiceReady || !isCrossfadeEnabled) error("Crossfade cancelled")
+                commitCrossfade(nextIndex, masterVolume)
+            }.onFailure {
+                if (it !is CancellationException) {
+                    Timber.w(it, "Crossfade failed; returning to normal playback")
+                    cancelCrossfade(phase = CrossfadePhase.IDLE)
+                }
+            }
+        }
+    }
+
+    @MainThread
+    private suspend fun commitCrossfade(targetIndex: Int, masterVolume: Float) {
+        val outgoingPlayer = player
+        val incomingPlayer = crossfadePlayer
+        val targetMediaId = crossfadeTargetMediaId
+        val incomingItem = crossfadeTargetItem
+        if (
+            !isServiceReady ||
+            incomingPlayer == null ||
+            incomingItem == null ||
+            targetMediaId == null ||
+            targetIndex !in 0 until outgoingPlayer.mediaItemCount ||
+            targetIndex !in 0 until incomingPlayer.mediaItemCount ||
+            outgoingPlayer.getMediaItemAt(targetIndex).mediaId != targetMediaId ||
+            incomingPlayer.currentMediaItemIndex != targetIndex ||
+            incomingPlayer.currentMediaItem?.mediaId != targetMediaId ||
+            incomingPlayer.playbackState != Player.STATE_READY
+        ) {
+            cancelCrossfade(
+                phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED
+            )
+            return
+        }
+
+        crossfadeHandoffInProgress = true
+        val outgoingDisplayItem = _crossfadeState.value.outgoingItem
+        _crossfadeState.value = CrossfadeState(
+            phase = CrossfadePhase.HANDOFF,
+            outgoingItem = outgoingDisplayItem,
+            incomingItem = incomingItem,
+            incomingPositionMs = incomingPlayer.currentPosition.coerceAtLeast(0L),
+            incomingDurationMs = incomingPlayer.duration.takeIf { it > 0L && it != C.TIME_UNSET } ?: 0L,
+            progress = 1f,
+            outgoingGain = 0f,
+            incomingGain = 1f,
+            displayOwner = CrossfadeDisplayOwner.INCOMING
+        )
+        crossfadeUiCommittedToIncoming = true
+        publishCrossfadeDisplayItem(incomingItem)
+
+        val shouldContinuePlayback =
+            crossfadePlaybackRequested ||
+                incomingPlayer.playWhenReady ||
+                incomingPlayer.isPlaying ||
+                outgoingPlayer.playWhenReady
+        var promoted = false
+
+        runCatching {
+            incomingPlayer.repeatMode = outgoingPlayer.repeatMode
+            incomingPlayer.shuffleModeEnabled = outgoingPlayer.shuffleModeEnabled
+            incomingPlayer.skipSilenceEnabled = outgoingPlayer.skipSilenceEnabled
+            incomingPlayer.playbackParameters = outgoingPlayer.playbackParameters
+            incomingPlayer.setWakeMode(C.WAKE_MODE_NETWORK)
+            incomingPlayer.volume = masterVolume
+            incomingPlayer.setGlobalVolume(masterVolume)
+            incomingPlayer.playWhenReady = shouldContinuePlayback
+            if (shouldContinuePlayback && !incomingPlayer.isPlaying) {
+                incomingPlayer.play()
+            }
+
+            outgoingPlayer.volume = 0f
+
+            // Promote the already-playing deck. Seeking the old deck into this item would
+            // decode Song B a second time and causes the audible repeat at the handoff.
+            mediaSession.setPlayer(createSessionForwardingPlayer(incomingPlayer))
+            sessionPlayer = incomingPlayer
+            player = incomingPlayer
+            crossfadePlayer = outgoingPlayer
+
+            outgoingPlayer.removeListener(sleepTimer)
+            outgoingPlayer.removeListener(this@PlayerServiceModern)
+            outgoingPlayer.removeAnalyticsListener(playbackStatsListener)
+            sleepTimer.player = incomingPlayer
+            incomingPlayer.addListener(sleepTimer)
+            incomingPlayer.addListener(this@PlayerServiceModern)
+            incomingPlayer.addAnalyticsListener(playbackStatsListener)
+
+            promoted = true
+            Timber.d(
+                "Crossfade promoted prepared deck mediaId=%s index=%d positionMs=%d",
+                targetMediaId,
+                targetIndex,
+                incomingPlayer.currentPosition
+            )
+        }.onFailure {
+            Timber.w(it, "Crossfade handoff failed")
+        }
+
+        if (!promoted) {
+            incomingPlayer.volume = 0f
+            incomingPlayer.playWhenReady = false
+            runCatching { incomingPlayer.pause() }
+            outgoingPlayer.volume = masterVolume
+            outgoingPlayer.setGlobalVolume(masterVolume)
+            if (shouldContinuePlayback) {
+                outgoingPlayer.playWhenReady = true
+                runCatching { outgoingPlayer.play() }
+            }
+            crossfadeHandoffInProgress = false
+            cancelCrossfade(
+                phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED
+            )
+            return
+        }
+
+        outgoingPlayer.runCatching {
+            pause()
+            stop()
+            clearMediaItems()
+            volume = 0f
+            playWhenReady = false
+            setWakeMode(C.WAKE_MODE_NONE)
+        }.onFailure {
+            Timber.w(it, "Crossfade outgoing deck cleanup failed")
+        }
+
+        val committedPositionMs = incomingPlayer.currentPosition.coerceAtLeast(0L)
+        val committedDurationMs = incomingPlayer.duration
+            .takeIf { it > 0L && it != C.TIME_UNSET }
+            ?: 0L
+        crossfadeHandoffInProgress = false
+        crossfadeJob = null
+        crossfadeTargetIndex = C.INDEX_UNSET
+        crossfadeTargetMediaId = null
+        crossfadeTargetItem = null
+        crossfadePlaybackRequested = false
+        crossfadeUiCommittedToIncoming = false
+        _crossfadeState.value = CrossfadeState(
+            phase = CrossfadePhase.HANDOFF,
+            outgoingItem = outgoingDisplayItem,
+            incomingItem = incomingItem,
+            incomingPositionMs = committedPositionMs,
+            incomingDurationMs = committedDurationMs,
+            progress = 1f,
+            outgoingGain = 0f,
+            incomingGain = 1f,
+            displayOwner = CrossfadeDisplayOwner.INCOMING
+        )
+
+        // Keep seek bars on the promoted deck until collectors observe its live clock.
+        val committedMediaId = incomingItem.mediaId
+        coroutineScope.launch(Dispatchers.Main.immediate) {
+            delay(250L)
+            val state = _crossfadeState.value
+            if (
+                state.phase == CrossfadePhase.HANDOFF &&
+                state.incomingItem?.mediaId == committedMediaId &&
+                player.currentMediaItem?.mediaId == committedMediaId
+            ) {
+                _crossfadeState.value = CrossfadeState(CrossfadePhase.IDLE)
+                tickCrossfade()
+            }
+        }
+    }
+    @MainThread
+    private fun cancelPreparedCrossfade() {
+        if (crossfadeJob?.isActive == true) return
+        if (crossfadeTargetIndex == C.INDEX_UNSET && _crossfadeState.value.phase == CrossfadePhase.IDLE) return
+        crossfadePlayer?.runCatching {
+            stop()
+            clearMediaItems()
+            volume = 0f
+            playWhenReady = false
+            setWakeMode(C.WAKE_MODE_NONE)
+        }
+        crossfadeTargetIndex = C.INDEX_UNSET
+        crossfadeTargetMediaId = null
+        crossfadeTargetItem = null
+        crossfadePlaybackRequested = false
+        crossfadeUiCommittedToIncoming = false
+        _crossfadeState.value = CrossfadeState(if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED)
+    }
+
+    @MainThread
+    private fun cancelCrossfade(
+        releasePlayer: Boolean = false,
+        phase: CrossfadePhase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED
+    ) {
+        crossfadeJob?.cancel()
+        crossfadeJob = null
+        crossfadeMonitorJob?.takeIf { releasePlayer }?.cancel()
+        if (releasePlayer) crossfadeMonitorJob = null
+
+        if (::player.isInitialized && isServiceReady) {
+            val masterVolume = preferences
+                .getFloat(playbackVolumeKey, player.volume.coerceIn(0f, 1f))
+                .coerceIn(0f, 1f)
+            player.volume = masterVolume
+            player.setGlobalVolume(masterVolume)
+        }
+
+        crossfadePlayer?.runCatching {
+            stop()
+            clearMediaItems()
+            volume = 0f
+            playWhenReady = false
+            setWakeMode(C.WAKE_MODE_NONE)
+            if (releasePlayer) release()
+        }
+        if (releasePlayer) crossfadePlayer = null
+
+        crossfadeTargetIndex = C.INDEX_UNSET
+        crossfadeTargetMediaId = null
+        crossfadeTargetItem = null
+        crossfadeHandoffInProgress = false
+        crossfadePlaybackRequested = false
+        crossfadeUiCommittedToIncoming = false
+        _crossfadeState.value = CrossfadeState(phase)
+    }
+
     override fun onSharedPreferenceChanged(
         sharedPreferences: SharedPreferences?,
         key: String?
@@ -986,8 +1620,11 @@ private fun syncPlaybackWakeLockState() {
                 sharedPreferences?.let {
                     val enabled = it.getBoolean(key, false)
                     player.skipSilenceEnabled = enabled
+                    crossfadePlayer?.skipSilenceEnabled = enabled
                 }
             }
+
+            crossfadeEnabledKey, crossfadeDurationSecondsKey -> updateCrossfadePreferences()
 
             queueLoopTypeKey -> {
                 player.repeatMode =
@@ -997,6 +1634,22 @@ private fun syncPlaybackWakeLockState() {
 
             bassboostLevelKey, bassboostEnabledKey -> maybeBassBoost()
             audioReverbPresetKey -> maybeReverb()
+
+            isDiscordPresenceEnabledKey -> {
+                val enabled = sharedPreferences?.getBoolean(key, false) == true
+                if (!enabled) {
+                    discordPresenceManager?.onStop()
+                    discordPresenceManager = null
+                } else if (discordPresenceManager == null) {
+                    val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
+                    if (!token.isNullOrEmpty()) {
+                        discordPresenceManager = DiscordPresenceManager(
+                            context = this,
+                            getToken = { encryptedPreferences.getString(discordPersonalAccessTokenKey, "") },
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -1018,15 +1671,45 @@ private fun syncPlaybackWakeLockState() {
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         if (!isServiceReady) return
+        if (!crossfadeHandoffInProgress) {
+            cancelPreparedCrossfade()
+        }
         currentSongRetryCount = 0
+        cancelReplacementSearchIfStale(mediaItem?.mediaId)
+        playbackRecoveryGeneration++
+        streamValidationJob?.cancel()
+        streamValidationJob = null
         if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
             consecutiveErrorSkipCount = 0
         }
-        waitingForNetwork.value = false
-        resumeOnNetworkRestore = false
-        pauseTriggeredByNetworkWait = false
-        networkRecoveryMediaId = null
+        val transitionMediaId = mediaItem?.mediaId
+        val keepNetworkRecovery = waitingForNetwork.value &&
+            !networkRecoveryMediaId.isNullOrBlank() &&
+            transitionMediaId == networkRecoveryMediaId
+        if (!keepNetworkRecovery) {
+            waitingForNetwork.value = false
+            resumeOnNetworkRestore = false
+            pauseTriggeredByNetworkWait = false
+            networkRecoveryMediaId = null
+        }
+        lastStreamRefreshMediaId = null
+        lastStreamRefreshMs = 0L
         capturePlaybackSnapshot()
+
+        val expectedCrossfadeHandoff =
+            (crossfadeHandoffInProgress || crossfadeJob?.isActive == true) &&
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                !transitionMediaId.isNullOrBlank() &&
+                transitionMediaId == crossfadeTargetMediaId &&
+                transitionMediaId == _crossfadeState.value.incomingItem?.mediaId
+        if (expectedCrossfadeHandoff) {
+            // The incoming item and artwork were already published at the audio crossover.
+            // Do not run ordinary transition work here: it can normalize effects, start radio,
+            // warm cache and reload notification artwork while the decks are being committed.
+            currentMediaItem.update { mediaItem ?: _crossfadeState.value.incomingItem }
+            Timber.d("Crossfade accepted expected MediaSession handoff mediaId=%s", transitionMediaId)
+            return
+        }
 
         val displayMediaItem = displayedMediaItem() ?: mediaItem
         currentMediaItem.update { displayMediaItem }
@@ -1045,9 +1728,7 @@ private fun syncPlaybackWakeLockState() {
                     presenceSnapshot.isPlaying,
                     presenceSnapshot.position,
                     presenceSnapshot.duration,
-                    now,
-                    getCurrentPosition = { currentPresenceSnapshot().position },
-                    isPlayingProvider = { currentPresenceSnapshot().isPlaying }
+                    now
                 )
             }
         }
@@ -1056,6 +1737,10 @@ private fun syncPlaybackWakeLockState() {
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         if (!isServiceReady) return
         if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+            val targetStillValid =
+                crossfadeTargetIndex in 0 until player.mediaItemCount &&
+                    player.getMediaItemAt(crossfadeTargetIndex).mediaId == crossfadeTargetMediaId
+            if (!targetStillValid) cancelPreparedCrossfade()
             maybeSavePlayerQueue()
         }
     }
@@ -1075,6 +1760,9 @@ private fun syncPlaybackWakeLockState() {
  @UnstableApi
 override fun onIsPlayingChanged(isPlaying: Boolean) {
     if (!isServiceReady) return
+    if (!isPlaying && !crossfadeHandoffInProgress && crossfadeJob?.isActive != true) {
+        cancelCrossfade(phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED)
+    }
     try {
         if (isPlaying) {
             acquirePlaybackWakeLock()
@@ -1097,9 +1785,7 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
                 presenceSnapshot.isPlaying,
                 presenceSnapshot.position,
                 presenceSnapshot.duration,
-                now,
-                getCurrentPosition = { currentPresenceSnapshot().position },
-                isPlayingProvider = { currentPresenceSnapshot().isPlaying }
+                now
             )
         }
     }
@@ -1108,14 +1794,23 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
 }
     override fun onPlayerError(error: PlaybackException) {
         if (!isServiceReady) return
+        cancelCrossfade(phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED)
         super.onPlayerError(error)
 
         val currentMediaId = player.currentMediaItem?.mediaId.orEmpty()
         val errorCauses = generateSequence(error as Throwable?) { it.cause }.toList()
         val deepestCause = errorCauses.lastOrNull()
-        val isInvalidResponse = errorCauses.any { it.javaClass.simpleName == "InvalidResponseCodeException" }
+        val invalidResponses = errorCauses
+            .filterIsInstance<HttpDataSource.InvalidResponseCodeException>()
+        val invalidResponseCodes = invalidResponses.map { it.responseCode }
+        val isInvalidResponse =
+            invalidResponseCodes.isNotEmpty() ||
+                errorCauses.any { it.javaClass.simpleName == "InvalidResponseCodeException" }
+        val isUnexpectedStreamEnd = error.isUnexpectedStreamEnd()
         val isRefreshableStreamFailure =
             isInvalidResponse ||
+                isUnexpectedStreamEnd ||
+                shouldRecoverCurrentSong(error, deepestCause) ||
                 error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
                 error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED
         val isPlayableFormatMissing = errorCauses.any { it is PlayableFormatNotFoundException }
@@ -1131,15 +1826,14 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
             deepestCause?.javaClass?.simpleName
         )
 
-        if (!isNetworkAvailable.value || isNetworkUnavailable) {
+        if (!isNetworkAvailable.value || !hasValidatedNetwork() || isNetworkUnavailable) {
             applyRecoveryDecision(
                 PlaybackRecoveryHelper.Decision.WaitForNetwork(
                     mediaId = currentMediaId.ifBlank { player.currentMediaItem?.mediaId.orEmpty() },
                     positionMs = lastPlaybackPositionMs.takeIf { it > 0L }
                         ?: player.currentPosition.coerceAtLeast(0L),
                     message = "No internet. Will retry when connection returns.",
-                    resumeWhenNetworkReturns = player.isPlaying || player.playWhenReady
-                        || player.playbackState == Player.STATE_BUFFERING
+                    resumeWhenNetworkReturns = player.currentMediaItem != null
                 )
             )
             return
@@ -1156,40 +1850,56 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
             return
         }
 
-        if (isNearEndPlaybackFailure()) {
-            Timber.w(
-                "Playback failed near the end for %s at %d/%dms - advancing instead of retrying tail chunk.",
-                currentMediaId,
-                player.currentPosition,
-                player.duration
-            )
-            skipOrPause("Stream failed near the end - moving on.")
-            return
-        }
-
         if (currentMediaId.isNotBlank() && isRefreshableStreamFailure) {
             val failedSource = PlaybackSourceMonitor.status.value
                 .takeIf { it.videoId == currentMediaId }
                 ?.source
+            invalidateFormatCache(
+                videoId = currentMediaId,
+                markClientFailed = 403 in invalidResponseCodes,
+                rejectedUri = invalidResponses.firstOrNull()?.dataSpec?.uri,
+            )
+            pendingStreamRefreshValidationMediaId = currentMediaId
             Timber.w(
-                "Refreshable stream failure for %s from source=%s - retrying Innertube resolver",
+                "Refreshable stream failure for %s from source=%s unexpectedEnd=%s http=%s - retrying Innertube resolver",
                 currentMediaId,
-                failedSource?.label
+                failedSource?.label,
+                isUnexpectedStreamEnd,
+                invalidResponseCodes.joinToString(",").ifBlank { "none" }
             )
         }
 
         if (isRefreshableStreamFailure && currentMediaId.isNotBlank() && currentSongRetryCount < maxCurrentSongRetries) {
             val shouldAutoResume = player.playWhenReady || player.isPlaying || player.playbackState == Player.STATE_BUFFERING
+            if (!markAndCheckStreamRecoveryAllowance(currentMediaId)) {
+                Timber.w("Stream refresh allowance exhausted for %s", currentMediaId)
+                currentSongRetryCount = maxCurrentSongRetries
+            } else {
             currentSongRetryCount++
-            val delayMs = 450L
+            val resumePositionMs = maxOf(
+                lastPlaybackPositionMs,
+                runCatching { player.currentPosition }.getOrDefault(0L)
+            ).coerceAtLeast(0L)
+            val now = SystemClock.elapsedRealtime()
+            val cooldownMs =
+                if (lastStreamRefreshMediaId == currentMediaId) {
+                    (2_500L - (now - lastStreamRefreshMs)).coerceAtLeast(0L)
+                } else {
+                    0L
+                }
+            lastStreamRefreshMediaId = currentMediaId
+            lastStreamRefreshMs = now + cooldownMs
+            val delayMs = 650L + cooldownMs
+            val recoveryGeneration = ++playbackRecoveryGeneration
             Timber.i(
-                "Refreshing blocked stream URL for %s (attempt %d/%d)",
+                "Refreshing blocked stream URL for %s (attempt %d/%d, delay=%dms)",
                 currentMediaId,
                 currentSongRetryCount,
-                maxCurrentSongRetries
+                maxCurrentSongRetries,
+                delayMs
             )
             showSmartMessage("Refreshing stream link...")
-            runCatching { player.pause() }
+            pendingStreamRefreshValidationMediaId = currentMediaId
             player.playWhenReady = shouldAutoResume
             val prepared = player.safePrepare()
             player.playWhenReady = shouldAutoResume
@@ -1199,19 +1909,25 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
             }
             handler.postDelayed({
                 if (!isServiceReady) return@postDelayed
+                if (recoveryGeneration != playbackRecoveryGeneration) return@postDelayed
                 if (player.currentMediaItem?.mediaId != currentMediaId) return@postDelayed
-                player.safeSeekTo(lastPlaybackPositionMs.coerceAtLeast(0L))
-                if (shouldAutoResume) {
+                player.safeSeekTo(resumePositionMs)
+                val stillWantsResume = player.playWhenReady || player.isPlaying
+                if (shouldAutoResume && stillWantsResume) {
                     player.playWhenReady = true
                     runCatching { binder.gracefulPlay() }
                         .onFailure { Timber.e(it, "Failed to resume after blocked stream refresh for %s", currentMediaId) }
                 }
             }, delayMs)
             return
+            }
         }
 
         if (isRefreshableStreamFailure || isPlayableFormatMissing) {
-            skipOrPause("Source unavailable for this song.")
+            attemptReplacementOrSkip(
+                failedMediaId = currentMediaId,
+                fallbackReason = "Source unavailable for this song."
+            )
             return
         }
 
@@ -1224,6 +1940,9 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
                 3 -> 2_500L
                 else -> 3_500L
             }
+            val recoveryGeneration = ++playbackRecoveryGeneration
+
+
             Timber.i(
                 "Retrying %s (attempt %d/%d) in %dms",
                 currentMediaId, currentSongRetryCount, maxCurrentSongRetries, delayMs
@@ -1240,9 +1959,11 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
             }
             handler.postDelayed({
                 if (!isServiceReady) return@postDelayed
+                if (recoveryGeneration != playbackRecoveryGeneration) return@postDelayed
                 if (player.currentMediaItem?.mediaId != currentMediaId) return@postDelayed
                 player.safeSeekTo(lastPlaybackPositionMs.coerceAtLeast(0L))
-                if (shouldAutoResume) {
+                val stillWantsResume = player.playWhenReady || player.isPlaying
+                if (shouldAutoResume && stillWantsResume) {
                     player.playWhenReady = true
                     runCatching { binder.gracefulPlay() }
                         .onFailure { Timber.e(it, "Failed to resume after retry for %s", currentMediaId) }
@@ -1273,7 +1994,7 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
         val skipped = player.skipBrokenMediaItem("onPlayerError ${error.errorCodeName}")
         if (skipped && prev != null) {
             showSmartMessage(
-                getString(R.string.skip_media_on_error_message, prev.mediaMetadata.title)
+                skipMediaOnErrorMessage(prev.mediaMetadata.title)
             )
         } else if (!skipped) {
             applyRecoveryDecision(
@@ -1282,27 +2003,251 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
         }
     }
 
-    private fun isNearEndPlaybackFailure(): Boolean {
-        val durationMs = runCatching { player.duration }.getOrDefault(C.TIME_UNSET)
-        if (durationMs <= 0L || durationMs == C.TIME_UNSET) return false
+    private fun skipMediaOnErrorMessage(title: CharSequence?): String {
+        val safeTitle = title?.toString()?.takeIf { it.isNotBlank() } ?: "Unknown song"
+        return runCatching {
+            getString(R.string.skip_media_on_error_message, safeTitle)
+        }.getOrElse { error ->
+            Timber.w(error, "Invalid skip_media_on_error_message format for title=%s", safeTitle)
+            "An error occurred while playing $safeTitle"
+        }
+    }
 
-        val positionMs = maxOf(
+    /**
+     * Searches for distinct close matches only after the current stream has exhausted its
+     * normal resolver recovery. The replacement remains in the same queue position.
+     */
+    private fun attemptReplacementOrSkip(
+        failedMediaId: String,
+        fallbackReason: String,
+    ) {
+        val currentIndex = player.currentMediaItemIndex
+        val failedItem = player.currentMediaItem
+
+        if (
+            failedMediaId.isBlank() ||
+            failedItem == null ||
+            failedItem.isLocal ||
+            currentIndex == C.INDEX_UNSET
+        ) {
+            skipOrPause(fallbackReason)
+            return
+        }
+
+        if (replacementQueueIndex != currentIndex) {
+            replacementQueueIndex = currentIndex
+            replacementAttemptsForQueueItem = 0
+            unavailableRecoveryAttempts = 0
+            replacementTriedMediaIds.clear()
+        }
+
+        if (replacementAttemptsForQueueItem >= maxReplacementCandidates) {
+            Timber.w(
+                "Replacement candidates exhausted for queue index=%s mediaId=%s",
+                currentIndex,
+                failedMediaId
+            )
+            skipOrPause(fallbackReason)
+            return
+        }
+
+        if (replacementSearchJob?.isActive == true) {
+            Timber.d("Replacement search already running for %s", replacementSearchMediaId)
+            return
+        }
+
+        replacementTriedMediaIds += failedMediaId
+        replacementAttemptsForQueueItem++
+        replacementSearchMediaId = failedMediaId
+        val replacementGeneration = ++replacementSearchGeneration
+        val recoveryGeneration = ++playbackRecoveryGeneration
+        val resumePositionMs = maxOf(
             lastPlaybackPositionMs,
             runCatching { player.currentPosition }.getOrDefault(0L)
         ).coerceAtLeast(0L)
-        val remainingMs = (durationMs - positionMs).coerceAtLeast(0L)
+        val shouldAutoResume =
+            player.playWhenReady || player.isPlaying || player.playbackState == Player.STATE_BUFFERING
 
-        return positionMs >= 30_000L && remainingMs <= 12_000L
+        runCatching {
+            player.pause()
+            player.playWhenReady = false
+        }.onFailure { Timber.w(it, "Unable to pause failed media before replacement search") }
+        showSmartMessage("Searching for an alternative version...")
+
+        replacementSearchJob = coroutineScope.launch {
+            try {
+                val replacementId = withTimeoutOrNull(12_000L) {
+                    findReplacementVideoId(
+                        videoId = failedMediaId,
+                        titleHint = failedItem.mediaMetadata.title?.toString(),
+                        artistHint = failedItem.mediaMetadata.artist?.toString(),
+                        durationHint = failedItem.mediaMetadata.extras?.getString("durationText"),
+                        excludedVideoIds = replacementTriedMediaIds.toSet()
+                    )
+                }
+
+                withContext(Dispatchers.Main.immediate) {
+                    val isStillCurrent =
+                        isServiceReady &&
+                            replacementGeneration == replacementSearchGeneration &&
+                            recoveryGeneration == playbackRecoveryGeneration &&
+                            player.currentMediaItem?.mediaId == failedMediaId &&
+                            player.currentMediaItemIndex == currentIndex
+                    if (!isStillCurrent) {
+                        Timber.d("Discarded stale replacement result for %s", failedMediaId)
+                        return@withContext
+                    }
+
+                    if (replacementId.isNullOrBlank() || replacementId == failedMediaId) {
+                        Timber.i("No suitable replacement found for %s", failedMediaId)
+                        skipOrPause(fallbackReason)
+                        return@withContext
+                    }
+
+                    val replacementItem = failedItem.buildUpon()
+                        .setMediaId(replacementId)
+                        .setUri(sanitizePlaybackUri(replacementId))
+                        .setCustomCacheKey(replacementId)
+                        .build()
+
+                    // Mark the incoming ID first so its normal transition does not cancel this job.
+                    replacementTriedMediaIds += replacementId
+                    replacementSearchMediaId = replacementId
+                    val replacementApplied = runCatching {
+                        player.replaceMediaItem(currentIndex, replacementItem)
+                        player.seekTo(currentIndex, resumePositionMs)
+                        player.prepare()
+                        player.playWhenReady = shouldAutoResume
+                    }.onFailure {
+                        Timber.w(it, "Failed to apply replacement %s for %s", replacementId, failedMediaId)
+                    }.isSuccess
+
+                    if (!replacementApplied) {
+                        skipOrPause(fallbackReason)
+                        return@withContext
+                    }
+
+                    currentSongRetryCount = 0
+                    streamRecoveryState.remove(failedMediaId)
+                    streamRecoveryState.remove(replacementId)
+                    pendingStreamRefreshValidationMediaId = replacementId
+                    currentMediaItem.value = replacementItem
+                    maybeSavePlayerQueue()
+                    requestArtworkPlaybackSurfaceRefresh(replacementItem, minIntervalMs = 0L)
+                    if (shouldAutoResume) {
+                        binder.gracefulPlay()
+                    }
+                    showSmartMessage("Found an alternative version. Resuming playback.")
+                    Timber.i(
+                        "Replaced unavailable source %s with %s at queue index=%s",
+                        failedMediaId,
+                        replacementId,
+                        currentIndex
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Timber.w(error, "Replacement search failed for %s", failedMediaId)
+                withContext(Dispatchers.Main.immediate) {
+                    val isStillCurrent =
+                        isServiceReady &&
+                            replacementGeneration == replacementSearchGeneration &&
+                            player.currentMediaItem?.mediaId == failedMediaId &&
+                            player.currentMediaItemIndex == currentIndex
+                    if (isStillCurrent) {
+                        skipOrPause(fallbackReason)
+                    }
+                }
+            } finally {
+                withContext(Dispatchers.Main.immediate) {
+                    if (replacementGeneration == replacementSearchGeneration) {
+                        replacementSearchJob = null
+                        replacementSearchMediaId = null
+                    }
+                }
+            }
+        }
+    }
+
+    private fun cancelReplacementSearchIfStale(activeMediaId: String?) {
+        if (replacementQueueIndex != player.currentMediaItemIndex) {
+            replacementQueueIndex = player.currentMediaItemIndex
+            replacementAttemptsForQueueItem = 0
+            unavailableRecoveryAttempts = 0
+            replacementTriedMediaIds.clear()
+        }
+
+        if (replacementSearchJob?.isActive == true && replacementSearchMediaId != activeMediaId) {
+            replacementSearchGeneration++
+            replacementSearchJob?.cancel()
+            replacementSearchJob = null
+            replacementSearchMediaId = null
+        }
     }
 
     private fun skipOrPause(reason: String) {
         if (!preferences.getBoolean(skipMediaOnErrorKey, true)) {
-            applyRecoveryDecision(PlaybackRecoveryHelper.Decision.Pause(reason))
+            val mediaId = player.currentMediaItem?.mediaId
+            val queueIndex = player.currentMediaItemIndex
+            if (mediaId.isNullOrBlank() || queueIndex == C.INDEX_UNSET) {
+                applyRecoveryDecision(PlaybackRecoveryHelper.Decision.Pause(reason))
+                return
+            }
+
+            // The normal resolver and the replacement lookup have already had a chance.
+            // Keep the selected queue item for two final fresh resolutions before pausing.
+            val maximumAttempts = maxCurrentSongRetries + 1
+            if (unavailableRecoveryAttempts >= maximumAttempts) {
+                applyRecoveryDecision(
+                    PlaybackRecoveryHelper.Decision.Pause(
+                        "Source is still unavailable. Playback is paused without skipping."
+                    )
+                )
+                return
+            }
+
+            unavailableRecoveryAttempts++
+            val recoveryAttempt = unavailableRecoveryAttempts
+            val recoveryGeneration = ++playbackRecoveryGeneration
+            val resumePositionMs = maxOf(
+                lastPlaybackPositionMs,
+                runCatching { player.currentPosition }.getOrDefault(0L)
+            ).coerceAtLeast(0L)
+            val shouldResume =
+                player.playWhenReady ||
+                    player.isPlaying ||
+                    player.playbackState == Player.STATE_BUFFERING
+            val retryDelayMs = if (recoveryAttempt == 2) 4_000L else 10_000L
+
+            showSmartMessage("Trying to recover this source...")
+            handler.postDelayed({
+                if (
+                    !isServiceReady ||
+                    recoveryGeneration != playbackRecoveryGeneration ||
+                    player.currentMediaItem?.mediaId != mediaId ||
+                    player.currentMediaItemIndex != queueIndex
+                ) {
+                    return@postDelayed
+                }
+
+                invalidateFormatCache(mediaId)
+                player.safeSeekTo(resumePositionMs)
+                player.prepare()
+                player.playWhenReady = shouldResume
+                if (shouldResume) binder.gracefulPlay()
+                Timber.i(
+                    "Retrying unavailable source without skipping mediaId=%s attempt=%s/%s",
+                    mediaId,
+                    recoveryAttempt,
+                    maximumAttempts
+                )
+            }, retryDelayMs)
         } else if (player.hasNextMediaItem()) {
             val prev = player.currentMediaItem
             val skipped = player.skipBrokenMediaItem(reason)
             if (skipped && prev != null) {
-                showSmartMessage(getString(R.string.skip_media_on_error_message, prev.mediaMetadata.title))
+                showSmartMessage(skipMediaOnErrorMessage(prev.mediaMetadata.title))
             }
         } else {
             applyRecoveryDecision(PlaybackRecoveryHelper.Decision.Pause(reason))
@@ -1357,15 +2302,72 @@ override fun onIsPlayingChanged(isPlaying: Boolean) {
             messageBlob.contains("Broken pipe", ignoreCase = true)
     }
 
+    private fun Throwable.isUnexpectedStreamEnd(): Boolean =
+        generateSequence(this) { it.cause }.any { cause ->
+            cause is EOFException ||
+                cause.javaClass.simpleName.equals("EOFException", ignoreCase = true) ||
+                cause.message?.contains("EOF", ignoreCase = true) == true ||
+                cause.message?.contains("end of file", ignoreCase = true) == true ||
+                cause.message?.contains("unexpected end", ignoreCase = true) == true
+        }
+
+    private fun markAndCheckStreamRecoveryAllowance(mediaId: String): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        val (count, lastAt) = streamRecoveryState[mediaId] ?: (0 to 0L)
+        val nextCount = if (now - lastAt > 45_000L) 1 else count + 1
+        if (nextCount > maxCurrentSongRetries) return false
+        streamRecoveryState[mediaId] = nextCount to now
+        return true
+    }
+
+    private fun clearStreamRefreshGuards(activeMediaId: String? = null) {
+        val normalizedActiveMediaId = activeMediaId?.trim()?.takeIf { it.isNotBlank() }
+        if (normalizedActiveMediaId == null || refreshValidatedPlayingMediaId != normalizedActiveMediaId) {
+            refreshValidatedPlayingMediaId = null
+        }
+        if (normalizedActiveMediaId == null || pendingStreamRefreshValidationMediaId != normalizedActiveMediaId) {
+            pendingStreamRefreshValidationMediaId = null
+        }
+    }
+
 override fun onPlaybackStateChanged(playbackState: Int) {
     if (!isServiceReady) return
     try {
         capturePlaybackSnapshot()
+        val activeMediaId = player.currentMediaItem?.mediaId
+        clearStreamRefreshGuards(activeMediaId)
         when (playbackState) {
             Player.STATE_READY -> {
                 waitingForNetwork.value = false
                 consecutiveErrorSkipCount = 0
+                if (
+                    player.playWhenReady &&
+                    activeMediaId != null &&
+                    pendingStreamRefreshValidationMediaId == activeMediaId
+                ) {
+                    streamValidationJob?.cancel()
+                    val validationGeneration = playbackRecoveryGeneration
+                    val validationStartPosition = player.currentPosition.coerceAtLeast(0L)
+                    streamValidationJob = coroutineScope.launch(Dispatchers.Main.immediate) {
+                        delay(streamRecoveryValidationMs)
+                        if (
+                            isServiceReady &&
+                            validationGeneration == playbackRecoveryGeneration &&
+                            player.currentMediaItem?.mediaId == activeMediaId &&
+                            player.playbackState == Player.STATE_READY &&
+                            player.isPlaying &&
+                            player.currentPosition >= validationStartPosition + 2_000L
+                        ) {
+                            refreshValidatedPlayingMediaId = activeMediaId
+                            pendingStreamRefreshValidationMediaId = null
+                            streamRecoveryState.remove(activeMediaId)
+                            currentSongRetryCount = 0
+                            Timber.i("Stream refresh validated after sustained playback for %s", activeMediaId)
+                        }
+                    }
+                }
                 syncPlaybackWakeLockState()
+                tickCrossfade()
             }
             Player.STATE_BUFFERING -> {
                 syncPlaybackWakeLockState()
@@ -1378,6 +2380,9 @@ override fun onPlaybackStateChanged(playbackState: Int) {
             }
             Player.STATE_ENDED -> {
                 syncPlaybackWakeLockState()
+                if (crossfadeJob?.isActive != true) {
+                    cancelCrossfade(phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED)
+                }
                 if (!player.hasNextMediaItem()) {
                     runCatching {
                         player.playWhenReady = false
@@ -1412,6 +2417,9 @@ override fun onPlaybackStateChanged(playbackState: Int) {
                 if (!player.playWhenReady && !pauseTriggeredByNetworkWait) {
                     waitingForNetwork.value = false
                 }
+            }
+            if (player.isPlaying && player.playbackState == Player.STATE_READY) {
+                tickCrossfade()
             }
         }
     }
@@ -1634,51 +2642,13 @@ override fun onPlaybackStateChanged(playbackState: Int) {
 
     private fun warmCurrentSongCache(mediaItem: MediaItem?) {
         if (!isServiceReady) return
-        val mediaId = mediaItem
-            ?.takeUnless { it.isLocal }
-            ?.playbackVideoIdOrNull()
-            ?: run {
-                cacheCompletionJob?.cancel()
-                cacheCompletionJob = null
-                cacheCompletionMediaId = null
-                return
-            }
 
-        if (!isNetworkConnected(this) || MyDownloadHelper.isSongDownloaded(mediaId)) {
-            cacheCompletionJob?.cancel()
-            cacheCompletionJob = null
-            cacheCompletionMediaId = null
-            return
-        }
-
-        if (player.currentMediaItem?.mediaId == mediaItem?.mediaId && (player.isPlaying || player.playWhenReady)) {
-            cacheCompletionJob?.cancel()
-            cacheCompletionJob = null
-            cacheCompletionMediaId = null
-            return
-        }
-
-        if (cacheCompletionMediaId == mediaId && cacheCompletionJob?.isActive == true) return
-
+        // Playback cache is filled by the real resolved MediaSource. Do not run a
+        // synthetic CacheWriter against a YouTube watch page; that is not playable
+        // audio and it was producing warmup failures during normal playback.
         cacheCompletionJob?.cancel()
-        cacheCompletionMediaId = mediaId
-        cacheCompletionJob = coroutineScope.launch {
-            runCatching {
-                val dataSource = createDataSourceFactory().createDataSource() as? CacheDataSource
-                    ?: error("Failed to create cache data source")
-                val dataSpec = DataSpec.Builder()
-                    .setUri("https://music.youtube.com/watch?v=$mediaId")
-                    .setKey(mediaId)
-                    .build()
-
-                CacheWriter(dataSource, dataSpec, null, null).cache()
-                Timber.d("PlayerServiceModern completed cache warmup for %s", mediaId)
-            }.onFailure { error ->
-                if (cacheCompletionMediaId == mediaId) {
-                    Timber.w(error, "PlayerServiceModern cache warmup failed for %s", mediaId)
-                }
-            }
-        }
+        cacheCompletionJob = null
+        cacheCompletionMediaId = null
     }
 
     @Suppress("DEPRECATION")
@@ -1825,6 +2795,16 @@ override fun onPlaybackStateChanged(playbackState: Int) {
             )
             .addAction(R.drawable.play_skip_forward, "Skip forward", nextIntent)
 
+        when (preferences.getEnum(notificationColorModeKey, NotificationColorMode.Automatic)) {
+            NotificationColorMode.Automatic -> Unit
+            NotificationColorMode.Custom -> customNotify
+                .setColor(preferences.getInt(notificationCustomColorKey, Color.WHITE))
+                .setColorized(true)
+            NotificationColorMode.EInk -> customNotify
+                .setColor(Color.WHITE)
+                .setColorized(true)
+        }
+
         val notificationPlayerFirstIcon = preferences.getEnum(notificationPlayerFirstIconKey, NotificationButtons.Download)
         val notificationPlayerSecondIcon = preferences.getEnum(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
 
@@ -1939,6 +2919,38 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         }
     }
 
+    @MainThread
+    private fun publishCrossfadeDisplayItem(item: MediaItem) {
+        if (!isServiceReady) return
+
+        if (currentMediaItem.value?.mediaId == item.mediaId && lastPlaybackSurfaceMediaId == item.mediaId) {
+            return
+        }
+
+        currentMediaItem.value = item
+        requestArtworkPlaybackSurfaceRefresh(
+            mediaItem = item,
+            includeWidgets = true,
+            minIntervalMs = 0L
+        )
+
+        if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
+            val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
+            if (!token.isNullOrBlank()) {
+                val presenceSnapshot = currentPresenceSnapshot()
+                discordPresenceManager?.onPlayingStateChanged(
+                    presenceSnapshot.mediaItem ?: item,
+                    presenceSnapshot.isPlaying,
+                    presenceSnapshot.position,
+                    presenceSnapshot.duration,
+                    System.currentTimeMillis()
+                )
+            }
+        }
+
+        Timber.d("Crossfade UI switched to incoming metadata mediaId=%s", item.mediaId)
+    }
+
     fun toggleLike() {
         binder.toggleLike()
     }
@@ -1961,7 +2973,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
 
     private fun showSmartMessage(message: String) {
         val now = SystemClock.elapsedRealtime()
-        if (now - lastSmartMessageMs < 1_500L) return
+        if (now - lastSmartMessageMs < 6_000L) return
         lastSmartMessageMs = now
         Toaster.i(message)
     }
@@ -2054,7 +3066,20 @@ override fun onPlaybackStateChanged(playbackState: Int) {
     }
 
     private fun displayedMediaItem(): MediaItem? {
-        return player.currentMediaItem
+        val state = _crossfadeState.value
+        return when {
+            state.phase == CrossfadePhase.HANDOFF ->
+                state.incomingItem ?: player.currentMediaItem
+
+            state.phase == CrossfadePhase.FADING &&
+                state.displayOwner == CrossfadeDisplayOwner.INCOMING ->
+                state.incomingItem ?: player.currentMediaItem
+
+            state.phase == CrossfadePhase.FADING ->
+                state.outgoingItem ?: player.currentMediaItem
+
+            else -> player.currentMediaItem
+        }
     }
 
     private data class PresenceSnapshot(
@@ -2065,17 +3090,30 @@ override fun onPlaybackStateChanged(playbackState: Int) {
     )
 
     private fun currentPresenceSnapshot(): PresenceSnapshot {
+        val state = _crossfadeState.value
         val displayMediaItem = displayedMediaItem()
+        val useIncoming =
+            state.phase == CrossfadePhase.HANDOFF ||
+                (state.phase == CrossfadePhase.FADING &&
+                    state.displayOwner == CrossfadeDisplayOwner.INCOMING)
+
         val duration = when {
+            useIncoming -> state.incomingDurationMs
+            state.phase == CrossfadePhase.FADING -> state.outgoingDurationMs
             sessionPlayer.duration > 0L -> sessionPlayer.duration
             player.duration > 0L -> player.duration
             else -> 0L
         }
+            .takeIf { it > 0L && it != C.TIME_UNSET }
+            ?: 0L
+
         val position = when {
+            useIncoming -> state.incomingPositionMs
+            state.phase == CrossfadePhase.FADING -> state.outgoingPositionMs
             sessionPlayer.currentPosition >= 0L -> sessionPlayer.currentPosition
             else -> player.currentPosition.coerceAtLeast(0L)
         }.coerceIn(0L, duration.coerceAtLeast(1L))
-        val isPlaying = sessionPlayer.isPlaying || player.isPlaying
+        val isPlaying = sessionPlayer.isPlaying || player.isPlaying || crossfadePlayer?.isPlaying == true
 
         return PresenceSnapshot(
             mediaItem = displayMediaItem,
@@ -2186,6 +3224,11 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         if (!isServiceReady) return
         capturePlaybackSnapshot()
         Timber.d("PlayerServiceModern onPositionDiscontinuity oldPosition ${oldPosition.mediaItemIndex} newPosition ${newPosition.mediaItemIndex} reason $reason")
+        if (!crossfadeHandoffInProgress &&
+            (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SKIP)
+        ) {
+            cancelCrossfade(phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED)
+        }
         if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SKIP) {
             if (preferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
                 val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
@@ -2197,9 +3240,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
                         presenceSnapshot.isPlaying,
                         presenceSnapshot.position,
                         presenceSnapshot.duration,
-                        now,
-                        getCurrentPosition = { currentPresenceSnapshot().position },
-                        isPlayingProvider = { currentPresenceSnapshot().isPlaying }
+                        now
                     )
                 }
             }
@@ -2388,7 +3429,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         }
     }
 
-    inner class NotificationActionReceiver(private val player: Player) : BroadcastReceiver() {
+    inner class NotificationActionReceiver : BroadcastReceiver() {
         @ExperimentalCoroutinesApi
         @FlowPreview
         override fun onReceive(context: Context, intent: Intent) {
@@ -2396,8 +3437,8 @@ override fun onPlaybackStateChanged(playbackState: Int) {
             when (intent.action) {
                 Action.pause.value -> binder.gracefulPause()
                 Action.play.value -> binder.gracefulPlay()
-                Action.next.value -> player.playNext()
-                Action.previous.value -> player.playPrevious()
+                Action.next.value -> this@PlayerServiceModern.player.playNext()
+                Action.previous.value -> this@PlayerServiceModern.player.playPrevious()
                 Action.like.value -> binder.toggleLike()
                 Action.download.value -> binder.toggleDownload()
                 Action.playradio.value -> startRadio()
@@ -2428,7 +3469,9 @@ override fun onPlaybackStateChanged(playbackState: Int) {
             get() = this@PlayerServiceModern.cache
 
         val downloadCache: Cache
-            get() = this@PlayerServiceModern.downloadCache
+            get() = MyDownloadHelper.getDownloadCache(applicationContext).also {
+                this@PlayerServiceModern.downloadCache = it
+            }
 
         val sleepTimerMillisLeft: StateFlow<Long?>?
             get() = timerJob?.millisLeft
@@ -2438,8 +3481,23 @@ override fun onPlaybackStateChanged(playbackState: Int) {
 
         val displayedPositionAndDuration: Pair<Long, Long>
             get() {
-                val duration = player.duration.coerceAtLeast(1L)
-                val position = player.currentPosition.coerceIn(0L, duration)
+                val state = _crossfadeState.value
+                val useIncoming =
+                    state.phase == CrossfadePhase.HANDOFF ||
+                        (
+                            state.phase == CrossfadePhase.FADING &&
+                                state.displayOwner == CrossfadeDisplayOwner.INCOMING
+                        )
+                val duration = when {
+                    useIncoming -> state.incomingDurationMs
+                    state.phase == CrossfadePhase.FADING -> state.outgoingDurationMs
+                    else -> player.duration
+                }.coerceAtLeast(1L)
+                val position = when {
+                    useIncoming -> state.incomingPositionMs
+                    state.phase == CrossfadePhase.FADING -> state.outgoingPositionMs
+                    else -> player.currentPosition
+                }.coerceIn(0L, duration)
                 return position to duration
             }
 
@@ -2481,6 +3539,11 @@ override fun onPlaybackStateChanged(playbackState: Int) {
             append: Boolean = false,
             endpoint: NavigationEndpoint.Endpoint.Watch? = null
         ) {
+            if (Looper.myLooper() != Looper.getMainLooper()) {
+                handler.post { startRadio(mediaItem, append, endpoint) }
+                return
+            }
+
             this.stopRadio()
             if (!mediaItem.isPlayable()) {
                 Toaster.w("This song source is invalid and cannot be played")
@@ -2564,6 +3627,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
 
         @MainThread
         fun gracefulPause() {
+            cancelCrossfade(phase = if (isCrossfadeEnabled) CrossfadePhase.IDLE else CrossfadePhase.DISABLED)
             val duration = preferences.getEnum(playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled)
             player.fadeOutEffect(duration.asMillis)
         }
@@ -2572,6 +3636,7 @@ override fun onPlaybackStateChanged(playbackState: Int) {
         fun gracefulPlay() {
             val duration = preferences.getEnum(playbackFadeAudioDurationKey, DurationInMilliseconds.Disabled)
             player.fadeInEffect(duration.asMillis)
+            startCrossfadeMonitor()
         }
 
         fun restartForegroundOrStop() {

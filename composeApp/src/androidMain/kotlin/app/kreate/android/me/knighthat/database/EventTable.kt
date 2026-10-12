@@ -13,7 +13,10 @@ import app.it.fast4x.rimusic.models.Event
 import app.it.fast4x.rimusic.models.PlaylistPreview
 import app.it.fast4x.rimusic.models.Song
 import kotlinx.coroutines.flow.Flow
+import app.kreate.android.me.knighthat.database.ext.AlbumListeningStat
+import app.kreate.android.me.knighthat.database.ext.ArtistListeningStat
 import app.kreate.android.me.knighthat.database.ext.EventWithSong
+import app.kreate.android.me.knighthat.database.ext.SongListeningStat
 
 @Dao
 @RewriteQueriesToDropUnusedColumns
@@ -21,6 +24,9 @@ interface EventTable {
 
     @Query("SELECT COUNT(*) FROM Event")
     fun countAll(): Flow<Long>
+
+    @Query("SELECT MAX(timestamp) FROM Event")
+    suspend fun latestTimestamp(): Long?
 
     @Transaction
     @Query("SELECT DISTINCT * FROM Event LIMIT :limit")
@@ -58,6 +64,33 @@ interface EventTable {
         limit: Int = Int.MAX_VALUE
     ): Flow<List<Song>>
 
+    @Query("""
+        SELECT S.*, SUM(E.playtime) AS playTimeMs, COUNT(*) AS playCount, MAX(E.timestamp) AS lastPlayedAt
+        FROM Song S
+        JOIN (
+            SELECT songId, timestamp, playtime
+            FROM Event
+            WHERE "timestamp" BETWEEN :from AND :to
+            GROUP BY songId, timestamp, playtime
+        ) E ON E.songId = S.id
+        GROUP BY S.id
+        ORDER BY playTimeMs DESC, playCount DESC, lastPlayedAt DESC, S.id ASC
+        LIMIT :limit
+    """)
+    fun findSongListeningStatsBetween(
+        from: Long,
+        to: Long = System.currentTimeMillis(),
+        limit: Int = Int.MAX_VALUE
+    ): Flow<List<SongListeningStat>>
+    @Query("""
+        SELECT S.*, SUM(E.playtime) AS playTimeMs, COUNT(E.id) AS playCount, MAX(E.timestamp) AS lastPlayedAt
+        FROM Song S
+        JOIN Event E ON E.songId = S.id
+        GROUP BY S.id
+        ORDER BY lastPlayedAt DESC
+    """)
+    fun findCompleteSongHistory(): Flow<List<SongListeningStat>>
+
     /**
      * Return a list of artists that have their songs listened to by user.
      *
@@ -91,6 +124,26 @@ interface EventTable {
         limit: Int = Int.MAX_VALUE
     ): Flow<List<Artist>>
 
+    @Query("""
+        SELECT A.*, SUM(E.playtime) AS playTimeMs, COUNT(DISTINCT E.songId) AS songCount
+        FROM Artist A
+        JOIN SongArtistMap SAM ON SAM.artistId = A.id
+        JOIN (
+            SELECT songId, timestamp, playtime
+            FROM Event
+            WHERE "timestamp" BETWEEN :from AND :to
+            GROUP BY songId, timestamp, playtime
+        ) E ON E.songId = SAM.songId
+        GROUP BY A.id
+        ORDER BY playTimeMs DESC, songCount DESC, A.id ASC
+        LIMIT :limit
+    """)
+    fun findArtistListeningStatsBetween(
+        from: Long,
+        to: Long = System.currentTimeMillis(),
+        limit: Int = Int.MAX_VALUE
+    ): Flow<List<ArtistListeningStat>>
+
     /**
      * Return a list of albums that have their songs listened to by user.
      *
@@ -123,6 +176,26 @@ interface EventTable {
         to: Long = System.currentTimeMillis(),
         limit: Int = Int.MAX_VALUE
     ): Flow<List<Album>>
+
+    @Query("""
+        SELECT A.*, SUM(E.playtime) AS playTimeMs, COUNT(DISTINCT E.songId) AS songCount
+        FROM Album A
+        JOIN SongAlbumMap SAM ON SAM.albumId = A.id
+        JOIN (
+            SELECT songId, timestamp, playtime
+            FROM Event
+            WHERE "timestamp" BETWEEN :from AND :to
+            GROUP BY songId, timestamp, playtime
+        ) E ON E.songId = SAM.songId
+        GROUP BY A.id
+        ORDER BY playTimeMs DESC, songCount DESC, A.id ASC
+        LIMIT :limit
+    """)
+    fun findAlbumListeningStatsBetween(
+        from: Long,
+        to: Long = System.currentTimeMillis(),
+        limit: Int = Int.MAX_VALUE
+    ): Flow<List<AlbumListeningStat>>
 
     /**
      * Return a list of playlists that have their songs were listened to by user.

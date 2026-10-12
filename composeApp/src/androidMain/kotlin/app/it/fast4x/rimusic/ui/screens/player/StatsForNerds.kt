@@ -61,6 +61,9 @@ import app.it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
 import kotlinx.coroutines.Dispatchers
 import kotlin.math.roundToInt
 
+private fun Cache.safeCachedBytes(key: String): Long =
+    runCatching { getCachedBytes(key, 0, -1) }.getOrDefault(0L)
+
 @SuppressLint("LongLogTag")
 @UnstableApi
 @Composable
@@ -86,11 +89,11 @@ fun StatsForNerds(
         val cleanMediaId = remember(mediaId) { mediaId.split("/").lastOrNull() ?: mediaId }
 
         var cachedBytes by remember(cleanMediaId) {
-            mutableStateOf(binder.cache.getCachedBytes(cleanMediaId, 0, -1))
+            mutableStateOf(binder.cache.safeCachedBytes(cleanMediaId))
         }
 
         var downloadCachedBytes by remember(cleanMediaId) {
-            mutableStateOf(binder.downloadCache.getCachedBytes(cleanMediaId, 0, -1))
+            mutableStateOf(binder.downloadCache.safeCachedBytes(cleanMediaId))
         }
 
 

@@ -13,6 +13,7 @@ import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import app.cubic.android.core.network.NetworkClientFactory
+import it.fast4x.innertube.clients.YouTubeClient
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -82,11 +83,76 @@ val Context.okHttpDataSourceFactory
     @OptIn(UnstableApi::class)
     get() = DefaultDataSource.Factory(
         this,
-        OkHttpDataSource.Factory(NetworkClientFactory.getClientWithTimeout(15, 30))
+        OkHttpDataSource.Factory(
+            NetworkClientFactory.getClientWithTimeout(15, 30)
+                .newBuilder()
+                .addInterceptor { chain ->
+                    val request = chain.request()
+                    if (!request.url.isYouTubePlaybackHost()) {
+                        return@addInterceptor chain.proceed(request)
+                    }
+
+                    val client = request.url.youtubeStreamClient()
+                    val builder = request.newBuilder()
+                    if (client != null) {
+                        builder.header("User-Agent", client.userAgent)
+                        when {
+                            client.clientName.startsWith("WEB") -> {
+                                builder.header("Origin", "https://music.youtube.com")
+                                builder.header("Referer", "https://music.youtube.com/")
+                            }
+                            client.clientName.startsWith("TVHTML5") -> {
+                                builder.header("Origin", "https://www.youtube.com")
+                                builder.header("Referer", "https://www.youtube.com/tv")
+                            }
+                            else -> {
+                                builder.removeHeader("Origin")
+                                builder.removeHeader("Referer")
+                            }
+                        }
+                    }
+                    chain.proceed(builder.build())
+                }
+                .build()
+        )
             .setDefaultRequestProperties(streamingRequestHeaders)
     )
         .handleRangeErrors()
         .handleCatchingErrors()
+
+private fun okhttp3.HttpUrl.youtubeStreamClient(): YouTubeClient? {
+    val clientName = queryParameter("c")?.trim()?.uppercase().orEmpty()
+    val clientVersion = queryParameter("cver")?.trim().orEmpty()
+    return when {
+        clientName == "WEB_REMIX" -> YouTubeClient.WEB_REMIX
+        clientName == "WEB_CREATOR" -> YouTubeClient.WEB_CREATOR
+        clientName == "WEB" -> YouTubeClient.WEB
+        clientName == "TVHTML5_SIMPLY_EMBEDDED_PLAYER" -> YouTubeClient.TVHTML5_SIMPLY_EMBEDDED_PLAYER
+        clientName == "TVHTML5" -> YouTubeClient.TVHTML5
+        clientName == "VISIONOS" -> YouTubeClient.VISIONOS
+        clientName == "IOS_MUSIC" -> YouTubeClient.IOS_MUSIC
+        clientName.startsWith("IOS") && clientVersion == YouTubeClient.IPADOS.clientVersion -> YouTubeClient.IPADOS
+        clientName.startsWith("IOS") -> YouTubeClient.IOS
+        clientName.startsWith("ANDROID_VR") && clientVersion == YouTubeClient.ANDROID_VR_1_43_32.clientVersion ->
+            YouTubeClient.ANDROID_VR_1_43_32
+        clientName.startsWith("ANDROID_VR") -> YouTubeClient.ANDROID_VR_1_61_48
+        clientName.startsWith("ANDROID_CREATOR") -> YouTubeClient.ANDROID_CREATOR
+        clientName == "ANDROID_MUSIC" -> YouTubeClient.ANDROID_MUSIC
+        clientName == "ANDROID_TESTSUITE" -> YouTubeClient.ANDROID_TESTSUITE
+        clientName == "ANDROID_UNPLUGGED" -> YouTubeClient.ANDROID_UNPLUGGED
+        clientName.startsWith("ANDROID") -> YouTubeClient.MOBILE
+        else -> null
+    }
+}
+
+private fun okhttp3.HttpUrl.isYouTubePlaybackHost(): Boolean {
+    val host = host
+    return host.endsWith("googlevideo.com") ||
+        host.endsWith("googleusercontent.com") ||
+        host.endsWith("youtube.com") ||
+        host.endsWith("youtube-nocookie.com") ||
+        host.endsWith("ytimg.com")
+}
 
 private val streamingRequestHeaders = mapOf(
     "Accept" to "*/*",

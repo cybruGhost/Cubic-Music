@@ -4,6 +4,7 @@ package app.it.fast4x.rimusic.ui.screens.player.components.controls
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.CircularWavyProgressIndicator
 
+import android.net.Uri
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloatAsState
@@ -302,25 +303,34 @@ fun InfoAlbumAndArtistEssential(
                 onDismiss = { showSelectDialog = false },
                 values = artistIds,
                 onValueSelected = {
-                    navController.navigate(route = "${NavRoutes.artist.name}/${it}")
-                    showSelectDialog = false
-                    onCollapse()
+                    it.takeIf { artistId -> artistId.isNotBlank() }?.let { artistId ->
+                        navController.navigate(route = "${NavRoutes.artist.name}/$artistId")
+                        showSelectDialog = false
+                        onCollapse()
+                    }
                 }
             )
 
+        fun openDisplayedArtist() {
+            val ids = artistIds.orEmpty().filter { it.id.isNotBlank() }
+            when {
+                ids.size > 1 -> showSelectDialog = true
+                ids.size == 1 -> {
+                    navController.navigate(route = "${NavRoutes.artist.name}/${ids.first().id}")
+                    onCollapse()
+                }
+                !artist.isNullOrBlank() -> {
+                    navController.navigate(route = "${NavRoutes.searchResults.name}/${Uri.encode(artist.trim())}")
+                    onCollapse()
+                }
+            }
+        }
 
         var modifierArtist = Modifier
             .combinedClickable (
                 indication = ripple(bounded = true),
                 interactionSource = remember { MutableInteractionSource() },
-                onClick = {
-                    if (artistIds?.isNotEmpty() == true && artistIds.size > 1)
-                        showSelectDialog = true
-                    if (artistIds?.isNotEmpty() == true && artistIds.size == 1) {
-                        navController.navigate(route = "${NavRoutes.artist.name}/${artistIds[0].id}")
-                        onCollapse()
-                    }
-                },
+                onClick = ::openDisplayedArtist,
                 onLongClick = {
                     textCopyToClipboard(artist ?: "", context = appContext())
                 }
@@ -390,7 +400,7 @@ fun ControlsEssential(
     isGradientBackgroundEnabled: Boolean,
     onShowSpeedPlayerDialog: () -> Unit,
 ) {
-    val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+    val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
     val colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
     var effectRotationEnabled by rememberPreference(effectRotationKey, true)
     var isRotated by rememberSaveable { mutableStateOf(false) }

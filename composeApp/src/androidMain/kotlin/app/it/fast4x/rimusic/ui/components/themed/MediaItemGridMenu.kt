@@ -15,14 +15,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -360,78 +364,114 @@ fun MediaItemGridMenu (
     }
 
     val topContent = @Composable {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        val palette = colorPalette()
+        val headerSurface = palette.text.copy(alpha = 0.045f)
+        val actionSurface = palette.text.copy(alpha = 0.075f)
+
+        Column(
             modifier = Modifier
-                .padding(end = 12.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp)
         ) {
-            SongItem(
-                mediaItem = mediaItem,
-                thumbnailUrl = mediaItem.mediaMetadata.artworkUri.thumbnail(thumbnailSizePx)
-                    ?.toString(),
-                onDownloadClick = {
-                    binder?.cache?.removeResource(mediaItem.mediaId)
-                    Database.asyncTransaction {
-                        formatTable.deleteBySongId( mediaItem.mediaId )
-                    }
-                    if (!isLocal)
-                        manageDownload(
-                            context = context,
-                            mediaItem = mediaItem,
-                            downloadState = isDownloaded
-                        )
-                },
-                downloadState = downloadState,
-                thumbnailSizeDp = thumbnailSizeDp,
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .weight(1f),
-                disableScrollingText = disableScrollingText
-            )
-
-            val isSongLiked by remember( mediaItem.mediaId ) {
-                Database.songTable
-                    .isLiked( mediaItem.mediaId )
-                    .distinctUntilChanged()
-            }.collectAsState( false, Dispatchers.IO )
-
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(
-                    icon = if ( isSongLiked ) R.drawable.heart else R.drawable.heart_outline,
-                    color = colorPalette().favoritesIcon,
-                    onClick = {
-                        CoroutineScope( Dispatchers.IO ).launch {
-                            YouTubeSync.toggleSongLike( context, mediaItem )
-                        }
-                    },
+                    .fillMaxWidth()
+                    .padding(top = 2.dp, bottom = 10.dp)
+            ) {
+                Box(
                     modifier = Modifier
-                        .padding(all = 4.dp)
-                        .size(24.dp)
+                        .width(38.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(palette.text.copy(alpha = 0.22f))
                 )
-
-                if (!isLocal)
-                    IconButton(
-                        icon = R.drawable.share_social,
-                        color = colorPalette().text,
-                        onClick = {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                type = "text/plain"
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    ExternalUris.youtubeMusic(mediaItem.mediaId)
-                                )
-                            }
-
-                            context.startActivity(Intent.createChooser(sendIntent, null))
-                        },
-                        modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(24.dp)
-                    )
-
-
             }
 
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(headerSurface)
+                    .padding(start = 6.dp, top = 7.dp, end = 8.dp, bottom = 7.dp)
+            ) {
+                SongItem(
+                    mediaItem = mediaItem,
+                    thumbnailUrl = mediaItem.mediaMetadata.artworkUri.thumbnail(thumbnailSizePx)
+                        ?.toString(),
+                    onDownloadClick = {
+                        binder?.cache?.removeResource(mediaItem.mediaId)
+                        Database.asyncTransaction {
+                            formatTable.deleteBySongId( mediaItem.mediaId )
+                        }
+                        if (!isLocal)
+                            manageDownload(
+                                context = context,
+                                mediaItem = mediaItem,
+                                downloadState = isDownloaded
+                            )
+                    },
+                    downloadState = downloadState,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.weight(1f),
+                    disableScrollingText = disableScrollingText
+                )
+
+                val isSongLiked by remember( mediaItem.mediaId ) {
+                    Database.songTable
+                        .isLiked( mediaItem.mediaId )
+                        .distinctUntilChanged()
+                }.collectAsState( false, Dispatchers.IO )
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(actionSurface)
+                    ) {
+                        IconButton(
+                            icon = if ( isSongLiked ) R.drawable.heart else R.drawable.heart_outline,
+                            color = palette.favoritesIcon,
+                            onClick = {
+                                CoroutineScope( Dispatchers.IO ).launch {
+                                    YouTubeSync.toggleSongLike( context, mediaItem )
+                                }
+                            },
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    if (!isLocal)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(actionSurface)
+                        ) {
+                            IconButton(
+                                icon = R.drawable.share_social,
+                                color = palette.text,
+                                onClick = {
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        type = "text/plain"
+                                        putExtra(
+                                            Intent.EXTRA_TEXT,
+                                            ExternalUris.youtubeMusic(mediaItem.mediaId)
+                                        )
+                                    }
+
+                                    context.startActivity(Intent.createChooser(sendIntent, null))
+                                },
+                                modifier = Modifier.size(21.dp)
+                            )
+                        }
+                }
+            }
         }
     }
 
@@ -684,41 +724,84 @@ fun MediaItemGridMenu (
                     .fillMaxWidth()
                     .fillMaxHeight(0.5f)
             ) {
+                val playlistPalette = colorPalette()
+                val playlistHeaderSurface = playlistPalette.text.copy(alpha = 0.045f)
+                val playlistActionSurface = playlistPalette.text.copy(alpha = 0.075f)
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, bottom = 8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(38.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(playlistPalette.text.copy(alpha = 0.22f))
+                    )
+                }
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 12.dp, vertical = 2.dp)
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(playlistHeaderSurface)
+                        .padding(horizontal = 6.dp, vertical = 5.dp)
                 ) {
-                    IconButton(
-                        onClick = { isViewingPlaylists = false },
-                        icon = R.drawable.chevron_back,
-                        color = colorPalette().textSecondary,
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(20.dp)
-                    )
-                    IconButton(
-                        onClick = { search.isVisible = !search.isVisible },
-                        icon = R.drawable.search_circle,
-                        color = colorPalette().favoritesIcon,
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(playlistActionSurface)
+                    ) {
+                        IconButton(
+                            onClick = { isViewingPlaylists = false },
+                            icon = R.drawable.chevron_back,
+                            color = playlistPalette.textSecondary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(24.dp)
-                    )
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(playlistActionSurface)
+                    ) {
+                        IconButton(
+                            onClick = { search.isVisible = !search.isVisible },
+                            icon = R.drawable.search_circle,
+                            color = playlistPalette.favoritesIcon,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
                     BasicText(
                         text = title,
                         style = typography().m.semiBold,
-                        modifier = Modifier.weight(1f).padding(start = 8.dp)
-                    )
-                    IconButton(
-                        onClick = { isCreatingNewPlaylist = true },
-                        icon = R.drawable.add_in_playlist,
-                        color = colorPalette().text,
                         modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(24.dp)
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
                     )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(playlistActionSurface)
+                    ) {
+                        IconButton(
+                            onClick = { isCreatingNewPlaylist = true },
+                            icon = R.drawable.add_in_playlist,
+                            color = playlistPalette.text,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
                 }
                 if (search.isVisible) {
                     search.SearchBar(this)
@@ -731,7 +814,7 @@ fun MediaItemGridMenu (
                     BasicText(
                         text = stringResource(R.string.pinned_playlists),
                         style = typography().m.semiBold,
-                        modifier = modifier.padding(start = 20.dp, top = 5.dp)
+                        modifier = modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp)
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
@@ -785,7 +868,7 @@ fun MediaItemGridMenu (
                     BasicText(
                         text = stringResource(R.string.ytm_playlists),
                         style = typography().m.semiBold,
-                        modifier = modifier.padding(start = 20.dp, top = 5.dp)
+                        modifier = modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp)
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
@@ -822,7 +905,7 @@ fun MediaItemGridMenu (
                     BasicText(
                         text = stringResource(R.string.playlists),
                         style = typography().m.semiBold,
-                        modifier = modifier.padding(start = 20.dp, top = 5.dp)
+                        modifier = modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp)
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
@@ -869,9 +952,9 @@ fun MediaItemGridMenu (
 
             GridMenu(
                 contentPadding = PaddingValues(
-                    start = 8.dp,
-                    top = 8.dp,
-                    end = 8.dp,
+                    start = 14.dp,
+                    top = 12.dp,
+                    end = 14.dp,
                     bottom = 8.dp + WindowInsets.systemBars.asPaddingValues()
                         .calculateBottomPadding()
                 ),
@@ -896,7 +979,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = R.drawable.radio,
                         title = R.string.start_radio,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.accent,
                         colorText = colorPalette.text,
                         onClick = {
                             onDismiss()
@@ -908,7 +991,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = R.drawable.play_skip_forward,
                         title = R.string.play_next,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.accent,
                         colorText = colorPalette.text,
                         onClick = {
                             onDismiss()
@@ -935,7 +1018,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = if (!isDownloaded) R.drawable.download else R.drawable.downloaded,
                         title = if (!isDownloaded) R.string.download else R.string.downloaded,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.accent,
                         colorText = colorPalette.text,
                         onClick = {
                             onDismiss()
@@ -975,7 +1058,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = R.drawable.heart,
                         title = R.string.add_to_favorites,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.favoritesIcon,
                         colorText = colorPalette.text,
                         onClick = onAddToPreferites
                     )
@@ -993,7 +1076,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = R.drawable.add_in_playlist,
                         title = R.string.add_to_playlist,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.accent,
                         colorText = colorPalette.text,
                         onClick = {
                             isViewingPlaylists = true
@@ -1049,7 +1132,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = R.drawable.trash,
                         title = R.string.remove_from_queue,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.red,
                         colorText = colorPalette.text,
                         onClick = {
                             onDismiss()
@@ -1075,7 +1158,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = R.drawable.trash,
                         title = R.string.delete,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.red,
                         colorText = colorPalette.text,
                         onClick = {
                             //onDismiss()
@@ -1088,7 +1171,7 @@ fun MediaItemGridMenu (
                     GridMenuItem(
                         icon = R.drawable.trash,
                         title = R.string.hide_from_quick_picks,
-                        colorIcon = colorPalette.text,
+                        colorIcon = colorPalette.red,
                         colorText = colorPalette.text,
                         onClick = {
                             onDismiss()

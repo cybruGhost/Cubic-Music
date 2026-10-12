@@ -587,7 +587,7 @@ fun BoxScope.ActionBar(
                 val showButtonPlayerAddToPlaylist by rememberPreference( showButtonPlayerAddToPlaylistKey, true )
                 if (showButtonPlayerAddToPlaylist) {
                     val showPlaylistIndicator by rememberPreference( playlistindicatorKey, false )
-                    val colorPaletteName by rememberPreference( colorPaletteNameKey, ColorPaletteName.Dynamic )
+                    val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
                     val color = colorPalette()
                     val isSongMappedToPlaylist by remember( mediaItem.mediaId ) {
                         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )

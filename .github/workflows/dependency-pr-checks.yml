@@ -1,0 +1,128 @@
+name: Dependency PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "gradle/**"
+      - "**/*.gradle"
+      - "**/*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/**"
+      - ".github/dependabot.yml"
+  push:
+    branches: [main]
+    paths:
+      - "gradle/**"
+      - "**/*.gradle"
+      - "**/*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/dependency-pr-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-compatibility:
+    name: Catalog and compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate catalog and flag breaking plugin combinations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+          catalog = Path("gradle/libs.versions.toml")
+          config = tomllib.loads(catalog.read_text(encoding="utf-8"))
+          versions = config["versions"]
+          plugins = config["plugins"]
+          app_script = Path("composeApp/build.gradle.kts").read_text(encoding="utf-8")
+          def major(key):
+              return int(str(versions[key]).split(".", 1)[0])
+          print("Parsed Gradle catalog:", len(versions), "version aliases")
+          expected = ("kotlin", "kotlin-ksp", "agp", "compose-plugin")
+          missing = [key for key in expected if key not in versions]
+          if missing:
+              raise SystemExit("Missing version aliases: " + ", ".join(missing))
+          ksp = str(versions["kotlin-ksp"])
+          kotlin = str(versions["kotlin"])
+          # Older KSP versions encode the exact Kotlin compiler version before the hyphen.
+          if "-" in ksp and ksp.split("-", 1)[0] != kotlin:
+              raise SystemExit(
+                  f"Legacy KSP {ksp} is not aligned with Kotlin {kotlin}. "
+                  "Upgrade the Kotlin/KSP toolchain together and run the Android build."
+              )
+          if major("agp") >= 9 and (
+              "alias(libs.plugins.kotlin.multiplatform)" in app_script
+              and "alias(libs.plugins.android.application)" in app_script
+          ):
+              raise SystemExit(
+                  "AGP 9 requires migrating the combined Kotlin Multiplatform + "
+                  "Android application module into separate Android app and Android-KMP library modules."
+              )
+          print("No known incompatible Kotlin/KSP or AGP/KMP combination detected.")
+          PY
+
+      - name: Validate Gradle wrapper JAR checksums
+        uses: gradle/actions/wrapper-validation@v4
+
+  android-build:
+    name: Android debug build (Java 21)
+    needs: dependency-compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Use preinstalled Android SDK and install API 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v sdkmanager >/dev/null 2>&1; then
+            echo "Android SDK command-line tools are unavailable on this runner" >&2
+            exit 1
+          fi
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Setup Gradle and validate wrapper
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Compile Cubic Music Android debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Debug build only. Do not expose signing or API secrets to PR runners.
+          bash ./gradlew :composeApp:assembleDebug \
+            --no-daemon --no-parallel --no-configuration-cache \
+            "-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8" \
+            --stacktrace
+
+      - name: Explain build scope
+        if: success()
+        run: |
+          echo "Android debug APK built successfully."
+          echo "This does not replace on-device playback, provider, or release validation."

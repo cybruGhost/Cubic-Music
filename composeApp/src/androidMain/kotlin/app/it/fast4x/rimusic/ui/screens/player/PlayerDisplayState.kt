@@ -2,6 +2,7 @@ package app.it.fast4x.rimusic.ui.screens.player
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,26 +44,28 @@ fun rememberDisplayedPlayerState(
 ): PlayerDisplayState {
     val sessionPlayer = binder.sessionPlayer
     val playbackProgress by sessionPlayer.playbackProgressState()
-    var currentMediaItem by remember {
+    val crossfadeState by binder.service.crossfadeState.collectAsState()
+    val publishedMediaItem by binder.service.currentMediaItem.collectAsState()
+    var currentMediaItem by remember(sessionPlayer) {
         mutableStateOf(binder.displayedMediaItem ?: sessionPlayer.currentMediaItem ?: binder.player.currentMediaItem)
     }
-    var playbackStateValue by remember {
+    var playbackStateValue by remember(sessionPlayer) {
         mutableIntStateOf(sessionPlayer.playbackState)
     }
-    var playWhenReadyState by remember {
+    var playWhenReadyState by remember(sessionPlayer) {
         mutableStateOf(sessionPlayer.playWhenReady)
     }
-    var isPlaying by remember {
+    var isPlaying by remember(sessionPlayer) {
         mutableStateOf(sessionPlayer.isPlaying)
     }
-    var playerError by remember {
+    var playerError by remember(sessionPlayer) {
         mutableStateOf<PlaybackException?>(sessionPlayer.playerError)
     }
 
     sessionPlayer.DisposableListener {
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                currentMediaItem = binder.displayedMediaItem ?: mediaItem
+                currentMediaItem = mediaItem ?: binder.displayedMediaItem
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -86,14 +89,25 @@ fun rememberDisplayedPlayerState(
         }
     }
 
-    val mediaItem by remember(binder, currentMediaItem) {
+    val mediaItem by remember(
+        binder,
+        sessionPlayer,
+        currentMediaItem,
+        publishedMediaItem,
+        crossfadeState,
+    ) {
         derivedStateOf {
-            currentMediaItem ?: binder.displayedMediaItem
+            crossfadeState.displayedItem
+                ?: publishedMediaItem
+                ?: currentMediaItem
+                ?: binder.displayedMediaItem
+                ?: sessionPlayer.currentMediaItem
         }
     }
 
     val shouldBePlaying by remember(
         binder,
+        sessionPlayer,
         playWhenReadyState,
         isPlaying,
         playerError,
@@ -109,13 +123,23 @@ fun rememberDisplayedPlayerState(
         }
     }
 
-    val isBuffering by remember(playbackStateValue) {
-        derivedStateOf { playbackStateValue == Player.STATE_BUFFERING }
+    val isBuffering by remember(playbackStateValue, crossfadeState) {
+        derivedStateOf { playbackStateValue == Player.STATE_BUFFERING && !crossfadeState.incomingHasTakenOver }
     }
 
-    val displayedProgress by remember(playbackProgress) {
+    val displayedProgress by remember(playbackProgress, crossfadeState) {
         derivedStateOf {
             fun Long.safeMs(): Long = if (this == C.TIME_UNSET || this < 0L) 0L else this
+
+            if (crossfadeState.isActive && crossfadeState.displayedDurationMs > 0L) {
+                val safeDuration = crossfadeState.displayedDurationMs.safeMs().coerceAtLeast(1L)
+                val safePosition = crossfadeState.displayedPositionMs.safeMs().coerceIn(0L, safeDuration)
+                return@derivedStateOf PlaybackProgressState(
+                    position = safePosition,
+                    duration = safeDuration,
+                    bufferedPosition = safeDuration,
+                )
+            }
 
             val rawDuration = playbackProgress.duration.safeMs()
             val safeDuration = rawDuration.coerceAtLeast(1L)

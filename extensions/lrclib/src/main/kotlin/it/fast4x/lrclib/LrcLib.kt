@@ -11,6 +11,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.serialization.kotlinx.json.json
 import it.fast4x.lrclib.models.Track
+import it.fast4x.lrclib.models.bestMatchingFor
 import it.fast4x.lrclib.utils.ProxyPreferences
 import it.fast4x.lrclib.utils.getProxy
 import it.fast4x.lrclib.utils.runCatchingCancellable
@@ -72,9 +73,10 @@ object LrcLib {
         album: String? = null
     ) = runCatchingCancellable {
         val tracks = queryLyrics(artist, title, album)
-        //println("mediaItem get queryLyrics tracks ${tracks}")
-        //tracks.bestMatchingFor(title, duration)?.syncedLyrics?.let(LrcLib::Lyrics)
-        tracks.first().syncedLyrics?.let(LrcLib::Lyrics)
+        tracks.bestMatchingFor(title, duration)
+            ?.syncedLyrics
+            ?.takeIf { it.isNotBlank() }
+            ?.let(LrcLib::Lyrics)
     }
 
     suspend fun lyrics(artist: String, title: String) = runCatchingCancellable {

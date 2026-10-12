@@ -44,7 +44,6 @@ import app.it.fast4x.rimusic.enums.ExoPlayerMinTimeForEvent
 import app.it.fast4x.rimusic.enums.FontType
 import app.it.fast4x.rimusic.enums.HomeScreenTabs
 import app.it.fast4x.rimusic.enums.IconLikeType
-import app.it.fast4x.rimusic.enums.MaxSongs
 
 
 import app.it.fast4x.rimusic.enums.MenuStyle
@@ -132,7 +131,6 @@ import app.it.fast4x.rimusic.utils.keepPlayerMinimizedKey
 import app.it.fast4x.rimusic.utils.lastPlayerPlayButtonTypeKey
 import app.it.fast4x.rimusic.utils.lastPlayerThumbnailSizeKey
 import app.it.fast4x.rimusic.utils.lastPlayerTimelineTypeKey
-import app.it.fast4x.rimusic.utils.maxSongsInQueueKey
 
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.messageTypeKey
@@ -255,8 +253,8 @@ fun DefaultUiSettings() {
     disablePlayerHorizontalSwipe = false
     var lastPlayerPlayButtonType by rememberPreference(lastPlayerPlayButtonTypeKey, PlayerPlayButtonType.Rectangular)
     lastPlayerPlayButtonType = PlayerPlayButtonType.Rectangular
-    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
-    colorPaletteName = ColorPaletteName.Dynamic
+    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
+    colorPaletteName = ColorPaletteName.Default
     var colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
     colorPaletteMode = ColorPaletteMode.Dark
     var indexNavigationTab by rememberPreference(
@@ -286,8 +284,7 @@ fun DefaultUiSettings() {
     navigationBarType = NavigationBarType.IconAndText
     var pauseBetweenSongs  by rememberPreference(pauseBetweenSongsKey, PauseBetweenSongs.`0`)
     pauseBetweenSongs = PauseBetweenSongs.`0`
-    var maxSongsInQueue  by rememberPreference(maxSongsInQueueKey, MaxSongs.`500`)
-    maxSongsInQueue = MaxSongs.`500`
+
     var thumbnailRoundness by rememberPreference(
         thumbnailRoundnessKey,
         ThumbnailRoundness.Heavy
@@ -538,7 +535,7 @@ fun UiSettings(
 
     var lastPlayerPlayButtonType by rememberPreference(lastPlayerPlayButtonTypeKey, PlayerPlayButtonType.Rectangular)
 
-    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
+    var colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Default)
     var colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
     var indexNavigationTab by rememberPreference(
         indexNavigationTabKey,
@@ -862,6 +859,16 @@ fun UiSettings(
                                     showButtonPlayerShuffle = false
                                     showButtonPlayerMenu = true
                                     showthumbnail = true
+                                    keepPlayerMinimized = false
+                                } else if (uiType == UiType.Apple) {
+                                    disablePlayerHorizontalSwipe = false
+                                    disableIconButtonOnTop = false
+                                    playerTimelineType = lastPlayerTimelineType
+                                    playerThumbnailSize = lastPlayerThumbnailSize
+                                    playerPlayButtonType = lastPlayerPlayButtonType
+                                    navigationBarPosition = NavigationBarPosition.Bottom
+                                    navigationBarType = NavigationBarType.IconAndText
+                                    showTopActionsBar = true
                                     keepPlayerMinimized = false
                                 } else {
                                     disablePlayerHorizontalSwipe = false

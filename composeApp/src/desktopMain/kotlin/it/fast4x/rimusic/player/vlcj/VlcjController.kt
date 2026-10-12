@@ -32,10 +32,12 @@ class VlcjController : PlayerController {
     internal var player: EmbeddedMediaPlayer? = null
         private set
 
+    private var requestedVolume = 0.5f
+
     private val stateListener = object : MediaPlayerEventAdapter() {
         override fun mediaPlayerReady(mediaPlayer: MediaPlayer) {
-            catch { mediaPlayer.audio().setVolume(50) }
-            _state.update { it.copy(duration = mediaPlayer.status().length(), volume = 0.5f) }
+            catch { mediaPlayer.audio().setVolume((requestedVolume * 100).toInt()) }
+            _state.update { it.copy(duration = mediaPlayer.status().length(), volume = requestedVolume) }
         }
 
         override fun playing(mediaPlayer: MediaPlayer) {
@@ -111,7 +113,9 @@ class VlcjController : PlayerController {
     }
 
     override fun setVolume(value: Float) = catch {
-        player?.audio()?.setVolume((value * 100).toInt().coerceIn(0..100))
+        player?.audio()?.setVolume((requestedVolume * 100).toInt().coerceIn(0..100))
+        requestedVolume = value.coerceIn(0f, 1f)
+        _state.update { it.copy(volume = requestedVolume, isMuted = false) }
     }
 
     override fun toggleSound() = catch {

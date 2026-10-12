@@ -18,13 +18,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.absoluteOffset
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -577,12 +576,11 @@ fun BaseMediaItemMenu(
         onAddToPreferites = onAddToPreferites,
         onMatchingSong =  onMatchingSong,
         onAddToPlaylist = { playlist, position ->
-            if (!isYouTubeSyncEnabled() || !playlist.isYoutubePlaylist){
-                Database.asyncTransaction {
-                    insertIgnore( mediaItem )
-                    mapIgnore( playlist, mediaItem.asSong )
-                }
-            } else {
+            Database.asyncTransaction {
+                insertIgnore( mediaItem )
+                mapIgnore( playlist, mediaItem.asSong )
+            }
+            if (isYouTubeSyncEnabled() && playlist.isYoutubePlaylist && playlist.isEditable) {
                 CoroutineScope(Dispatchers.IO).launch {
                     addSongToYtPlaylist(playlist.id, position, playlist.browseId ?: "", mediaItem)
                 }
@@ -656,12 +654,11 @@ fun MiniMediaItemMenu(
         mediaItem = mediaItem,
         onDismiss = onDismiss,
         onAddToPlaylist = { playlist, position ->
-            if (!isYouTubeSyncEnabled() || !playlist.isYoutubePlaylist){
-                Database.asyncTransaction {
-                    insertIgnore( mediaItem )
-                    mapIgnore( playlist, mediaItem.asSong )
-                }
-            } else {
+            Database.asyncTransaction {
+                insertIgnore( mediaItem )
+                mapIgnore( playlist, mediaItem.asSong )
+            }
+            if (isYouTubeSyncEnabled() && playlist.isYoutubePlaylist && playlist.isEditable) {
                 CoroutineScope(Dispatchers.IO).launch {
                     addSongToYtPlaylist(playlist.id, position, playlist.browseId ?: "", mediaItem)
                 }
@@ -881,43 +878,85 @@ fun MediaItemMenu(
             ) {
                 val search = Search()
                 val title = stringResource(R.string.playlists)
+                val playlistPalette = colorPalette()
+                val playlistHeaderSurface = playlistPalette.text.copy(alpha = 0.045f)
+                val playlistActionSurface = playlistPalette.text.copy(alpha = 0.075f)
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, bottom = 8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(38.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(playlistPalette.text.copy(alpha = 0.22f))
+                    )
+                }
+
                 Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 12.dp, vertical = 2.dp)
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(playlistHeaderSurface)
+                        .padding(horizontal = 6.dp, vertical = 5.dp)
                 ) {
-                    IconButton(
-                        onClick = { isViewingPlaylists = false },
-                        icon = R.drawable.chevron_back,
-                        color = colorPalette().textSecondary,
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(20.dp)
-                    )
-                    IconButton(
-                        onClick = { search.isVisible = !search.isVisible },
-                        icon = R.drawable.search_circle,
-                        color = colorPalette().favoritesIcon,
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(playlistActionSurface)
+                    ) {
+                        IconButton(
+                            onClick = { isViewingPlaylists = false },
+                            icon = R.drawable.chevron_back,
+                            color = playlistPalette.textSecondary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(24.dp)
-                    )
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(playlistActionSurface)
+                    ) {
+                        IconButton(
+                            onClick = { search.isVisible = !search.isVisible },
+                            icon = R.drawable.search_circle,
+                            color = playlistPalette.favoritesIcon,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
                     BasicText(
                         text = title,
                         style = typography().m.semiBold,
-                        modifier = Modifier.weight(1f).padding(start = 8.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
                     )
                     if (onAddToPlaylist != null) {
-                        IconButton(
-                            onClick = { isCreatingNewPlaylist = true },
-                            icon = R.drawable.add_in_playlist,
-                            color = colorPalette().text,
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .padding(all = 4.dp)
-                                .size(24.dp)
-                        )
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(playlistActionSurface)
+                        ) {
+                            IconButton(
+                                onClick = { isCreatingNewPlaylist = true },
+                                icon = R.drawable.add_in_playlist,
+                                color = playlistPalette.text,
+                                modifier = Modifier.size(21.dp)
+                            )
+                        }
                     }
                 }
                 if (search.isVisible) {
@@ -931,7 +970,7 @@ fun MediaItemMenu(
                     BasicText(
                         text = stringResource(R.string.pinned_playlists),
                         style = typography().m.semiBold,
-                        modifier = modifier.padding(start = 20.dp, top = 5.dp)
+                        modifier = modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp)
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
@@ -988,7 +1027,7 @@ fun MediaItemMenu(
                     BasicText(
                         text = stringResource(R.string.ytm_playlists),
                         style = typography().m.semiBold,
-                        modifier = Modifier.padding(start = 20.dp, top = 5.dp)
+                        modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp)
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
@@ -1026,7 +1065,7 @@ fun MediaItemMenu(
                     BasicText(
                         text = stringResource(R.string.playlists),
                         style = typography().m.semiBold,
-                        modifier = modifier.padding(start = 20.dp, top = 5.dp)
+                        modifier = modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp)
                     )
 
                     onAddToPlaylist?.let { onAddToPlaylist ->
@@ -1080,27 +1119,34 @@ fun MediaItemMenu(
                 val thumbnailArtistSizeDp = Dimensions.thumbnails.song + 10.dp
                 val thumbnailArtistSizePx = thumbnailArtistSizeDp.px
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
+                val menuPalette = colorPalette()
+                val headerSurface = menuPalette.text.copy(alpha = 0.045f)
+                val actionSurface = menuPalette.text.copy(alpha = 0.075f)
 
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, bottom = 8.dp)
+                        .clickable { onDismiss() }
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.chevron_down),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette().text),
+                    Box(
                         modifier = Modifier
-                            .absoluteOffset(0.dp, -10.dp)
-                            .align(Alignment.TopCenter)
-                            .size(30.dp)
-                            .clickable { onDismiss() }
+                            .width(38.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(menuPalette.text.copy(alpha = 0.22f))
                     )
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .padding(end = 12.dp)
+                        .padding(horizontal = 12.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(headerSurface)
+                        .padding(start = 6.dp, top = 7.dp, end = 8.dp, bottom = 7.dp)
                 ) {
                     SongItem(
                         mediaItem = mediaItem,
@@ -1120,40 +1166,46 @@ fun MediaItemMenu(
                         },
                         downloadState = downloadState,
                         thumbnailSizeDp = thumbnailSizeDp,
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.weight(1f),
                         disableScrollingText = disableScrollingText
                     )
 
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        IconButton(
-                            //icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
-                            icon = getLikeState(mediaItem.mediaId),
-                            //icon = R.drawable.heart,
-                            color = colorPalette().favoritesIcon,
-                            //color = if (likedAt == null) colorPalette().textDisabled else colorPalette().text,
-                            onClick = {
-                                CoroutineScope( Dispatchers.IO ).launch {
-                                    YouTubeSync.toggleSongLike( appContext(), mediaItem )
-                                }
-                            },
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .padding(all = 4.dp)
-                                .size(24.dp)
-                        )
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(actionSurface)
+                        ) {
+                            IconButton(
+                                icon = getLikeState(mediaItem.mediaId),
+                                color = menuPalette.favoritesIcon,
+                                onClick = {
+                                    CoroutineScope( Dispatchers.IO ).launch {
+                                        YouTubeSync.toggleSongLike( appContext(), mediaItem )
+                                    }
+                                },
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
 
-                        if (!isLocal) IconButton(
-                            icon = R.drawable.share_social,
-                            color = colorPalette().text,
-                            onClick = onShare,
-                            modifier = Modifier
-                                .padding(all = 4.dp)
-                                .size(24.dp)
-                        )
-
+                        if (!isLocal)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(actionSurface)
+                            ) {
+                                IconButton(
+                                    icon = R.drawable.share_social,
+                                    color = menuPalette.text,
+                                    onClick = onShare,
+                                    modifier = Modifier.size(21.dp)
+                                )
+                            }
                     }
-
                 }
 /*
                 if (artistsList.isNotEmpty())
@@ -1202,11 +1254,17 @@ fun MediaItemMenu(
                         .fillMaxWidth(1f)
                 )
 */
-                Spacer(
-                    modifier = Modifier
-                        .height(8.dp)
-                )
+                Spacer(modifier = Modifier.height(10.dp))
 
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(menuPalette.text.copy(alpha = 0.035f))
+                        .padding(vertical = 6.dp)
+                ) {
                 if ( !isLocal && isSongExist ) {
                     MenuEntry(
                         icon = R.drawable.title_edit,
@@ -1523,6 +1581,16 @@ fun MediaItemMenu(
                 //println("mediaItem in MediaItemMenu onGoToAlbum  ALBUMiD ${mediaItem.mediaMetadata.extras?.getString("albumId")}")
                 //println("mediaItem in MediaItemMenu onGoToAlbum  albumInfo ${albumInfo?.id}")
 
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(menuPalette.text.copy(alpha = 0.08f))
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
                 if (!isLocal) onGoToAlbum?.let { onGoToAlbum ->
                     album?.id?.let { albumId ->
                         MenuEntry(
@@ -1644,6 +1712,16 @@ fun MediaItemMenu(
 
                 */
 
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(menuPalette.text.copy(alpha = 0.08f))
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
                 onRemoveFromQueue?.let { onRemoveFromQueue ->
                     MenuEntry(
                         icon = R.drawable.trash,
@@ -1692,6 +1770,9 @@ fun MediaItemMenu(
                         }
                     )
                 }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
             }
         }
     }

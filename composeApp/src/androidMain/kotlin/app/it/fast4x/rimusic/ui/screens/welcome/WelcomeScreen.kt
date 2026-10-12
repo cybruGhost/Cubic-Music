@@ -1,6 +1,7 @@
 // ui/screens/welcome/WelcomeScreen.kt -
 package app.it.fast4x.rimusic.ui.screens.welcome
 
+import android.content.Context
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -95,6 +96,38 @@ private const val KEY_USERNAME = "username"
 private const val KEY_CITY = "weather_city"
 private const val KEY_HAS_SEEN_WELCOME = "has_seen_welcome"
 
+private fun welcomeFallbackPrefs(context: Context) =
+    context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
+
+private fun getWelcomeValue(context: Context, key: String, default: String = ""): String {
+    val dataStoreValue = runCatching {
+        DataStoreUtils.getStringBlocking(context, key, "")
+    }.getOrDefault("")
+    if (dataStoreValue.isNotBlank()) {
+        welcomeFallbackPrefs(context).edit().putString(key, dataStoreValue).apply()
+        return dataStoreValue
+    }
+    return welcomeFallbackPrefs(context).getString(key, default).orEmpty()
+}
+
+private fun saveWelcomeValue(context: Context, key: String, value: String) {
+    runCatching {
+        DataStoreUtils.saveStringBlocking(context, key, value)
+    }
+    welcomeFallbackPrefs(context).edit().putString(key, value).apply()
+}
+
+private fun hasCompletedWelcome(context: Context): Boolean {
+    if (getWelcomeValue(context, KEY_HAS_SEEN_WELCOME) == "true") return true
+
+    val hasProfile = getWelcomeValue(context, KEY_USERNAME).isNotBlank() &&
+        getWelcomeValue(context, KEY_CITY).isNotBlank()
+    if (hasProfile) {
+        saveWelcomeValue(context, KEY_HAS_SEEN_WELCOME, "true")
+    }
+    return hasProfile
+}
+
 // Copy the getLocationFromIP function here since it's private in utils
 private suspend fun getLocationFromIP(): String? = withContext(Dispatchers.IO) {
     val endpoints = listOf(
@@ -143,17 +176,16 @@ fun WelcomeScreen(navController: NavController) {
     
     // Load initial state asynchronously
     LaunchedEffect(Unit) {
-        val hasSeen = DataStoreUtils.getStringBlocking(context, KEY_HAS_SEEN_WELCOME, "")
-        userHasSeenWelcome = hasSeen == "true"
+        userHasSeenWelcome = hasCompletedWelcome(context)
         
         // If city is not set, try to get location from IP
         if (!userHasSeenWelcome) {
             withContext(Dispatchers.IO) {
-                val currentCity = DataStoreUtils.getStringBlocking(context, KEY_CITY, "")
+                val currentCity = getWelcomeValue(context, KEY_CITY)
                 if (currentCity.isBlank()) {
                     try {
                         getLocationFromIP()?.let { detectedCity ->
-                            DataStoreUtils.saveStringBlocking(context, KEY_CITY, detectedCity)
+                            saveWelcomeValue(context, KEY_CITY, detectedCity)
                             detectedWelcomeCity = detectedCity
                         }
                     } catch (e: Exception) {
@@ -217,10 +249,10 @@ fun WelcomeScreen(navController: NavController) {
             WelcomeContent(
                 initialCity = detectedWelcomeCity,
                 onComplete = { name, city ->
-                    DataStoreUtils.saveStringBlocking(context, KEY_HAS_SEEN_WELCOME, "true")
-                    DataStoreUtils.saveStringBlocking(context, KEY_USERNAME, name)
+                    saveWelcomeValue(context, KEY_HAS_SEEN_WELCOME, "true")
+                    saveWelcomeValue(context, KEY_USERNAME, name)
                     if (city.isNotBlank()) {
-                        DataStoreUtils.saveStringBlocking(context, KEY_CITY, city)
+                        saveWelcomeValue(context, KEY_CITY, city)
                     }
                     showWelcome = false
                 }
@@ -374,7 +406,7 @@ fun WelcomeContent(
     
     LaunchedEffect(Unit) {
         animated = true
-        city = initialCity.ifBlank { DataStoreUtils.getStringBlocking(context, KEY_CITY, "") }
+        city = initialCity.ifBlank { getWelcomeValue(context, KEY_CITY) }
         
         // AUTO-FOCUS for TV: Start with name field focused
         delay(350)

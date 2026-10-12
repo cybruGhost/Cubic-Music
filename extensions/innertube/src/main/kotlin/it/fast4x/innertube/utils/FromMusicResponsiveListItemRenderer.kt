@@ -6,6 +6,12 @@ import it.fast4x.innertube.models.MusicResponsiveListItemRenderer
 import it.fast4x.innertube.models.NavigationEndpoint
 
 fun Innertube.SongItem.Companion.from(renderer: MusicResponsiveListItemRenderer): Innertube.SongItem? {
+    val videoId = renderer.videoId
+    if (videoId.isNullOrBlank()) {
+        println("Innertube SongItem.from dropped item without videoId title=${renderer.flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text}")
+        return null
+    }
+
     val albumId = renderer
         .flexColumns
         .getOrNull(2)
@@ -32,10 +38,13 @@ fun Innertube.SongItem.Companion.from(renderer: MusicResponsiveListItemRenderer)
             ?.runs
             ?.getOrNull(0)
             ?.let {
-                if (it.navigationEndpoint?.endpoint is NavigationEndpoint.Endpoint.Watch) Innertube.Info(
+                val endpoint = (it.navigationEndpoint?.endpoint as? NavigationEndpoint.Endpoint.Watch)
+                    ?.takeIf { watch -> !watch.videoId.isNullOrBlank() }
+                    ?: NavigationEndpoint.Endpoint.Watch(videoId = videoId)
+                Innertube.Info(
                     name = "$explicitBadge${it.text}",
-                    endpoint = it.navigationEndpoint.endpoint as NavigationEndpoint.Endpoint.Watch
-                ) else null
+                    endpoint = endpoint
+                )
             },
         authors = renderer
             .flexColumns
@@ -74,5 +83,5 @@ fun Innertube.SongItem.Companion.from(renderer: MusicResponsiveListItemRenderer)
             ?.find {
                 it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
            } != null,
-    )      .takeIf { it.info?.endpoint?.videoId != null }
+    ).takeIf { it.info?.endpoint?.videoId?.isNotBlank() == true }
 }

@@ -166,7 +166,7 @@ fun HomeSongsScreen(navController: NavController) {
     val itemsOnDisplayState = remember { mutableStateListOf<Song>() }
 
     val itemSelector = ItemSelector<Song>()
-    fun getSongs() = itemSelector.ifEmpty { itemsOnDisplayState }.toList()
+    fun getSongs() = if (itemSelector.isActive) itemSelector.toList() else itemsOnDisplayState.toList()
     fun getMediaItems() = getSongs().map(Song::asMediaItem)
 
     val search = Search(lazyListState)
@@ -348,34 +348,43 @@ fun HomeSongsScreen(navController: NavController) {
             TabToolBar.Buttons(buttons)
             search.SearchBar(this)
 
-            when (builtInPlaylist) {
-                BuiltInPlaylist.OnDevice -> OnDeviceSong(
-                    navController,
-                    lazyListState,
-                    itemSelector,
-                    search,
-                    buttons,
-                    itemsOnDisplayState,
-                    ::getSongs
-                )
+            Box(modifier = Modifier.weight(1f)) {
+                when (builtInPlaylist) {
+                    BuiltInPlaylist.OnDevice -> OnDeviceSong(
+                        navController,
+                        lazyListState,
+                        itemSelector,
+                        search,
+                        buttons,
+                        itemsOnDisplayState,
+                        ::getSongs
+                    )
 
-                else -> HomeSongs(
-                    navController = navController,
-                    builtInPlaylist = builtInPlaylist,
-                    lazyListState = lazyListState,
-                    itemSelector = itemSelector,
-                    search = search,
-                    buttons = buttons,
-                    itemsOnDisplay = itemsOnDisplayState,
-                    getSongs = ::getSongs,
-                    onRecommendationCountChange = { count -> recommendationCount = count },
-                    onRecommendationsLoadingChange = { loading -> isRecommendationsLoading = loading },
-                    isRecommendationEnabled = isRecommendationEnabled
-                )
+                    else -> HomeSongs(
+                        navController = navController,
+                        builtInPlaylist = builtInPlaylist,
+                        lazyListState = lazyListState,
+                        itemSelector = itemSelector,
+                        search = search,
+                        buttons = buttons,
+                        itemsOnDisplay = itemsOnDisplayState,
+                        getSongs = ::getSongs,
+                        onRecommendationCountChange = { count -> recommendationCount = count },
+                        onRecommendationsLoadingChange = { loading -> isRecommendationsLoading = loading },
+                        isRecommendationEnabled = isRecommendationEnabled
+                    )
+                }
             }
         }
 
-        FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
+        val showScrollToTopFab = builtInPlaylist != BuiltInPlaylist.Downloaded &&
+            builtInPlaylist != BuiltInPlaylist.CorruptDownloads &&
+            builtInPlaylist != BuiltInPlaylist.Offline
+
+        FloatingActionsContainerWithScrollToTop(
+            lazyListState = lazyListState,
+            visible = showScrollToTopFab
+        )
 
         val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
         if (UiType.ViMusic.isCurrent() && showFloatingIcon) {

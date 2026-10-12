@@ -161,7 +161,7 @@ fun ArtistDetails(
     //<editor-fold defaultstate="collapsed" desc="Buttons">
     val itemSelector = ItemSelector<Song>()
 
-    fun getSongs() = itemSelector.ifEmpty { songs }
+    fun getSongs() = if (itemSelector.isActive) itemSelector.toList() else songs
     fun getMediaItems() = getSongs().map( Song::asMediaItem )
 
     val followButton = localArtist?.let { artist -> FollowButton { artist } }

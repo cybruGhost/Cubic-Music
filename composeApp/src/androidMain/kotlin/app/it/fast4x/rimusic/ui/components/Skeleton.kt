@@ -38,6 +38,7 @@ import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.PlayerPosition
 import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.ui.components.navigation.header.AppHeader
+import app.it.fast4x.rimusic.ui.components.navigation.header.AppleAppHeader
 import app.it.fast4x.rimusic.ui.components.navigation.nav.AbstractNavigationBar
 import app.it.fast4x.rimusic.ui.components.navigation.nav.HorizontalNavigationBar
 import app.it.fast4x.rimusic.ui.components.navigation.nav.VerticalNavigationBar
@@ -78,8 +79,11 @@ fun Skeleton(
             verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth()
         ) {
-            if( UiType.RiMusic.isCurrent() )
-                AppHeader( navController ).Draw()
+            when (UiType.current()) {
+                UiType.RiMusic -> AppHeader(navController).Draw()
+                UiType.Apple -> AppleAppHeader(navController)
+                UiType.ViMusic -> Unit
+            }
 
             if ( NavigationBarPosition.Top.isCurrent() )
                 navigationBar.Draw()
@@ -194,7 +198,7 @@ fun Skeleton(
     
     LaunchedEffect( check4UpdateState ) {
         when( check4UpdateState ) {
-            CheckUpdateState.Enabled  -> if( !NewUpdateAvailableDialog.isCancelled ) Updater.checkForUpdate(checkBetaUpdates = checkBetaUpdates)
+            CheckUpdateState.Enabled  -> Updater.checkForUpdate(checkBetaUpdates = checkBetaUpdates)
             CheckUpdateState.Ask      -> CheckForUpdateDialog.isActive = true
             CheckUpdateState.Disabled -> { /* Does nothing */ }
         }

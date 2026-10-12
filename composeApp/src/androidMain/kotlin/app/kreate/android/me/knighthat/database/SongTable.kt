@@ -328,6 +328,9 @@ interface SongTable {
     @Query("UPDATE Song SET artistsText = :artistsText WHERE id = :songId")
     fun updateArtists( songId: String, artistsText: String ): Int
 
+    @Query("UPDATE Song SET thumbnailUrl = :thumbnailUrl WHERE id = :songId")
+    fun updateThumbnail(songId: String, thumbnailUrl: String): Int
+
     /**
      * Set [Song.totalPlayTimeMs] to:
      * - [value] if [isIncrement] is `false`

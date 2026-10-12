@@ -1,0 +1,17 @@
+New:
+- Refreshed Find screen with a more polished glassy result layout and the `findsong.png` action button restored
+- Added optional miniplayer artwork progress outline under General Settings > Now Playing Indicator
+
+Improved:
+- Find suggestions now show live download progress instead of a static download button while a song is being saved
+- Crossfade metadata handoff is smoother across the player UI, mini-player, and notification surfaces
+- Crossfade fallback now keeps the current song stable if the incoming source fails during the transition
+- Lyric share preview is more compact, with tap-to-start line selection and quick 1/3/6/9/11 line count chips
+- Queue Discover now runs immediately from the floating banner and reports when it finishes
+
+Fixed:
+- Better distinction between no-internet playback failures and source/extractor failures
+- Source drift errors such as parsing/extractor issues now retry more safely instead of being treated like random connection loss
+- Reduced abrupt playback exits caused by crossfade secondary-player failures
+- Miniplayer artwork progress now follows the selected thumbnail roundness instead of drawing sharp corners
+- Rewind top song, artist, and album slides now show up to 10 entries instead of stopping at 5

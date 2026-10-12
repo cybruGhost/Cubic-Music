@@ -1,7 +1,11 @@
 package app.it.fast4x.rimusic.ui.screens.player
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.RenderEffect
+import android.net.Uri
+import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -149,8 +153,8 @@ import app.it.fast4x.rimusic.enums.CarouselSize
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
 import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
-import app.it.fast4x.rimusic.enums.PlayerThumbnailSize
 import app.it.fast4x.rimusic.enums.PlayerType
+import app.it.fast4x.rimusic.enums.PlayerSurfaceStyle
 import app.it.fast4x.rimusic.enums.QueueLoopType
 import app.it.fast4x.rimusic.enums.QueueType
 import app.it.fast4x.rimusic.enums.SwipeAnimationNoThumbnail
@@ -172,6 +176,7 @@ import app.it.fast4x.rimusic.ui.components.themed.NowPlayingSongIndicator
 import app.it.fast4x.rimusic.ui.components.themed.PlayerMenu
 import app.it.fast4x.rimusic.ui.components.themed.RotateThumbnailCoverAnimationModern
 import app.it.fast4x.rimusic.ui.components.themed.SecondaryTextButton
+import app.it.fast4x.rimusic.ui.components.themed.SleepTimerDialog
 import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
@@ -200,6 +205,7 @@ import app.it.fast4x.rimusic.utils.clickOnLyricsTextKey
 import app.it.fast4x.rimusic.utils.colorPaletteModeKey
 import app.it.fast4x.rimusic.utils.controlsExpandedKey
 import app.it.fast4x.rimusic.utils.coverThumbnailAnimationKey
+import app.it.fast4x.rimusic.utils.crossfadeEnabledKey
 import app.it.fast4x.rimusic.utils.currentWindow
 import app.it.fast4x.rimusic.utils.disablePlayerHorizontalSwipeKey
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
@@ -213,10 +219,12 @@ import app.it.fast4x.rimusic.utils.fadingedgeKey
 import app.it.fast4x.rimusic.utils.formatAsDuration
 import app.it.fast4x.rimusic.utils.formatAsTime
 import app.it.fast4x.rimusic.utils.getBitmapFromUrl
+import app.it.fast4x.rimusic.utils.getStringListCompat
 import app.it.fast4x.rimusic.utils.horizontalFadingEdge
 import app.it.fast4x.rimusic.utils.isExplicit
 import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.mediaItems
+import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.noblurKey
 import app.it.fast4x.rimusic.utils.playAtIndex
 import app.it.fast4x.rimusic.utils.playNext
@@ -257,6 +265,7 @@ import app.it.fast4x.rimusic.utils.topPaddingKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -272,8 +281,6 @@ import kotlin.math.sqrt
 import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasWorker
 import app.it.fast4x.rimusic.ui.screens.spotify.SpotifyCanvasState
 import androidx.compose.ui.viewinterop.AndroidView
-import app.it.fast4x.rimusic.utils.FadeAdjuster
-import app.it.fast4x.rimusic.enums.DurationInMilliseconds
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.unit.sp
@@ -412,20 +419,22 @@ private fun PlayerContent(
     val showButtonPlayerVideo by rememberPreference(showButtonPlayerVideoKey, false)
     val showSpotifyCanvasLogs = uiConfig.showSpotifyCanvasLogs
     val alternateSourceRetryEnabled = uiConfig.alternateSourceRetryEnabled
-    val playbackFadeAudioDuration = uiConfig.playbackFadeAudioDuration
+    val playerSurfaceStyle = uiConfig.playerSurfaceStyle
+    val effectiveThumbnailPadding = playerThumbnailSize.size
+    val effectiveLandscapeThumbnailPadding = playerThumbnailSizeL.size
     val blurAdjuster = BlurAdjuster()
 
-    val fadeAdjuster = FadeAdjuster()
-    fadeAdjuster.setContext(context)
+    LaunchedEffect(Unit) {
+        playerVideoModeActive = false
+    }
+
     val currentSongDownloadState by binder.service.currentSongStateDownload.collectAsState()
 
-    LaunchedEffect(playbackFadeAudioDuration) {
-        fadeAdjuster.setDuration(playbackFadeAudioDuration.milliSeconds)
-    }
 
     if (binder.player.currentTimeline.windowCount == 0) return
 
     val displayedPlayerState = rememberDisplayedPlayerState(binder)
+    val crossfadeEnabled by rememberPreference(crossfadeEnabledKey, false)
     val shouldBePlaying = displayedPlayerState.shouldBePlaying
 
     // ── FIX 3: isBuffering comes from the single source of truth (DisplayState),
@@ -500,9 +509,20 @@ private fun PlayerContent(
     var retryWithAlternateSourcesNonce by remember { mutableIntStateOf(0) }
     var lastSearchFallbackMediaId by remember { mutableStateOf<String?>(null) }
     var playbackErrorMessage by remember { mutableStateOf<String?>(null) }
+    var lastPlaybackErrorBannerKey by remember { mutableStateOf<String?>(null) }
+    var lastPlaybackErrorBannerMs by remember { mutableStateOf(0L) }
     val hasNetworkConnection = isNetworkAvailable(context)
     val currentErrorItem = binder.displayedMediaItem ?: binder.player.currentMediaItem
     val isCurrentSongDownloaded = currentSongDownloadState == Download.STATE_COMPLETED
+
+    fun shouldShowPlaybackErrorBanner(mediaId: String?, message: String): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        val key = "${mediaId.orEmpty()}|$message"
+        if (key == lastPlaybackErrorBannerKey && now - lastPlaybackErrorBannerMs < 12_000L) return false
+        lastPlaybackErrorBannerKey = key
+        lastPlaybackErrorBannerMs = now
+        return true
+    }
 
     fun PagerState.offsetForPage(page: Int) = (currentPage - page) + currentPageOffsetFraction
 
@@ -535,6 +555,8 @@ private fun PlayerContent(
         object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 playbackErrorMessage = null
+                lastPlaybackErrorBannerKey = null
+                lastPlaybackErrorBannerMs = 0L
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -551,13 +573,18 @@ private fun PlayerContent(
             override fun onPlayerError(playbackException: PlaybackException) {
                 playerError = playbackException
                 // Surface the error gracefully — never crash, just show the banner.
-                playbackErrorMessage = playbackExceptionMessage(
+                val message = playbackExceptionMessage(
                     context = context,
                     error = playbackException,
                     isLocal = binder.player.currentWindow?.mediaItem?.isLocal == true,
                     isDownloaded = isCurrentSongDownloaded,
                     isNetworkAvailable = hasNetworkConnection,
                 )
+                if (shouldShowPlaybackErrorBanner(binder.player.currentMediaItem?.mediaId, message)) {
+                    playbackErrorMessage = message
+                } else {
+                    Timber.d("Playback error banner suppressed for mediaId=%s", binder.player.currentMediaItem?.mediaId)
+                }
                 // If the error is a network error and we were mid-stream, ExoPlayer
                 // will retry automatically when the network comes back. We don't
                 // need to do anything here except show the error UI.
@@ -792,6 +819,55 @@ private fun PlayerContent(
 
     val displayedPositionAndDuration = displayedPlayerState.position to displayedPlayerState.duration
     val mediaItem = displayedPlayerState.mediaItem ?: return
+    val downloadProgresses by MyDownloadHelper.progresses.collectAsState()
+    val currentSongDownloadProgress = downloadProgresses[mediaItem.mediaId]
+        ?.coerceIn(0f, 1f)
+        ?: 0f
+    val playbackErrorActionLabel = when {
+        playerError != null && isCurrentSongDownloaded && hasNetworkConnection ->
+            stringResource(R.string.redownload_song)
+        playerError != null && !isCurrentSongDownloaded && hasNetworkConnection ->
+            stringResource(R.string.retry_with_other_sources)
+        else -> null
+    }
+    val playbackErrorAction: (() -> Unit)? = if (playerError != null) {
+        {
+            playbackErrorMessage = null
+            currentErrorItem?.let { errorItem ->
+                if (isCurrentSongDownloaded) {
+                    MyDownloadHelper.redownloadSong(context, errorItem)
+                } else {
+                    lastSearchFallbackMediaId = null
+                    retryWithAlternateSourcesNonce++
+                }
+            }
+        }
+    } else {
+        null
+    }
+
+    BackHandler(
+        enabled = playerSurfaceStyle != PlayerSurfaceStyle.Standard && isShowingLyrics
+    ) {
+        isShowingLyrics = false
+    }
+
+    fun showPlayerMenu() {
+        menuState.display {
+            PlayerMenu(
+                navController = navController,
+                onDismiss = menuState::hide,
+                mediaItem = mediaItem,
+                binder = binder,
+                onClosePlayer = onDismiss,
+                onShowSleepTimer = {
+                    isShowingSleepTimerDialog = true
+                    menuState.hide()
+                },
+                disableScrollingText = disableScrollingText
+            )
+        }
+    }
 
     val displayedMediaItemIndex = remember(
         mediaItems,
@@ -801,6 +877,12 @@ private fun PlayerContent(
         mediaItems.indexOfFirst { queuedItem -> queuedItem.mediaId == mediaItem.mediaId }
             .takeIf { it >= 0 }
             ?: binder.player.currentMediaItemIndex.coerceAtLeast(0)
+    }
+    pagerState.HandleUserSelectedPage(isDragged, displayedMediaItemIndex) { index ->
+        binder.player.playAtIndex(index)
+    }
+    pagerStateFS.HandleUserSelectedPage(isDraggedFS, displayedMediaItemIndex) { index ->
+        binder.player.playAtIndex(index)
     }
 
     val displayedArtworkUrl = mediaItem.mediaMetadata.artworkUri?.toString().orEmpty()
@@ -842,7 +924,7 @@ private fun PlayerContent(
 
     val artistInfos by remember(mediaItem) {
         val ids = mediaItem.mediaMetadata.extras?.getStringArrayList("artistIds").orEmpty()
-        val names = mediaItem.mediaMetadata.extras?.getStringArrayList("artistNames").orEmpty()
+        val names = mediaItem.mediaMetadata.extras?.getStringListCompat("artistNames").orEmpty()
         if (ids.isNotEmpty())
             return@remember flowOf(ids.fastZip(names) { id, name -> Info(id, name) })
         Database.songArtistMapTable
@@ -857,132 +939,20 @@ private fun PlayerContent(
         Database.songAlbumMapTable.findAlbumOf(mediaItem.mediaId).map { it?.id }
     }.collectAsState(null, Dispatchers.IO)
 
-    var showCircularSlider by remember { mutableStateOf(false) }
     val screenWidth = configuration.screenWidthDp.dp
     val screenHeight = configuration.screenHeightDp.dp
 
     if (isShowingSleepTimerDialog) {
-        if (sleepTimerMillisLeft != null) {
-            ConfirmationDialog(
-                text = stringResource(R.string.stop_sleep_timer),
-                cancelText = stringResource(R.string.no),
-                confirmText = stringResource(R.string.stop),
-                onDismiss = { isShowingSleepTimerDialog = false },
-                onConfirm = {
-                    val fadeDuration = playbackFadeAudioDuration.milliSeconds
-                    if (fadeDuration > 0) {
-                        fadeAdjuster.fadeOut(binder.player) {
-                            binder.cancelSleepTimer()
-                            delayedSleepTimer = false
-                        }
-                    } else {
-                        binder.cancelSleepTimer()
-                        delayedSleepTimer = false
-                    }
-                }
-            )
-        } else {
-            DefaultDialog(onDismiss = { isShowingSleepTimerDialog = false }) {
-                var amount by remember { mutableStateOf(1) }
-
-                BasicText(
-                    text = stringResource(R.string.set_sleep_timer),
-                    style = typography().s.semiBold,
-                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 24.dp)
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(
-                        space = 16.dp,
-                        alignment = Alignment.CenterHorizontally
-                    ),
-                    modifier = Modifier.padding(vertical = 10.dp)
-                ) {
-                    if (!showCircularSlider) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .alpha(if (amount <= 1) 0.5f else 1f)
-                                .clip(CircleShape)
-                                .clickable(enabled = amount > 1) { amount-- }
-                                .size(48.dp)
-                                .background(colorPalette().background0)
-                        ) {
-                            BasicText(text = "-", style = typography().xs.semiBold)
-                        }
-
-                        Box(contentAlignment = Alignment.Center) {
-                            BasicText(
-                                text = stringResource(R.string.left, formatAsDuration(amount * 5 * 60 * 1000L)),
-                                style = typography().s.semiBold,
-                                modifier = Modifier.clickable { showCircularSlider = !showCircularSlider }
-                            )
-                        }
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .alpha(if (amount >= 60) 0.5f else 1f)
-                                .clip(CircleShape)
-                                .clickable(enabled = amount < 60) { amount++ }
-                                .size(48.dp)
-                                .background(colorPalette().background0)
-                        ) {
-                            BasicText(text = "+", style = typography().xs.semiBold)
-                        }
-                    } else {
-                        CircularSlider(
-                            stroke = 40f,
-                            thumbColor = colorPalette().accent,
-                            text = formatAsDuration(amount * 5 * 60 * 1000L),
-                            modifier = Modifier.size(300.dp),
-                            onChange = { amount = (it * 120).toInt() }
-                        )
-                    }
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth()
-                ) {
-                    SecondaryTextButton(
-                        text = stringResource(R.string.set_to) + " " +
-                                formatAsDuration(timeRemaining.toLong()) + " " +
-                                stringResource(R.string.end_of_song),
-                        onClick = {
-                            binder.startSleepTimer(timeRemaining.toLong())
-                            isShowingSleepTimerDialog = false
-                        }
-                    )
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    IconButton(
-                        onClick = { showCircularSlider = !showCircularSlider },
-                        icon = R.drawable.time,
-                        color = colorPalette().text
-                    )
-                    IconButton(
-                        onClick = { isShowingSleepTimerDialog = false },
-                        icon = R.drawable.close,
-                        color = colorPalette().text
-                    )
-                    IconButton(
-                        enabled = amount > 0,
-                        onClick = {
-                            binder.startSleepTimer(amount * 5 * 60 * 1000L)
-                            isShowingSleepTimerDialog = false
-                        },
-                        icon = R.drawable.checkmark,
-                        color = colorPalette().accent
-                    )
-                }
-            }
-        }
+        SleepTimerDialog(
+            sleepTimerMillisLeft = sleepTimerMillisLeft,
+            timeRemaining = timeRemaining.toLong(),
+            onDismiss = { isShowingSleepTimerDialog = false },
+            onCancelSleepTimer = {
+                binder.cancelSleepTimer()
+                delayedSleepTimer = false
+            },
+            onStartSleepTimer = { delayMillis -> binder.startSleepTimer(delayMillis) }
+        )
     }
 
     val color = colorPalette()
@@ -1013,16 +983,18 @@ private fun PlayerContent(
         return copy(red = red * ratio, green = green * ratio, blue = blue * ratio, alpha = alpha)
     }
 
+    val effectivePlayerBackgroundColors = playerBackgroundColors
+    val effectiveAnimatedGradient = animatedGradient
     val isGradientBackgroundEnabled =
-        playerBackgroundColors == PlayerBackgroundColors.ThemeColorGradient ||
-                playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient ||
-                playerBackgroundColors == PlayerBackgroundColors.AnimatedGradient
+        effectivePlayerBackgroundColors == PlayerBackgroundColors.ThemeColorGradient ||
+            effectivePlayerBackgroundColors == PlayerBackgroundColors.CoverColorGradient ||
+            effectivePlayerBackgroundColors == PlayerBackgroundColors.AnimatedGradient
 
     LaunchedEffect(mediaItem.mediaId, updateBrush) {
-        if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient ||
-            playerBackgroundColors == PlayerBackgroundColors.CoverColor ||
-            playerBackgroundColors == PlayerBackgroundColors.ThemeColorGradient ||
-            playerBackgroundColors == PlayerBackgroundColors.AnimatedGradient || updateBrush
+        if (effectivePlayerBackgroundColors == PlayerBackgroundColors.CoverColorGradient ||
+            effectivePlayerBackgroundColors == PlayerBackgroundColors.CoverColor ||
+            effectivePlayerBackgroundColors == PlayerBackgroundColors.ThemeColorGradient ||
+            effectivePlayerBackgroundColors == PlayerBackgroundColors.AnimatedGradient || updateBrush
         ) {
             try {
                 val imageUrl = mediaItem.mediaMetadata.artworkUri.thumbnail(1000).toString()
@@ -1071,37 +1043,12 @@ private fun PlayerContent(
         tempGradient = gradients[valueGrad]
     }
 
-    LaunchedEffect(playbackFadeAudioDuration) {
-        fadeAdjuster.setDuration(playbackFadeAudioDuration.milliSeconds)
-    }
 
-    var previousMediaItemId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(mediaItem.mediaId) {
-        val fadeDuration = playbackFadeAudioDuration.milliSeconds
-        if (fadeDuration > 0 && previousMediaItemId != null && previousMediaItemId != mediaItem.mediaId) {
-            fadeAdjuster.fadeOut(binder.player) {
-                fadeAdjuster.fadeIn(binder.player, binder.player.volume)
-            }
-        }
-        previousMediaItemId = mediaItem.mediaId
-    }
-
-    val previousShouldBePlaying by remember { derivedStateOf { shouldBePlaying } }
-    LaunchedEffect(shouldBePlaying) {
-        val fadeDuration = playbackFadeAudioDuration.milliSeconds
-        if (fadeDuration > 0 && previousShouldBePlaying != shouldBePlaying) {
-            if (shouldBePlaying) {
-                fadeAdjuster.fadeIn(binder.player, binder.player.volume)
-            } else {
-                fadeAdjuster.fadeOut(binder.player)
-            }
-        }
-    }
 
     containerModifier = containerModifier.then(
         rememberPlayerBackgroundModifier(
             isGradientBackgroundEnabled = isGradientBackgroundEnabled,
-            playerBackgroundColors = playerBackgroundColors,
+            playerBackgroundColors = effectivePlayerBackgroundColors,
             playerType = playerType,
             showthumbnail = showthumbnail,
             albumCoverRotation = albumCoverRotation,
@@ -1113,7 +1060,7 @@ private fun PlayerContent(
             basePalette = color,
             blackgradient = blackgradient,
             lightTheme = lightTheme,
-            animatedGradient = animatedGradient,
+            animatedGradient = effectiveAnimatedGradient,
             tempGradient = tempGradient,
             dominant = dominant,
             vibrant = vibrant,
@@ -1205,7 +1152,13 @@ private fun PlayerContent(
                         }
                     )
                 }
-                .padding(all = if (isLandscape) playerThumbnailSizeL.size.dp else playerThumbnailSize.size.dp)
+                .padding(
+                    all = if (isLandscape) {
+                        effectiveLandscapeThumbnailPadding.dp
+                    } else {
+                        effectiveThumbnailPadding.dp
+                    }
+                )
                 .thumbnailpause(shouldBePlaying = shouldBePlaying)
         )
     }
@@ -1232,7 +1185,6 @@ private fun PlayerContent(
     }
 
     blurAdjuster.Render()
-    fadeAdjuster.Render()
     SpotifyCanvasWorker()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -1262,11 +1214,12 @@ private fun PlayerContent(
                     displayedPositionAndDuration.first,
                     displayedPositionAndDuration.second
                 )
-                val progressSize = Size(width = fraction * size.width, height = size.maxDimension)
+                val progressWidth = size.width * 0.72f
+                val progressSize = Size(width = fraction * progressWidth, height = size.maxDimension)
                 if (progressOverlayBrush != null) {
-                    drawRect(brush = progressOverlayBrush, topLeft = Offset.Zero, size = progressSize)
+                    drawRect(brush = progressOverlayBrush, topLeft = Offset((size.width - progressWidth) / 2f, 0f), size = progressSize)
                 } else {
-                    drawRect(color = color.favoritesOverlay, topLeft = Offset.Zero, size = progressSize)
+                    drawRect(color = color.favoritesOverlay, topLeft = Offset((size.width - progressWidth) / 2f, 0f), size = progressSize)
                 }
             }
         }
@@ -1302,16 +1255,6 @@ private fun PlayerContent(
                                 snapPositionalThreshold = 0.20f
                             )
                             pagerStateFS.LaunchedEffectScrollToPage(displayedMediaItemIndex)
-
-                            LaunchedEffect(pagerStateFS) {
-                                var previousPage = pagerStateFS.settledPage
-                                snapshotFlow { pagerStateFS.settledPage }.distinctUntilChanged().collect {
-                                    if (previousPage != it) {
-                                        if (it != displayedMediaItemIndex) binder.player.playAtIndex(it)
-                                    }
-                                    previousPage = it
-                                }
-                            }
 
                             HorizontalPager(
                                 state = pagerStateFS,
@@ -1501,25 +1444,16 @@ private fun PlayerContent(
                                 ) {
                                     if (showthumbnail && !isShowingVisualizer) {
                                         val fling = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.25f)
-                                        val pageSpacing = thumbnailSpacingL.toInt() * 0.01 * (screenWidth) - (2.5 * playerThumbnailSizeL.size.dp)
+                                        val pageSpacing = thumbnailSpacingL.toInt() * 0.01 * (screenWidth) - (2.5 * effectiveLandscapeThumbnailPadding.dp)
 
                                         LaunchedEffect(pagerState, displayedMediaItemIndex) {
                                             pagerState.scrollToPage(displayedMediaItemIndex)
                                         }
 
-                                        LaunchedEffect(pagerState) {
-                                            var previousPage = pagerState.settledPage
-                                            snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
-                                                if (previousPage != it && it != displayedMediaItemIndex)
-                                                    binder.player.playAtIndex(it)
-                                                previousPage = it
-                                            }
-                                        }
-
                                         HorizontalPager(
                                             state = pagerState,
                                             pageSize = PageSize.Fixed(Dimensions.thumbnails.player.song),
-                                            pageSpacing = thumbnailSpacingL.toInt() * 0.01 * (screenWidth) - (2.5 * playerThumbnailSizeL.size.dp),
+                                            pageSpacing = thumbnailSpacingL.toInt() * 0.01 * (screenWidth) - (2.5 * effectiveLandscapeThumbnailPadding.dp),
                                             contentPadding = PaddingValues(
                                                 start = ((maxWidth - maxHeight) / 2).coerceAtLeast(0.dp),
                                                 end = ((maxWidth - maxHeight) / 2 + if (pageSpacing < 0.dp) (-(pageSpacing)) else 0.dp).coerceAtLeast(0.dp)
@@ -1536,7 +1470,7 @@ private fun PlayerContent(
                                             )
                                             val coverModifier = Modifier
                                                 .aspectRatio(1f)
-                                                .padding(all = playerThumbnailSizeL.size.dp)
+                                                .padding(all = effectiveLandscapeThumbnailPadding.dp)
                                                 .graphicsLayer {
                                                     val pageOffSet = ((pagerState.currentPage - it) + pagerState.currentPageOffsetFraction).absoluteValue
                                                     alpha = lerp(start = 0.9f, stop = 1f, fraction = 1f - pageOffSet.coerceIn(0f, 1f))
@@ -1702,17 +1636,6 @@ private fun PlayerContent(
                             val scaleAnimationFloat by animateFloatAsState(if (isDraggedFS) 0.85f else 1f, label = "")
                             pagerStateFS.LaunchedEffectScrollToPage(displayedMediaItemIndex)
 
-                            LaunchedEffect(pagerStateFS) {
-                                var previousPage = pagerStateFS.settledPage
-                                snapshotFlow { pagerStateFS.settledPage }.distinctUntilChanged().collect {
-                                    if (previousPage != it) {
-                                        delay(if (swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Fade) 0 else 400)
-                                        if (it != displayedMediaItemIndex) binder.player.playAtIndex(it)
-                                    }
-                                    previousPage = it
-                                }
-                            }
-
                             HorizontalPager(
                                 state = pagerStateFS,
                                 beyondViewportPageCount = if (swipeAnimationNoThumbnail != SwipeAnimationNoThumbnail.Circle ||
@@ -1834,6 +1757,22 @@ private fun PlayerContent(
                                                     .conditional((screenWidth > (screenHeight / 2)) || expandedplayer || (isShowingLyrics && !showlyricsthumbnail)) { weight(1f) }
                                             )
                                             Box(modifier = Modifier.conditional(!expandedplayer && (!isShowingLyrics || showlyricsthumbnail)) { weight(1f) }) {
+                                                val queuedMediaItem = queuedMediaItemAt(it)
+                                                val queuedArtistInfos by remember(queuedMediaItem) {
+                                                    val ids = queuedMediaItem.mediaMetadata.extras?.getStringArrayList("artistIds").orEmpty()
+                                                    val names = queuedMediaItem.mediaMetadata.extras?.getStringListCompat("artistNames").orEmpty()
+                                                    if (ids.isNotEmpty())
+                                                        return@remember flowOf(ids.fastZip(names) { id, name -> Info(id, name) })
+                                                    Database.songArtistMapTable
+                                                        .findArtistsOf(queuedMediaItem.mediaId)
+                                                        .distinctUntilChanged()
+                                                        .map { list -> list.map { artist -> Info(artist.id, artist.name) } }
+                                                }.collectAsState(emptyList(), Dispatchers.IO)
+                                                val queuedAlbumId by remember(queuedMediaItem) {
+                                                    val result = queuedMediaItem.mediaMetadata.extras?.getString("albumId")
+                                                    if (!result.isNullOrBlank()) return@remember flowOf(result)
+                                                    Database.songAlbumMapTable.findAlbumOf(queuedMediaItem.mediaId).map { album -> album?.id }
+                                                }.collectAsState(null, Dispatchers.IO)
                                                 Controls(
                                                     navController = navController,
                                                     onCollapse = onDismiss,
@@ -1842,19 +1781,19 @@ private fun PlayerContent(
                                                     timelineExpanded = timelineExpanded,
                                                     controlsExpanded = controlsExpanded,
                                                     isShowingLyrics = isShowingLyrics,
-                                                    media = mediaItem.toUiMedia(displayedPositionAndDuration.second),
-                                                    mediaId = mediaItem.mediaId,
-                                                    title = cleanPrefix(queuedMediaItemAt(it).mediaMetadata.title.toString()),
-                                                    artist = cleanPrefix(queuedMediaItemAt(it).mediaMetadata.artist.toString()),
-                                                    artistIds = artistInfos,
-                                                    albumId = albumId,
+                                                    media = queuedMediaItem.toUiMedia(displayedPositionAndDuration.second),
+                                                    mediaId = queuedMediaItem.mediaId,
+                                                    title = cleanPrefix(queuedMediaItem.mediaMetadata.title.toString()),
+                                                    artist = cleanPrefix(queuedMediaItem.mediaMetadata.artist.toString()),
+                                                    artistIds = queuedArtistInfos,
+                                                    albumId = queuedAlbumId,
                                                     shouldBePlaying = shouldBePlaying,
                                                     isBuffering = isBuffering,
                                                     position = displayedPositionAndDuration.first,
                                                     duration = displayedPositionAndDuration.second,
                                                     modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth(),
                                                     onBlurScaleChange = { blurAdjuster.strength = it },
-                                                    isExplicit = mediaItem.isExplicit
+                                                    isExplicit = queuedMediaItem.isExplicit
                                                 )
                                             }
                                         }
@@ -1900,7 +1839,15 @@ private fun PlayerContent(
                             Modifier.progressBarBackground()
                         }
                     ) {
-                        if (showTopActionsBar) {
+                        val customSurfaceOwnsHeader =
+                            (playerSurfaceStyle == PlayerSurfaceStyle.FuckSpotify ||
+                                playerSurfaceStyle == PlayerSurfaceStyle.Liquid ||
+                                playerSurfaceStyle == PlayerSurfaceStyle.Ring ||
+                                playerSurfaceStyle == PlayerSurfaceStyle.Cassette) &&
+                                !isShowingLyrics &&
+                                !isShowingVisualizer
+
+                        if (showTopActionsBar && !customSurfaceOwnsHeader) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1930,22 +1877,7 @@ private fun PlayerContent(
                                         contentDescription = null,
                                         colorFilter = ColorFilter.tint(colorPalette().collapsedPlayerProgressBar),
                                         modifier = Modifier
-                                            .clickable {
-                                                menuState.display {
-                                                    PlayerMenu(
-                                                        navController = navController,
-                                                        onDismiss = menuState::hide,
-                                                        mediaItem = mediaItem,
-                                                        binder = binder,
-                                                        onClosePlayer = { onDismiss() },
-                                                        onShowSleepTimer = {
-                                                            isShowingSleepTimerDialog = true
-                                                            menuState.hide()
-                                                        },
-                                                        disableScrollingText = disableScrollingText
-                                                    )
-                                                }
-                                            }
+                                            .clickable(onClick = ::showPlayerMenu)
                                             .rotate(rotationAngle)
                                             .size(24.dp)
                                     )
@@ -1957,7 +1889,7 @@ private fun PlayerContent(
                             )
                         }
 
-                        if (topPadding && !showTopActionsBar) {
+                        if (topPadding && !showTopActionsBar && !customSurfaceOwnsHeader) {
                             Spacer(
                                 modifier = Modifier
                                     .padding(windowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal).asPaddingValues())
@@ -1968,10 +1900,225 @@ private fun PlayerContent(
                         BoxWithConstraints(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .conditional((screenWidth <= (screenHeight / 2)) && (showlyricsthumbnail || (!expandedplayer && !isShowingLyrics))) { height(screenWidth) }
-                                .conditional((screenWidth > (screenHeight / 2)) || expandedplayer || (isShowingLyrics && !showlyricsthumbnail)) { weight(1f) }
+                                .conditional(
+                                    playerSurfaceStyle != PlayerSurfaceStyle.Standard &&
+                                        !isShowingLyrics &&
+                                        !isShowingVisualizer
+                                ) { weight(1f) }
+                                .conditional(
+                                    playerSurfaceStyle == PlayerSurfaceStyle.Standard &&
+                                        (screenWidth <= (screenHeight / 2)) &&
+                                        (showlyricsthumbnail || (!expandedplayer && !isShowingLyrics))
+                                ) { height(screenWidth) }
+                                .conditional(
+                                    playerSurfaceStyle == PlayerSurfaceStyle.Standard &&
+                                        (
+                                            (screenWidth > (screenHeight / 2)) ||
+                                                expandedplayer ||
+                                                (isShowingLyrics && !showlyricsthumbnail)
+                                            )
+                                ) { weight(1f) }
                         ) {
-                            if (showthumbnail && !shouldShowCanvas) {
+                            if (
+                                (playerSurfaceStyle == PlayerSurfaceStyle.Liquid ||
+                                    playerSurfaceStyle == PlayerSurfaceStyle.Ring) &&
+                                !isShowingLyrics &&
+                                !isShowingVisualizer
+                            ) {
+                                val isLiked by remember(mediaItem.mediaId) {
+                                    Database.songTable.isLiked(mediaItem.mediaId).distinctUntilChanged()
+                                }.collectAsState(false, Dispatchers.IO)
+                                LiquidPlayerSurface(
+                                    mediaItem = mediaItem,
+                                    isCanvasVisible = shouldShowCanvas,
+                                    positionMs = displayedPositionAndDuration.first,
+                                    durationMs = displayedPositionAndDuration.second,
+                                    isPlaying = shouldBePlaying,
+                                    isBuffering = isBuffering,
+                                    canSkipPrevious = player.hasPreviousMediaItem(),
+                                    canSkipNext = player.hasNextMediaItem(),
+                                    shuffleEnabled = player.shuffleModeEnabled,
+                                    repeatIconRes = queueLoopState.value.iconId,
+                                    repeatEnabled = queueLoopState.value != QueueLoopType.Default,
+                                    isLiked = isLiked,
+                                    crossfadeEnabled = crossfadeEnabled,
+                                    layoutStyle = if (playerSurfaceStyle == PlayerSurfaceStyle.Ring) {
+                                        PlayerLayoutStyle.Ring
+                                    } else {
+                                        PlayerLayoutStyle.Arc
+                                    },
+                                    playbackErrorMessage = playbackErrorMessage.takeIf {
+                                        playerSurfaceStyle == PlayerSurfaceStyle.Ring
+                                    },
+                                    errorActionLabel = playbackErrorActionLabel,
+                                    onErrorAction = playbackErrorAction,
+                                    onSeek = { position -> player.seekTo(position) },
+                                    onPrevious = player::playPrevious,
+                                    onPlayPause = {
+                                        if (shouldBePlaying) binder.gracefulPause() else binder.gracefulPlay()
+                                    },
+                                    onNext = player::playNext,
+                                    onShuffle = binder::toggleShuffle,
+                                    onQueue = { showQueue = true },
+                                    onMore = ::showPlayerMenu,
+                                    onDismiss = onDismiss,
+                                    onAppearance = {
+                                        onDismiss()
+                                        navController.navigate(NavRoutes.settings.name)
+                                    },
+                                    onSleepTimer = { isShowingSleepTimerDialog = true },
+                                    onLyrics = {
+                                        isShowingVisualizer = false
+                                        isShowingLyrics = true
+                                    },
+                                    onLike = {
+                                        val currentItem = binder.displayedMediaItem ?: player.currentMediaItem
+                                        Database.asyncTransaction {
+                                            currentItem?.let {
+                                                insertIgnore(it)
+                                                songTable.toggleLike(it.mediaId)
+                                            }
+                                        }
+                                    },
+                                    onRepeat = { queueLoopState.value = queueLoopState.value.next() },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else if (
+                                playerSurfaceStyle == PlayerSurfaceStyle.Cassette &&
+                                !isShowingLyrics &&
+                                !isShowingVisualizer
+                            ) {
+                                val isLiked by remember(mediaItem.mediaId) {
+                                    Database.songTable.isLiked(mediaItem.mediaId).distinctUntilChanged()
+                                }.collectAsState(false, Dispatchers.IO)
+                                CassettePlayerSurface(
+                                    mediaItem = mediaItem,
+                                    isCanvasVisible = shouldShowCanvas,
+                                    positionMs = displayedPositionAndDuration.first,
+                                    durationMs = displayedPositionAndDuration.second,
+                                    isPlaying = shouldBePlaying,
+                                    isBuffering = isBuffering,
+                                    canSkipPrevious = player.hasPreviousMediaItem(),
+                                    canSkipNext = player.hasNextMediaItem(),
+                                    shuffleEnabled = player.shuffleModeEnabled,
+                                    repeatIconRes = queueLoopState.value.iconId,
+                                    repeatEnabled = queueLoopState.value != QueueLoopType.Default,
+                                    isLiked = isLiked,
+                                    crossfadeEnabled = crossfadeEnabled,
+                                    playbackErrorMessage = playbackErrorMessage,
+                                    errorActionLabel = playbackErrorActionLabel,
+                                    onErrorAction = playbackErrorAction,
+                                    onSeek = { position -> player.seekTo(position) },
+                                    onPrevious = player::playPrevious,
+                                    onPlayPause = {
+                                        if (shouldBePlaying) binder.gracefulPause() else binder.gracefulPlay()
+                                    },
+                                    onNext = player::playNext,
+                                    onShuffle = binder::toggleShuffle,
+                                    onRepeat = { queueLoopState.value = queueLoopState.value.next() },
+                                    onLike = {
+                                        val currentItem = binder.displayedMediaItem ?: player.currentMediaItem
+                                        Database.asyncTransaction {
+                                            currentItem?.let {
+                                                insertIgnore(it)
+                                                songTable.toggleLike(it.mediaId)
+                                            }
+                                        }
+                                    },
+                                    onLyrics = {
+                                        isShowingVisualizer = false
+                                        isShowingLyrics = true
+                                    },
+                                    onQueue = { showQueue = true },
+                                    onSleepTimer = { isShowingSleepTimerDialog = true },
+                                    onAppearance = {
+                                        onDismiss()
+                                        navController.navigate(NavRoutes.settings.name)
+                                    },
+                                    onMore = ::showPlayerMenu,
+                                    onDismiss = onDismiss,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else if (
+                                playerSurfaceStyle == PlayerSurfaceStyle.FuckSpotify &&
+                                !isShowingLyrics &&
+                                !isShowingVisualizer
+                            ) {
+                                val isLiked by remember(mediaItem.mediaId) {
+                                    Database.songTable.isLiked(mediaItem.mediaId).distinctUntilChanged()
+                                }.collectAsState(false, Dispatchers.IO)
+                                FuckSpotifyPlayerSurface(
+                                    mediaItem = mediaItem,
+                                    isCanvasVisible = shouldShowCanvas,
+                                    positionMs = displayedPositionAndDuration.first,
+                                    durationMs = displayedPositionAndDuration.second,
+                                    isPlaying = shouldBePlaying,
+                                    isBuffering = isBuffering,
+                                    canSkipPrevious = player.hasPreviousMediaItem(),
+                                    canSkipNext = player.hasNextMediaItem(),
+                                    shuffleEnabled = player.shuffleModeEnabled,
+                                    repeatIconRes = queueLoopState.value.iconId,
+                                    isLiked = isLiked,
+                                    isDownloaded = isCurrentSongDownloaded,
+                                    downloadState = currentSongDownloadState,
+                                    downloadProgress = currentSongDownloadProgress,
+                                    crossfadeEnabled = crossfadeEnabled,
+                                    artistInfos = artistInfos,
+                                    onSeek = { position -> player.seekTo(position) },
+                                    onPrevious = player::playPrevious,
+                                    onPlayPause = {
+                                        if (shouldBePlaying) binder.gracefulPause() else binder.gracefulPlay()
+                                    },
+                                    onNext = player::playNext,
+                                    onShuffle = binder::toggleShuffle,
+                                    onQueue = { showQueue = true },
+                                    onMore = ::showPlayerMenu,
+                                    onDismiss = onDismiss,
+                                    onLyrics = {
+                                        isShowingVisualizer = false
+                                        isShowingLyrics = true
+                                    },
+                                    onLike = {
+                                        val currentItem = binder.displayedMediaItem ?: player.currentMediaItem
+                                        Database.asyncTransaction {
+                                            currentItem?.let {
+                                                insertIgnore(it)
+                                                songTable.toggleLike(it.mediaId)
+                                            }
+                                        }
+                                    },
+                                    onRepeat = { queueLoopState.value = queueLoopState.value.next() },
+                                    onDownload = {
+                                        manageDownload(
+                                            context = context,
+                                            mediaItem = mediaItem,
+                                            downloadState = isCurrentSongDownloaded,
+                                        )
+                                    },
+                                    onShare = {
+                                        val shareUrl = "https://music.youtube.com/watch?v=${mediaItem.mediaId}"
+                                        val shareText = listOf(
+                                            mediaItem.mediaMetadata.title?.toString().orEmpty(),
+                                            mediaItem.mediaMetadata.artist?.toString().orEmpty(),
+                                            shareUrl,
+                                        ).filter(String::isNotBlank).joinToString("\n")
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, shareText)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, null))
+                                    },
+                                    onSleepTimer = { isShowingSleepTimerDialog = true },
+                                    onArtist = { artistId ->
+                                        artistId.takeIf(String::isNotBlank)?.let {
+                                            navController.navigate(
+                                                "${NavRoutes.artist.name}/${Uri.encode(it)}"
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else if (showthumbnail && !shouldShowCanvas) {
                                 if ((!isShowingLyrics && !isShowingVisualizer) ||
                                     (isShowingVisualizer && showvisthumbnail) ||
                                     (isShowingLyrics && showlyricsthumbnail)
@@ -1980,22 +2127,13 @@ private fun PlayerContent(
                                         val fling = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.25f)
                                         pagerState.LaunchedEffectScrollToPage(displayedMediaItemIndex)
 
-                                        LaunchedEffect(pagerState) {
-                                            var previousPage = pagerState.settledPage
-                                            snapshotFlow { pagerState.settledPage }.distinctUntilChanged().collect {
-                                                if (previousPage != it && it != displayedMediaItemIndex)
-                                                    binder.player.playAtIndex(it)
-                                                previousPage = it
-                                            }
-                                        }
-
-                                        val pageSpacing = (thumbnailSpacing.toInt() * 0.01 * (screenHeight) - if (carousel) (3 * carouselSize.size.dp) else (2 * playerThumbnailSize.size.dp))
+                                        val pageSpacing = (thumbnailSpacing.toInt() * 0.01 * (screenHeight) - if (carousel) (3 * carouselSize.size.dp) else (2 * effectiveThumbnailPadding.dp))
                                         val animatePageSpacing by animateDpAsState(
                                             if (expandedplayer) (thumbnailSpacing.toInt() * 0.01 * (screenHeight) - if (carousel) (3 * carouselSize.size.dp) else (2 * carouselSize.size.dp)) else 10.dp,
                                             label = ""
                                         )
                                         val animatePadding by animateDpAsState(
-                                            if (expandedplayer) carouselSize.size.dp else playerThumbnailSize.size.dp
+                                            if (expandedplayer) carouselSize.size.dp else effectiveThumbnailPadding.dp
                                         )
 
                                         VerticalPager(
@@ -2131,10 +2269,60 @@ private fun PlayerContent(
                             }
                         }
 
+                        if (playerSurfaceStyle == PlayerSurfaceStyle.Standard) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.conditional(!expandedplayer && (!isShowingLyrics || showlyricsthumbnail)) { weight(1f) }
                         ) {
+                            if (
+                                crossfadeEnabled &&
+                                playerSurfaceStyle != PlayerSurfaceStyle.Liquid &&
+                                playerSurfaceStyle != PlayerSurfaceStyle.FuckSpotify
+                            ) {
+                                BasicText(
+                                    text = stringResource(R.string.crossfade_active_badge),
+                                    style = typography().xxs.semiBold.copy(color = colorPalette().accent),
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(colorPalette().background2.copy(alpha = 0.72f))
+                                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            sleepTimerMillisLeft
+                                ?.takeIf { it > 0L }
+                                ?.let { millisLeft ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(colorPalette().background2.copy(alpha = 0.72f))
+                                            .clickable { isShowingSleepTimerDialog = true }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Image(
+                                            painter = painterResource(R.drawable.time),
+                                            colorFilter = ColorFilter.tint(colorPalette().accent),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        BasicText(
+                                            text = stringResource(
+                                                R.string.sleep_timer_active_format,
+                                                formatAsDuration(millisLeft)
+                                            ),
+                                            style = typography().xxs.semiBold.copy(color = colorPalette().text),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+
                             if (!expandedplayer || !isShowingLyrics || queueDurationExpanded) {
                                 if (showTotalTimeQueue)
                                     Row(
@@ -2217,6 +2405,7 @@ private fun PlayerContent(
                             }
                             ActionsBar()
                         }
+                        }
                     }
                 }
             }
@@ -2270,16 +2459,12 @@ private fun PlayerContent(
         }
 
         PlaybackError(
-            isDisplayed = playbackErrorMessage != null,
+            isDisplayed = playbackErrorMessage != null &&
+                playerSurfaceStyle != PlayerSurfaceStyle.Ring &&
+                playerSurfaceStyle != PlayerSurfaceStyle.Cassette,
             messageProvider = { playbackErrorMessage.orEmpty() },
             onDismiss = { playbackErrorMessage = null },
-            actionLabel = when {
-                playerError != null && isCurrentSongDownloaded && hasNetworkConnection ->
-                    stringResource(R.string.redownload_song)
-                playerError != null && !isCurrentSongDownloaded && hasNetworkConnection ->
-                    stringResource(R.string.retry_with_other_sources)
-                else -> null
-            },
+            actionLabel = playbackErrorActionLabel,
             actionHint = when {
                 playerError != null && isCurrentSongDownloaded && hasNetworkConnection ->
                     stringResource(R.string.redownload_song_hint)
@@ -2289,19 +2474,7 @@ private fun PlayerContent(
                     stringResource(R.string.retry_with_other_sources_hint)
                 else -> null
             },
-            onAction = if (playerError != null) {
-                {
-                    playbackErrorMessage = null
-                    currentErrorItem?.let { mediaItem ->
-                        if (isCurrentSongDownloaded) {
-                            MyDownloadHelper.redownloadSong(context, mediaItem)
-                        } else {
-                            lastSearchFallbackMediaId = null
-                            retryWithAlternateSourcesNonce++
-                        }
-                    }
-                }
-            } else null,
+            onAction = playbackErrorAction,
         )
     }
 }
@@ -2354,6 +2527,7 @@ private fun rememberShouldShowPlayerCanvas(
             !playerVideoModeActive &&
             SpotifyCanvasState.currentCanvasUrl != null &&
             isCanvasForCurrentSong &&
+            !SpotifyCanvasState.suppressForActiveOverlay &&
             !isShowingLyrics &&
             !isShowingVisualizer &&
             showthumbnail
@@ -2664,6 +2838,32 @@ fun PagerState.LaunchedEffectScrollToPage(index: Int) {
     val pagerState = this
     LaunchedEffect(pagerState, index) {
         pagerState.scrollToPage(index)
+    }
+}
+
+@Composable
+private fun PagerState.HandleUserSelectedPage(
+    isDragged: Boolean,
+    displayedPage: Int,
+    onPageSelected: (Int) -> Unit,
+) {
+    var dragStartPage by remember(this) { mutableStateOf<Int?>(null) }
+    val latestDisplayedPage by rememberUpdatedState(displayedPage)
+    val latestOnPageSelected by rememberUpdatedState(onPageSelected)
+
+    LaunchedEffect(this, isDragged) {
+        if (isDragged) {
+            if (dragStartPage == null) dragStartPage = settledPage
+            return@LaunchedEffect
+        }
+
+        val startPage = dragStartPage ?: return@LaunchedEffect
+        snapshotFlow { isScrollInProgress }.first { inProgress -> !inProgress }
+        val selectedPage = settledPage
+        dragStartPage = null
+        if (selectedPage != startPage && selectedPage != latestDisplayedPage) {
+            latestOnPageSelected(selectedPage)
+        }
     }
 }
 

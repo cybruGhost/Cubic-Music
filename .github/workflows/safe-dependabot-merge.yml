@@ -1,0 +1,36 @@
+name: Safe Dependabot Merge
+
+on:
+  schedule:
+    - cron: "37 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview decisions without merging or updating branches"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: safe-dependabot-merge
+  cancel-in-progress: false
+
+jobs:
+  review-patch-updates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout trusted default-branch policy
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Evaluate and merge only tested, low-risk patch PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+        run: python3 .github/scripts/safe_dependabot_merge.py

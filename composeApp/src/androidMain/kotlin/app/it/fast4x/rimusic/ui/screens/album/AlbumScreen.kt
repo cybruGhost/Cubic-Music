@@ -131,28 +131,29 @@ fun AlbumScreen(
                 bookmarkedAt = album?.bookmarkedAt,
                 isYoutubeAlbum = true
             )
-            val songs = apiAlbum.tracks.map { track ->
+            val uniqueTracks = apiAlbum.tracks.deduplicateAlbumTracks(apiAlbum.artist)
+            val songs = uniqueTracks.map { track ->
                 Song(
                     id = track.videoId,
                     title = track.title,
                     artistsText = track.artistsText.ifBlank { apiAlbum.artist },
                     durationText = track.duration.takeIf { it.isNotBlank() },
-                    thumbnailUrl = track.thumbnailUrl.ifBlank {
-                        track.thumbnail.ifBlank { apiAlbum.thumbnailUrl.ifBlank { apiAlbum.thumbnail } }
-                    }.takeIf { it.isNotBlank() }
+                    thumbnailUrl = track.thumbnailUrl
+                        .ifBlank { track.thumbnail }
+                        .takeIf { it.isNotBlank() }
                 )
             }
 
             Database.asyncTransaction {
                 albumTable.upsert(onlineAlbum)
+                songAlbumMapTable.clear(browseId)
                 songs
                     .onEach(songTable::insertIgnore)
                     .mapIndexed { index, song ->
                         SongAlbumMap(
                             songId = song.id,
                             albumId = browseId,
-                            position = apiAlbum.tracks.getOrNull(index)?.trackNumber?.takeIf { it > 0 }?.minus(1)
-                                ?: index
+                            position = index
                         )
                     }
                     .also(songAlbumMapTable::upsert)
@@ -180,7 +181,9 @@ fun AlbumScreen(
                            bookmarkedAt = album?.bookmarkedAt
                        ))
 
-                       online.songs
+                       val uniqueSongs = online.songs.deduplicateAlbumItems()
+                       songAlbumMapTable.clear(browseId)
+                       uniqueSongs
                              .map( Innertube.SongItem::asMediaItem )
                              .onEach( ::insertIgnore )
                              .mapIndexed { position, mediaItem ->

@@ -26,7 +26,7 @@ class Radio private constructor(
     private val menuState: MenuState,
     private val songs: () -> List<Song>
 ): MenuIcon, Descriptive {
-    private val radioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val radioScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     // Track recently played songs to avoid repetition
     private val recentlyPlayed = mutableStateListOf<Song>()
