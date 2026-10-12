@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Review and merge at most one eligible Dependabot patch PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const owner = context.repo.owner;
