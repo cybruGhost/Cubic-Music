@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - name: Checkout without persisted credentials
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -86,7 +86,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout without persisted credentials
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
