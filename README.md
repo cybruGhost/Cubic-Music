@@ -8,7 +8,7 @@
 <p align="center">
   <strong>Your music. Your rules. Your freedom.</strong>
   <br />
-  A bold, independent, open-source music player for Android.
+  A bold, independent, open-source music player for Android.(app is not vibecoded, i am too lazy to prove github pple i can code by showing alot of commits)
 </p>
 
 <p align="center">
