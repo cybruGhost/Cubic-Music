@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - name: Checkout trusted default-branch policy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Evaluate and merge only tested, low-risk patch PRs
