@@ -6,7 +6,7 @@
     <string name="play">Lecture</string>
     <string name="hidesong">Voulez-vous vraiment masquer ce titre ? Son temps de lecture et son cache seront effacés. Cette action est irréversible.</string>
     <string name="new_playlist">Nouvelle playlist</string>
-    <string name="start_radio">Écouter la radio</string>
+    <string name="start_radio">Lancer la radio</string>
     <string name="equalizer">Égaliseur</string>
     <string name="stop_sleep_timer">Voulez-vous désactiver la minuterie de mise en veille ?</string>
     <string name="set_sleep_timer">Régler la minuterie de mise en veille</string>
