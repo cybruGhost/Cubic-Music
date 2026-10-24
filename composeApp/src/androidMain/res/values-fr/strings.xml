@@ -19,7 +19,7 @@
     <string name="read_more">Afficher plus</string>
     <string name="read_less">Afficher moins</string>
     <string name="update_available">Une mise à jour est disponible</string>
-    <string name="hide_from_quick_picks">Masquer de la Sélection Rapide</string>
+    <string name="hide_from_quick_picks">Masquer de la page d\'accueil</string>
     <string name="csv_import_conversion_title">Conversion en CSV</string>
     <string name="csv_import_conversion_running">Conversion des titres avec Innertube d\'abord et recherche de secours si besoin</string>
     <string name="csv_import_conversion_finished">Conversion terminée</string>
@@ -113,8 +113,8 @@
     <string name="image_cache">CACHE D’IMAGE</string>
     <string name="max_size">Taille maximale</string>
     <string name="database">Base de données</string>
-    <string name="reset_quick_picks">Réinitialiser la Sélection Rapide</string>
-    <string name="quick_picks_are_cleared"> La Sélection Rapide a été effacée avec succès.</string>
+    <string name="reset_quick_picks">Réinitialiser la page d\'accueil</string>
+    <string name="quick_picks_are_cleared"> La page d\'accueil a été effacée avec succès</string>
     <string name="backup">Sauvegarde</string>
     <string name="personal_preference">Les préférences personnelles (c.-à-d. le mode du thème) et le cache sont exclus.</string>
     <string name="backup_1">Sauvegarde</string>
@@ -178,7 +178,7 @@
     <string name="error_the_returned_video_id_doesn_t_match_the_requested_one">L\'identifiant vidéo renvoyé ne correspond pas à celui demandé.</string>
     <string name="error_an_unknown_playback_error_has_occurred">Une erreur de lecture inconnue s\'est produite.</string>
     <string name="tips">Recommandations</string>
-    <string name="is_min_list_time_for_tips_or_quick_pics">Durée minimale de lecture pour qu’un titre soit suggérée dans la Sélection Rapide</string>
+    <string name="is_min_list_time_for_tips_or_quick_pics">Durée minimale de lecture pour qu’un titre soit suggérée sur la page d\'accueil</string>
     <string name="min_listening_time">Durée minimale de lecture</string>
     <string name="player_thumbnail_size">Taille de la miniature</string>
     <string name="restarting_rimusic_is_required">Un redémarrage est requis</string>
@@ -576,7 +576,7 @@
     <string name="vimusic_show_search_button_in_navigation_bar">Afficher le bouton de recherche dans la barre de navigation</string>
     <string name="vismusic_only_in_left_right_navigation_bar">Uniquement pour la barre de navigation gauche ou droite dans l\'interface utilisateur ViMusic</string>
     <string name="enable_monthly_playlists_creation">Activer la création de playlists mensuelles</string>
-    <string name="show_monthly_playlists_in_quick_picks">Afficher les playlists mensuelles dans la Sélection Rapide</string>
+    <string name="show_monthly_playlists_in_quick_picks">Afficher les playlists mensuelles sur la page d\'accueil</string>
     <string name="show_monthly_playlists_in_library">Afficher les playlists mensuelles dans la bibliothèque</string>
     <string name="info_no_singles_yet">Aucun titre disponible</string>
     <string name="info_no_albums_yet">Aucun album disponible</string>
@@ -637,7 +637,7 @@
     <string name="exclude_songs_with_duration_limit">Exclure les titres dont la durée est limitée</string>
     <string name="exclude_songs_with_duration_limit_description">Les titres dont la durée dépasse la limite seront exclus du classement des meilleurs titres et de la file d\'attente de lecture.</string>
     <string name="no_log_available">Journal indisponible</string>
-    <string name="enable_quick_picks_page">Activer la page de Sélection Rapide</string>
+    <string name="enable_quick_picks_page">Activer la page d\'accueil</string>
     <string name="lang_vietnamese">Vietnamien (Tiếng Việt)</string>
     <string name="parental_control">Contrôle Parental</string>
     <string name="info_prevent_play_songs_with_age_limitation">Empêcher la lecture de titres avec une limite d’âge</string>
@@ -825,7 +825,7 @@ Volume BAS : titre précédent</string>
     <string name="social_github">GitHub</string>
     <string name="update">Mettre à jour</string>
     <string name="update_song">Voulez-vous vraiment récupérer ce titre ? La durée d\'écoute et les données mises en cache seront effacées.\\nCette action est irréversible.</string>
-    <string name="player_pause_listen_history_info">Cela ne sauvegarde pas les événements de lecture utilisés pour les statistiques, l\'historique et les suggestions dans la Sélection Rapide.</string>
+    <string name="player_pause_listen_history_info">Cela ne sauvegarde pas les événements de lecture utilisés pour les statistiques, l\'historique et les suggestions sur la page d\'accueil</string>
     <string name="vertical_widget">Widget vertical</string>
     <string name="horizontal_widget">Widget horizontal</string>
     <string name="rescue_widget">Widget « Centre de Secours »</string>
@@ -1091,7 +1091,7 @@ Volume BAS : titre précédent</string>
     <string name="beta_title"> BÊTA</string>
     <string name="stable_title"> STABLE</string>
     <string name="beta_text">Cette version est encore en phase bêta et peut comporter des bugs et provoquer des plantages.</string>
-    <string name="quick_selection_type">Choisissez le nombre de titres recommandés à afficher dans la « Sélection Rapide »</string>
+    <string name="quick_selection_type">Choisissez le nombre de titres recommandés à afficher sur la page d\'accueil</string>
     <string name="quick_selection">%s titres recommandés</string>
     <string name="login_to_discord">Se connecter à Discord</string>
     <string name="discord_token_text_invalid">Votre jeton Discord n\'est pas valide. Veuillez vous reconnecter.</string>
@@ -1132,7 +1132,7 @@ Volume BAS : titre précédent</string>
     <string name="other_settings_description">La section « Divers » contient divers paramètres optionnels et utilitaires</string>
     <string name="data_settings_description">La section données contient des paramètres qui modifient la façon dont l\'application gère les données localement et à distance</string>
     <string name="accounts_settings_description">La section Comptes contient les paramètres de synchronisation Youtube, les paramètres de streaming conduits et les paramètres Rpc Discord</string>
-    <string name="quick_picks_description">La section « Cubic Picks » contient les paramètres de la page « Cubic Picks » ainsi que les recommandations générées par l\'IA.</string>
+    <string name="quick_picks_description">La section « Accueil » contient les paramètres de la page d\'accueil ainsi que les recommandations générées par l\'IA</string>
     <string name="smart_recommendations_description">La section « Recommandations intelligentes » contient les paramètres relatifs aux recommandations générées par l\'IA.</string>
     <string name="ai_recommendations">Recommandations IA</string>
     <string name="my_playlist_top1">Mon Top</string>
@@ -1790,19 +1790,19 @@ Volume BAS : titre précédent</string>
     <string name="weather_visibility_excellent">Excellente</string>
     <string name="weather_visibility_good">Bonne</string>
     <string name="weather_visibility_moderate">Modérée</string>
-    <string name="weather_visibility_poor">Poor</string>
+    <string name="weather_visibility_poor">Mauvaise</string>
     <string name="weather_football">Football</string>
-    <string name="weather_home_team">Home</string>
-    <string name="weather_away_team">Away</string>
-    <string name="weather_venue_tbd">TBD</string>
+    <string name="weather_home_team">Domicile</string>
+    <string name="weather_away_team">Extérieur</string>
+    <string name="weather_venue_tbd">À déterminer</string>
     <string name="song_info_album">Album</string>
-    <string name="song_info_listening_time">Listening time</string>
-    <string name="song_info_youtube_id">YouTube ID</string>
-    <string name="song_info_edit_section">Edit song details</string>
-    <string name="song_info_change_title_detail">Change the title stored on this device</string>
-    <string name="song_info_change_authors_detail">Change the artist names stored on this device</string>
-    <string name="song_info_upload_cover_detail">Choose a custom square cover from this device</string>
-    <string name="song_info_refresh_detail">Clear cached playback data and fetch fresh song details</string>
+    <string name="song_info_listening_time">Durée d\'écoute</string>
+    <string name="song_info_youtube_id">Identifiant YouTube</string>
+    <string name="song_info_edit_section">Modifier les informations sur le morceau</string>
+    <string name="song_info_change_title_detail">Modifier le titre enregistré sur cet appareil</string>
+    <string name="song_info_change_authors_detail">Modifier les noms des artistes enregistrés sur cet appareil</string>
+    <string name="song_info_upload_cover_detail">Choisissez une coque carrée personnalisée pour cet appareil</string>
+    <string name="song_info_refresh_detail">Effacer les données de lecture mises en cache et récupérer les informations actualisées sur les morceaux</string>
     <string name="song_updated">Song refreshed</string>
     <string name="song_update_failed">Impossible d\'actualiser ce titre</string>
 </resources>
