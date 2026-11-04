@@ -1803,6 +1803,6 @@ Volume BAS : titre précédent</string>
     <string name="song_info_change_authors_detail">Modifier les noms des artistes enregistrés sur cet appareil</string>
     <string name="song_info_upload_cover_detail">Choisissez une coque carrée personnalisée pour cet appareil</string>
     <string name="song_info_refresh_detail">Effacer les données de lecture mises en cache et récupérer les informations actualisées sur les morceaux</string>
-    <string name="song_updated">Song refreshed</string>
+    <string name="song_updated">Morceau actualisé</string>
     <string name="song_update_failed">Impossible d\'actualiser ce titre</string>
 </resources>
