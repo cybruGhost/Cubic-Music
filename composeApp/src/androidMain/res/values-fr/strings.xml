@@ -1505,7 +1505,7 @@ Volume BAS : titre précédent</string>
     <string name="rewind_card_total_title">Durée totale d\'écoute</string>
     <string name="rewind_card_total_prefix">Vous avez écouté</string>
     <string name="rewind_card_total_footer">%1$s d\'écoute, calculés à partir des écoutes réelles sur cet appareil.</string>
-    <string name="rewind_card_artists_title">Vos artistes préférés</string>
+    <string name="rewind_card_artists_title">Meilleurs Artistes</string>
     <string name="rewind_card_artists_headline">Les artistes de votre entourage</string>
     <string name="rewind_card_artists_empty_title">Aucun classement des artistes n\'est disponible pour le moment</string>
     <string name="rewind_card_artist_song_count">%1$d titres</string>
@@ -1536,7 +1536,7 @@ Volume BAS : titre précédent</string>
     <string name="rewind_card_finale_share">Revoir votre retour en arrière</string>
     <string name="rewind_card_finale_replay">Vous pouvez revenir en arrière à tout moment en balayant l\'écran vers la gauche pour revoir l\'historique.</string>
     <string name="rewind_passport_recap_title">Récapitulatif %1$d</string>
-    <string name="rewind_passport_top_artists">Artistes</string>
+    <string name="rewind_passport_top_artists">Meilleurs Artistes</string>
     <string name="rewind_passport_top_songs">Titres</string>
     <string name="rewind_passport_title">Mon Passeport Musical</string>
     <string name="rewind_passport_listening_time">Durée d\'écoute</string>
