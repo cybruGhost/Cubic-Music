@@ -1,6 +1,6 @@
 
 [versions]
-compose-plugin = "1.8.2"
+compose-plugin = "1.12.2"
 agp = "9.4.1"
 composeMarkdownVersion = "0.5.7"
 kotlin = "2.4.20"
