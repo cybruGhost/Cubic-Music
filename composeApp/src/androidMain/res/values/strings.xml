@@ -1,5 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <string name="apple_recently_played">Recently played</string>
+    <string name="apple_on_repeat">On repeat</string>
+    <string name="apple_lastfm_discoveries">Discoveries from Last.fm</string>
     <string name="lyrics_instrumental">INSTRUMENTAL</string>
 <string name="cancel">Cancel</string>
 <string name="done">Done</string>
@@ -142,6 +145,9 @@
 <string name="player">Player</string>
 <string name="persistent_queue">Persistent queue</string>
 <string name="save_and_restore_playing_songs">Save and restore last played queue</string>
+<string name="queue_played_section">Played</string>
+<string name="queue_played_hint">Recent songs · tap to replay</string>
+<string name="queue_played_empty">Songs you finish will appear here.</string>
 <string name="resume_playback">Resume playback</string>
 <string name="when_device_is_connected">When a wired or bluetooth device is connected</string>
 <string name="skip_silence">skip silence??</string>
@@ -1130,7 +1136,7 @@
 <string name="about_description">The about section shows information about the app, the developers, troubleshooting and update options</string>
 <string name="other_settings_description">The miscellaneous section contains various optional settings and utilities</string>
 <string name="data_settings_description">The data section contains settings that modify how the app handles data locally and remotely</string>
-<string name="accounts_settings_description">The accounts section contains Youtube sync settings, Piped streaming settings and Discord Rpc settings</string>
+<string name="accounts_settings_description">Connect music and social services without cluttering the rest of Cubic Music.</string>
 <string name="quick_picks_description">The Cubic Picks section contains settings for the Cubic Picks page and AI powered recommendations</string>
 <string name="smart_recommendations_description">The smart recommendations section contains settings for the AI powered recommendations</string>
 <string name="ai_recommendations">AI Recommendations</string>
@@ -1479,7 +1485,7 @@
 <string name="thumbnail_share_text_action">Share name and link</string>
 <string name="thumbnail_share_cubic_link_action">Share art with Cubic Music link</string>
 <string name="thumbnail_share_chooser">Share song</string>
-<string name="thumbnail_share_try_omada">Try Alt art</string>
+<string name="thumbnail_share_try_alt_art">Try Alt art</string>
 <string name="thumbnail_share_finding">Finding...</string>
 <string name="thumbnail_share_creating">Creating...</string>
 <string name="thumbnail_share_failed">Could not create artwork share</string>
@@ -1591,11 +1597,10 @@
 <string name="donate_fourthwall_subtitle">PayPal, card, and other available methods</string>
 <string name="donate_fourthwall_detail">cyberghost-shop.fourthwall.com</string>
 <string name="donate_mpesa_title">M-Pesa</string>
-<string name="donate_mpesa_subtitle">Local support from KSh 30</string>
 <string name="donate_mpesa_detail">Support Pal Global</string>
 <string name="donate_report_issue_title">Report an issue</string>
-<string name="donate_report_issue_subtitle">Send a Cubic Music support report</string>
-<string name="donate_report_issue_detail">Message Cubic Music support directly</string>
+<string name="donate_report_issue_subtitle">Open Cubic Music on GitHub</string>
+<string name="donate_report_issue_detail">Create or review a tracked issue</string>
 <string name="donate_report_name">Your name</string>
 <string name="donate_report_email">Email (optional)</string>
 <string name="donate_report_message">Describe the issue</string>
@@ -1606,10 +1611,38 @@
 <string name="donate_report_no_logs">Keep this short. Do not paste long logs here. For crashes, playback failures, or serious bugs, use GitHub issues so details are tracked properly.</string>
 <string name="donate_report_email_invalid">Enter a valid email address or leave it empty.</string>
 <string name="donate_report_github_issues">Open GitHub issues for serious bugs</string>
+<string name="lastfm_title">LAST.FM</string>
+<string name="lastfm_connect">Connect Last.fm</string>
+<string name="lastfm_connect_title">Connect your Last.fm account</string>
+<string name="lastfm_login_subtitle">Bring your listening history into Cubic Music</string>
+<string name="lastfm_show_password">Show or hide password</string>
+<string name="lastfm_artist_recommendations">Artists picked with Last.fm</string>
+<string name="lastfm_disconnect">Disconnect account</string>
+<string name="lastfm_username">Last.fm username</string>
+<string name="lastfm_password">Last.fm password</string>
+<string name="lastfm_login_privacy">Your Last.fm account stays connected securely on this device, so you do not need to sign in again unless you disconnect it or Last.fm revokes the session.</string>
+<string name="lastfm_enable">Enable Last.fm</string>
+<string name="lastfm_enable_description">Keep scrobbling and Last.fm-powered Marsh Up recommendations active</string>
+<string name="lastfm_now_playing">Update Now Playing</string>
+<string name="lastfm_now_playing_description">Show the current Cubic Music track on Last.fm</string>
+<string name="lastfm_scrobble">Scrobble listened songs</string>
+<string name="lastfm_scrobble_description">Submit after half the song or four minutes</string>
+<string name="lastfm_status_disconnected">Not connected</string>
+<string name="lastfm_status_disconnected_detail">Connect an account to start scrobbling.</string>
+<string name="lastfm_status_checking">Checking connection</string>
+<string name="lastfm_status_checking_detail">Contacting Last.fm…</string>
+<string name="lastfm_status_online">Online</string>
+<string name="lastfm_connected">Last.fm connected</string>
+<string name="lastfm_status_online_detail">%1$s · %2$d plays</string>
+<string name="lastfm_status_issue">Connection issue</string>
+<string name="lastfm_status_issue_detail">Last.fm could not be reached. Your account remains connected.</string>
+<string name="lastfm_build_not_configured">Last.fm credentials are missing from this build.</string>
 <string name="donate_thank_you">Thank you for helping Cubic Music stay independent and actively maintained.</string>
 <string name="rescue_center_summary_enabled">Crash, playback and runtime logs</string>
 <string name="rescue_center_summary_disabled">Open Misc to enable debug logs first</string>
 <string name="rescue_center_sorted_by_day">Sorted by day. Export only the log slice you need.</string>
+<string name="rescue_center_clear_logs">Clear rescue logs</string>
+<string name="rescue_center_clear_logs_confirmation">Delete saved crash and runtime logs from this device?</string>
 <string name="cubic_music_rescue_center">Cubic Music Rescue Center</string>
 <string name="cubic_listener">Cubic listener</string>
 <string name="failed_to_fetch_weather_data">Failed to fetch weather data</string>
@@ -1645,6 +1678,7 @@
     <string name="now_playing">Now playing</string>
     <string name="top_songs">Top songs</string>
     <string name="player_surface_style">Player surface</string>
+    <string name="theme_manager">Theme Manager</string>
     <string name="player_surface_standard">Standard</string>
     <string name="player_surface_liquid">Liquid</string>
     <string name="player_surface_liquid_description">Liquid artwork, arc progress control and live lyrics with complete Cubic playback.</string>
@@ -1806,4 +1840,6 @@
 <string name="song_info_refresh_detail">Clear cached playback data and fetch fresh song details</string>
 <string name="song_updated">Song refreshed</string>
 <string name="song_update_failed">Could not refresh this song</string>
+<string name="glass_navigation_bar">Glass navigation bar</string>
+<string name="glass_navigation_bar_description">Use refracted glass behind navigation tabs. Off keeps the original bar.</string>
 </resources>
