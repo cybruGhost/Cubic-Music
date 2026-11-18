@@ -113,7 +113,7 @@ kotlin {
     // Your existing dependencies
     implementation(libs.media3.session)
     implementation(libs.kotlinx.coroutines.guava)
-    implementation("com.google.guava:guava:31.1-android")
+    implementation("com.google.guava:guava:33.8.0-android")
     implementation(libs.newpipe.extractor)
     implementation(libs.nanojson)
     implementation(libs.androidx.webkit)
