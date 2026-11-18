@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cast_title">Cast</string>
+    <string name="cast_choose_device">Choose a speaker or TV on the same Wi-Fi network.</string>
+    <string name="cast_unavailable">Google Cast is unavailable. Check that Google Play services is installed and up to date.</string>
+    <string name="cast_online_only">Only online YouTube Music tracks can be cast.</string>
+    <string name="cast_stream_failed">Could not start playback on the device. Your phone remains the playback output.</string>
+    <string name="cast_playback_failed">The receiver could not play this track. Retry or choose the next song.</string>
+    <string name="cast_control_failed">Could not control the device. Check the connection and try again.</string>
+    <string name="cast_this_song">Cast playback</string>
+    <string name="cast_crossfade_unavailable">Crossfade is unavailable while casting.</string>
+    <string name="cast_disconnect">Disconnect</string>
+    <string name="cast_volume">Device volume</string>
+    <string name="cast_pause">Pause</string>
+    <string name="settings_show_cast_button">Cast button</string>
+    <string name="settings_show_cast_button_subtitle">Show Cast in the miniplayer</string>
+    <string name="cast_searching">Searching for devices…</string>
+    <string name="cast_loading">Loading on your device…</string>
+    <string name="cast_resolve_failed">No compatible stream is available for this song right now. Try again or choose another song.</string>
+    <string name="cast_no_devices">No Cast devices found.</string>
+    <string name="cast_scan_again">Scan again</string>
+</resources>

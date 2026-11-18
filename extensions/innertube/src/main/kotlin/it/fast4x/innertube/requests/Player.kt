@@ -15,9 +15,10 @@ suspend fun Innertube.player(
     playlistId: String? = null,
     context: Context = Context.DefaultWeb,
     signatureTimestamp: Int? = null,
+    withLogin: Boolean = cookie != null,
 ) = runCatchingCancellable {
     client.post(player) {
-        setLogin(context.client, setLogin = cookie != null)
+        setLogin(context.client, setLogin = withLogin)
         setBody(
             PlayerBody(
                 context = context,

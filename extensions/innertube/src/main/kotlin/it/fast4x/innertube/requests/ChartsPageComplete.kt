@@ -218,11 +218,6 @@ fun parseChart(data: SectionListRenderer?): Innertube.ChartsPage? {
                 }
             }
         }
-        println("mediaItem Innertube.chartsPageComplete parseChart listSongItem: ${listSongItem.size} -> $listSongItem")
-        println("mediaItem Innertube.chartsPageComplete parseChart listVideoItem: ${listVideoItem.size} -> $listVideoItem")
-        println("mediaItem Innertube.chartsPageComplete parseChart listArtistItem: ${listArtistItem.size} -> $listArtistItem")
-        println("mediaItem Innertube.chartsPageComplete parseChart listTrendingItem: ${listTrendingItem.size} -> $listTrendingItem")
-
         return Innertube.ChartsPage(
             artists = listArtistItem,
             videos = listVideoItem,

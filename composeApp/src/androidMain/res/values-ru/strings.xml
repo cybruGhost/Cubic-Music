@@ -1473,7 +1473,7 @@
   <string name="thumbnail_share_text_action">Совместное имя и ссылка</string>
   <string name="thumbnail_share_cubic_link_action">Поделитесь искусством с Cubic Music</string>
   <string name="thumbnail_share_chooser">Поделиться</string>
-  <string name="thumbnail_share_try_omada">Попробуйте Alt Art</string>
+  <string name="thumbnail_share_try_alt_art">Попробуйте Alt Art</string>
   <string name="thumbnail_share_finding">Найти...</string>
   <string name="thumbnail_share_creating">Создавая...</string>
   <string name="thumbnail_share_failed">Невозможно создать долю искусства</string>
@@ -1584,7 +1584,6 @@
   <string name="donate_fourthwall_subtitle">PayPal, карта и другие доступные методы</string>
   <string name="donate_fourthwall_detail">Cyberghost-shop.fourthwall.com</string>
   <string name="donate_mpesa_title">М-Песа</string>
-  <string name="donate_mpesa_subtitle">Местная поддержка KSh 30</string>
   <string name="donate_mpesa_detail">Поддержка PAL Global</string>
   <string name="donate_report_issue_title">Сообщить о проблеме</string>
   <string name="donate_report_issue_subtitle">Отправить сообщение о поддержке Cubic Music</string>

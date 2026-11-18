@@ -10,6 +10,7 @@ sourceSets.all {
 }
 
 dependencies {
+    testImplementation(kotlin("test"))
     implementation(projects.ktorClientBrotli)
     implementation(projects.piped)
     implementation(projects.invidious)

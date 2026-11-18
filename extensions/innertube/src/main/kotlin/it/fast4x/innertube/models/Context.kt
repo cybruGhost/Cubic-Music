@@ -6,6 +6,7 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.clients.YouTubeLocale
 import it.fast4x.innertube.utils.LocalePreferences
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Transient
 
 @Serializable
@@ -28,6 +29,8 @@ data class Context(
         val androidSdkVersion: Int? = null,
         @Transient
         val userAgent: String? = null,
+        @SerialName("userAgent")
+        val serializedUserAgent: String? = null,
         @Transient
         val referer: String? = null,
         val deviceMake: String? = null,
@@ -60,6 +63,7 @@ data class Context(
                 visitorData = visitorData,
                 androidSdkVersion = androidSdkVersion,
                 userAgent = userAgent,
+                serializedUserAgent = serializedUserAgent,
                 referer = referer,
                 deviceMake = deviceMake,
                 deviceModel = deviceModel,

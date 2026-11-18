@@ -12,6 +12,7 @@ import io.ktor.client.request.parameter
 import io.ktor.serialization.kotlinx.json.json
 import it.fast4x.lrclib.models.Track
 import it.fast4x.lrclib.models.bestMatchingFor
+import it.fast4x.lrclib.models.syncedLyricsWithAppliedOffset
 import it.fast4x.lrclib.utils.ProxyPreferences
 import it.fast4x.lrclib.utils.getProxy
 import it.fast4x.lrclib.utils.runCatchingCancellable
@@ -73,9 +74,8 @@ object LrcLib {
         album: String? = null
     ) = runCatchingCancellable {
         val tracks = queryLyrics(artist, title, album)
-        tracks.bestMatchingFor(title, duration)
-            ?.syncedLyrics
-            ?.takeIf { it.isNotBlank() }
+        tracks.bestMatchingFor(artist, title, duration, album)
+            ?.syncedLyricsWithAppliedOffset()
             ?.let(LrcLib::Lyrics)
     }
 

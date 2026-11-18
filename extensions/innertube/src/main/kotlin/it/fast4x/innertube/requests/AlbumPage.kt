@@ -125,14 +125,20 @@ data class AlbumPage(
         }
 
         fun getSong(renderer: MusicResponsiveListItemRenderer, album: Innertube.AlbumItem? = null): Innertube.SongItem {
-            println("mediaItem getSong videoId=${renderer.videoId} ${renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs}")
+            val endpoints = listOfNotNull(renderer.navigationEndpoint?.watchEndpoint) +
+                renderer.flexColumns.flatMap { column ->
+                    column.musicResponsiveListItemFlexColumnRenderer?.text?.runs.orEmpty()
+                        .mapNotNull { it.navigationEndpoint?.watchEndpoint }
+                }
+            val audioEndpoint = endpoints.firstOrNull {
+                it.type == "MUSIC_VIDEO_TYPE_ATV" && !it.videoId.isNullOrBlank()
+            } ?: endpoints.firstOrNull { it.videoId == renderer.videoId }
+                ?: NavigationEndpoint.Endpoint.Watch(videoId = renderer.videoId)
             return Innertube.SongItem(
                 info = Info(
                     name = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_VIDEO")
                         .firstOrNull()?.text ?: "",
-                    endpoint = NavigationEndpoint.Endpoint.Watch(
-                        videoId = renderer.videoId
-                    )
+                    endpoint = audioEndpoint
                 ),
 //                authors = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_PAGE_TYPE_ARTIST")
 //                    .map {
@@ -160,8 +166,8 @@ data class AlbumPage(
                 durationText = renderer.fixedColumns?.firstOrNull()
                     ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()
                     ?.text,
-                thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.getBestQuality()
-                    ?: album?.thumbnail!!,
+                thumbnail = album?.thumbnail
+                    ?: renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.getBestQuality(),
                 explicit = renderer.badges?.find {
                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                 } != null

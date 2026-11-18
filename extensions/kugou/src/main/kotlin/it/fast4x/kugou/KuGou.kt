@@ -18,8 +18,19 @@ import it.fast4x.kugou.models.SearchLyricsResponse
 import it.fast4x.kugou.models.SearchSongResponse
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import java.text.Normalizer
+import java.util.Locale
+import kotlin.math.abs
 
 object KuGou {
+    private const val DURATION_TOLERANCE_SECONDS = 3L
+    private const val TIMELINE_GRACE_MS = 5_000L
+    private val featuredArtistClause = Regex(
+        """(?i)[\(\[\{]\s*(?:feat(?:uring)?|ft)\.?\s+([^\)\]\}]+)[\)\]\}]"""
+    )
+    private val lrcTimestamp = Regex("""\[(\d{1,3}):(\d{2})(?:[\.:](\d{1,3}))?]""")
+    private val lrcOffset = Regex("""(?im)^\[offset:([+-]?\d+)]\s*$""")
+
     @OptIn(ExperimentalSerializationApi::class)
     private val client by lazy {
         HttpClient(OkHttp) {
@@ -50,34 +61,83 @@ object KuGou {
         }
     }
 
-    suspend fun lyrics(artist: String, title: String, duration: Long): Result<Lyrics?>? {
+    suspend fun lyrics(
+        artist: String,
+        title: String,
+        duration: Long,
+        album: String? = null,
+    ): Result<Lyrics?>? {
         return runCatching {
-            val keyword = keyword(artist, title)
-            val infoByKeyword = searchSong(keyword)
+            if (artist.isBlank() || title.isBlank() || duration <= 0L) return@runCatching null
 
-            if (infoByKeyword.isNotEmpty()) {
-                var tolerance = 0
+            val matchingSongs = searchSong(keyword(artist, title))
+                .asSequence()
+                .filter { it.matches(artist, title, duration, album) }
+                .sortedBy { abs(it.duration - duration) }
+                .toList()
 
-                while (tolerance <= 5) {
-                    for (info in infoByKeyword) {
-                        if (info.duration >= duration - tolerance && info.duration <= duration + tolerance) {
-                            searchLyricsByHash(info.hash).firstOrNull()?.let { candidate ->
-                                return@runCatching downloadLyrics(candidate.id, candidate.accessKey).normalize()
-                            }
-                        }
-                    }
+            for (song in matchingSongs) {
+                val candidates = searchLyricsByHash(song.hash)
+                    .filter { it.matchesDuration(duration) }
 
-                    tolerance++
+                for (candidate in candidates) {
+                    val downloaded = downloadLyrics(candidate.id, candidate.accessKey)
+                    if (!downloaded.hasConservativeTiming(duration)) continue
+                    return@runCatching downloaded.applyTimingOffset().normalize()
                 }
-            }
-
-            searchLyricsByKeyword(keyword).firstOrNull()?.let { candidate ->
-                return@runCatching downloadLyrics(candidate.id, candidate.accessKey).normalize()
             }
 
             null
         }.recoverIfCancelled()
     }
+
+    private fun SearchSongResponse.Data.Info.matches(
+        artist: String,
+        title: String,
+        duration: Long,
+        album: String?,
+    ): Boolean {
+        if (songname.isBlank() || singername.isBlank()) return false
+        if (titleIdentity(songname) != titleIdentity(title)) return false
+        if (artistIdentity(singername, songname) != artistIdentity(artist, title)) return false
+        album?.takeIf(String::isNotBlank)?.let { expectedAlbum ->
+            if (albumName.isBlank() || albumIdentity(albumName) != albumIdentity(expectedAlbum)) return false
+        }
+        return this.duration > 0L && abs(this.duration - duration) <= DURATION_TOLERANCE_SECONDS
+    }
+
+    private fun SearchLyricsResponse.Candidate.matchesDuration(duration: Long): Boolean {
+        if (this.duration <= 0L) return false
+        val candidateSeconds = if (this.duration > 10_000L) {
+            (this.duration + 500L) / 1_000L
+        } else {
+            this.duration
+        }
+        return abs(candidateSeconds - duration) <= DURATION_TOLERANCE_SECONDS
+    }
+
+    private fun normalizedWords(value: String): List<String> =
+        Normalizer.normalize(value.replace(Regex("<[^>]+>"), " "), Normalizer.Form.NFKD)
+            .replace(Regex("""\p{M}+"""), "")
+            .lowercase(Locale.ROOT)
+            .replace(Regex("""[^\p{L}\p{N}]+"""), " ")
+            .trim()
+            .split(Regex("""\s+"""))
+            .filter(String::isNotBlank)
+
+    private fun titleIdentity(value: String): String =
+        normalizedWords(value.replace(featuredArtistClause, " ")).joinToString(" ")
+
+    private fun artistIdentity(artist: String, title: String): Set<String> {
+        val featuredArtists = featuredArtistClause.findAll(title)
+            .map { it.groupValues[1] }
+            .joinToString(" ")
+        return normalizedWords("$artist $featuredArtists")
+            .filterNot { it == "feat" || it == "featuring" || it == "ft" }
+            .toSet()
+    }
+
+    private fun albumIdentity(value: String): String = normalizedWords(value).joinToString(" ")
 
     private suspend fun downloadLyrics(id: Long, accessKey: String): Lyrics {
         return client.get("/download") {
@@ -96,15 +156,6 @@ object KuGou {
             parameter("man", "yes")
             parameter("client", "mobi")
             parameter("hash", hash)
-        }.body<SearchLyricsResponse>().candidates
-    }
-
-    private suspend fun searchLyricsByKeyword(keyword: String): List<SearchLyricsResponse.Candidate> {
-        return client.get("/search") {
-            parameter("ver", 1)
-            parameter("man", "yes")
-            parameter("client", "mobi")
-            url.encodedParameters.append("keyword", keyword.encodeURLParameter(spaceToPlus = false))
         }.body<SearchLyricsResponse>().candidates
     }
 
@@ -152,11 +203,11 @@ object KuGou {
                     try {
                         val position = line.take(10).run {
                             get(8).digitToInt() * 10L +
-                                    get(7).digitToInt() * 100 +
-                                    get(5).digitToInt() * 1000 +
-                                    get(4).digitToInt() * 10000 +
-                                    get(2).digitToInt() * 60 * 1000 +
-                                    get(1).digitToInt() * 600 * 1000
+                                get(7).digitToInt() * 100 +
+                                get(5).digitToInt() * 1000 +
+                                get(4).digitToInt() * 10000 +
+                                get(2).digitToInt() * 60 * 1000 +
+                                get(1).digitToInt() * 600 * 1000
                         }
 
                         add(position to line.substring(10))
@@ -164,6 +215,51 @@ object KuGou {
                     }
                 }
             }
+
+        internal fun hasConservativeTiming(durationSeconds: Long): Boolean {
+            val timestamps = lrcTimestamp.findAll(value).mapNotNull { match ->
+                val minutes = match.groupValues[1].toLongOrNull() ?: return@mapNotNull null
+                val seconds = match.groupValues[2].toLongOrNull() ?: return@mapNotNull null
+                if (seconds !in 0L..59L) return@mapNotNull null
+                val fraction = match.groupValues[3].padEnd(3, '0').take(3).toLongOrNull() ?: 0L
+                minutes * 60_000L + seconds * 1_000L + fraction
+            }.toList()
+            if (timestamps.isEmpty() || durationSeconds <= 0L) return false
+            val offsetMs = lrcOffset.find(value)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
+            return timestamps.min() + offsetMs >= -TIMELINE_GRACE_MS &&
+                timestamps.max() + offsetMs <= durationSeconds * 1_000L + TIMELINE_GRACE_MS
+        }
+
+        internal fun applyTimingOffset(): Lyrics {
+            val offsetMs = lrcOffset.find(value)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toLongOrNull()
+                ?: return this
+
+            val shifted = lrcTimestamp.replace(value) { match ->
+                val minutes = match.groupValues[1].toLongOrNull() ?: return@replace match.value
+                val seconds = match.groupValues[2].toLongOrNull() ?: return@replace match.value
+                val fraction = match.groupValues[3].padEnd(3, '0').take(3).toLongOrNull() ?: 0L
+                val adjustedMs = (minutes * 60_000L + seconds * 1_000L + fraction + offsetMs)
+                    .coerceAtLeast(0L)
+                val adjustedMinutes = adjustedMs / 60_000L
+                val adjustedSeconds = (adjustedMs % 60_000L) / 1_000L
+                val adjustedCentiseconds = (adjustedMs % 1_000L) / 10L
+                String.format(
+                    Locale.US,
+                    "[%02d:%02d.%02d]",
+                    adjustedMinutes,
+                    adjustedSeconds,
+                    adjustedCentiseconds,
+                )
+            }
+            return Lyrics(
+                shifted.lineSequence()
+                    .filterNot { lrcOffset.matches(it.trim()) }
+                    .joinToString("\n")
+            )
+        }
 
         fun normalize(): Lyrics {
             var toDrop = 0

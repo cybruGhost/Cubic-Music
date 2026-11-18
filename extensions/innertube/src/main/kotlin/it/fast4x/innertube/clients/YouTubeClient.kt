@@ -22,6 +22,7 @@ data class YouTubeClient(
     val loginRequired: Boolean = false,
     val useSignatureTimestamp: Boolean = true,
     val useWebPoTokens: Boolean = false,
+    val includeUserAgentInContext: Boolean = false,
 ) {
     fun toContext(locale: YouTubeLocale, visitorData: String, dataSyncId: String? = null) = Context(
         client = Context.Client(
@@ -33,6 +34,7 @@ data class YouTubeClient(
             referer = referer,
             api_key = api_key,
             userAgent = userAgent,
+            serializedUserAgent = if (includeUserAgentInContext) userAgent else null,
             xClientName = xClientName,
             osName = osName,
             osVersion = osVersion,
@@ -55,17 +57,80 @@ data class YouTubeClient(
         private const val USER_AGENT_WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"
         private const val USER_AGENT_ANDROID = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Mobile Safari/537.36"
 
+        val VISIONOS = YouTubeClient(
+            clientName = "VISIONOS",
+            clientVersion = "0.1",
+            api_key = "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
+            clientId = "101",
+            userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+            osName = "visionOS",
+            osVersion = "1.3.21O771",
+            deviceMake = "Apple",
+            deviceModel = "RealityDevice14,1",
+            xClientName = 101,
+            loginSupported = false,
+            useSignatureTimestamp = false,
+        )
+
+        val IOS_MUSIC = YouTubeClient(
+            clientName = "IOS_MUSIC",
+            clientVersion = "7.27.0",
+            api_key = "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
+            clientId = "26",
+            userAgent = "com.google.ios.youtubemusic/7.27.0 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
+            osName = "iOS",
+            osVersion = "17.5.1.21F90",
+            deviceMake = "Apple",
+            deviceModel = "iPhone16,2",
+            xClientName = 26,
+            loginSupported = false,
+            useSignatureTimestamp = false,
+        )
+
         val ANDROID_MUSIC = YouTubeClient(
             clientName = "ANDROID_MUSIC",
-            clientVersion = "5.01",
+            clientVersion = "7.27.52",
             api_key = "AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI",
-            userAgent = USER_AGENT_ANDROID,
+            clientId = "21",
+            userAgent = "com.google.android.apps.youtube.music/7.27.52 (Linux; U; Android 15; en_US; Pixel 9 Pro; Build/AP4A.250205.002; Cronet/132.0.6834.79) gzip",
             osName = "Android",
-            osVersion = "14",
+            osVersion = "15",
             deviceMake = "Google",
-            deviceModel = "Pixel 8 Pro",
-            androidSdkVersion = 34,
+            deviceModel = "Pixel 9 Pro",
+            androidSdkVersion = 35,
             xClientName = 21,
+            loginSupported = true,
+            useSignatureTimestamp = true,
+        )
+
+        val ANDROID_TESTSUITE = YouTubeClient(
+            clientName = "ANDROID_TESTSUITE",
+            clientVersion = "1.9",
+            api_key = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+            clientId = "30",
+            userAgent = "com.google.android.youtube/1.9 (Linux; U; Android 15; en_US; Pixel 9 Pro; Build/AP4A.250205.002) gzip",
+            osName = "Android",
+            osVersion = "15",
+            deviceMake = "Google",
+            deviceModel = "Pixel 9 Pro",
+            androidSdkVersion = 35,
+            xClientName = 30,
+            loginSupported = false,
+            useSignatureTimestamp = false,
+        )
+
+        val ANDROID_UNPLUGGED = YouTubeClient(
+            clientName = "ANDROID_UNPLUGGED",
+            clientVersion = "8.49.0",
+            api_key = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+            clientId = "29",
+            userAgent = "com.google.android.apps.youtube.unplugged/8.49.0 (Linux; U; Android 15; en_US; Pixel 9 Pro; Build/AP4A.250205.002; Cronet/132.0.6834.79) gzip",
+            osName = "Android",
+            osVersion = "15",
+            deviceMake = "Google",
+            deviceModel = "Pixel 9 Pro",
+            androidSdkVersion = 35,
+            xClientName = 29,
             loginSupported = true,
             useSignatureTimestamp = true,
         )
@@ -156,6 +221,23 @@ data class YouTubeClient(
             xClientName = 28,
             loginSupported = false,
             useSignatureTimestamp = false,
+        )
+
+        // Newer InnertubeX profile shared by the download resolver and playback fallback.
+        val ANDROID_VR_1_65_10 = YouTubeClient(
+            osName = "Android",
+            deviceMake = "Oculus",
+            deviceModel = "Quest 3",
+            androidSdkVersion = 32,
+            clientName = "ANDROID_VR",
+            clientVersion = "1.65.10",
+            api_key = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+            userAgent = "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
+            osVersion = "12L",
+            xClientName = 28,
+            loginSupported = false,
+            useSignatureTimestamp = false,
+            includeUserAgentInContext = true,
         )
 
         val ANDROID_CREATOR = YouTubeClient(

@@ -277,10 +277,10 @@ object YtMusic {
         ).body<BrowseResponse>()
 
 
-        if (response.header != null)
-            getPlaylistPreviousMode(playlistIdChecked, response)
-        else
+        if (response.contents?.twoColumnBrowseResultsRenderer != null)
             getPlaylistNewMode(playlistIdChecked, response)
+        else
+            getPlaylistPreviousMode(playlistIdChecked, response)
     }.onFailure {
         println("YtMusic getPlaylist error: ${it.stackTraceToString()}")
     }
@@ -291,17 +291,20 @@ object YtMusic {
 
 
         val editable = response.header?.musicEditablePlaylistDetailHeaderRenderer != null
+        val songSection = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer
+        val songShelf = songSection?.contents?.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer }
 
         return PlaylistPage(
             playlist = Innertube.PlaylistItem(
                 info = Innertube.Info(
-                    name = header?.title?.runs?.firstOrNull()?.text!!,
+                    name = header?.title?.runs?.firstOrNull()?.text.orEmpty(),
                     endpoint = NavigationEndpoint.Endpoint.Browse(
                         browseId = playlistId,
                     )
                 ),
                 songCount = 0, //header.secondSubtitle.runs?.firstOrNull()?.text,
-                thumbnail = header.thumbnail.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails?.getBestQuality(),
+                thumbnail = header?.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails?.getBestQuality(),
                 channel = null,
                 isEditable = editable,
 //                playEndpoint = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
@@ -317,20 +320,18 @@ object YtMusic {
             description = response.contents?.twoColumnBrowseResultsRenderer?.tabs?.firstOrNull()
                 ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer
                 ?.description?.musicDescriptionShelfRenderer?.description?.text,
-            songs = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-                ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-                ?.musicPlaylistShelfRenderer?.contents?.mapNotNull {
+            songs = songShelf?.contents.orEmpty().mapNotNull {
                     it.musicResponsiveListItemRenderer?.let { it1 ->
                         PlaylistPage.fromMusicResponsiveListItemRenderer(
                             it1
                         )
                     }
-                }!!,
-            songsContinuation = response.contents.singleColumnBrowseResultsRenderer.tabs.firstOrNull()
-                ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-                ?.musicPlaylistShelfRenderer?.continuations?.getContinuation(),
-            continuation = response.contents.singleColumnBrowseResultsRenderer.tabs.firstOrNull()
-                ?.tabRenderer?.content?.sectionListRenderer?.continuations?.getContinuation()
+                },
+            songsContinuation = songShelf?.continuations?.getContinuation()
+                ?: songShelf?.contents?.lastOrNull()?.continuationItemRenderer
+                    ?.continuationEndpoint?.continuationCommand?.token
+                ?: songSection?.continuations?.getContinuation(),
+            continuation = songSection?.continuations?.getContinuation()
         )
     }
 
@@ -344,6 +345,9 @@ object YtMusic {
         val isEditable = response.contents?.twoColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
             ?.musicEditablePlaylistDetailHeaderRenderer != null
+        val songSection = response.contents?.twoColumnBrowseResultsRenderer
+            ?.secondaryContents?.sectionListRenderer
+        val songShelf = songSection?.contents?.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer }
 
         println("getPlaylist new mode editable : ${isEditable}")
 
@@ -353,7 +357,7 @@ object YtMusic {
         return PlaylistPage(
             playlist = Innertube.PlaylistItem(
                 info = Innertube.Info(
-                    name = header?.title?.runs?.firstOrNull()?.text!!,
+                    name = header?.title?.runs?.firstOrNull()?.text.orEmpty(),
                     endpoint = NavigationEndpoint.Endpoint.Browse(
                         browseId = playlistId,
                     )
@@ -374,22 +378,18 @@ object YtMusic {
             description = response.contents?.twoColumnBrowseResultsRenderer?.tabs?.firstOrNull()
                 ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer
                 ?.description?.musicDescriptionShelfRenderer?.description?.text,
-            songs = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
-                ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents?.mapNotNull {
+            songs = songShelf?.contents.orEmpty().mapNotNull {
                     it.musicResponsiveListItemRenderer?.let { it1 ->
                         PlaylistPage.fromMusicResponsiveListItemRenderer(
                             it1
                         )
                     }
-                }!!,
-//            songsContinuation = response.contents.twoColumnBrowseResultsRenderer.secondaryContents.sectionListRenderer
-//                .contents.firstOrNull()?.musicPlaylistShelfRenderer?.continuations?.getContinuation(),
-            songsContinuation = response.contents.twoColumnBrowseResultsRenderer.secondaryContents.sectionListRenderer
-                .contents.firstOrNull()?.musicPlaylistShelfRenderer?.contents!!.lastOrNull()
-                    ?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
-                ,
-            continuation = response.contents.twoColumnBrowseResultsRenderer.secondaryContents.sectionListRenderer
-                .continuations?.getContinuation(),
+                },
+            songsContinuation = songShelf?.continuations?.getContinuation()
+                ?: songShelf?.contents?.lastOrNull()?.continuationItemRenderer
+                    ?.continuationEndpoint?.continuationCommand?.token
+                ?: songSection?.continuations?.getContinuation(),
+            continuation = songSection?.continuations?.getContinuation(),
             isEditable = isEditable
         )
     }
@@ -399,38 +399,35 @@ object YtMusic {
             continuation = continuation,
             setLogin = true
         ).body<BrowseResponse>()
-
-        println("YtMusic getPlaylistContinuation response: ${response.onResponseReceivedActions?.firstOrNull()
-            ?.appendContinuationItemsAction?.continuationItems?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token}")
-
-//        response.continuationContents?.musicPlaylistShelfContinuation?.contents?.mapNotNull {
-//            it.musicResponsiveListItemRenderer?.let { it1 ->
-//                PlaylistPage.fromMusicResponsiveListItemRenderer( it1 )
-//            }
-//        }?.let {
-//            PlaylistContinuationPage(
-//                songs = it,
-//                continuation = response.continuationContents.musicPlaylistShelfContinuation.continuations?.getContinuation()
-//            )
-//        }
-
-        response.onResponseReceivedActions?.map {
-            it.appendContinuationItemsAction?.continuationItems?.mapNotNull { it1 ->
-                it1.musicResponsiveListItemRenderer?.let { it2 ->
-                    PlaylistPage.fromMusicResponsiveListItemRenderer(
-                        it2
-                    )
-                }
-            }
-        }?.let {
-            it.firstOrNull()?.let { it1 ->
-                PlaylistContinuationPage(
-                    songs = it1,
-                    continuation = response.onResponseReceivedActions.firstOrNull()
-                        ?.appendContinuationItemsAction?.continuationItems?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
-                )
-            }
+        val actionItems = response.onResponseReceivedActions.orEmpty()
+            .flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
+        val playlistShelf = response.continuationContents?.musicPlaylistShelfContinuation
+        val musicShelf = response.continuationContents?.musicShelfContinuation
+        val section = response.continuationContents?.sectionListContinuation
+        val sectionShelves = section?.contents.orEmpty().flatMap { content ->
+            content.musicPlaylistShelfRenderer?.contents.orEmpty() +
+                content.musicShelfRenderer?.contents.orEmpty()
         }
+        val songs = (
+            actionItems.mapNotNull { it.musicResponsiveListItemRenderer } +
+                playlistShelf?.contents.orEmpty().mapNotNull { it.musicResponsiveListItemRenderer } +
+                musicShelf?.contents.orEmpty().mapNotNull { it.musicResponsiveListItemRenderer } +
+                sectionShelves.mapNotNull { it.musicResponsiveListItemRenderer }
+            ).map(PlaylistPage::fromMusicResponsiveListItemRenderer)
+            .distinctBy(Innertube.SongItem::key)
+
+        val next = actionItems.asReversed().firstNotNullOfOrNull {
+            it.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
+                ?.takeIf(String::isNotBlank)
+        } ?: playlistShelf?.continuations?.getContinuation()
+            ?: musicShelf?.continuations?.getContinuation()
+            ?: section?.continuations?.getContinuation()
+            ?: sectionShelves.asReversed().firstNotNullOfOrNull {
+                it.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
+                    ?.takeIf(String::isNotBlank)
+            }
+
+        PlaylistContinuationPage(songs = songs, continuation = next)
 
     }.onFailure {
         println("YtMusic getPlaylistContinuation error: ${it.stackTraceToString()}")
@@ -513,18 +510,61 @@ object YtMusic {
     suspend fun getAlbumSongs(playlistId: String): Result<List<Innertube.SongItem>> = runCatching {
         val response = Innertube.browse(browseId = "VL$playlistId").body<BrowseResponse>()
 
-        val contents =
-            response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-                ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-                ?.musicPlaylistShelfRenderer?.contents ?:
-            response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
-                ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents
+        val singleSection = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer
+        val twoColumnSection = response.contents?.twoColumnBrowseResultsRenderer
+            ?.secondaryContents?.sectionListRenderer
+        val section = listOfNotNull(singleSection, twoColumnSection).firstOrNull { candidate ->
+            candidate.contents?.any { it.musicPlaylistShelfRenderer != null } == true
+        } ?: singleSection ?: twoColumnSection
+        val shelf = section?.contents?.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer }
 
-        val songs = contents?.mapNotNull {
-            it.musicResponsiveListItemRenderer?.let { it1 -> AlbumPage.getSong(it1) }
+        val songs = shelf?.contents.orEmpty().mapNotNull { item ->
+            item.musicResponsiveListItemRenderer?.let { AlbumPage.getSong(it) }
+        }.toMutableList()
+        var continuation = shelf?.continuations?.getContinuation()
+            ?: section?.continuations?.getContinuation()
+            ?: shelf?.contents?.lastOrNull()?.continuationItemRenderer
+                ?.continuationEndpoint?.continuationCommand?.token
+        val visited = mutableSetOf<String>()
+        var pageCount = 0
+
+        // Album playlists can extend beyond the first shelf. A failed continuation must not
+        // discard the tracks already loaded from the initial page.
+        while (pageCount < 10) {
+            val token = continuation?.takeIf { it.isNotBlank() && it !in visited } ?: break
+            visited += token
+            pageCount++
+            val page = runCatching {
+                Innertube.browse(continuation = token).body<BrowseResponse>()
+            }.getOrNull() ?: break
+            val continuationShelf = page.continuationContents?.musicPlaylistShelfContinuation
+            val continuationSection = page.continuationContents?.sectionListContinuation
+            val sectionShelf = continuationSection?.contents
+                ?.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer }
+            val shelfItems = continuationShelf?.contents ?: sectionShelf?.contents
+            val actionItems = page.onResponseReceivedActions.orEmpty()
+                .flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
+
+            if (shelfItems != null) {
+                songs += shelfItems.mapNotNull { item ->
+                    item.musicResponsiveListItemRenderer?.let { AlbumPage.getSong(it) }
+                }
+            } else {
+                songs += actionItems.mapNotNull { item ->
+                    item.musicResponsiveListItemRenderer?.let { AlbumPage.getSong(it) }
+                }
+            }
+            continuation = continuationShelf?.continuations?.getContinuation()
+                ?: sectionShelf?.continuations?.getContinuation()
+                ?: continuationSection?.continuations?.getContinuation()
+                ?: shelfItems?.lastOrNull()?.continuationItemRenderer
+                    ?.continuationEndpoint?.continuationCommand?.token
+                ?: actionItems.lastOrNull()?.continuationItemRenderer
+                    ?.continuationEndpoint?.continuationCommand?.token
         }
-        println("mediaItem getAlbumSongs songs: $songs")
-        songs!!
+
+        songs.filter { !it.info?.endpoint?.videoId.isNullOrBlank() }.distinctBy { it.key }
     }
 
 }

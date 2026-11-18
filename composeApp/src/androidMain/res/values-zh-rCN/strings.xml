@@ -1473,7 +1473,7 @@
   <string name="thumbnail_share_text_action">共享名称和链接</string>
   <string name="thumbnail_share_cubic_link_action">与 Cubic 音乐链接共享艺术</string>
   <string name="thumbnail_share_chooser">共享歌曲</string>
-  <string name="thumbnail_share_try_omada">尝试 Alt 艺术</string>
+  <string name="thumbnail_share_try_alt_art">尝试 Alt 艺术</string>
   <string name="thumbnail_share_finding">寻找...</string>
   <string name="thumbnail_share_creating">正在创建...</string>
   <string name="thumbnail_share_failed">无法创建艺术共享</string>
@@ -1584,7 +1584,6 @@
   <string name="donate_fourthwall_subtitle">PayPal、卡片和其他可用方法</string>
   <string name="donate_fourthwall_detail">(原始内容存档于2018-10-21). network-shop. fourthwall.com</string>
   <string name="donate_mpesa_title">M-佩萨</string>
-  <string name="donate_mpesa_subtitle">KSh 提供的当地支助</string>
   <string name="donate_mpesa_detail">支持Pal全球组织</string>
   <string name="donate_report_issue_title">报告一个问题</string>
   <string name="donate_report_issue_subtitle">发送 Cubic 音乐支持报告</string>
@@ -1798,4 +1797,3 @@
   <string name="song_updated">歌曲刷新过</string>
   <string name="song_update_failed">无法刷新此歌曲</string>
 </resources>
-
