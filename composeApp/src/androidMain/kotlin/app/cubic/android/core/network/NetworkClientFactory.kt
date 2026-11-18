@@ -150,8 +150,10 @@ object NetworkClientFactory {
         }
 
         fun responseIsUsable(response: okhttp3.Response): Boolean {
-            if (response.code == 416) return true
-            if (response.code !in 200..399) return false
+            // A rejected range (416) used to be treated as healthy, which allowed expired
+            // stream URLs into Media3. Blazify's resolver only accepts an actual successful
+            // ranged response, so Cubic now does the same.
+            if (response.code !in 200..299) return false
 
             val contentType = response.header("Content-Type").orEmpty()
             val contentTypeMatches = expectedContentTypePrefix.isNullOrBlank() ||
@@ -163,51 +165,30 @@ object NetworkClientFactory {
             return contentTypeMatches
         }
 
-        fun queryParameter(name: String): String =
-            runCatching {
-                URI(streamUrl).rawQuery
-                    ?.split("&")
-                    ?.firstOrNull { it.substringBefore("=").equals(name, ignoreCase = true) }
-                    ?.substringAfter("=", "")
-                    .orEmpty()
-            }.getOrDefault("")
-
-        fun probeRanges(): List<String> {
-            val clientName = queryParameter("c").uppercase()
-            return if (clientName.startsWith("WEB")) {
-                listOf("bytes=0-0", "bytes=262144-262145", "bytes=1048576-1048577")
-            } else {
-                listOf("bytes=0-0")
-            }
-        }
-
         return try {
             val client = getClientWithTimeout(3, 4)
-            for (range in probeRanges()) {
-                val rangeRequest = Request.Builder()
-                    .url(streamUrl)
-                    .get()
-                    .header("Range", range)
-                    .applyPlaybackHeaders()
-                    .build()
+            val range = "bytes=0-1"
+            val rangeRequest = Request.Builder()
+                .url(streamUrl)
+                .get()
+                .header("Range", range)
+                .applyPlaybackHeaders()
+                .build()
 
-                val isUsable = client.newCall(rangeRequest).execute().use { response ->
-                    val usable = responseIsUsable(response)
-                    if (!usable) {
-                        Timber.w(
-                            "Stream range validation failed code=%d contentType=%s expected=%s range=%s for URL: %s",
-                            response.code,
-                            response.header("Content-Type").orEmpty(),
-                            expectedContentTypePrefix,
-                            range,
-                            streamUrl.redactedUrl()
-                        )
-                    }
-                    usable
+            client.newCall(rangeRequest).execute().use { response ->
+                val usable = responseIsUsable(response)
+                if (!usable) {
+                    Timber.w(
+                        "Stream range validation failed code=%d contentType=%s expected=%s range=%s for URL: %s",
+                        response.code,
+                        response.header("Content-Type").orEmpty(),
+                        expectedContentTypePrefix,
+                        range,
+                        streamUrl.redactedUrl()
+                    )
                 }
-                if (!isUsable) return false
+                usable
             }
-            true
         } catch (e: Exception) {
             Timber.e(e, "validateStreamUrl exception for URL: %s", streamUrl.redactedUrl())
             false

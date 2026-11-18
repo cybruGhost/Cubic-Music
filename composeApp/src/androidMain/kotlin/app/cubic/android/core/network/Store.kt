@@ -1,5 +1,7 @@
 package app.cubic.android.core.network
 
+import android.content.Context
+import android.content.SharedPreferences
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.statement.bodyAsText
@@ -25,6 +27,8 @@ object Store {
 
     private const val DEFAULT_COOKIE = "PREF=hl=en&tz=UTC; SOCS=CAI"
     private const val YT_WATCH_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ&bpctr=9999999999&has_verified=1"
+    private const val PLAYBACK_IDENTITY_PREFS = "cubic_playback_identity"
+    private const val ANONYMOUS_VISITOR_KEY = "anonymous_visitor_data"
 
     private val fetchMutex = Mutex()
     private val visitorMutex = Mutex()
@@ -33,7 +37,33 @@ object Store {
     private var ghostResponseBody: String? = null
     private var cookie: String? = null
 
+    @Volatile
     private var iosVisitorData: String? = null
+
+    @Volatile
+    private var playbackIdentityPreferences: SharedPreferences? = null
+
+    /**
+     * Restores Cubic's anonymous playback visitor without mixing it with the signed-in account
+     * session. Keeping this identity stable avoids minting a new YouTube session on every process
+     * start, while rejection recovery can still invalidate it explicitly.
+     */
+    @Synchronized
+    fun initialize(context: Context) {
+        if (playbackIdentityPreferences == null) {
+            playbackIdentityPreferences = context.applicationContext.getSharedPreferences(
+                PLAYBACK_IDENTITY_PREFS,
+                Context.MODE_PRIVATE,
+            )
+        }
+        if (iosVisitorData.isNullOrBlank()) {
+            iosVisitorData = playbackIdentityPreferences
+                ?.getString(ANONYMOUS_VISITOR_KEY, null)
+                ?.takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
+        }
+    }
+
+    fun cachedIosVisitorData(): String? = iosVisitorData
 
     @Synchronized
     fun invalidatePlaybackIdentity() {
@@ -41,8 +71,21 @@ object Store {
         ghostResponseBody = null
         cookie = null
         iosVisitorData = null
+        playbackIdentityPreferences?.edit()?.remove(ANONYMOUS_VISITOR_KEY)?.apply()
         Innertube.visitorData = Innertube.DEFAULT_VISITOR_DATA
         Timber.w("Store: invalidated cached YouTube visitor/cookie identity")
+    }
+
+    /**
+     * Drops only the anonymous visitor used for media resolution.
+     * The signed-in cookie belongs to account browsing and must not be cleared or reused by
+     * playback recovery.
+     */
+    @Synchronized
+    fun invalidateAnonymousPlaybackIdentity() {
+        iosVisitorData = null
+        playbackIdentityPreferences?.edit()?.remove(ANONYMOUS_VISITOR_KEY)?.apply()
+        Timber.w("Store: invalidated anonymous playback visitor identity")
     }
 
     @Blocking
@@ -81,10 +124,15 @@ object Store {
     /**
      * Retrieves visitor data for iOS client.
      */
-    fun getIosVisitorData(): String = runBlocking {
-        iosVisitorData?.let { return@runBlocking it }
+    fun getIosVisitorData(): String = runBlocking(Dispatchers.IO) {
+        ensureIosVisitorData()
+    }
 
-        visitorMutex.withLock {
+    /** Fetches the anonymous visitor on an IO coroutine and persists the successful identity. */
+    suspend fun ensureIosVisitorData(): String {
+        iosVisitorData?.let { return it }
+
+        return visitorMutex.withLock {
             iosVisitorData?.let { return@withLock it }
 
             val currentLocale = java.util.Locale.getDefault()
@@ -105,6 +153,10 @@ object Store {
                 false
             )
             iosVisitorData = data
+            playbackIdentityPreferences
+                ?.edit()
+                ?.putString(ANONYMOUS_VISITOR_KEY, data)
+                ?.apply()
             data
         }
     }

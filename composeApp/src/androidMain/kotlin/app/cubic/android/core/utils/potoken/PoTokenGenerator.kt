@@ -24,8 +24,34 @@ class PoTokenGenerator {
     private var webPoTokenGenerator: PoTokenWebView? = null
     @Volatile
     private var unavailableUntilElapsedMs = 0L
+    @Volatile
+    private var prewarmInProgress = false
+    @Volatile
+    private var realPlaybackRequested = false
 
     fun getWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
+        realPlaybackRequested = true
+        // A cold WebView warm-up must never make the audible playback path wait on its mutex.
+        // Direct Blazify clients can start the song now; a completed warm-up remains useful for
+        // later WEB fallbacks in this process.
+        if (prewarmInProgress) {
+            Timber.tag(TAG).d("PoToken pre-warm still running; using direct playback fallbacks")
+            return null
+        }
+        return generateWebClientPoToken(videoId, sessionId)
+    }
+
+    fun prewarmWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
+        if (realPlaybackRequested || prewarmInProgress) return null
+        prewarmInProgress = true
+        return try {
+            generateWebClientPoToken(videoId, sessionId)
+        } finally {
+            prewarmInProgress = false
+        }
+    }
+
+    private fun generateWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
         Timber.tag(TAG).d("getWebClientPoToken called: videoId=$videoId, sessionId=$sessionId")
         Timber.tag(TAG).d("WebView state: supported=$webViewSupported, badImpl=$webViewBadImpl")
         if (!webViewSupported || webViewBadImpl) {

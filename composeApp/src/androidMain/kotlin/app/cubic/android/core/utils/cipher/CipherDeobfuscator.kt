@@ -14,6 +14,9 @@ import timber.log.Timber
  */
 object CipherDeobfuscator {
     private const val TAG = "Metrolist_CipherDeobfusc"
+    private const val STREAM_REJECTION_REFRESH_COOLDOWN_MS = 2 * 60 * 1000L
+    private val streamRejectionRefreshLock = Any()
+    private var lastStreamRejectionRefreshMs = 0L
 
     lateinit var appContext: Context
         private set
@@ -120,6 +123,28 @@ object CipherDeobfuscator {
             Timber.tag(TAG).e(e, "N-transform failed, returning original URL: ${e.message}")
             url
         }
+    }
+
+    /**
+     * Discards the current player.js state after a resolved web stream is rejected by YouTube.
+     * The cooldown prevents several simultaneous Media3 failures from repeatedly rebuilding the
+     * WebView and downloading the same player script.
+     */
+    suspend fun onStreamRejected() {
+        val now = System.currentTimeMillis()
+        val shouldRefresh = synchronized(streamRejectionRefreshLock) {
+            if (now - lastStreamRejectionRefreshMs < STREAM_REJECTION_REFRESH_COOLDOWN_MS) {
+                false
+            } else {
+                lastStreamRejectionRefreshMs = now
+                true
+            }
+        }
+        if (!shouldRefresh) return
+
+        Timber.tag(TAG).w("Resolved web stream was rejected; refreshing player.js cipher state")
+        PlayerJsFetcher.invalidateCache()
+        closeWebView()
     }
 
     private suspend fun transformNInternal(url: String): String {
