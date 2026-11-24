@@ -255,7 +255,7 @@ Cubic Music benefits from focused contributions and thorough, honest testing:
   <a href="https://github.com/cybruGhost/Cubic-Music/issues/new">
     <img src="https://img.shields.io/badge/REPORT_A_BUG-OPEN_ISSUE-D73A49?style=for-the-badge&logo=github&logoColor=white" alt="Report a Cubic Music issue" />
   </a>
-  <a href="[https://crowdin.com/project/cubicmusic-clean](https://crowdin.com/project/cubicmusic-clean)">
+  <a href="https://crowdin.com/project/cubicmusic-clean">
     <img src="https://img.shields.io/badge/HELP_TRANSLATE-CROWDIN-2E3340?style=for-the-badge&logo=crowdin&logoColor=white" alt="Translate Cubic Music on Crowdin" />
   </a>
 </p>
