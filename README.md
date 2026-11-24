@@ -315,6 +315,17 @@ Cubic Music is independently developed and maintained by [cybruGhost](https://gi
 Cubic Music is not affiliated with, endorsed by, or sponsored by YouTube, Google, Spotify, Discord, or their partners. Names and trademarks belong to their respective owners. Cubic Music does not host media. Availability can depend on upstream services, network conditions, account access, and region. Use the app only for content you are authorized to access or download.
 
 ---
+## 🙏 Special Thanks
+
+A special thank you to [@Mickael81](https://github.com/Mickael81) for believing in CubicMusic and being part of its journey.
+
+Your contributions, especially helping with the French translation (bringing it to around 90% completion), have made a real difference to the project.
+
+More than that, thank you for your encouragement, support, and for pushing me to keep going even during moments when I felt a little discouraged or lost motivation.
+
+Open-source projects are built not only through code, but also through the people who believe in them and encourage others to keep building.
+
+I'm genuinely grateful for your support and for believing in CubicMusic. ❤️
 
 <p align="center">
   <strong>Cubic Music</strong>
