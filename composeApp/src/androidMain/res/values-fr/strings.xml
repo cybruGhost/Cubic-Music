@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="apple_recently_played">Recently played</string>
-    <string name="apple_on_repeat">On repeat</string>
+    <string name="apple_recently_played">Écoutés récemment</string>
+    <string name="apple_on_repeat">En boucle</string>
     <string name="apple_lastfm_discoveries">Découvertes sur Last.fm</string>
     <string name="lyrics_instrumental">INSTRUMENTAL</string>
     <string name="cancel">Annuler</string>
@@ -146,7 +146,7 @@
     <string name="persistent_queue">File d’attente persistante</string>
     <string name="save_and_restore_playing_songs">Enregistrer et restaurer la dernière file d’attente lue</string>
     <string name="queue_played_section">Played</string>
-    <string name="queue_played_hint">Recent songs · tap to replay</string>
+    <string name="queue_played_hint">Titres récents · Appuyez pour réécouter</string>
     <string name="queue_played_empty">Songs you finish will appear here.</string>
     <string name="resume_playback">Reprendre la lecture</string>
     <string name="when_device_is_connected">Lorsque vous avez un appareil connecté</string>
@@ -213,7 +213,7 @@
     <string name="in_alphabetical_order">Dans l’ordre alphabétique :</string>
     <string name="contributors">CONTRIBUTEURS</string>
     <string name="troubleshooting">DÉPANNAGE</string>
-    <string name="social">SOCIAL</string>
+    <string name="social">RÉSEAUX SOCIAUX</string>
     <string name="english">Anglais (English)</string>
     <string name="italian">Italien (Italiano)</string>
     <string name="czech">Tchèque (Čeština)</string>
