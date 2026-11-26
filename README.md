@@ -304,6 +304,14 @@ Open-source projects are built not only through code, but also through the peopl
 
 I'm genuinely grateful for your support and for believing in CubicMusic. ❤️
 
+## Credits & Acknowledgments
+
+Cubic Music acknowledges [**fast4x**](https://github.com/fast4x), the creator of [RiMusic](https://github.com/fast4x/RiMusic), whose open-source work contributed to the project's technical foundations.
+
+Cubic Music continues to evolve under its own identity, vision, and independent development by [cybruGhost](https://github.com/cybruGhost).
+
+Special thanks to fast4x for his valuable contributions to the open-source community. ❤️
+
 <p align="center">
   <strong>Cubic Music</strong>
   <br />
